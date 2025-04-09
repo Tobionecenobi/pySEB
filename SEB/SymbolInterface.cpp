@@ -125,7 +125,7 @@ const SymExprPtr& SymbolInterface::get( const string& s ){
     if( it != symbolDirectory.end()) return it -> second;
                                 else {
         // Create a new symbol using the symbolic factory
-        SymExprPtr sym = symbol(s);
+        SymExprPtr sym = SymbolicExpression::symbol(s);
         return symbolDirectory.insert( make_pair( ss, sym )).first->second;
     }
 }

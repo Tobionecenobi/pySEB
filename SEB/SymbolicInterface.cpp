@@ -1,5 +1,6 @@
 #include "SymbolicInterface.hpp"
 #include <stdexcept>
+#include <iostream>
 
 // Initialize the static instance pointer
 SymbolicFactory* SymbolicFactory::_instance = nullptr;

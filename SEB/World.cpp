@@ -1,4 +1,5 @@
 #include "World.hpp"
+#include "ExpressionFunctions.hpp"
 
 // Include creation function for sub-units.
 #include "Subunits/CreateSubunit.hpp"
@@ -923,14 +924,14 @@ ParameterList World::getParamsq()
    ParameterList pl(betas);
    pl.insert(params.begin(), params.end());
    Expression q=GLEX->getSymbol("q");
-   pl[q]=0;
+   pl[q.to_string()]=0;
    return pl;
 }
 
 ParameterList World::getq(double q) {
    ParameterList pl;
    Expression Q=GLEX->getSymbol("q");
-   pl[Q]=q;
+   pl[Q.to_string()]=q;
    return pl;
 }
 
@@ -940,7 +941,7 @@ double World::setParameter(ParameterList& pl, string str, double x)
 {
    // Throw if str not known??
    Expression e=GLEX->get(str);
-   pl[e]=x;
+   pl[e.to_string()]=x;
    return x;
 }
 

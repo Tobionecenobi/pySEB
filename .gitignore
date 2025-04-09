@@ -1,0 +1,42 @@
+# IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+*.o
+*.a
+*.so
+*.dylib
+build/
+
+# Executables
+Examples/Chain_Rod_end-to-end
+Examples/Dendrimer
+Examples/DiBlockStarChain
+Examples/Evaluating
+Examples/Evaluating2
+Examples/Exceptions
+Examples/Micelle
+Examples/Output
+Examples/Output2
+Examples/RandomLinearPolymer
+Examples/Star
+Examples/SymbolInterface
+Examples/TriBlockCopolymer
+Examples/TriBlockSymbolic
+Examples/Validation_*
+
+# PaperFigs executables
+PaperFigs/fig*
+
+# Generated data files
+*.q
+
+# Core dumps
+core
+
+# Temporary files
+*~
+.DS_Store

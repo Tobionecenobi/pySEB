@@ -56,6 +56,7 @@ public:
     // Substitution and evaluation
     virtual SymExprPtr subs(const std::string& symbol, const SymExprPtr& value) const = 0;
     virtual SymExprPtr subs(const ParameterMap& params) const = 0;
+    virtual SymExprPtr subs(const std::map<SymExprPtr, SymExprPtr>& exprMap) const = 0;
     virtual double eval() const = 0;
     virtual bool is_numeric() const = 0;
 

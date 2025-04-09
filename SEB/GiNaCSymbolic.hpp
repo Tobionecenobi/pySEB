@@ -7,6 +7,8 @@
 // included dependencies
 #include "SymbolicInterface.hpp"
 #include <ginac/ginac.h>
+#include <sstream>
+#include "SpecialFunctions.hpp"
 
 //===========================================================================
 // GiNaC implementation of symbolic expressions
@@ -103,32 +105,33 @@ public:
 
     // Special functions needed for scattering
     SymExprPtr bessel_j0() const override {
-        return std::make_shared<GiNaCExpression>(GiNaC::besselJ(0, _expr));
+        return std::make_shared<GiNaCExpression>(BesselJ0(_expr));
     }
 
     SymExprPtr bessel_j1() const override {
-        return std::make_shared<GiNaCExpression>(GiNaC::besselJ(1, _expr));
+        return std::make_shared<GiNaCExpression>(BesselJ1(_expr));
     }
 
     SymExprPtr dawson() const override {
-        // GiNaC doesn't have a built-in Dawson function, so we use the definition
-        // dawson(x) = (sqrt(pi)/2) * exp(-x^2) * erfi(x)
-        GiNaC::ex x = _expr;
-        GiNaC::ex result = GiNaC::sqrt(GiNaC::Pi) / 2 * GiNaC::exp(-GiNaC::pow(x, 2)) * GiNaC::erfi(x);
-        return std::make_shared<GiNaCExpression>(result);
+        return std::make_shared<GiNaCExpression>(DawsonF(_expr));
     }
 
     SymExprPtr erf() const override {
-        return std::make_shared<GiNaCExpression>(GiNaC::erf(_expr));
+        return std::make_shared<GiNaCExpression>(Erf(_expr));
     }
 
     SymExprPtr erfc() const override {
-        return std::make_shared<GiNaCExpression>(GiNaC::erfc(_expr));
+        return std::make_shared<GiNaCExpression>(Erfc(_expr));
     }
 
     // Substitution and evaluation
     SymExprPtr subs(const std::string& symbol, const SymExprPtr& value) const override {
+        std::cout << "Substituting " << symbol << " with value" << std::endl;
         auto ginac_value = std::dynamic_pointer_cast<GiNaCExpression>(value);
+        if (!ginac_value) {
+            std::cerr << "Error: Failed to cast value to GiNaCExpression" << std::endl;
+            return std::make_shared<GiNaCExpression>(_expr);
+        }
         GiNaC::symbol sym(symbol);
         return std::make_shared<GiNaCExpression>(_expr.subs(sym == ginac_value->expr()));
     }
@@ -138,6 +141,18 @@ public:
         for (const auto& param : params) {
             GiNaC::symbol sym(param.first);
             substitutions[sym] = GiNaC::numeric(param.second);
+        }
+        return std::make_shared<GiNaCExpression>(_expr.subs(substitutions));
+    }
+
+    SymExprPtr subs(const std::map<SymExprPtr, SymExprPtr>& exprMap) const override {
+        GiNaC::exmap substitutions;
+        for (const auto& pair : exprMap) {
+            auto ginacExpr1 = std::dynamic_pointer_cast<GiNaCExpression>(pair.first);
+            auto ginacExpr2 = std::dynamic_pointer_cast<GiNaCExpression>(pair.second);
+            if (ginacExpr1 && ginacExpr2) {
+                substitutions[ginacExpr1->expr()] = ginacExpr2->expr();
+            }
         }
         return std::make_shared<GiNaCExpression>(_expr.subs(substitutions));
     }
@@ -179,10 +194,20 @@ public:
     }
 
     double to_double() const override {
-        if (!is_numeric()) {
-            throw std::runtime_error("Cannot convert non-numeric expression to double");
+        try {
+            if (is_numeric()) {
+                return GiNaC::ex_to<GiNaC::numeric>(_expr).to_double();
+            } else {
+                // Try to evaluate the expression first
+                GiNaC::ex evaluated = _expr.evalf();
+                if (GiNaC::is_a<GiNaC::numeric>(evaluated)) {
+                    return GiNaC::ex_to<GiNaC::numeric>(evaluated).to_double();
+                }
+            }
+            throw std::runtime_error("Cannot convert expression to double: " + to_string());
+        } catch (const std::exception& e) {
+            throw std::runtime_error(std::string("Error converting to double: ") + e.what());
         }
-        return GiNaC::ex_to<GiNaC::numeric>(_expr).to_double();
     }
 
     // String representation
@@ -210,16 +235,21 @@ public:
         return oss.str();
     }
 
+    // Get the underlying GiNaC expression
+    const GiNaC::ex& getGiNaCExpression() const {
+        return _expr;
+    }
+
 private:
     GiNaC::ex _expr;
 };
 
 //===========================================================================
 // GiNaC implementation of symbolic factory
-class GiNaCFactory : public SymbolicFactory {
+class GiNaCSymbolic : public SymbolicFactory {
 public:
-    GiNaCFactory() = default;
-    virtual ~GiNaCFactory() = default;
+    GiNaCSymbolic() = default;
+    virtual ~GiNaCSymbolic() = default;
 
     SymExprPtr createSymbol(const std::string& name) override {
         return std::make_shared<GiNaCExpression>(GiNaC::symbol(name));

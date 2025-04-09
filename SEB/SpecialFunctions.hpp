@@ -12,12 +12,29 @@
 #define INCLUDE_GINAC_EXTENSION_SPECIALFUNCTIONS
 
 #include <ginac/ginac.h>
+#include "Expression.hpp"
 
-#include <gsl/gsl_sf_bessel.h>          
-#include <gsl/gsl_sf_dawson.h>          
-#include <gsl/gsl_sf_expint.h>          
-#include <gsl/gsl_sf_erf.h>             
+#include <gsl/gsl_sf_bessel.h>
+#include <gsl/gsl_sf_dawson.h>
+#include <gsl/gsl_sf_expint.h>
+#include <gsl/gsl_sf_erf.h>
 #include <gsl/gsl_sf_hyperg.h>
+
+// Forward declarations for our wrapper functions
+class Expression;
+Expression csc(const Expression& x);
+Expression sec(const Expression& x);
+Expression power(const Expression& x, const Expression& a);
+Expression BesselJ0(const Expression& x);
+Expression BesselJ1(const Expression& x);
+Expression BesselJ2(const Expression& x);
+Expression DawsonF(const Expression& x);
+Expression Six(const Expression& x);
+Expression Erf(const Expression& x);
+Expression Erfc(const Expression& x);
+Expression Hypergeometric0F1Regularized(const Expression& a, const Expression& x);
+Expression StruveH0(const Expression& x);
+Expression StruveH1(const Expression& x);
 
 // These functions simplifying cut'n'pasting from Matematica into GiNaC.
 DECLARE_FUNCTION_1P(csc)                // csc(x) = 1/sin(x)

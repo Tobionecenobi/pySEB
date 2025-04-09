@@ -3,6 +3,8 @@
 #ifndef INCLUDE_GUARD_THINCIRCLE
 #define INCLUDE_GUARD_THINCIRCLE
 
+#include "../ExpressionFunctions.hpp"
+
 
 /*===========================================================================
 
@@ -60,7 +62,7 @@ class ThinCircle : public SubUnit {
         // ========================================================================================
         // Scattering expressions
 
-        FormFactorExpression = BesselJ0(2*x)+Pi/2*(BesselJ1(2*x)*StruveH0(2*x)-BesselJ0(2*x)*StruveH1(2*x));
+        FormFactorExpression = BesselJ0(2*x)+Pi()/2*(BesselJ1(2*x)*StruveH0(2*x)-BesselJ0(2*x)*StruveH1(2*x));
 
         // Form factor amplitude expression relative to all reference points.
 

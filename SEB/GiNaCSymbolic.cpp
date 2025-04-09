@@ -9,14 +9,14 @@ SymExprPtr make_ginac_expr(const GiNaC::ex& expr) {
 }
 
 // Create a global instance of the GiNaC factory
-static GiNaCFactory ginacFactory;
+static GiNaCSymbolic ginacFactory;
 
 // Initialize the factory at program startup
-struct GiNaCFactoryInitializer {
-    GiNaCFactoryInitializer() {
+struct GiNaCSymbolicInitializer {
+    GiNaCSymbolicInitializer() {
         SymbolicFactory::setInstance(&ginacFactory);
     }
 };
 
 // Create a static instance of the initializer
-static GiNaCFactoryInitializer initializer;
+static GiNaCSymbolicInitializer initializer;

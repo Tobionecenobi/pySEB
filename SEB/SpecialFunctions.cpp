@@ -1,41 +1,42 @@
 /*
     Scattering expressions requires access to various special functions,
     here we extend GiNaCs special function support.
-    
-    NB. compiling with -DSPECIALFUNCTIONSERIES  replaces these 
+
+    NB. compiling with -DSPECIALFUNCTIONSERIES  replaces these
     functions with a series expansion which allows Subunit::Validate
     to series automagically expand the scattering expressions to
     validate expressions for radius of gyration, and sigma<R^2> expressions.
 
-*/ 
+*/
 
 #include "SpecialFunctions.hpp"
 #include <cmath>
+#include "Expression.hpp"
+#include "SpecialFunctionsWrapper.hpp"
 
-using namespace GiNaC;
+// Use our Expression class instead of GiNaC directly
+using namespace std;
 
 /*
     Helpers Csc and Sec since mathematica loves to use these.
 */
 
-static ex csc_eval(const ex & x)
+static Expression csc_eval(const Expression & x)
 {
-   return 1/sin(x);
+   return 1/x.sin();
 }
 
-static ex sec_eval(const ex & x)
+static Expression sec_eval(const Expression & x)
 {
-   return 1/cos(x);
+   return 1/x.cos();
 }
 
-static ex power_eval(const ex & x, const ex& a)
+static Expression power_eval(const Expression & x, const Expression& a)
 {
-   return pow(x,a);
+   return pow(x, a);
 }
 
-REGISTER_FUNCTION(csc, eval_func(csc_eval).latex_name("\\csc"));  
-REGISTER_FUNCTION(sec, eval_func(sec_eval).latex_name("\\sec"));  
-REGISTER_FUNCTION(power, eval_func(power_eval));  
+// Use our wrapper functions instead of GiNaC's REGISTER_FUNCTION
 
 
 /*
@@ -45,97 +46,86 @@ REGISTER_FUNCTION(power, eval_func(power_eval));
 
 #ifndef SPECIALFUNCTIONSERIES
 
-static ex BesselJ0_eval(const ex & x)
+static Expression BesselJ0_eval(const Expression & x)
 {
-   return BesselJ0(x).hold();
+   return BesselJ0(x);
 }
 
-static ex BesselJ0_evalf(const ex & x)
+static Expression BesselJ0_evalf(const Expression & x)
 {
-    if (is_a<numeric>(x))
-        return gsl_sf_bessel_J0(ex_to<numeric>(x).to_double() );
+    if (x.is_numeric())
+        return Expression(SymbolicExpression::constant(gsl_sf_bessel_J0(x.to_double())));
     else
-        return BesselJ0(x).hold();   
+        return BesselJ0(x);
 }
 
-static ex BesselJ0_deriv(const ex & x, unsigned diff_param)
+static Expression BesselJ0_deriv(const Expression & x, unsigned diff_param)
 {
     return -BesselJ1(x);
 }
 
-REGISTER_FUNCTION(BesselJ0, eval_func(BesselJ0_eval).
-                            evalf_func(BesselJ0_evalf).
-                            derivative_func(BesselJ0_deriv).
-                            latex_name("J_0"));   
+// Use our wrapper functions instead of GiNaC's REGISTER_FUNCTION
 
-static ex BesselJ1_eval(const ex & x)
+static Expression BesselJ1_eval(const Expression & x)
 {
-   return BesselJ1(x).hold();
+   return BesselJ1(x);
 }
 
-static ex BesselJ1_evalf(const ex & x)
+static Expression BesselJ1_evalf(const Expression & x)
 {
-    if (is_a<numeric>(x))
-        return gsl_sf_bessel_J1(ex_to<numeric>(x).to_double() );
+    if (x.is_numeric())
+        return Expression(SymbolicExpression::constant(gsl_sf_bessel_J1(x.to_double())));
     else
-        return BesselJ1(x).hold();   
+        return BesselJ1(x);
 }
 
-static ex BesselJ1_deriv(const ex & x, unsigned diff_param)
+static Expression BesselJ1_deriv(const Expression & x, unsigned diff_param)
 {
     return (BesselJ0(x)-BesselJ2(x))/2;
 }
 
 
-REGISTER_FUNCTION(BesselJ1, eval_func(BesselJ1_eval).
-                       evalf_func(BesselJ1_evalf).
-                       derivative_func(BesselJ1_deriv).
-                       latex_name("J_1"));
+// Use our wrapper functions instead of GiNaC's REGISTER_FUNCTION
 
-static ex BesselJ2_eval(const ex & x)
+static Expression BesselJ2_eval(const Expression & x)
 {
-   return BesselJ2(x).hold();
+   return BesselJ2(x);
 }
 
-static ex BesselJ2_evalf(const ex & x)
+static Expression BesselJ2_evalf(const Expression & x)
 {
-    if (is_a<numeric>(x))
-        return gsl_sf_bessel_Jn(2, ex_to<numeric>(x).to_double() );
+    if (x.is_numeric())
+        return Expression(SymbolicExpression::constant(gsl_sf_bessel_Jn(2, x.to_double())));
     else
-        return BesselJ2(x).hold();   
+        return BesselJ2(x);
 }
 
-REGISTER_FUNCTION(BesselJ2, eval_func(BesselJ2_eval).
-                       evalf_func(BesselJ2_evalf).
-                       latex_name("J_2"));
+// Use our wrapper functions instead of GiNaC's REGISTER_FUNCTION
 
 #else   // Series expansions here.
 
-static ex BesselJ0_eval(const ex & x)
+static Expression BesselJ0_eval(const Expression & x)
 {
    return 1-pow(x,2)/4+pow(x,4)/64-pow(x,6)/2304;
 }
 
-REGISTER_FUNCTION(BesselJ0, eval_func(BesselJ0_eval).
-                            latex_name("J_0"));   
+// Use our wrapper function instead of GiNaC's REGISTER_FUNCTION
 
-static ex BesselJ1_eval(const ex & x)
+static Expression BesselJ1_eval(const Expression & x)
 {
    return x/2-pow(x,3)/16+pow(x,5)/384;
 }
 
 
-REGISTER_FUNCTION(BesselJ1, eval_func(BesselJ1_eval).
-                       latex_name("J_1"));
+// Use our wrapper function instead of GiNaC's REGISTER_FUNCTION
 
-static ex BesselJ2_eval(const ex & x)
+static Expression BesselJ2_eval(const Expression & x)
 {
   return pow(x,2)/8-pow(x,4)/96+pow(x,6)/3072;
 }
 
 
-REGISTER_FUNCTION(BesselJ2, eval_func(BesselJ2_eval).
-                       latex_name("J_2"));
+// Use our wrapper functions instead of GiNaC's REGISTER_FUNCTION
 
 #endif
 
@@ -148,142 +138,127 @@ REGISTER_FUNCTION(BesselJ2, eval_func(BesselJ2_eval).
 
 #ifndef SPECIALFUNCTIONSERIES
 
-static ex DawsonF_eval(const ex & x)
+static Expression DawsonF_eval(const Expression & x)
 {
-   return DawsonF(x).hold();
+   return DawsonF(x);
 }
 
-static ex DawsonF_evalf(const ex & x)
+static Expression DawsonF_evalf(const Expression & x)
 {
-    if (is_a<numeric>(x))
-        return gsl_sf_dawson( ex_to<numeric>(x).to_double() );
+    if (x.is_numeric())
+        return Expression(SymbolicExpression::constant(gsl_sf_dawson(x.to_double())));
     else
-        return DawsonF(x).hold();   
+        return DawsonF(x);
 }
 
 #else   // Series expansions for validation of sub-unit scattering
 
-static ex DawsonF_eval(const ex & x)
+static Expression DawsonF_eval(const Expression & x)
 {
    return x-2*pow(x,3)/3 +4*pow(x,5)/15;
 }
 
-static ex DawsonF_evalf(const ex & x)
-{
-   return x-2*pow(x,3)/3 +4*pow(x,5)/15;
-}
+// Use our wrapper function instead of GiNaC's REGISTER_FUNCTION
 
 #endif
 
 
-REGISTER_FUNCTION(DawsonF, eval_func(DawsonF_eval).
-                           evalf_func(DawsonF_evalf).
-                           latex_name("DawsonF"));
+// Use our wrapper functions instead of GiNaC's REGISTER_FUNCTION
 
 
 
 /*
    Six(x) denotes the Sin integral divided by x:
-   
-        six(x) = Si(x)/x = x^-1 \int_0 ^x dt sin(t)/t       
+
+        six(x) = Si(x)/x = x^-1 \int_0 ^x dt sin(t)/t
                = 1 - x^2/18 + x^4/600 - x^6/35280
-                             
+
 */
 
 
 #ifndef SPECIALFUNCTIONSERIES
 
-static ex Six_eval(const ex & x)
+static Expression Six_eval(const Expression & x)
 {
-   return Six(x).hold();
+   return Six(x);
 }
 
-static ex Six_evalf(const ex & x)
+static Expression Six_evalf(const Expression & x)
 {
-    if (is_a<numeric>(x))
+    if (x.is_numeric())
      {
-        double z=ex_to<numeric>(x).to_double();
-        if (z<1e-4) return 1-z*z/18.0;
-        return gsl_sf_Si(z)/z;
+        double z=x.to_double();
+        if (z<1e-4) return Expression(SymbolicExpression::constant(1-z*z/18.0));
+        return Expression(SymbolicExpression::constant(gsl_sf_Si(z)/z));
      }
     else
-        return Six(x).hold();
+        return Six(x);
 }
 
-static ex Six_deriv(const ex & x, unsigned diff_param)
+static Expression Six_deriv(const Expression & x, unsigned diff_param)
 {
-      return sin(x)/(x*x)-Six(x)/x;
+      return x.sin()/(x*x)-Six(x)/x;
 }
 
 #else   // Series expansions for validation of sub-unit scattering
 
-static ex Six_eval(const ex & x)
+static Expression Six_eval(const Expression & x)
 {
    return 1 - pow(x,2)/18 +pow(x,4)/600-pow(x,6)/35280;
 }
 
-static ex Six_evalf(const ex & x)
-{
-   return 1 - pow(x,2)/18 +pow(x,4)/600-pow(x,6)/35280;
-}
+// Use our wrapper function instead of GiNaC's REGISTER_FUNCTION
 
-static ex Six_deriv(const ex & x, unsigned diff_param)
+static Expression Six_deriv(const Expression & x, unsigned diff_param)
 {
    return -x/9+pow(x,3)/150-pow(x,5)/5880;
 }
 
 #endif
 
-REGISTER_FUNCTION(Six, eval_func(Six_eval).
-                      evalf_func(Six_evalf).
-                      derivative_func(Six_deriv).
-                      latex_name("Six"));
+// Use our wrapper functions instead of GiNaC's REGISTER_FUNCTION
 
 
 
 /*
     Error functions:
-    
+
     Erf(x) = 2/sqrt(pi) \int_0 ^x dt exp(-t^2)
-    
+
     Erfc(x) = 1-erf(x)
 */
 
-static ex Erf_eval(const ex & x)
+static Expression Erf_eval(const Expression & x)
 {
-   return Erf(x).hold();
+   return Erf(x);
 }
 
-static ex Erf_evalf(const ex & x)
+static Expression Erf_evalf(const Expression & x)
 {
-    if (is_a<numeric>(x))
-        return gsl_sf_erf( ex_to<numeric>(x).to_double() );
+    if (x.is_numeric())
+        return Expression(SymbolicExpression::constant(gsl_sf_erf(x.to_double())));
     else
-        return Erf(x).hold();   
+        return Erf(x);
 }
 
-REGISTER_FUNCTION(Erf, eval_func(Erf_eval).
-                      evalf_func(Erf_evalf).
-                      latex_name("Erf"));
+// Use our wrapper function instead of GiNaC's REGISTER_FUNCTION
 
 
-static ex Erfc_eval(const ex & x)
+static Expression Erfc_eval(const Expression & x)
 {
-   return Erfc(x).hold();
+   return Erfc(x);
 }
 
-static ex Erfc_evalf(const ex & x)
+static Expression Erfc_evalf(const Expression & x)
 {
-    if (is_a<numeric>(x))
-        return gsl_sf_erfc( ex_to<numeric>(x).to_double() );
+    if (x.is_numeric())
+        return Expression(SymbolicExpression::constant(gsl_sf_erfc(x.to_double())));
     else
-        return Erfc(x).hold();   
+        return Erfc(x);
 }
 
 
-REGISTER_FUNCTION(Erfc, eval_func(Erfc_eval).
-                        evalf_func(Erfc_evalf).
-                        latex_name("Erfc"));
+// Use our wrapper functions instead of GiNaC's REGISTER_FUNCTION
 
 
 
@@ -292,22 +267,20 @@ REGISTER_FUNCTION(Erfc, eval_func(Erfc_eval).
 
 */
 
-static ex Hypergeometric0F1Regularized_eval(const ex& a, const ex & x)
+static Expression Hypergeometric0F1Regularized_eval(const Expression& a, const Expression & x)
 {
-   return Hypergeometric0F1Regularized(a,x).hold();
+   return Hypergeometric0F1Regularized(a,x);
 }
 
-static ex Hypergeometric0F1Regularized_evalf(const ex& a,const ex & x)
+static Expression Hypergeometric0F1Regularized_evalf(const Expression& a,const Expression & x)
 {
-    if (is_a<numeric>(x) && is_a<numeric>(a))
-        return gsl_sf_hyperg_0F1(ex_to<numeric>(a).to_double(), ex_to<numeric>(x).to_double() );
+    if (x.is_numeric() && a.is_numeric())
+        return Expression(SymbolicExpression::constant(gsl_sf_hyperg_0F1(a.to_double(), x.to_double())));
     else
-        return Hypergeometric0F1Regularized(a,x).hold();   
+        return Hypergeometric0F1Regularized(a,x);
 }
 
-REGISTER_FUNCTION(Hypergeometric0F1Regularized, eval_func(Hypergeometric0F1Regularized_eval).
-                                                evalf_func(Hypergeometric0F1Regularized_evalf).
-                                                latex_name("\\_{0}F\\_{1}Regularized"));
+// Use our wrapper functions instead of GiNaC's REGISTER_FUNCTION
 
 
 
@@ -319,103 +292,99 @@ void STVH1(double X, double *SH1);
 
 #ifndef SPECIALFUNCTIONSERIES
 
-static ex StruveH0_eval(const ex & x)
+static Expression StruveH0_eval(const Expression & x)
 {
-   return StruveH0(x).hold();
+   return StruveH0(x);
 }
 
-static ex StruveH0_evalf(const ex & x)
+static Expression StruveH0_evalf(const Expression & x)
 {
-    if (is_a<numeric>(x))
+    if (x.is_numeric())
         {
-           double z=ex_to<numeric>(x).to_double();
+           double z=x.to_double();
            double y;
            STVH0(z, &y);
-        return y;
+        return Expression(SymbolicExpression::constant(y));
         }
     else
-        return StruveH0(x).hold();
+        return StruveH0(x);
 }
 
-static ex StruveH1_eval(const ex & x)
+static Expression StruveH1_eval(const Expression & x)
 {
-   return StruveH1(x).hold();
+   return StruveH1(x);
 }
 
-static ex StruveH1_evalf(const ex & x)
+static Expression StruveH1_evalf(const Expression & x)
 {
-    if (is_a<numeric>(x))
+    if (x.is_numeric())
         {
-           double z=ex_to<numeric>(x).to_double();
+           double z=x.to_double();
            double y;
            STVH1(z, &y);
-           return y;
+           return Expression(SymbolicExpression::constant(y));
         }
     else
-        return StruveH1(x).hold();
+        return StruveH1(x);
 }
 
 #else    // Series approximation
 
-static ex StruveH0_eval(const ex & x)
+static Expression StruveH0_eval(const Expression & x)
 {
    static double P=2.0/3.14159265358979323846264338327950288419716939;
    return P*(x-pow(x,3)/9.0+pow(x,5)/225.0-pow(x,7)/11025.0+pow(x,9)/893025.0);
 }
 
-static ex StruveH0_evalf(const ex & x)
+static Expression StruveH0_evalf(const Expression & x)
 {
-    if (is_a<numeric>(x))
+    if (x.is_numeric())
         {
            static double P=2.0/3.14159265358979323846264338327950288419716939;
-           double x=ex_to<numeric>(x).to_double();
-           return P*(x-pow(x,3)/9.0+pow(x,5)/225.0-pow(x,7)/11025.0+pow(x,9)/893025.0);
+           double z=x.to_double();
+           return Expression(SymbolicExpression::constant(P*(z-pow(z,3)/9.0+pow(z,5)/225.0-pow(z,7)/11025.0+pow(z,9)/893025.0)));
         }
     else
-        return StruveH0(x).hold();
+        return StruveH0(x);
 }
 
-static ex StruveH1_eval(const ex & x)
+static Expression StruveH1_eval(const Expression & x)
 {
    static double P=2.0/3.14159265358979323846264338327950288419716939;
    return P*(pow(x,2)/3.0-pow(x,4)/45.0+pow(x,6)/1575.0-pow(x,8)/99225.0);
 }
 
-static ex StruveH1_evalf(const ex & x)
+static Expression StruveH1_evalf(const Expression & x)
 {
-    if (is_a<numeric>(x))
+    if (x.is_numeric())
         {
-           double x=ex_to<numeric>(x).to_double();
+           double z=x.to_double();
            static double P=2.0/3.14159265358979323846264338327950288419716939;
-           return P*(pow(x,2)/3.0-pow(x,4)/45.0+pow(x,6)/1575.0-pow(x,8)/99225.0);
+           return Expression(SymbolicExpression::constant(P*(pow(z,2)/3.0-pow(z,4)/45.0+pow(z,6)/1575.0-pow(z,8)/99225.0)));
         }
     else
-        return StruveH1(x).hold();
+        return StruveH1(x);
 }
 
 
 #endif
 
 
-REGISTER_FUNCTION(StruveH0, eval_func(StruveH0_eval).
-                        evalf_func(StruveH0_evalf).
-                        latex_name("StruveH0"));
+// Use our wrapper functions instead of GiNaC's REGISTER_FUNCTION
 
-REGISTER_FUNCTION(StruveH1, eval_func(StruveH1_eval).
-                           evalf_func(StruveH1_evalf).
-                          latex_name("StruveH1"));
+// Use our wrapper functions instead of GiNaC's REGISTER_FUNCTION
 
 
 
 /**************************************************************
-!*       Purpose: This program computes Struve function       * 
+!*       Purpose: This program computes Struve function       *
 !*                H0(x) using subroutine STVH0                *
 !*       Input :  x   --- Argument of H0(x) ( x ò 0 )         *
 !*       Output:  SH0 --- H0(x)                               *
 !*       Example:                                             *
 !*                   x          H0(x)                         *
 !*                ----------------------                      *
-!*                  0.0       .00000000                       * 
+!*                  0.0       .00000000                       *
 !*                  5.0      -.18521682                       *
 !*                 10.0       .11874368                       *
 !*                 15.0       .24772383                       *
@@ -428,7 +397,7 @@ REGISTER_FUNCTION(StruveH1, eval_func(StruveH1_eval).
 !*                                                            *
 !*                          C++ Release By J-P Moreau, Paris. *
 !*                                  (www.jpmoreau.fr)         *
-!*************************************************************/ 
+!*************************************************************/
 
 
 
@@ -440,7 +409,7 @@ void STVH0(double X, double *SH0) {
 !       ============================================= */
         double A0,BY0,P0,PI,Q0,R,S,T,T2,TA0;
 	int K, KM;
-	    
+
 	PI=3.14159265358979323846264338327950288419716939;
         S=1.0;
         R=1.0;
@@ -493,7 +462,7 @@ e25:       T=4.0/X;
 !*                                                            *
 !*                          C++ Release By J-P Moreau, Paris. *
 !*                                  (www.jpmoreau.fr)         *
-!*************************************************************/ 
+!*************************************************************/
 
 
 

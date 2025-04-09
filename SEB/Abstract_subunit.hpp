@@ -12,7 +12,6 @@
 //===========================================================================
 // used namespaces
 using namespace std;
-using namespace GiNaC;
 
 //===========================================================================
 // Forward declarations
@@ -22,27 +21,27 @@ class World;
 
    This is the base class for both structures and sub-units, since they have the same API in
    terms of providing expressions for scattering contributions.
-   
+
    Hence everything that is common the both structure and sub-unit is defined
    here for instance relevant methods.
 
 */
 
-class ABSSubUnit{ 
+class ABSSubUnit{
 
-    protected:  
+    protected:
 
     /* What is my type */
     int type;
-    
+
     /*Pointer to symbol interface*/
     SymbolInterface *GLEX;
 
     public:
-    /*Constructor*/    
-    ABSSubUnit( ){    
+    /*Constructor*/
+    ABSSubUnit( ){
         type = ABSSUBUNIT;
-    } 
+    }
     virtual ~ABSSubUnit(){}
 
     /*Returns the type of the absoloute sub unit. Here the type is either a sub-unit or a structure*/
@@ -54,13 +53,13 @@ class ABSSubUnit{
     ReferencePointSet* getReferencePoints() { return nullptr; }
 
     /*Returns the formfactor*/
-    virtual ex Formfactor()  {return 1;}
+    virtual ex Formfactor()  {return Expression(SymbolicExpression::constant(1.0));}
 
     /*Returns the formfactor amplitude*/
-    virtual ex FormfactorAmplitude(refPoint ref) {return 1;}
+    virtual ex FormfactorAmplitude(refPoint ref) {return Expression(SymbolicExpression::constant(1.0));}
 
     /*Returns the formfactor amplitude*/
-    virtual ex PhaseFactor(refPoint ref1, refPoint ref2)  {return 1;}
+    virtual ex PhaseFactor(refPoint ref1, refPoint ref2)  {return Expression(SymbolicExpression::constant(1.0));}
 
 };
 

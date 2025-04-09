@@ -1,5 +1,5 @@
 #include "Subunit.hpp"
-
+#include "ExpressionFunctions.hpp"
 
 
 Expression SubUnit::FormFactor(ParameterList&  betas, ParameterList&  params, int varForm )
@@ -380,13 +380,13 @@ void SubUnit::ValidateGraph(Expression Fex, Expression sigmaR2ex, bool FormFacto
     // In our abstraction layer, we would need to implement these operations or provide alternatives
     Expression q = GLEX->getSymbol("q");
 
-    if (!is_a<numeric>(sigmaR2ex) || !is_a<numeric>(Fex.subs(q==0.1).evalf()))
+    if (!is_a_numeric(sigmaR2ex) || !is_a_numeric(Fex.subs(q==0.1).evalf()))
         {
            cout << "Fails to evaluate to number for numerical hint supplied!" << filename << endl;
            return;
         }
 
-    double sigmaR2=ex_to<numeric>(sigmaR2ex).to_double();
+    double sigmaR2=ex_to_numeric(sigmaR2ex);
 
     string f=filename+".q";
     ofstream fo(f.c_str());
@@ -401,7 +401,7 @@ void SubUnit::ValidateGraph(Expression Fex, Expression sigmaR2ex, bool FormFacto
     for (int i=0;i<qvec.size(); i++)
        {
            double q2=qvec[i]*qvec[i];
-           double Fval= ex_to<numeric>(Fex.subs(q==qvec[i]).evalf()).to_double();
+           double Fval= ex_to_numeric(Fex.subs(q==qvec[i]).evalf());
            double Fg;
            if (FormFactor) Fg= q2*sigmaR2/3;
                       else Fg= q2*sigmaR2/6;
@@ -469,8 +469,8 @@ bool SubUnit::ValidateExpressionFile( Expression term, Expression SRMS2ex, strin
     double devg=0.0;
 
     Expression q = GLEX->getSymbol("q");
-    if (!is_a<numeric>(SRMS2ex)) throw SEBException("Expression for sigma<R^2> did not evaluate to number","bool ValidateExpressionFile( Expression term, Expression SRMS, string filename, bool FF, double tolerance)");
-    double SRMS2=ex_to<numeric>( SRMS2ex ).to_double();
+    if (!is_a_numeric(SRMS2ex)) throw SEBException("Expression for sigma<R^2> did not evaluate to number","bool ValidateExpressionFile( Expression term, Expression SRMS, string filename, bool FF, double tolerance)");
+    double SRMS2=ex_to_numeric(SRMS2ex);
     if (FF) SRMS2/=3;
        else SRMS2/=6;
 
@@ -481,8 +481,8 @@ bool SubUnit::ValidateExpressionFile( Expression term, Expression SRMS2ex, strin
     while (fi >> qval >> Ival)
        {
            Expression Iex = term.subs(q==qval).evalf();
-           if (!is_a<numeric>(Iex)) throw SEBException("Expression for scattering term did not evaluate to number","bool ValidateExpressionFile( Expression term, Expression SRMS, string filename, bool FF, double tolerance)");
-           double I=ex_to<numeric>( Iex).to_double();
+           if (!is_a_numeric(Iex)) throw SEBException("Expression for scattering term did not evaluate to number","bool ValidateExpressionFile( Expression term, Expression SRMS, string filename, bool FF, double tolerance)");
+           double I=ex_to_numeric(Iex);
 
            // Test max deviation between data in file and SEB calculation
            if (fabs(I-Ival) > dev) dev=fabs(I-Ival);

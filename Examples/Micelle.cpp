@@ -8,8 +8,8 @@
 
     The example creates a micelle consisting of 1 sphere with N identical polymers attached to it.
     The polymers are attached at random points on the surface.
-    
-    
+
+
      sphere surface
         |
         | sphere.surface#r0 <-> poly0.end1 x----------------------------x
@@ -20,7 +20,7 @@
         |
         |  :
 
-      All the polymers are tagged 'poly' because we assume they are identical.        
+      All the polymers are tagged 'poly' because we assume they are identical.
 
 */
 
@@ -36,7 +36,7 @@ int main()
           {
              string name = string("poly")+to_string(i)+string(".end1");
              string ref  = string("sphere.surface#r")+to_string(i);
-             
+
              w.Link(new GaussianPolymer(), name, ref, "poly");
           }
 
@@ -44,7 +44,7 @@ int main()
     GraphID g1 = w.Add(g, "micelle");
 
     // Define latex as ouput format
-    cout << latex;
+    cout << GiNaC::latex;
     cout <<  "Form factor= ";
     cout <<  w.FormFactor("micelle") << endl << endl;
 

@@ -11,6 +11,7 @@
 #include <string>
 #include "SymbolicInterface.hpp"
 #include "Exceptions.hpp"
+#include "Expression.hpp"
 
 using namespace std;
 
