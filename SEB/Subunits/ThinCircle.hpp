@@ -7,11 +7,11 @@
 /*===========================================================================
 
    This file implements the scattering terms of a thin circle
-   
+
    A circle has two reference points:
           center     The geometric point at the center of the cicle
           contour    A randomly selected point on the circle
-   
+
    We choose R the radius as the characteristic length scales.
    Hence the dimensionless variable is x=qR.
 
@@ -19,10 +19,10 @@
 ============================================================================= */
 
 class ThinCircle : public SubUnit {
-    public: 
+    public:
     /*Constructor*/
-    public: 
-        ThinCircle() : SubUnit(){    
+    public:
+        ThinCircle() : SubUnit(){
             type = SUBUNITCHILD;
            stype = THINCIRCLE;
         }
@@ -40,14 +40,14 @@ class ThinCircle : public SubUnit {
         // specific reference points for a Circle
         setReferencePointName("center");
 
-        // distributed reference points for a Circle        
+        // distributed reference points for a Circle
         setDistReferencePointType("contour");
 
         // Define symbols
-        symbol q    = GLEX->getSymbol("q");
-        symbol x    = GLEX->getSymbol("x", n); 
-        symbol R    = GLEX->getSymbol("R", n);
-        symbol t    = GLEX->getSymbol("t", n);
+        Expression q    = GLEX->getSymbol("q");
+        Expression x    = GLEX->getSymbol("x", n);
+        Expression R    = GLEX->getSymbol("R", n);
+        Expression t    = GLEX->getSymbol("t", n);
 
         // ========================================================================================
         // Define mapping between dimensionless variables and scattering expressions using R and q as variables:
@@ -59,14 +59,14 @@ class ThinCircle : public SubUnit {
 
         // ========================================================================================
         // Scattering expressions
-                
+
         FormFactorExpression = BesselJ0(2*x)+Pi/2*(BesselJ1(2*x)*StruveH0(2*x)-BesselJ0(2*x)*StruveH1(2*x));
 
-        // Form factor amplitude expression relative to all reference points.        
+        // Form factor amplitude expression relative to all reference points.
 
         FormFactorAmplitudeExpressions["center"]   = sin(x)/x;
         FormFactorAmplitudeExpressions["contour"]  = FormFactorExpression;
-        
+
         // ========================================================================================
         // Phase factors
         // We need phase factors for all reference point pairs except a specific reference point and itself, since PhaseFactor[X][X]=1.
@@ -85,7 +85,7 @@ class ThinCircle : public SubUnit {
         // These are exactly the Guinier expansions of the corresponding amplitudes
         sigmaMSDref2scat["center"]    = R*R;
         sigmaMSDref2scat["contour"]   = 2*R*R;
-        
+
         // sigma <R^2> for all distances between pairs of reference points.
         // These are exactly the Guinier expansions of the corresponding phasefactors
 

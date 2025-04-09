@@ -1,0 +1,147 @@
+cmake_minimum_required(VERSION 3.18)
+project(SEB VERSION 1.0.0 LANGUAGES CXX)
+
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Options
+option(USE_GINAC "Use GiNaC for symbolic manipulation" ON)
+option(BUILD_PYTHON "Build Python bindings" OFF)
+option(EXCEPTION_CORE_DUMP "Enable core dump on exceptions" OFF)
+option(SPECIAL_FUNCTION_SERIES "Replace special functions with series expansions" OFF)
+
+# Compile flags
+set(SEB_COMPILE_FLAGS "-std=c++11")
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(SEB_COMPILE_FLAGS "${SEB_COMPILE_FLAGS} -ggdb")
+endif()
+
+if(EXCEPTION_CORE_DUMP)
+    set(SEB_COMPILE_FLAGS "${SEB_COMPILE_FLAGS} -DEXCEPTIONCOREDUMP")
+endif()
+
+if(SPECIAL_FUNCTION_SERIES)
+    set(SEB_COMPILE_FLAGS "${SEB_COMPILE_FLAGS} -DSPECIALFUNCTIONSERIES")
+endif()
+
+# Find required libraries
+find_package(GSL REQUIRED)
+
+# Define source files
+set(SEB_SOURCES
+    SEB/Abstract_subunit.hpp
+    SEB/Constants.hpp
+    SEB/Exceptions.hpp
+    SEB/SEB.hpp
+    SEB/SpecialFunctions.cpp
+    SEB/SpecialFunctions.hpp
+    SEB/Structure.cpp
+    SEB/Structure.hpp
+    SEB/Subunit.cpp
+    SEB/Subunit.hpp
+    SEB/SymbolicInterface.hpp
+    SEB/SymbolicInterface.cpp
+    SEB/SymbolInterface.cpp
+    SEB/SymbolInterface.hpp
+    SEB/Types.hpp
+    SEB/World.cpp
+    SEB/World.hpp
+    SEB/Subunits/GaussianLoop.cpp
+    SEB/Subunits/GaussianPolymer.cpp
+    SEB/Subunits/Point.cpp
+    SEB/Subunits/SolidCylinder.cpp
+    SEB/Subunits/SolidSphere.cpp
+    SEB/Subunits/SolidSphericalShell.cpp
+    SEB/Subunits/Subunits.hpp
+    SEB/Subunits/Symbolic.cpp
+    SEB/Subunits/ThinCircle.cpp
+    SEB/Subunits/ThinDisk.cpp
+    SEB/Subunits/ThinRod.cpp
+    SEB/Subunits/ThinSphericalShell.cpp
+)
+
+# Add GiNaC implementation if enabled
+if(USE_GINAC)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GINAC REQUIRED ginac)
+    pkg_check_modules(CLN REQUIRED cln)
+    
+    list(APPEND SEB_SOURCES
+        SEB/GiNaCSymbolic.hpp
+        SEB/GiNaCSymbolic.cpp
+    )
+    
+    add_definitions(-DUSE_GINAC)
+endif()
+
+# Create the SEB library
+add_library(seb STATIC ${SEB_SOURCES})
+
+# Include directories
+target_include_directories(seb PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${GSL_INCLUDE_DIRS}
+)
+
+# Link libraries
+target_link_libraries(seb PUBLIC
+    ${GSL_LIBRARIES}
+)
+
+if(USE_GINAC)
+    target_include_directories(seb PUBLIC
+        ${GINAC_INCLUDE_DIRS}
+        ${CLN_INCLUDE_DIRS}
+    )
+    
+    target_link_libraries(seb PUBLIC
+        ${GINAC_LIBRARIES}
+        ${CLN_LIBRARIES}
+    )
+endif()
+
+# Set compile flags
+set_target_properties(seb PROPERTIES
+    COMPILE_FLAGS "${SEB_COMPILE_FLAGS}"
+)
+
+# Build Python bindings if requested
+if(BUILD_PYTHON)
+    find_package(Python COMPONENTS Interpreter Development REQUIRED)
+    find_package(pybind11 CONFIG REQUIRED)
+    
+    # Create the Python module
+    pybind11_add_module(_pyseb src/bindings.cpp src/symbolic_bindings.cpp)
+    target_link_libraries(_pyseb PRIVATE seb)
+    
+    # Install the Python module
+    install(TARGETS _pyseb DESTINATION pyseb)
+endif()
+
+# Build examples
+option(BUILD_EXAMPLES "Build example programs" ON)
+
+if(BUILD_EXAMPLES)
+    # Find all example source files
+    file(GLOB EXAMPLE_SOURCES "Examples/*.cpp")
+    
+    # Create an executable for each example
+    foreach(EXAMPLE_SOURCE ${EXAMPLE_SOURCES})
+        get_filename_component(EXAMPLE_NAME ${EXAMPLE_SOURCE} NAME_WE)
+        add_executable(${EXAMPLE_NAME} ${EXAMPLE_SOURCE})
+        target_link_libraries(${EXAMPLE_NAME} PRIVATE seb)
+    endforeach()
+endif()
+
+# Install the library and headers
+install(TARGETS seb
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+)
+
+install(DIRECTORY SEB/
+    DESTINATION include/SEB
+    FILES_MATCHING PATTERN "*.hpp"
+)

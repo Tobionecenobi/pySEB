@@ -7,11 +7,11 @@
 /*===========================================================================
 
    This file implements the scattering terms of a infinitesimal spherical shell.
-   
+
    The Shell has two reference points:
           center     The geometric point at the center of the ThinSphericalShell.
           surface    A randomly selected point on any surface.
-   
+
    We choose R the radius as the characteristic length scales.
    Hence the dimensionless variable is x=qR.
 
@@ -19,10 +19,10 @@
 ============================================================================= */
 
 class ThinSphericalShell : public SubUnit {
-    public: 
+    public:
     /*Constructor*/
-    public: 
-        ThinSphericalShell() : SubUnit(){    
+    public:
+        ThinSphericalShell() : SubUnit(){
             type = SUBUNITCHILD;
            stype = THINSPHERICALSHELL;
         }
@@ -40,14 +40,14 @@ class ThinSphericalShell : public SubUnit {
         // specific reference points for a ThinSphericalShell
         setReferencePointName("center");
 
-        // distributed reference points for a ThinSphericalShell        
+        // distributed reference points for a ThinSphericalShell
         setDistReferencePointType("surface");
 
         // ========================================================================================
         // Define symbols
-        symbol q    = GLEX->getSymbol("q");
-        symbol x    = GLEX->getSymbol("x", n); 
-        symbol R    = GLEX->getSymbol("R", n);
+        Expression q    = GLEX->getSymbol("q");
+        Expression x    = GLEX->getSymbol("x", n);
+        Expression R    = GLEX->getSymbol("R", n);
 
         // ========================================================================================
         // Define mapping between dimensionless variables and scattering expressions using R and q as variables:
@@ -59,16 +59,16 @@ class ThinSphericalShell : public SubUnit {
 
         // ========================================================================================
         // Scattering expressions
-        
-        ex Ac = sin(x)/x;                                       // Amplitude relative to center of a thin spherical shell
-        
+
+        Expression Ac = sin(x)/x;                                       // Amplitude relative to center of a thin spherical shell
+
         FormFactorExpression = Ac*Ac;
 
-        // Form factor amplitude expression relative to all reference points.        
+        // Form factor amplitude expression relative to all reference points.
 
         FormFactorAmplitudeExpressions["center"]   = Ac;
         FormFactorAmplitudeExpressions["surface"]  = Ac*Ac;
-        
+
         // ========================================================================================
         // Phase factors
         // We need phase factors for all reference point pairs except a specific reference point and itself, since PhaseFactor[X][X]=1.
@@ -76,7 +76,7 @@ class ThinSphericalShell : public SubUnit {
         // between the center and surface
         PhaseFactorExpressions["center"]["surface"]   = Ac;
         PhaseFactorExpressions["surface"]["surface"]   = Ac*Ac;
-        
+
         // ========================================================================================
         // Sizes
 
@@ -85,7 +85,7 @@ class ThinSphericalShell : public SubUnit {
 
         // sigma <R^2> for all distances between reference points and scatterers.
         // These are exactly the Guinier expansions of the corresponding amplitudes
-        sigmaMSDref2scat["center"]    = R*R; 
+        sigmaMSDref2scat["center"]    = R*R;
         sigmaMSDref2scat["surface"]   = 2*R*R;
 
         // sigma <R^2> for all distances between pairs of reference points.

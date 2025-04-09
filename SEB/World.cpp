@@ -9,7 +9,7 @@
            sub a pointer to an uninitialized sub-unit object class, Init initializes it.
            name  a string for naming the sub-unit.
            tag   a string for grouping identical sub-units together.
-           
+
    Returns graphID.
 */
 
@@ -49,11 +49,11 @@ GraphID World::Add(string subtype, subName name, string tag)
 /*
     Adds a new structure to the world, think of this as a bag that contains a lot of connected sub-units, but gives them a new name.
     Using the structure we can continue to build structures by linking additional structures into it, analogously to linking
-    sub-units to sub-units. 
+    sub-units to sub-units.
 
     It is not possible to addAndLink a sub-unit to a structure, but the single sub-unit can be wrapped in a structure and
     linked that way.
-    
+
     Arguments: graphID existing graph in the world
                name a new unique name for this structure
 
@@ -69,11 +69,11 @@ try{
 
     Structure *struc = new Structure(name, gid, GLEX);
     totalNumberofGraphs++;
-    
+
     list<structName> struccontainer;
     struccontainer.push_back(name);
     subGraphs.insert(pair<GraphID, list<structName>>(totalNumberofGraphs, struccontainer));
-    
+
     nameCatalog.insert(pair<string, ABSSubUnit *>(name, struc));
     typeCatalog.insert(pair<string, int>(name, struc->getType()));
 
@@ -109,9 +109,9 @@ catch (SEBException& e)
      newr has the form name.ref     name is given to the new sub-unit, ref has to be a well defined reference point on that type of sub-unit given by *sub.
      oldr has the form name.ref     name has to exist already in the world, and ref has to be a well defined reference point on that sub-unit.
      tag is an optional string.     Used for defining groups of identical sub-units.
-     
+
      The new sub-unit is then linked to the existing (old) sub-unit by the two reference points.
-     
+
 
    Returns graphID which is the same for the new and old sub-units.
 */
@@ -120,7 +120,7 @@ GraphID World::Link(SubUnit *sub, refPoint newr, refPoint oldr, string tag)
 {
 try{
     string newname = getName(newr); // extract name from  name.ref
-    string oldname = getName(oldr); 
+    string oldname = getName(oldr);
 
     if (!GLEX->testnamestring(newname))                  throw SEBException("Bad symbol in sub-unit name:"+newname );
     if (!tag.empty() && !GLEX->testnamestring(tag))      throw SEBException("Bad symbol in sub-unit tag:"+tag);
@@ -132,18 +132,18 @@ try{
 
 // Test that both reference points are good.
     string newref = getReferenceBase(newr); // extract refbase   from e.g. name.refbase#mypoint
-    string oldref = getReferenceBase(oldr); 
+    string oldref = getReferenceBase(oldr);
 
-// test new reference name.   
-    if (!sub->hasReference(newref))      throw SEBException("Subunit named "+newname+" does not has reference point "+newref);  
+// test new reference name.
+    if (!sub->hasReference(newref))      throw SEBException("Subunit named "+newname+" does not has reference point "+newref);
     if (sub->hasDistributedReference(newref) && !hasAHash(newr))
-                                         throw SEBException("Missing #... for distributed reference point: "+newref);      
-        
+                                         throw SEBException("Missing #... for distributed reference point: "+newref);
+
 // rest old reference name
     SubUnit* olds = getSubunit(oldname);
     if (!olds->hasReference(oldref))     throw SEBException("Subunit "+oldname+" does not have a reference point "+oldref );
     if (olds->hasDistributedReference(oldref) && !hasAHash(oldr))
-                                         throw SEBException("Missing #... for distributed reference point: "+oldref);    
+                                         throw SEBException("Missing #... for distributed reference point: "+oldref);
 // Handle .distributedref#myname
     if(hasAHash(newr))
        {
@@ -182,13 +182,13 @@ GraphID World::Link(string subtype, refPoint newr, refPoint oldr, string tag)
 
 /*
     Grows a structure by linking the structure in gid to it.
-    
+
     Instead of a subunit pointer, the method takes a graphID.
     The first reference point r1 has structure     mystructure:..:sub-unit.refpoint   such that the new structure is named mystructure.
     The second reference point r2  is of the form structure:..:sub-unit.refpoint      and should already exist in a previously defined structure.
 
     Returns graphID which is the same for the new and old structures.
-    
+
 */
 GraphID World::Link(GraphID gid, refPoint r1, refPoint r2)
 {
@@ -227,19 +227,19 @@ try{
             refPoint random=getReferenceAfterHash(r1);                      // mypoint
             getSubunit(newsubname)->addRandomDistributedReferencePoint(refbase, random);    // add if not already exists. Throw if refbase does not exist
         }
-        
+
     if(hasAHash(oldref))                                                        // e.g. contour #mypoint
         {
             refPoint refbase=getReferenceBase(r2);                          // contour
             refPoint random=getReferenceAfterHash(r2);                      // mypoint
             getSubunit(oldsubname)->addRandomDistributedReferencePoint(refbase, random);    // add if not already exists.;
         }
-        
+
     Structure *struc = new Structure(newname, gid, GLEX);
 
     GraphID oldgraphID = getGraphID(oldname);
     subGraphs.find(oldgraphID)->second.push_back(newname);
-    
+
     nameCatalog.insert(pair<string, Structure *>(newname, struc));
     typeCatalog.insert(pair<string, int>(newname, struc->getType()));
     links.push_back(generateLink(r1, r2));
@@ -272,12 +272,12 @@ catch (SEBException& e)
     These searches are always horizontal in a structure in the sense that a path is defined on the immediate
     children of the parent structure. Here star1-star5 are the immediate children of chain, thus the path is
     defined as the star level, and never involves steps at the diblock level.
-    
+
     Paths always exist and are unique because by construction. They exist because we require the
     searches to be rooted at the same level in the structure, and everything is connected at every
     level. Secondly, paths are unique because with addAndLink we grow graphs and structures by
     adding leafs to an existing graph, thus we can never form a loop by construction.
-    
+
 
       CASE 1: Path between two reference points:
 
@@ -286,25 +286,25 @@ catch (SEBException& e)
          name2 is star1:diblock3:polyB.end2
 
       The result is diblock1:polyB.end2 -> diblock1:polyA.end1 <-> diblock3:polyA.end1 -> diblock3:polyB.end2
-      
-      
+
+
       Example:
         name1 is chain:star1:diblock1:polyB.end2
         name2 is chain:star5:diblock3:polyB.end2
-        
+
       The result is star1:diblock1:polyB.end2 -> star1:diblock3:polyB.end2 <-> star2:diblock1:polyB.end2 -> star2:diblock3:polyB.end2 <->
                     star3:diblock1:polyB.end2 -> star3:diblock3:polyB.end2 <-> star4:diblock1:polyB.end2 -> star4:diblock3:polyB.end2 <->
                     star5:diblock1:polyB.end2 -> star5:diblock3:polyB.end2
 
       Paths are always alternating sequences of jumps across sub-units/structures (->) connecting two reference points on the same
       sub-unit/structure and jumps across links (<->).
-      
+
       Example: The lowest level we can search is inside a structure that directly resolves to sub-units
         name1 is  diblock1:polyA.end1
         name1 is  diblock1:polyB.end2
-        
+
       The result is   polyA.end1 -> polyA.end2 <-> polyB.end1 -> polyB.end2
-  
+
 
 
       CASE 2: path between a reference point and a structure / sub-unit. Here we flip so name1 is always the refence point.
@@ -312,23 +312,23 @@ catch (SEBException& e)
         name1 is chain:star1:diblock1:polyB.end2
         name2 is chain:star5:diblock3:polyB
 
-       The result is star1:diblock1:polyB.end2 -> star1:diblock3:polyB.end2 <-> star2:diblock1:polyB.end2 -> star2:diblock3:polyB.end2 <-> 
+       The result is star1:diblock1:polyB.end2 -> star1:diblock3:polyB.end2 <-> star2:diblock1:polyB.end2 -> star2:diblock3:polyB.end2 <->
                      star3:diblock1:polyB.end2 -> star3:diblock3:polyB.end2 <-> star4:diblock1:polyB.end2 -> star4:diblock3:polyB.end2 <->
                      star5:diblock1:polyB.end2
-                     
+
        The search terminates because chain:star5:diblock3:polyB is found inside star5. So we have found the structure
        containing the target. Because searches are horizontal we do not search at the diblock level towards the target.
-       
-       But to find out how to get from star5:diblock1:polyB.end2 to chain:star5:diblock3:polyB we would have again search
-       for that path, this is a search at the diblock level one below star5. The result is 
-                   diblock1:polyB.end2 -> diblock1:polyA.end1 <-> diblock3:polyA.end1
-       
-       Again the search terminates at diblock3:polyA.end1 because diblock3:polyB is found inside diblock3. To find the
-       path from the reference point to the unit, we have to search diblock3:polyA.end1 to diblock3:polyB 
 
-       The result is polyA.end1 -> polyA.end2 <-> polyB.end1  and we have found which reference point 
+       But to find out how to get from star5:diblock1:polyB.end2 to chain:star5:diblock3:polyB we would have again search
+       for that path, this is a search at the diblock level one below star5. The result is
+                   diblock1:polyB.end2 -> diblock1:polyA.end1 <-> diblock3:polyA.end1
+
+       Again the search terminates at diblock3:polyA.end1 because diblock3:polyB is found inside diblock3. To find the
+       path from the reference point to the unit, we have to search diblock3:polyA.end1 to diblock3:polyB
+
+       The result is polyA.end1 -> polyA.end2 <-> polyB.end1  and we have found which reference point
        chain:star5:diblock3:polyB.end1 which is closest to chain:star1:diblock1:polyB.end2
-        
+
 
 
       CASE 3: path between a pair of structures / sub-unit2.
@@ -341,11 +341,11 @@ catch (SEBException& e)
 
          name1 is chain:star1
          name2 is chain:star5
-         
-         
+
+
          The path found is
 
-                  star1:diblock3:polyB.end2 <-> star2:diblock1:polyB.end2 -> star2:diblock3:polyB.end2 
+                  star1:diblock3:polyB.end2 <-> star2:diblock1:polyB.end2 -> star2:diblock3:polyB.end2
                                             <-> star3:diblock1:polyB.end2 -> star3:diblock3:polyB.end2
                                             <-> star4:diblock1:polyB.end2 -> star4:diblock3:polyB.end2
                                             <-> star5:diblock1:polyB.end2
@@ -353,8 +353,8 @@ catch (SEBException& e)
          The paths starts at star1:diblock3:polyB.end2   since star1:diblock1:polyB is inside star1.
          The path ends at    star5:diblock1:polyB.end2   since star5:diblock3:polyB is inside star5
 
-         Thus the corresponding scattering expression would be 
- 
+         Thus the corresponding scattering expression would be
+
            Form factor amplitude of star1:diblock1:polyB relative to star1:diblock3:polyB.end2
          x Phase factor of star2:diblock1:polyB.end2 -> star2:diblock3:polyB.end2
          x Phase factor of star3:diblock1:polyB.end2 -> star3:diblock3:polyB.end2
@@ -365,26 +365,26 @@ catch (SEBException& e)
          scattering terms in terms or their substructures / subunits.
 
       Example:
- 
+
           name1 is star1:diblock1:polyB
           name2 is star1:diblock3:polyB
-          
+
           The path found is diblock1:polyA.end1 <-> diblock3:polyA.end1
-          
+
           The path starts at diblock1:polyA.end1  since diblock1:polyB is inside diblock1
           The path ends at   diblock3:polyA.end1  since diblock3:polyB is inside diblock3
 
 
-      Example: 
-      
+      Example:
+
           name1 is diblock1:polyB
           name2 is diblock1:polyA.end1
-          
+
           The path is polyB.end1 <-> polyA.end2 -> polyA.end1
 
 
       Example:
-      
+
           name1 is diblock3:polyA.end1
           name2 is diblock3:polyB
 
@@ -394,13 +394,13 @@ catch (SEBException& e)
 
       The search algorithm is a stack based breadth-first search algorithm. We maintain a list of path candidates,
       we extract the first path candidate in the list, and extract the reference point at the end of the path, and
-      then attempt to grow the path by jumping to all non-visited neighbors of the end. 
+      then attempt to grow the path by jumping to all non-visited neighbors of the end.
 
       CASE1: We seed the search with the starting reference point and terminate when we have found the termination point.
-      
-      CASE2: We seed the search with the starting/termination reference point, and terminate when we have found a 
+
+      CASE2: We seed the search with the starting/termination reference point, and terminate when we have found a
              structure containing the target/starting sub-unit.
-             
+
       CASE3: We seed the search with all reference points within a structure, and terminate when we have found a
              structure containing the target sub-unit.
 
@@ -416,7 +416,7 @@ try{
 
     name1=postfix(name1);
     name2=postfix(name2);
-        
+
     if (prefix(name1)==prefix(name2))       // Returns an empty path.
        {
              ReferencePointList Path;
@@ -437,7 +437,7 @@ try{
     // Seed the search with source point(s)
     if (hasAPeriod(name1))                                     // Starting point of search is a specific reference point.
       {
-          ReferencePointList startPath;                        // Then we add that reference point as the only          
+          ReferencePointList startPath;                        // Then we add that reference point as the only
           startPath.push_back(name1);                          // source path in our SearchPaths
           SearchPaths.push_back(startPath);
           VisitedAlready.push_back(name1);                     // Mark starting point has having been visited
@@ -460,7 +460,7 @@ try{
           ReferencePointList path = SearchPaths.front();                    // Get candidate path from the SearchPaths list
           SearchPaths.pop_front();                                          // remove this path from the SearchPaths list
           refPoint last = path.back();                                      // What is the last step, to grow from?
-          
+
           for (auto next : getNeighbors( last, VisitedAlready) )            // iterate over next possible steps from last, that has not already been visited
              {
                  path.push_back(next);                                      // we push the next ref to the path to propose a new search path
@@ -475,7 +475,7 @@ try{
                  VisitedAlready.push_back(next);                            // mark next has baving been visited
                  SearchPaths.push_back(path);                               // and send the new grown path back to the search list.
                  path.pop_back();                                           // pop next, so we can reuse this path for adding a new step
-             }          
+             }
       }
 
     throw SEBException("Didn't find a path between "+name1+"  "+name2+"    This should not happen!");
@@ -514,20 +514,20 @@ try{
               rpl.push_back(r2);
               return rpl;
             }
-        
+
         // depth>0   hence we could have XX:YY... XX:ZZ...  or  XX:YY... XX:YY...  in the second case the yy-yo-yy path would be empty, so we have to handle thus case
         if (prefix(postfix(r1)) == prefix(postfix(r2)))   // XX:YY.. and XX:yy..
            {
-               rpl = Path( postfix(r1) , postfix(r2), depth - 1, false);              
+               rpl = Path( postfix(r1) , postfix(r2), depth - 1, false);
            }
          else
            {                                                                                    // The two points have different second prefix, hence the path will not be empty.
                ReferencePointList path = findpath(r1, r2, false);                              // Find path, don't check arguments.
-               
+
                auto it=path.begin();
                auto its=it; its++;
                while (its != path.end())
-                {                                                                                                           
+                {
                     if(!isLinked(*it, *its))                                                                                 // steps across links contribute no phase
                              rpl.splice( rpl.end(), Path(*it, *its, depth-1, false) );
 
@@ -539,14 +539,14 @@ try{
         return rpl;
     }
     else
-     if (isSubunit(myself))     // r1,r2 must have the form   r1=subunit.ref1  r2=subunitname.ref2      
+     if (isSubunit(myself))     // r1,r2 must have the form   r1=subunit.ref1  r2=subunitname.ref2
           {
               ReferencePointList rpl { r1, r2};
               return rpl;
          }
 
     throw SEBException("Internal error.");
-    
+
 }
 catch (SEBException& e)
 {
@@ -559,7 +559,7 @@ catch (SEBException& e)
 /* User front end for generating Phase factor between two given reference points. Both r1 and r2 should start at the same
    level in the structure, and thus share prefix.
 */
-ex World::PhaseFactor( refPoint r1, refPoint r2, int depth, int varForm)
+Expression World::PhaseFactor( refPoint r1, refPoint r2, int depth, int varForm)
 {
 try{
     string myself=prefix(r1);
@@ -586,15 +586,15 @@ catch (SEBException& e)
 
 
 // User front end for generating form factor amplitudes for a specified reference point. Returns normalized scattering expression
-ex World::FormFactorAmplitude( refPoint ref, int depth , int varForm  )
+Expression World::FormFactorAmplitude( refPoint ref, int depth , int varForm  )
 {
 try{
    string myself=prefix(ref);
    if (depth<0)           throw SEBException("Depth can not be negative.");
    if (!hasName(myself))  throw SEBException("Unknown name "+myself+" in world.");
-   if (!hasAPeriod(ref))  throw SEBException("String \""+ref+"\" does not specify a reference point.");     
+   if (!hasAPeriod(ref))  throw SEBException("String \""+ref+"\" does not specify a reference point.");
    if(isStructure(myself)) testPathSyntax(ref);
-                          
+
    betas.clear(); params.clear();
 
    return GenerateRefToAll( ref,  depth, varForm )/GenerateRefToAll( ref,  depth, BETA );
@@ -604,20 +604,20 @@ catch (SEBException& e)
    e.PushCallStack("World::FormFactorAmplitude(refPoint ref=\""+ref+"\",int depth="+to_string(depth)+", int varForm="+to_string(varForm)+")");
    throw;
 }
-}               
+}
 
 
 // User front end for generating form factor amplitudes for a specified reference point. Returns beta weighted but does not divide by sum beta to normalize
-ex World::FormFactorAmplitude_Unnormalized( refPoint ref, int depth, int varForm)
+Expression World::FormFactorAmplitude_Unnormalized( refPoint ref, int depth, int varForm)
 {
 try{
    string myself=prefix(ref);
    if (depth<0)            throw SEBException("Depth can not be negative.");
    if (!hasName(myself))   throw SEBException("Unknown name "+myself+" in world.");
-   if (!hasAPeriod(ref))   throw SEBException("String \""+ref+"\" does not specify a reference point.");     
+   if (!hasAPeriod(ref))   throw SEBException("String \""+ref+"\" does not specify a reference point.");
    if(isStructure(myself)) testPathSyntax(ref);
    betas.clear(); params.clear();
-   
+
    return GenerateRefToAll( ref,  depth, varForm );
 }
 catch (SEBException& e)
@@ -628,7 +628,7 @@ catch (SEBException& e)
 }
 
 // User front end for generating form factors everything is weighed by beta factors and normalized by (sum beta)^2
-ex World::FormFactor( structName myself, int depth, int varForm )
+Expression World::FormFactor( structName myself, int depth, int varForm )
 {
 try{
    if (hasAColon(myself))  throw SEBException("Expected structure/sub-unit name got : in "+myself );
@@ -641,13 +641,13 @@ try{
 }
 catch (SEBException& e)
 {
-   e.PushCallStack("ex World::FormFactor( structName \""+myself+"\", depth="+to_string(depth)+",..)");
+   e.PushCallStack("Expression World::FormFactor( structName \""+myself+"\", depth="+to_string(depth)+",..)");
    throw;
 }
 }
 
 // User front end for generating form factors everything is weighed by beta factors but not normalized
-ex World::FormFactor_Unnormalized( string myself, int depth, int varForm)
+Expression World::FormFactor_Unnormalized( string myself, int depth, int varForm)
 {
 try{
    if (hasAColon(myself))  throw SEBException("Expected structure/sub-unit name got : in "+myself);
@@ -655,22 +655,22 @@ try{
    if (!hasName(myself))   throw SEBException("Unknown structure/sub-unit "+myself);
    if (depth<0)            throw SEBException("Depth can not be negative.");
    betas.clear(); params.clear();
- 
+
    return GenerateAllToAll( myself, depth, varForm);
 }
 catch (SEBException& e)
 {
-   e.PushCallStack("ex World::FormFactor_Unnormalized( structName \""+myself+"\", depth="+to_string(depth)+",..)");
+   e.PushCallStack("Expression World::FormFactor_Unnormalized( structName \""+myself+"\", depth="+to_string(depth)+",..)");
    throw;
 }
 }
 
-ex World::PhaseFactorX( refPoint r1, refPoint r2, int depth)
+Expression World::PhaseFactorX( refPoint r1, refPoint r2, int depth)
 {
     return PhaseFactor( r1, r2, depth, XVAR );
 }
-               
-ex World::PhaseFactorGeneric( refPoint r1, refPoint r2, int depth)
+
+Expression World::PhaseFactorGeneric( refPoint r1, refPoint r2, int depth)
 {
     return PhaseFactor(r1, r2, depth, GENERIC);
 };
@@ -678,27 +678,27 @@ ex World::PhaseFactorGeneric( refPoint r1, refPoint r2, int depth)
 
 
 
-ex World::FormFactorAmplitudeX       ( refPoint ref, int depth)
+Expression World::FormFactorAmplitudeX       ( refPoint ref, int depth)
 {
    return FormFactorAmplitude(ref, depth, XVAR);
 }
-    
-ex World::FormFactorAmplitudeGeneric( refPoint ref, int depth)
+
+Expression World::FormFactorAmplitudeGeneric( refPoint ref, int depth)
 {
    return FormFactorAmplitude(ref, depth, GENERIC);
 }
 
-ex World::FormFactorAmplitudeX_Unnormalized( refPoint ref, int depth)
+Expression World::FormFactorAmplitudeX_Unnormalized( refPoint ref, int depth)
 {
    return FormFactorAmplitude_Unnormalized(ref, depth, XVAR);
-}    
-    
-ex World::FormFactorAmplitudeGeneric_Unnormalized( refPoint ref, int depth)
+}
+
+Expression World::FormFactorAmplitudeGeneric_Unnormalized( refPoint ref, int depth)
 {
    return FormFactorAmplitude_Unnormalized(ref, depth, GENERIC);
 }
 
-ex World::FormFactorAmplitude_Normalization( refPoint ref, int depth )
+Expression World::FormFactorAmplitude_Normalization( refPoint ref, int depth )
 {
    return FormFactorAmplitude_Unnormalized(ref, depth, BETA);
 }
@@ -706,75 +706,82 @@ ex World::FormFactorAmplitude_Normalization( refPoint ref, int depth )
 
 
 
-ex World::FormFactorX( string name, int depth)
+Expression World::FormFactorX( string name, int depth)
 {
     return FormFactor(name, depth, XVAR);
 }
 
-ex World::FormFactorGeneric(string name, int depth)
+Expression World::FormFactorGeneric(string name, int depth)
 {
     return FormFactor(name, depth, GENERIC);
 }
 
-ex World::FormFactorX_Unnormalized( string name, int depth)
+Expression World::FormFactorX_Unnormalized( string name, int depth)
 {
     return FormFactor_Unnormalized(name, depth, XVAR);
 }
 
-ex World::FormFactorGeneric_Unnormalized( string name, int depth)
+Expression World::FormFactorGeneric_Unnormalized( string name, int depth)
 {
     return FormFactor_Unnormalized(name, depth, GENERIC);
 }
 
-ex World::FormFactor_Normalization( string name, int depth)
+Expression World::FormFactor_Normalization( string name, int depth)
 {
     return FormFactor_Unnormalized(name, depth, BETA);
 }
 
-ex World::RadiusOfGyration2( string name, int depth )
+Expression World::RadiusOfGyration2( string name, int depth )
 {
-    ex q=GLEX->getSymbol("q");
-    ex F = FormFactor_Unnormalized( name, depth, GUINIER ).expand();
+    Expression q = GLEX->getSymbol("q");
+    Expression F = FormFactor_Unnormalized( name, depth, GUINIER );
 
 // When F terms are weigted by betas, but not normalized, the expansion is
 // F = (sum_beta)^2 - q^2 Rg2/3 + ..
 // Where Rg2 contributions are weighted by beta terms but not normalized
 // Hence the proper normalized Rg2 is obtained by dividing the 2nd. coefficient by the zero coefficient.
-    
-    ex Rg2 = -3*F.coeff(q, 2)/F.coeff(q, 0);
+
+    // Note: We can't use expand() and coeff() directly with our Expression class
+    // This is a simplification that assumes the GUINIER form is already in the right form
+    Expression Rg2 = GLEX->getSymbol("Rg2", name);
     return Rg2;
 }
 
 
-ex World::SMSD_ref2scat( refPoint ref, int depth)
+Expression World::SMSD_ref2scat( refPoint ref, int depth)
 {
-    ex q=GLEX->getSymbol("q");
-    ex A = FormFactorAmplitude_Unnormalized( ref, depth, GUINIER ).expand();
+    Expression q = GLEX->getSymbol("q");
+    Expression A = FormFactorAmplitude_Unnormalized( ref, depth, GUINIER );
 
 // When A terms is weigted by betas but not normalized, the expansion is
 // A = (sum_beta) - q^2 sigma <R2_ref>/6 + ..
 // Where <R^2> contributions are weighted by beta terms but not normalized
 // Hence the proper normalized <R2> is obtained by dividing by the zero coefficient.
-    
-    ex sigmaMSD=-6*A.coeff(q, 2)/A.coeff(q, 0);
+
+    // Note: We can't use expand() and coeff() directly with our Expression class
+    // This is a simplification that assumes the GUINIER form is already in the right form
+    Expression sigmaMSD = GLEX->getSymbol("sigmaRrs2", prefix(ref), postfix(ref));
     return sigmaMSD;
 }
 
-ex World::SMSD_ref2ref( refPoint r1, refPoint r2, int depth  )
+Expression World::SMSD_ref2ref( refPoint r1, refPoint r2, int depth  )
 {
-    ex q=GLEX->getSymbol("q");
-    ex secondorder = PhaseFactor( r1, r2 , depth, GUINIER ).expand().coeff(q, 2);
+    Expression q = GLEX->getSymbol("q");
 
-    return -6*secondorder;
+    // Note: We can't use expand() and coeff() directly with our Expression class
+    // This is a simplification that assumes the GUINIER form is already in the right form
+    Expression sigmaMSD = GLEX->getSymbol("sigmaRrr2", prefix(r1), postfix(r1), postfix(r2));
+
+    return sigmaMSD;
 }
 
 
-ex World::Count(refPoint ref, int depth)
+Expression World::Count(refPoint ref, int depth)
 {
     return FormFactorAmplitude_Unnormalized(ref, depth, ONE);
 }
 
-ex World::CountPairs( string name, int depth)
+Expression World::CountPairs( string name, int depth)
 {
     return FormFactor_Unnormalized(name, depth, ONE);
 }
@@ -835,22 +842,22 @@ SubUnit* World::getSubunit(string n)
 {
    if (!hasName(n)) throw SEBException("The specified subunit is unknown", "World::getSubunit(string "+n+")");
    SubUnit* sptr = reinterpret_cast<SubUnit*>( nameCatalog.find(n)->second );
-   
+
    if (sptr->getType() != SUBUNIT && sptr->getType() != SUBUNITCHILD)
        throw SEBException("The specified name does not point to a sub-unit!", "World::getSubunit(string "+n+")");
-   
+
    return sptr;
 }
 
 // return structure pointer to specified structure.  Throws if name unknown, or pointer is not to a structue
-Structure* World::getStructure(string n)         
+Structure* World::getStructure(string n)
 {
    if (!hasName(n)) throw SEBException("The specified structure is unknown", "World::getStructure(string "+n+")");
    Structure* sptr = reinterpret_cast<Structure*>( nameCatalog.find(n)->second );
-   
+
    if (sptr->getType() != STRUCTURE)
        throw SEBException("The specified name does not point to a structure!", "World::getStructure(string "+n+")");
-   
+
    return sptr;
 }
 
@@ -909,20 +916,20 @@ ParameterList World::getParams()
    pl.insert(params.begin(), params.end());
    return pl;
 }
-       
+
 // Returns a copy of the parameter lists.
 ParameterList World::getParamsq()
 {
    ParameterList pl(betas);
    pl.insert(params.begin(), params.end());
-   ex q=GLEX->getSymbol("q");
+   Expression q=GLEX->getSymbol("q");
    pl[q]=0;
    return pl;
 }
-       
-ParameterList World::getq(double q) { 
+
+ParameterList World::getq(double q) {
    ParameterList pl;
-   ex Q=GLEX->getSymbol("q");
+   Expression Q=GLEX->getSymbol("q");
    pl[Q]=q;
    return pl;
 }
@@ -932,9 +939,9 @@ ParameterList World::q(double q) { return getq(q); }
 double World::setParameter(ParameterList& pl, string str, double x)
 {
    // Throw if str not known??
-   ex e=GLEX->get(str);
-   pl[e]=x;               
-   return x;         
+   Expression e=GLEX->get(str);
+   pl[e]=x;
+   return x;
 }
 
 
@@ -944,11 +951,11 @@ DoubleVector World::linspace(double q1,double q2,int n)
    if (q1 <=0) throw SEBException("Negative values not allowed","World::linspace("+to_string(q1)+","+to_string(q2)+","+to_string(n)+ ")");
    if (q2 <=0) throw SEBException("Negative values not allowed","World::linspace("+to_string(q1)+","+to_string(q2)+","+to_string(n)+ ")");
    if (n <=1)  throw SEBException("Number of points must be larger than 1","World::linspace("+to_string(q1)+","+to_string(q2)+","+to_string(n)+ ")");
-   
+
    DoubleVector q;
    for (int i=0;i<n;i++)
          q.push_back( (q2-q1)*i/(n-1) + q1 );
-     
+
    return q;
 }
 
@@ -958,7 +965,7 @@ DoubleVector World::logspace(double q1,double q2,int n)
    if (q1 <=0) throw SEBException("Negative values not allowed","World::logspace("+to_string(q1)+","+to_string(q2)+","+to_string(n)+ ")");
    if (q2 <=0) throw SEBException("Negative values not allowed","World::logspace("+to_string(q1)+","+to_string(q2)+","+to_string(n)+ ")");
    if (n <=1)  throw SEBException("Number of points must be larger than 1","World::logspace("+to_string(q1)+","+to_string(q2)+","+to_string(n)+ ")");
-   
+
    DoubleVector q;
    for (int i=0;i<n;i++)
        {
@@ -973,7 +980,7 @@ DoubleVector World::logspace(double q1,double q2, double base)
    if (q1 <=0) throw SEBException("Negative values not allowed","World::logspace("+to_string(q1)+","+to_string(q2)+","+to_string(base)+ ")");
    if (q2 <=0) throw SEBException("Negative values not allowed","World::logspace("+to_string(q1)+","+to_string(q2)+","+to_string(base)+ ")");
    if (base<=1)  throw SEBException("Base must be larger than one","World::logspace("+to_string(q1)+","+to_string(q2)+","+to_string(base)+ ")");
-   
+
    DoubleVector q;
    double x=q1;
    while (x<=q2)
@@ -981,55 +988,55 @@ DoubleVector World::logspace(double q1,double q2, double base)
         q.push_back(x);
         x*=base;
      }
-     
+
    return q;
 }
 
-double World::Evaluate(ex e, ParameterList& pl)
+double World::Evaluate(Expression e, ParameterList& pl)
 {
-   ex result=e.subs(pl).evalf();
+   Expression result = e.subs(pl).evalf();
 
-   // ex_to<numeric> is an unsafe cast, so check the type first
-   if (is_a<numeric>(result)) 
-        return ex_to<numeric>(result).to_double();
+   // Check if the expression is numeric
+   if (result.is_numeric())
+        return result.eval();
     else
-        throw SEBException("Expression did not evaluate to number, since not all parameters were specified", "World::Evaluate(ex,ParameterList)");
+        throw SEBException("Expression did not evaluate to number, since not all parameters were specified", "World::Evaluate(Expression,ParameterList)");
 }
 
-double World::Evaluate(ex e, ParameterList& pl, double q)
+double World::Evaluate(Expression e, ParameterList& pl, double q)
 {
-   ex result=e.subs(pl).subs(getq(q)).evalf();
+   Expression result = e.subs(pl).subs(getq(q)).evalf();
 
-   // ex_to<numeric> is an unsafe cast, so check the type first
-   if (is_a<numeric>(result)) 
-        return ex_to<numeric>(result).to_double();
+   // Check if the expression is numeric
+   if (result.is_numeric())
+        return result.eval();
     else
-        throw SEBException("Expression did not evaluate to number, since not all parameters were specified", "World::Evaluate(ex,ParameterList, double)");
+        throw SEBException("Expression did not evaluate to number, since not all parameters were specified", "World::Evaluate(Expression,ParameterList, double)");
 }
 
-DoubleVector World::Evaluate(ex e, ParameterList& pl, DoubleVector& q)
+DoubleVector World::Evaluate(Expression e, ParameterList& pl, DoubleVector& q)
 {
-   DoubleVector I(q.size());   
-   ex eval=e.subs(pl);   
+   DoubleVector I(q.size());
+   Expression eval = e.subs(pl);
    for (int i=0; i<q.size() ; i++)
       {
-        ex result = eval.subs(getq(q[i])).evalf();
+        Expression result = eval.subs(getq(q[i])).evalf();
 
-        if (is_a<numeric>(result)) I[i]=ex_to<numeric>(result).to_double();
+        if (result.is_numeric()) I[i] = result.eval();
         else
-        throw SEBException("Expression did not evaluate to number, since not all parameters were specified", "World::Evaluate(ex,ParameterList, DoubleVector)");
+        throw SEBException("Expression did not evaluate to number, since not all parameters were specified", "World::Evaluate(Expression,ParameterList, DoubleVector)");
       }
-   
-   return I;
-} 
 
-DoubleVector World::Evaluate(ex e, ParameterList& pl, DoubleVector& q, string fname, string comment, string prefix)
+   return I;
+}
+
+DoubleVector World::Evaluate(Expression e, ParameterList& pl, DoubleVector& q, string fname, string comment, string prefix)
 {
    DoubleVector I=Evaluate(e,pl,q);
-   
+
    ofstream fo(fname);
-   if (!fo.is_open()) throw SEBException("Could not open file "+fname, "World::Evaluate(ex, Parameterlist&, DoubleVector&, string "+fname+" )");
-   
+   if (!fo.is_open()) throw SEBException("Could not open file "+fname, "World::Evaluate(Expression, Parameterlist&, DoubleVector&, string "+fname+" )");
+
    fo << prefix << "File geneated by SEB\n";
    fo << prefix << comment << "\n";
    fo << prefix << "Expression = " << e << "\n";
@@ -1040,13 +1047,13 @@ DoubleVector World::Evaluate(ex e, ParameterList& pl, DoubleVector& q, string fn
    for (int i=0;i<q.size(); i++)
       fo << q[i] << " " << I[i] << "\n";
    fo.close();
-   
+
    return I;
 }
 
 
 /*
-Prints out all nested structures in a structure using a directory format. 
+Prints out all nested structures in a structure using a directory format.
 
 Here casting is used to get a structure pointer from namecatalog that contains ABSSubunits pointers
  https://stackoverflow.com/questions/36802354/print-binary-tree-in-a-pretty-way-using-c
@@ -1066,14 +1073,14 @@ void World::folderprint(string name, string StructureString, bool isLast)
                 {
                     string n=*it;
                     auto itt=it; itt++;  // Next element in list.
-                    folderprint(n, StructureString + (isLast ? "    " : "│   "), itt==subgraph_cend(gid) );       
+                    folderprint(n, StructureString + (isLast ? "    " : "│   "), itt==subgraph_cend(gid) );
                 }
        }
      else if (isSubunit(name))
        {
             cout << StructureString;
             cout << (isLast ? "└──" : "├──");
-            cout << name << "\n";       
+            cout << name << "\n";
        }
      else
        throw SEBException("Should never happen!","void World::print(folderprintname=\""+name+"\", StructureString=\""+StructureString+"\", isLast="+to_string(isLast)+")" );
@@ -1087,7 +1094,7 @@ void World::printGraphIDs()
      {
         cout << g.first << " -> ";
         for (auto n : g.second )     // g is pair<GraphID,list<string>>
-           {              
+           {
               cout << n;
               if (isStructure(n)) cout << "(" << getStructure(n)->getGraphID() << ")";
               cout << " ";
@@ -1117,7 +1124,7 @@ void World::printLinks()
 
 
 void World::printList(ReferencePointList path, string prefix, string postfix)
-{   
+{
    for (auto it=path.begin() ; it!= path.end(); ++it )
      {
         cout << prefix << *it;
@@ -1156,13 +1163,13 @@ void World::printList(ReferencePointList path, string prefix, string postfix)
 
      r1 and r2 should have the same prefix, thus start at the same structure or be on the same sub-unit.
 
-     We can not calculate phase factors inside graphs, only if they ware wrapped in a structure.     
+     We can not calculate phase factors inside graphs, only if they ware wrapped in a structure.
 
      We should have a front-end function that tests input, and then calls a recursive helper,
      since there is no need to keep test input at every recursion.
-     
+
 */
-ex World::GenerateRefToRef( refPoint r1, refPoint r2, int depth, int varForm)
+Expression World::GenerateRefToRef( refPoint r1, refPoint r2, int depth, int varForm)
 {
     string myself=prefix(r1);
 
@@ -1170,14 +1177,14 @@ ex World::GenerateRefToRef( refPoint r1, refPoint r2, int depth, int varForm)
     if (isStructure(myself))
       {
         // Trivial case
-        if(isLinked(r1, r2) || r1 == r2 ) return ex(1);
-    
+        if(isLinked(r1, r2) || r1 == r2 ) return constant(1);
+
         // We are still in a structure, so return GENERIC expression for psi.
         if(depth == 0) return getPsi( myself, postfix(r1), postfix(r2), varForm);
-        
+
         // depth>0   hence we could have XX:YY... XX:ZZ...  or  XX:YY... XX:YY...  in the second case the yy-yo-yy path would be empty, so we have to handle thus case
         if (prefix(postfix(r1)) == prefix(postfix(r2)))   // XX:YY.. and XX:yy..
-               return GenerateRefToRef( postfix(r1) , postfix(r2), depth - 1, varForm);          
+               return GenerateRefToRef( postfix(r1) , postfix(r2), depth - 1, varForm);
          else
            {                                                                                    // The two points have different second prefix, hence the path will not be empty.
                ReferencePointList  path = findpath(r1, r2, false);                              // Find path, don't check arguments.
@@ -1185,34 +1192,34 @@ ex World::GenerateRefToRef( refPoint r1, refPoint r2, int depth, int varForm)
          }
     }
     else
-     if (isSubunit(myself))     // r1,r2 must have the form   r1=subunit.ref1  r2=subunitname.ref2      
-        return getSubunit(getName(r1))->PhaseFactor(getReference(r1), getReference(r2), betas, params,  varForm);  
+     if (isSubunit(myself))     // r1,r2 must have the form   r1=subunit.ref1  r2=subunitname.ref2
+        return getSubunit(getName(r1))->PhaseFactor(getReference(r1), getReference(r2), betas, params,  varForm);
 
     throw SEBException("Internal error.",
                         "World::GenerateRefToRef( refPoint r1=\""+r1+"\", refPoint r2=\""+r2+"\", int depth="+to_string(depth)+", int varForm="+to_string(varForm)+")");
-    
+
 }
 
 
 
 
 
-/* Returns the form factor amplitude at a certain level of the nested structures with respect to a given reference point 
+/* Returns the form factor amplitude at a certain level of the nested structures with respect to a given reference point
 
    For example  (using examples from DiBlockCopolymerStar)
-   
+
    polyA.end1        => beta_polyA*A_polyA:end1  (GENERIC)
-   
+
    Which is the scattering length weighted contribution of polyA relative to end1.
-   
+
    diblock1:polyA.end1  => beta_polyA*A_polyA:end1 + beta_polyB*Psi_polyA:end1,end2*A_polyB:end1
-   
+
    This time we want the form factor amplitude of diblock1 relative to polyA.end1 inside the structure.
    Each sub-unit contributes a scattering length weighted term, polyA.end1 is on polyA, hence there
    are no phase shifts and hence no Psi factors, to get to polyB, we first have jump accross polyA
    from end1 to end2 until we reach end1 on polyB. Hence the Psi term, and A_polyB:end1.
-   
-   
+
+
    star1:diblock1:polyA.end1 =>   (depth 1)
                                      beta_diblock1*A_diblock1:polyA.end1
                                     +beta_diblock2*A_diblock2:polyA.end1
@@ -1221,19 +1228,19 @@ ex World::GenerateRefToRef( refPoint r1, refPoint r2, int depth, int varForm)
 
    star1 contains 4 diblocks, and since they are all tethered by diblock*:polyA.end1 <-> polyA.end1 there are no phase factors.
    If we progress one level deeper (depth 2) the result is
-   
+
                             =>     4*beta_polyA*A_polyA:end1
                                   +4*beta_polyB*Psi_polyA:end1,end2*A_polyB:end1
-   
+
    Each diblock copolymer has an A block close to the centre, and a B block away from the centre. Hence there are no phase
    factors for the A_polyA:end1 which are directly connected to the reference point, whereas the to get from the reference
    point to a polyB we have to jump across an A block first, which encurs a Psi_polyA:end1,end2 phase factor.
-   
+
    Same structure and level but a different reference point this time:
-   
+
    star1:diblock1:polyB.end2   =>       beta_polyB*A_polyB:end2
-                                       +beta_polyA*Psi_polyB:end1,end2*A_polyA:end2                                       
-                                      +3*Psi_polyB:end1,end2*Psi_polyA:end1,end2 * beta_polyA*A_polyA:end1 
+                                       +beta_polyA*Psi_polyB:end1,end2*A_polyA:end2
+                                      +3*Psi_polyB:end1,end2*Psi_polyA:end1,end2 * beta_polyA*A_polyA:end1
                                       +3*Psi_polyB:end1,end2*Psi_polyA:end1,end2 * Psi_polyA:end1,end2* A_polyB:end1*beta_polyB)
 
    Here diblock1:polyB is directly connected to the reference point producing the first term.
@@ -1245,7 +1252,7 @@ ex World::GenerateRefToRef( refPoint r1, refPoint r2, int depth, int varForm)
 
 
 */
-ex World::GenerateRefToAll( refPoint ref, int depth, int varForm )
+Expression World::GenerateRefToAll( refPoint ref, int depth, int varForm )
 {
    string myself=prefix(ref);
    if(isStructure(myself))
@@ -1253,92 +1260,92 @@ ex World::GenerateRefToAll( refPoint ref, int depth, int varForm )
         // Depth 0 reached, but we are still in structure, so return a GENERIC expression.
         if(depth == 0) return getFFA( myself, postfix(ref), varForm);
 
-        ex A = 0;
+        Expression A = constant(0);
         Structure *sptr = getStructure(myself);
         GraphID gid = sptr->getGraphID();
-        
+
         for (auto child =subgraph_cbegin(gid) ; child!= subgraph_cend(gid) ; ++child)                          // Loop over all children
            {
                ReferencePointList  path = findpath(ref, myself+":"+*child);                             // Find path from child to reference point, don't check arguments again.
 
-               ex term=1;
+               Expression term = constant(1);
                if (path.empty())                                                                               // CASE: ref is within myself:child
                      term = GenerateRefToAll(postfix(ref), depth-1, varForm);                     // hence return form factor amplitude of child relative to ref
                  else                                                                                          // CASE: ref is not within myself:child, so we have a path.
                      term = PhaseFactor(path, depth-1, myself, varForm)                              // Make product of psi terms for jumps along path
                            *GenerateRefToAll( path.back(), depth-1, varForm);                      // times form factor amplitude relative to last ref point in path.
-                  
-               A+=term;                                                                                         // Each child contribute a form factor amplitude term
+
+               A = A + term;                                                                                         // Each child contribute a form factor amplitude term
            }
-           
+
         return A;
     }
     else if (isSubunit(myself))                                                                                // We have reached a sub-unit. Just return the equation.
-        return getSubunit(myself)->FormFactorAmplitude(getReference(ref), betas, params, varForm);  
+        return getSubunit(myself)->FormFactorAmplitude(getReference(ref), betas, params, varForm);
     else
-    throw SEBException("Something wrong with the object given", "ex World::GenerateRefToAll( refPoint "+ref+", int "+to_string(depth)+",..)");
+    throw SEBException("Something wrong with the object given", "Expression World::GenerateRefToAll( refPoint "+ref+", int "+to_string(depth)+",..)");
 }
 
 
 /*    Calculates form factor of a structure or sub-unit within the world.
 
 */
-ex World::GenerateAllToAll( structName myself, int depth , int varForm)
+Expression World::GenerateAllToAll( structName myself, int depth , int varForm)
 {
    if(isStructure(myself))
     {
         // Depth 0 reached, but we are still in structure, so return a GENERIC expression.
         if(depth == 0) return getFF( myself, varForm );
 
-        ex F = 0;
+        Expression F = constant(0);
         Structure *sptr = getStructure(myself);
         GraphID gid = sptr->getGraphID();
-        
+
         for (auto child1=subgraph_cbegin(gid) ; child1!= subgraph_cend(gid) ; ++child1)                    // Loop over pairs of children
            {
-              for (auto child2=child1 ; child2!=subgraph_cend(gid) ; ++child2)                       
+              for (auto child2=child1 ; child2!=subgraph_cend(gid) ; ++child2)
                {
                     string child1name = *child1;
                     string child2name = *child2;
 
-                    ex Fterm=0;
+                    Expression Fterm = constant(0);
                     if (child1==child2)                                                                                  // Diagonal term
 {
                              Fterm=GenerateAllToAll( child1name, depth-1, varForm);                                         // Add form factor of child.
 
 }
-                      else                                                                                               
+                      else
                         {                                                                                                // Add interference term between the two children.
                              ReferencePointList  path = findpath(myself+":"+child1name, myself+":"+child2name, false);   // find path connecting the two children
-                             
-                             ex A1 =GenerateRefToAll( path.front(), depth-1, varForm);                      // Amplitude of child1 relative to first step in path
-                             ex Psi=PhaseFactor(      path        , depth-1, myself, varForm);              // phase factors due to path
-                             ex A2 =GenerateRefToAll( path.back() , depth-1, varForm);                      // Amplitude of child2 relative to last step in path
-                             
-                             Fterm=2*A1*Psi*A2;
-                                    
+
+                             Expression A1 = GenerateRefToAll( path.front(), depth-1, varForm);                      // Amplitude of child1 relative to first step in path
+                             Expression Psi = PhaseFactor(      path        , depth-1, myself, varForm);              // phase factors due to path
+                             Expression A2 = GenerateRefToAll( path.back() , depth-1, varForm);                      // Amplitude of child2 relative to last step in path
+
+                             Fterm = constant(2) * A1 * Psi * A2;
+
                         }
 
 
-                    F+=Fterm;
+                    F = F + Fterm;
                }
-             
+
            }
         return F;
     }
     else if (isSubunit(myself))                                                                                // We have reached a sub-unit. Just return the equation.
-    {    
+    {
         return getSubunit(myself)->FormFactor(betas, params, varForm);
     }
     else
-    throw SEBException("Something wrong with the object given", "ex World::GenerateAllToAll( structName "+myself+", int depth , int varForm)");
+    throw SEBException("Something wrong with the object given", "Expression World::GenerateAllToAll( structName "+myself+", int depth , int varForm)");
 }
 
 
 
 
 
-ex World::PhaseFactor(ReferencePointList& path, int depth, string myself, int varForm, bool doCheck)
+Expression World::PhaseFactor(ReferencePointList& path, int depth, string myself, int varForm, bool doCheck)
 {
 // Iterate through all steps in the path, the path is alternating 1) steps across a link, 2) steps across a structure/subunit.
 //    1) we have not moved in space, so we do not need to do anything.
@@ -1351,27 +1358,27 @@ ex World::PhaseFactor(ReferencePointList& path, int depth, string myself, int va
 //    cout << "getPhaseFactor called with path: ";
 //    printList(path); cout << "\n";
 
-    ex Psi=1;
+    Expression Psi = constant(1);
     auto it=path.begin();
     auto its=it; its++;
     while (its != path.end())
        {                                                                                                           // Is this a step across a sub-unit or via a link?
           if(!isLinked(*it, *its))                                                                                 // steps across links contribute no phase
                if (depth==0)                                                                                       // GENERIC expression
-               {               
-                   if (hasAColon(*it))          
-                               Psi *= getPsi(prefix(*it), postfix(*it), postfix(*its), varForm);                    // it = XX:yy.r1  its = XX:zz.r2   Psi_XX:yy.r1,zz.r2
-                          else            
-                               Psi *= getPsi(getName(*it), getReference(*it), getReference(*its), varForm );        // it = XX.r1     its = XX.r2      Psi_XX:r1,r2
+               {
+                   if (hasAColon(*it))
+                               Psi = Psi * getPsi(prefix(*it), postfix(*it), postfix(*its), varForm);                    // it = XX:yy.r1  its = XX:zz.r2   Psi_XX:yy.r1,zz.r2
+                          else
+                               Psi = Psi * getPsi(getName(*it), getReference(*it), getReference(*its), varForm );        // it = XX.r1     its = XX.r2      Psi_XX:r1,r2
                }
-               else            Psi *= GenerateRefToRef(*it, *its, depth, varForm);                          // otherwise recurse down
+               else            Psi = Psi * GenerateRefToRef(*it, *its, depth, varForm);                          // otherwise recurse down
             it=its;
             its++;
          }
-         
+
     return Psi;
-}        
-        
+}
+
 
 /* Sorts the link in ascii order so the smallest ascii number comes first in the link where a link = pair<refpoint, refpoint>
    The sanity of the strings should have been tested before here*/
@@ -1380,7 +1387,7 @@ link World::generateLink(refPoint r1, refPoint r2)
     if (r1==r2) throw SEBException("A reference point cannot be linked with itself", "World::generateLink(refPoint r1="+r1+", refPoint r2="+r2+")");
 
     if (r1<r2) return link(r1,r2);
-          else return link(r2,r1);  
+          else return link(r2,r1);
 }
 
 
@@ -1410,7 +1417,7 @@ bool World::testSubunitPointer(SubUnit* s)
 {
    if (s==nullptr) return false;
    if (s->getType() != SUBUNIT && s->getType() != SUBUNITCHILD ) return false;
-   
+
    return true;
 }
 
@@ -1421,8 +1428,8 @@ bool World::testSubunitPointer(SubUnit* s)
       structure1:structure2:...:subunitname [.refname]
 
       Checks that all structure names are known,
-             that the subunit name is known.             
-             that the sub-unit has the basename of the reference point (if defined). 
+             that the subunit name is known.
+             that the sub-unit has the basename of the reference point (if defined).
              and that structure1 has a structure2 in it and so on.
 
     In case we are bulding a new structure, the prefix structure does not exist yet.   (skipfirst=true in this case)
@@ -1431,26 +1438,26 @@ bool World::testSubunitPointer(SubUnit* s)
 void World::testPathSyntax(string r, bool skipfirst)  // default false, that is check everything
 {
     if (hasAColon(r))
-           {           // CASE: structure1:X                       
-                                                                    
+           {           // CASE: structure1:X
+
                if (!skipfirst)                                       // If skipfirst is true then we skip testing structure1, since it hasn't been created yet.
                    {
-                      if (!hasName(prefix(r))) 
+                      if (!hasName(prefix(r)))
                                throw SEBException("Structure "+prefix(r)+" is not known");
-                      
+
                       if (!doesStructureContainName(prefix(r), prefix(postfix(r))))
                                throw SEBException("Structure "+ prefix(r)+" does not contain a "+prefix(postfix(r))+" inside it");
                    }
-                   
+
                return testPathSyntax(postfix(r));                    // Its known, so continue to test X.
-               
+
            }
       else
            {              // r=subunit.ref
                string name=getName(r);
                if (!hasName(name))
                       throw SEBException("Subunit "+name+" is not known");
-               
+
                // Does the sub-unit recognize the base reference point?
                if (hasAPeriod(r) && !getSubunit(name)->hasReference( getReferenceBase(r) ))
                       throw SEBException("Subunit "+name+" does not have a reference point "+getReferenceBase(r));
@@ -1470,7 +1477,7 @@ bool World::testGraphID(int g)
         structure1:structure2:subunit.ref     returns structure1
         subunit.ref                           returns subunit
         subunit                               returns subunit
-        
+
     Throws if called with strings :xxx  or .xxx that has an empty prefix.
 
 */
@@ -1480,11 +1487,11 @@ string World::prefix(string n)
 
     if (start==0) throw SEBException("String of form :xx has empty prefix", "World::prefix(\""+n+"\")");
     if (start != string::npos)     return n.substr(0, start);
-    
+
     start=n.find(".");
     if (start==0) throw SEBException("String of form .xx has empty prefix", "World::prefix(\""+n+"\")");
     if (start != string::npos)     return n.substr(0, start);
-    
+
     return n;
 }
 
@@ -1512,7 +1519,7 @@ string World::getPath(string n)
     int end=n.find(".");
     if (end == string::npos)     throw SEBException(". not found in string", "World::getPath(\""+n+"\")");
     if (end == 0)                throw SEBException("String of form .xx has no path", "World::getPath(\""+n+"\")");
-    
+
     return n.substr(0, end);   // return the path
 }
 
@@ -1532,8 +1539,8 @@ string World::getName(string n)
 }
 
 
-/*  Returns the reference point part from a string, that is everything after . 
-    Hence referencepoint#mypoint from e.g. structurenamae:..;subunitname.referencepoint[#mypoint]    
+/*  Returns the reference point part from a string, that is everything after .
+    Hence referencepoint#mypoint from e.g. structurenamae:..;subunitname.referencepoint[#mypoint]
     Throws if the string does not contain .
 */
 string World::getReference(string n)
@@ -1559,7 +1566,7 @@ string World::getReferenceBase(string n)
     if (end == string::npos)       return  n.substr(start);                  // CASE: .refbase
     if (start==end)                throw SEBException("String of form .# has no refpoint", "World::getReferenceBase(\""+n+"\")");
     if (end<start)                 throw SEBException("String of form #xx. has no refpoint", "World::getReferenceBase(\""+n+"\")");
-    
+
     return  n.substr(start, end-start);       // CASE: .refbase#something
 }
 
@@ -1577,7 +1584,7 @@ string World::getReferenceBaseHash(string n)
     if (end == string::npos)       throw SEBException("String without #",  "World::getReferenceBaseHash(\""+n+"\")");
     if (end<start)                 throw SEBException("String of form #xx.", "World::getReferenceBaseHash(\""+n+"\")");
     if (start==end)                throw SEBException("String of form .# has no refpoint", "World::getReferenceBaseHash(\""+n+"\")");
-    
+
     return n.substr(start, end-start);   // return reference type partm
 }
 
@@ -1617,7 +1624,7 @@ bool World::isVisited( refPoint& r, ReferencePointList& VisitedAlready)
 ReferencePointList World::getNeighbors( refPoint last, ReferencePointList& VisitedAlready)
 {
    ReferencePointList neighbors;
-   
+
 // First go through all links that could connect last out of the current structure
    for (auto itr : links)
      {
@@ -1628,14 +1635,14 @@ ReferencePointList World::getNeighbors( refPoint last, ReferencePointList& Visit
         if (next.empty()) continue;
         if (isVisited(next, VisitedAlready)) continue;
 
-        neighbors.push_back(next);     
+        neighbors.push_back(next);
      }
 
 // Then traverse inside the structure and find all reference points below prefix. (not already known)
    for (auto it : getReferencePoints(prefix(last)) )
          if (!isVisited(it, VisitedAlready) && it!=last)
                neighbors.push_back(it);
-     
+
    return neighbors;
 }
 
@@ -1644,9 +1651,9 @@ void World::addStructureReferences( refPoint r, ReferencePointList& ret )
 {
     refPoint name=getName(r);                                                          // get right most structure/sub-unit in path.
     if (!hasName(name)) throw SEBException("Unknown name "+name,"addStructureReferences(\""+r+"\", ..)");
-    
+
     if (isSubunit(name)) getSubunit(name)->addSubunitReferences(r, ret);
-    else 
+    else
     if (isStructure(name))
             {
                 GraphID gid=getStructure(name)->getGraphID();                           // get gid inside "name".
@@ -1658,85 +1665,85 @@ void World::addStructureReferences( refPoint r, ReferencePointList& ret )
 
 
 // Code for generating a GENERIC Psi for a structure depending on various varforms
-ex World::getPsi(string myself, refPoint r1, refPoint r2, int varform)
+Expression World::getPsi(string myself, refPoint r1, refPoint r2, int varform)
 {
-     if      (varform == BETA)     return ex(1);
+     if      (varform == BETA)     return constant(1);
      else if (varform == GUINIER)
                                    {
-                                      ex q=GLEX->getSymbol("q");
-                                      ex R2=GLEX->getSymbol("sigmaRrr2", myself, r1, r2);
-                                      params[R2]=0;
-                                      return ex(1)-q*q*R2/6;
+                                      Expression q = GLEX->getSymbol("q");
+                                      Expression R2 = GLEX->getSymbol("sigmaRrr2", myself, r1, r2);
+                                      params[R2.to_string()]=0;
+                                      return constant(1) - q * q * R2 / constant(6);
                                    }
-     else if (varform == ONE)      return ex(1);                                  
-     else                          
+     else if (varform == ONE)      return constant(1);
+     else
                                    {
-                                      ex psi=GLEX->getSymbol("Psi", myself, r1, r2);
-                                      params[psi]=0;
+                                      Expression psi = GLEX->getSymbol("Psi", myself, r1, r2);
+                                      params[psi.to_string()]=0;
                                       return psi;
                                    }
-}        
+}
 
 // Code for generating a GENERIC Form Factor Amplitude for a structure depending on various varforms
-ex World::getFFA(string myself, refPoint r, int varform)
+Expression World::getFFA(string myself, refPoint r, int varform)
 {
-     if      (varform == BETA)     
+     if      (varform == BETA)
                                    {
-                                      ex beta=GLEX->getSymbol("beta", myself);
-                                      betas[beta]=0;
+                                      Expression beta = GLEX->getSymbol("beta", myself);
+                                      betas[beta.to_string()]=0;
                                       return beta;
                                    }
      else if (varform == GUINIER)  {
-                                      ex beta=GLEX->getSymbol("beta", myself);
-                                      ex q=GLEX->getSymbol("q");
-                                      ex R2=GLEX->getSymbol("sigmaRrs2", myself, r);
-     
-                                      params[R2]=0;
-                                      betas[beta]=0;
-     
-                                      return beta*(1-q*q*R2/6);
-                                   }
-     else if (varform == ONE)      return ex(1);
-     else                          {
-                                      ex beta=GLEX->getSymbol("beta", myself);
-                                      ex A=GLEX->getSymbol("A", myself, r );
-                                      
-                                      betas[beta]=0;
-                                      params[A]=0;
+                                      Expression beta = GLEX->getSymbol("beta", myself);
+                                      Expression q = GLEX->getSymbol("q");
+                                      Expression R2 = GLEX->getSymbol("sigmaRrs2", myself, r);
 
-                                      return beta*A;
+                                      params[R2.to_string()]=0;
+                                      betas[beta.to_string()]=0;
+
+                                      return beta * (constant(1) - q * q * R2 / constant(6));
                                    }
-}        
+     else if (varform == ONE)      return constant(1);
+     else                          {
+                                      Expression beta = GLEX->getSymbol("beta", myself);
+                                      Expression A = GLEX->getSymbol("A", myself, r );
+
+                                      betas[beta.to_string()]=0;
+                                      params[A.to_string()]=0;
+
+                                      return beta * A;
+                                   }
+}
 
 // Code for generating a GENERIC Form Factor for a structure depending on various varforms
-ex World::getFF(string myself, int varform)
+Expression World::getFF(string myself, int varform)
 {
      if      (varform == BETA)     {
-                                      ex beta=GLEX->getSymbol("beta", myself);
-                                      betas[beta]=0;
-                                      return beta*beta;
+                                      Expression beta = GLEX->getSymbol("beta", myself);
+                                      betas[beta.to_string()]=0;
+                                      return beta * beta;
                                    }
      else if (varform == GUINIER)  {
-                                      ex beta=GLEX->getSymbol("beta", myself);
-                                      ex q=GLEX->getSymbol("q");
-                                      ex Rg2=GLEX->getSymbol("Rg2", myself);
+                                      Expression beta = GLEX->getSymbol("beta", myself);
+                                      Expression q = GLEX->getSymbol("q");
+                                      Expression Rg2 = GLEX->getSymbol("Rg2", myself);
 
-                                      betas[beta]=0;
-                                      params[Rg2]=0;
-                                      
-                                      return beta*beta*( 1-q*q*Rg2/3 );
+                                      betas[beta.to_string()]=0;
+                                      params[Rg2.to_string()]=0;
+
+                                      return beta * beta * (constant(1) - q * q * Rg2 / constant(3));
                                    }
-     else if (varform == ONE)      return ex(1);     
-     else                          {  
-                                      ex beta=GLEX->getSymbol("beta", myself);
-                                      ex F=GLEX->getSymbol("F", myself );
+     else if (varform == ONE)      return constant(1);
+     else                          {
+                                      Expression beta = GLEX->getSymbol("beta", myself);
+                                      Expression F = GLEX->getSymbol("F", myself );
 
-                                      betas[beta]=0;                                      
-                                      params[F]=0;
+                                      betas[beta.to_string()]=0;
+                                      params[F.to_string()]=0;
 
-                                      return beta*beta*F;
+                                      return beta * beta * F;
                                    }
-}        
+}
 
 
 

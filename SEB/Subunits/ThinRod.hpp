@@ -6,31 +6,31 @@
 /*===========================================================================
 
    This file implements the scattering terms of a straight rod.
-   
+
    A rod had 2 specific reference points
          end1, end2     The two ends at l=0 and l=L, respectively.
          contour        A random selected point along the contour [0:L]
 
    We choose the length L as the structural parameter. Scattering
    expressions are expressed via the dimensionless number x=qL
-   
+
    Reference for this form factor: T. Neugebauer, Ann. Phys. (Leipzig) 42, 509 (1943).
    P. I. Teixeira, D. J. Read, and T. C. B. McLeish, J. Chem. Phys. 126, 074901 (2007).
 
    The form factor amplitude was originally derived by Hammouda in
 
-   See rod.nb / rod.pdf  for derivations.   
+   See rod.nb / rod.pdf  for derivations.
 ============================================================================= */
 
 
 class ThinRod : public SubUnit{
 
     public:
-        ThinRod() : SubUnit(){    
+        ThinRod() : SubUnit(){
             type = SUBUNITCHILD;
            stype = THINROD;
         }
-        
+
     virtual ~ThinRod(){}
 
     virtual void Init(string name, string tag, SymbolInterface *GEX)
@@ -38,7 +38,7 @@ class ThinRod : public SubUnit{
         // Initialize base class
         SubUnit::Init(name, tag, GEX);
         string n = getTag();
-        
+
         // ========================================================================================
         // Setup reference points
 
@@ -50,12 +50,12 @@ class ThinRod : public SubUnit{
         // distributed reference points for a polymer
         setDistReferencePointType("contour");
 
-         
+
         // ========================================================================================
         // Define symbols via GLEX interface
-        symbol q    = GLEX->getSymbol("q");        // Global q
-        symbol L    = GLEX->getSymbol("L", n);     // For rods we use the length L to define its size
-        symbol x    = GLEX->getSymbol("x", n);     // The natural dimensionless variable is qL
+        Expression q    = GLEX->getSymbol("q");        // Global q
+        Expression L    = GLEX->getSymbol("L", n);     // For rods we use the length L to define its size
+        Expression x    = GLEX->getSymbol("x", n);     // The natural dimensionless variable is qL
 
 
         // ========================================================================================
@@ -67,16 +67,16 @@ class ThinRod : public SubUnit{
 
         // ========================================================================================
         // Scattering expressions
-        
+
         // Form factor for rod
         FormFactorExpression = 2*(cos(x)-1)/(x*x)+2*Six(x);
-        
-        ex FormFactorAmplitudeEnd = Six(x);
-        ex FormFactorAmplitudeMiddle = Six(x/2);
 
-        // Form factor amplitude expression relative to all reference points.        
+        Expression FormFactorAmplitudeEnd = Six(x);
+        Expression FormFactorAmplitudeMiddle = Six(x/2);
+
+        // Form factor amplitude expression relative to all reference points.
         FormFactorAmplitudeExpressions["end1"]      = FormFactorAmplitudeEnd;
-        FormFactorAmplitudeExpressions["end2"]      = FormFactorAmplitudeEnd;        
+        FormFactorAmplitudeExpressions["end2"]      = FormFactorAmplitudeEnd;
         FormFactorAmplitudeExpressions["middle"]    = FormFactorAmplitudeMiddle;
         FormFactorAmplitudeExpressions["contour"]   = FormFactorExpression;
 
@@ -91,7 +91,7 @@ class ThinRod : public SubUnit{
         PhaseFactorExpressions["end1"]["middle"]     = 2*sin(x/2)/x;
         PhaseFactorExpressions["end2"]["middle"]     = 2*sin(x/2)/x;
 
-        // between ends and contour         
+        // between ends and contour
         PhaseFactorExpressions["contour"]["end1"]    = FormFactorAmplitudeEnd;
         PhaseFactorExpressions["contour"]["end2"]    = FormFactorAmplitudeEnd;
 
@@ -123,14 +123,14 @@ class ThinRod : public SubUnit{
         // between middle and ends
         sigmaMSDref2ref["end1"]["middle"]     =
         sigmaMSDref2ref["end2"]["middle"]     = L*L/4;         // sigma=1, <R^2_end_to_middle> = (L/2)^2
-        
+
         // between ends and contour
-        sigmaMSDref2ref["contour"]["end1"]    = 
+        sigmaMSDref2ref["contour"]["end1"]    =
         sigmaMSDref2ref["contour"]["end2"]    = L*L/3;         // sigma=!, <R^2_end_to_contour> = L^2/3
 
         // between middle and contour
         sigmaMSDref2ref["contour"]["middle"]  = L*L/12;        // sigma=1, <R^2_middle_to_contour> = L^2/12  (by definition this is the same as Rg^2 for a rod)
-           
+
         // Finally between contour and contour
         sigmaMSDref2ref["contour"]["contour"] = L*L/6;         // sigma=2, < R^2 > averaged over all points = L^2/12
     }

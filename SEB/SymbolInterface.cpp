@@ -1,6 +1,5 @@
 #include "SymbolInterface.hpp"
 
-using namespace GiNaC;
 using namespace std;
 
 /*Resets Symbol interface*/
@@ -56,13 +55,13 @@ string SymbolInterface::string2latex(const string& s)
 /*
    String is one of F_<string>, A_<string>,<refstring>, Psi_<string>,<refstring>,<refstring>
    Here we transform one of these strings into LaTeX formatted expressions.
-   
+
    f_<string>   ->  F_{string}
-      
+
 */
 {
    string latex(s);
-   
+
    //Find the first occurance of _
     size_t pos=latex.find("_");
 
@@ -71,7 +70,7 @@ string SymbolInterface::string2latex(const string& s)
    replaceBeta(latex);
    replaceRg(latex);
    replaceAll(latex, "#", "\\#" );
-   
+
    // replace subscript _<string> with _{string}
    size_t found=latex.find("_" );
    if (found!=std::string::npos)     // We have a subscript
@@ -79,7 +78,7 @@ string SymbolInterface::string2latex(const string& s)
           replaceAll(latex, "_", "_{");
           latex+="}";
        }
-   
+
    return latex;
 }
 
@@ -87,7 +86,7 @@ string SymbolInterface::string2latex(const string& s)
 bool SymbolInterface::testnamestring(const string& s)
 {
     size_t pos=0;
-    
+
     while (pos<s.size()-1)   // Don't test trailing zero.
       {
         if(!isalnum(s[pos])) return false;
@@ -101,7 +100,7 @@ bool SymbolInterface::testnamestring(const string& s)
 bool SymbolInterface::teststring(const string& s)
 {
     size_t pos=0;
-    
+
     while (pos<s.size()-1)   // Don't test trailing zero.
       {
         if(!isalnum(s[pos]) && s[pos]!=':'  && s[pos]!='#' && s[pos]!='.') return false;
@@ -111,42 +110,46 @@ bool SymbolInterface::teststring(const string& s)
 }
 
 
-    
+
 /*
    Gets a symbol based on a supplied string. If the string is already known, return the
    symbol we created the last time.
 */
 
-const symbol& SymbolInterface::get( const string& s ){
+const SymExprPtr& SymbolInterface::get( const string& s ){
 
 // Store lowercase name as key to retrieve symbol
     string ss(s);  //transform(ss.begin(), ss.end(), ss.begin(), ::tolower);
 
     auto it = symbolDirectory.find( ss );
-    if( it != symbolDirectory.end()) return it -> second; 
-                                else return symbolDirectory.insert( make_pair( ss , symbol(s,string2latex(s)) )).first->second;
+    if( it != symbolDirectory.end()) return it -> second;
+                                else {
+        // Create a new symbol using the symbolic factory
+        SymExprPtr sym = symbol(s);
+        return symbolDirectory.insert( make_pair( ss, sym )).first->second;
+    }
 }
 
 
 // For instance Rg, L, X
-const symbol& SymbolInterface::getSymbol( const string& s ){
+Expression SymbolInterface::getSymbol( const string& s ){
 
-    if (!testnamestring(s)) throw SEBException("Bad symbol in variable name:"+s,"getSymbol(const string&)");  
-    return get(s);
+    if (!testnamestring(s)) throw SEBException("Bad symbol in variable name:"+s,"getSymbol(const string&)");
+    return Expression(get(s));
 }
 
 // For instance F  <subunit>
-const symbol& SymbolInterface::getSymbol( const string& s, const string& tag ){
+Expression SymbolInterface::getSymbol( const string& s, const string& tag ){
 
     if (!teststring(s))      throw SEBException("Bad symbol in variable name:"+s,"getSymbol(const string&,const string&)");
     if (!teststring(tag))    throw SEBException("Bad symbol in variable name:"+tag,"getSymbol(const string&,const string&)");
 
     string si = s+"_"+tag;
-    return get(si);
+    return Expression(get(si));
 }
 
 // s_tag:ref
-const symbol& SymbolInterface::getSymbol( const string& s, const string& tag, const string& ref ){
+Expression SymbolInterface::getSymbol( const string& s, const string& tag, const string& ref ){
 
     if (!teststring(s))      throw SEBException("Bad symbol in variable name:"+s  , "getSymbol(const string&,const string&,const string&)");
     if (!teststring(tag))    throw SEBException("Bad symbol in variable name:"+s  , "getSymbol(const string&,const string&,const string&)");
@@ -154,13 +157,13 @@ const symbol& SymbolInterface::getSymbol( const string& s, const string& tag, co
 
     string si;
     si = s+"_"+tag+":"+ref;
-    return get(si);
+    return Expression(get(si));
 }
 
 //  E.g.  psi   sub_unit/structure   r1, r2
-const symbol& SymbolInterface::getSymbol(const string& s, const string& tag, const string& index1, const string& index2 ){
+Expression SymbolInterface::getSymbol(const string& s, const string& tag, const string& index1, const string& index2 ){
 
-    if (!teststring(s))      throw SEBException("Bad symbol in variable name:"+s,"getSymbol(const string&)");  
+    if (!teststring(s))      throw SEBException("Bad symbol in variable name:"+s,"getSymbol(const string&)");
     if (!teststring(tag))    throw SEBException("Bad symbol in variable name:"+tag  , "getSymbol(const string&,const string&,const string&)");
     if (!teststring(index1))  throw SEBException("Bad symbol in index name:"+index1 , "getSymbol(const string&,const string&,const string&)");
     if (!teststring(index2))  throw SEBException("Bad symbol in index name:"+index2 , "getSymbol(const string&,const string&,const string&)");
@@ -169,53 +172,36 @@ const symbol& SymbolInterface::getSymbol(const string& s, const string& tag, con
     if (index1<index2) si = s+"_"+tag+":"+index1+","+index2;
                   else si = s+"_"+tag+":"+index2+","+index1;
 
-    return get(si);
+    return Expression(get(si));
 }
 
-// Provide symbol table in GiNAC data structure. GINAC Parsing fails because : not allowed in identifiers.
-symtab SymbolInterface::getSymbolTable()
+// Provide symbol table
+map<string, SymExprPtr> SymbolInterface::getSymbolTable()
 {
-    symtab table;
-    
-    for (auto const& x : symbolDirectory)
-         table[x.first]=x.second;
-
-    return table;
+    return symbolDirectory;
 }
 
 
 
 
-string to_string_cform(ex e)
+string to_string_cform(const SymExprPtr& expr)
 {
-    ostringstream oss;
-    oss << csrc_double << e;
-    string tmp=oss.str();
-    return tmp;
+    return expr->to_cform();
 }
 
-string to_string_python(ex e)
+string to_string_python(const SymExprPtr& expr)
 {
-    ostringstream oss;
-    oss << python << e;
-    string tmp=oss.str();
-    return tmp;
+    return expr->to_python();
 }
 
-string to_string_latex(ex e)
+string to_string_latex(const SymExprPtr& expr)
 {
-    ostringstream oss;
-    oss << latex << e;
-    string tmp=oss.str();
-    return tmp;
+    return expr->to_latex();
 }
 
-string to_string(ex e)
+string to_string(const SymExprPtr& expr)
 {
-    ostringstream oss;
-    oss << e;
-    string tmp=oss.str();
-    return tmp;
+    return expr->to_string();
 }
 
 

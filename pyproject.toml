@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=42", "wheel", "cmake>=3.18", "scikit-build>=0.11.0", "pybind11>=2.6.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyseb"
+version = "0.1.0"
+description = "Python bindings for the Scattering Equation Builder (SEB) library"
+readme = "README.md"
+authors = [
+    {name = "SEB Team"}
+]
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "numpy",
+    "matplotlib",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Tobionecenobi/SEB"
+"Bug Tracker" = "https://github.com/Tobionecenobi/SEB/issues"

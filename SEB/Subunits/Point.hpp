@@ -19,12 +19,12 @@
 class Point : public SubUnit{
 
     public:
-        Point() : SubUnit(){    
+        Point() : SubUnit(){
             type = SUBUNITCHILD;
            stype = POINT;
             setName("Point");
         }
-        
+
     virtual ~Point(){}
 
     virtual void Init(string name, string tag, SymbolInterface *GEX)
@@ -32,7 +32,7 @@ class Point : public SubUnit{
         // Initialize base class
         SubUnit::Init(name, tag, GEX);
         string n = getTag();
-        
+
         // ========================================================================================
         // Setup reference points
 
@@ -41,11 +41,11 @@ class Point : public SubUnit{
 
         // ========================================================================================
         // Scattering expressions
-        
+
         // Form factor
         FormFactorExpression = 0;
 
-        // Form factor amplitude expression relative to all reference points.        
+        // Form factor amplitude expression relative to all reference points.
         FormFactorAmplitudeExpressions["point"]      = 0;
 
         // ========================================================================================
@@ -59,23 +59,23 @@ class Point : public SubUnit{
         sigmaMSDref2scat["point"]    = 0;
         sigmaMSDref2ref["point"]["point"]  = 0;
     }
-    
+
     // Override form factor, since we assume beta=0 for a point we just return zero.
-    virtual ex FormFactor(ParameterList&  betas, ParameterList&  params, int varForm = GENERIC )
+    virtual Expression FormFactor(ParameterList&  betas, ParameterList&  params, int varForm = GENERIC )
     {
-      return ex(0); 
+      return constant(0);
     }
 
     //  Override form factor amplitude, since we assume beta=0 for a point we just return zero.
-    virtual ex FormFactorAmplitude(refPoint r, ParameterList&  betas, ParameterList&  params, int varForm = GENERIC )
+    virtual Expression FormFactorAmplitude(refPoint r, ParameterList&  betas, ParameterList&  params, int varForm = GENERIC )
     {
-      return ex(0); 
+      return constant(0);
     }
 
     // A point introduces no distance, hence traversing it causes a phase factor of 1.
-    virtual ex PhaseFactor(refPoint r1, refPoint r2, ParameterList&  betas, ParameterList&  params, int varForm = GENERIC )
+    virtual Expression PhaseFactor(refPoint r1, refPoint r2, ParameterList&  betas, ParameterList&  params, int varForm = GENERIC )
     {
-      return ex(1); 
+      return constant(1);
     }
 
 };

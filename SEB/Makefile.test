@@ -1,0 +1,26 @@
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -Wextra -I.
+LDFLAGS = -lginac -lcln
+
+# Test targets
+TEST_EXPRESSION = test_expression
+
+# Source files
+TEST_EXPRESSION_SRC = test_expression.cpp GiNaCSymbolic.cpp SymbolicInterface.cpp
+
+# Default target
+all: $(TEST_EXPRESSION)
+
+# Build test_expression
+$(TEST_EXPRESSION): $(TEST_EXPRESSION_SRC)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
+
+# Run test_expression
+run_test_expression: $(TEST_EXPRESSION)
+	./$(TEST_EXPRESSION)
+
+# Clean up
+clean:
+	rm -f $(TEST_EXPRESSION)
+
+.PHONY: all run_test_expression clean

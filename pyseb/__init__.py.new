@@ -1,0 +1,47 @@
+"""
+Python bindings for the Scattering Equation Builder (SEB) library.
+
+SEB is a C++ library that allows you to build structures from sub-units such as spheres, 
+polymers, rods, etc., and obtain their scattering properties symbolically.
+"""
+
+import sympy
+from ._pyseb import World, GraphID, SymbolicExpression, SymbolicFactory
+from .symbolic import SymPyExpression, SymPyFactory, evaluate_expression
+from .subunits import (
+    GaussianPolymer,
+    GaussianLoop,
+    ThinCircle,
+    ThinRod,
+    ThinDisk,
+    ThinSphericalShell,
+    SolidSphere,
+    SolidSphericalShell,
+    SolidCylinder,
+    Point
+)
+
+# Set up the SymPy factory as the default symbolic engine
+_sympy_factory = SymPyFactory()
+SymbolicFactory.setInstance(_sympy_factory)
+
+# Convenience functions
+def to_python(expr):
+    """Convert a symbolic expression to a Python string."""
+    if isinstance(expr, SymbolicExpression):
+        return expr.to_python()
+    return str(expr)
+
+def to_latex(expr):
+    """Convert a symbolic expression to a LaTeX string."""
+    if isinstance(expr, SymbolicExpression):
+        return expr.to_latex()
+    return sympy.latex(expr)
+
+def to_cform(expr):
+    """Convert a symbolic expression to a C/C++ string."""
+    if isinstance(expr, SymbolicExpression):
+        return expr.to_cform()
+    return sympy.ccode(expr)
+
+__version__ = "0.1.0"

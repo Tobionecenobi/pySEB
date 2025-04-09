@@ -7,7 +7,7 @@
 
    This file implements the scattering terms of a closed random walk loop
    where the internal chain statistics is Gaussian.
-      
+
    A loop has one distributed reference point:
          contour        A random selected point along the contour [0:L]
 
@@ -15,21 +15,21 @@
    to the step length of the random walk b and the total contour length
    of the loop L as Rg^2 = bL/12  which is exactly half of that of a
    linear random walk.
-   
 
 
-   See RWloop.nb / RWloop.pdf  for derivations.   
+
+   See RWloop.nb / RWloop.pdf  for derivations.
 ============================================================================= */
 
 
 class GaussianLoop : public SubUnit{
 
     public:
-        GaussianLoop() : SubUnit(){    
+        GaussianLoop() : SubUnit(){
             type = SUBUNITCHILD;
            stype = GAUSSIANLOOP;
         }
-        
+
     virtual ~GaussianLoop(){}
 
     virtual void Init(string name, string tag, SymbolInterface *GEX)
@@ -37,18 +37,18 @@ class GaussianLoop : public SubUnit{
         // Initialize base class
         SubUnit::Init(name, tag, GEX);
         string n = getTag();
-        
+
         // ========================================================================================
         // Setup reference points
 
         // distributed reference points for a polymer
         setDistReferencePointType("contour");
-         
+
         // ========================================================================================
         // Define symbols via GLEX interface
-        symbol q    = GLEX->getSymbol("q");        // Global q
-        symbol Rg   = GLEX->getSymbol("Rg", n);    // For RWloops we use the radius of gyration to define its size
-        symbol x    = GLEX->getSymbol("x", n);     // The natural dimensionless variable
+        Expression q    = GLEX->getSymbol("q");        // Global q
+        Expression Rg   = GLEX->getSymbol("Rg", n);    // For RWloops we use the radius of gyration to define its size
+        Expression x    = GLEX->getSymbol("x", n);     // The natural dimensionless variable
 
 
         // ========================================================================================
@@ -60,11 +60,11 @@ class GaussianLoop : public SubUnit{
 
         // ========================================================================================
         // Scattering expressions
-        
+
         // Form factor for RWloop
         FormFactorExpression = DawsonF(x)/x;
-        
-        // Form factor amplitude expression relative to all reference points.        
+
+        // Form factor amplitude expression relative to all reference points.
         FormFactorAmplitudeExpressions["contour"]    = FormFactorExpression;
         PhaseFactorExpressions["contour"]["contour"] =  FormFactorExpression;
 

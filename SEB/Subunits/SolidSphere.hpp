@@ -7,25 +7,25 @@
 /*===========================================================================
 
    This file implements the scattering terms of a homogeneous solid sphere.
-   
+
    The sphere has two reference points:
           center     The geometric point at the center of the sphere.
           surface    A randomly selected point on the surface at radius R.
-   
+
    We choose R, the radius as the characteristic length scale. Hence the
    dimensionless variable x=qR is used to express scattering expressions.
 
    The form factor was originally derived by Releigh in
    Lord Rayleigh, Proc. Roy. Soc. London, Ser. A, 84 (1911) 25-38.
-   
+
    See Sphere.nb / Sphere.pdf for derivations.
 ============================================================================= */
 
 class SolidSphere : public SubUnit {
-    public: 
+    public:
     /*Constructor*/
-    public: 
-        SolidSphere() : SubUnit(){    
+    public:
+        SolidSphere() : SubUnit(){
             type = SUBUNITCHILD;
            stype = SOLIDSPHERE;
         }
@@ -43,14 +43,14 @@ class SolidSphere : public SubUnit {
         // specific reference points for a sphere
         setReferencePointName("center");
 
-        // distributed reference points for a sphere        
+        // distributed reference points for a sphere
         setDistReferencePointType("surface");
 
         // ========================================================================================
         // Define symbols
-        symbol q    = GLEX->getSymbol("q");
-        symbol x    = GLEX->getSymbol("x", n); 
-        symbol R    = GLEX->getSymbol("R", n);
+        Expression q    = GLEX->getSymbol("q");
+        Expression x    = GLEX->getSymbol("x", n);
+        Expression R    = GLEX->getSymbol("R", n);
 
         // ========================================================================================
         // Define mapping between dimensionless variables and scattering expressions using R and q as variables:
@@ -62,16 +62,16 @@ class SolidSphere : public SubUnit {
 
         // ========================================================================================
         // Scattering expressions
-        
-        ex A = 3*(sin(x)-x*cos(x))/pow(x,3);  // Amplitude relative to center of sphere as derived by Rayleigh.
-        
+
+        Expression A = 3*(sin(x)-x*cos(x))/pow(x,3);  // Amplitude relative to center of sphere as derived by Rayleigh.
+
         FormFactorExpression = A*A;
 
-        // Form factor amplitude expression relative to all reference points.        
+        // Form factor amplitude expression relative to all reference points.
 
         FormFactorAmplitudeExpressions["center"]  = A;
         FormFactorAmplitudeExpressions["surface"] = A*sin(x)/x;
-        
+
         // ========================================================================================
         // Phase factors
         // We need phase factors for all reference point pairs except a specific reference point and itself, since PhaseFactor[X][X]=1.
@@ -81,7 +81,7 @@ class SolidSphere : public SubUnit {
 
         // between two random points on the surface
         PhaseFactorExpressions["surface"]["surface"] = pow(sin(x)/x,2);
-        
+
 
         // ========================================================================================
         // Sizes
@@ -102,7 +102,7 @@ class SolidSphere : public SubUnit {
 
         // between two random points on the surface
         sigmaMSDref2ref["surface"]["surface"]     = 2*R*R;          // sigma=2, <R^2_surface_to_surface> = R^2
-       
+
     }
 
 };

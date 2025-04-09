@@ -7,37 +7,36 @@
 // included dependencies
 
 #include <sstream>
-#include <ginac/ginac.h>
+#include <map>
+#include <string>
+#include "SymbolicInterface.hpp"
 #include "Exceptions.hpp"
 
-
-using namespace GiNaC;
 using namespace std;
 
-// Helpers to convert GiNaC expressions to string representation
-
-string to_string_cform(ex);
-string to_string_python(ex);
-string to_string_latex(ex);
-string to_string(ex);
+// Helpers to convert symbolic expressions to string representation
+string to_string_cform(const SymExprPtr& expr);
+string to_string_python(const SymExprPtr& expr);
+string to_string_latex(const SymExprPtr& expr);
+string to_string(const SymExprPtr& expr);
 
 
 /*
     This thin interface ensures that the symbolic variables always has the
     same format, such that they can be simplified automatically.
-    
+
     One argument:
     Rg, X, L                            is Rg, X, L
-    
+
     Two arguments:
     F  <subunit>                        is  F_subunit
-    
+
     Three arguments:
     A <subunit> refpoint                is  A_subunit:refpoint
-    
+
     Four arguments:
     Psi <subunit> refpoint1 refpoint2   is  Psi_subunit:refpoint1,refpoint2  (where refpoints are alphabetically sorted).
-        
+
     The interface also generates latex output strings for these in case
     \beta or \Psi are part of the name.
 */
@@ -46,12 +45,12 @@ string to_string(ex);
 class SymbolInterface{
     private:
     static SymbolInterface* myInstance;
-    map<string, symbol> symbolDirectory;
+    map<string, SymExprPtr> symbolDirectory;
 
-// What is this used for?    
-//    map<pair<string, string>, symbol> latexSymbolDirectory;
-//    map<idx, ex> indexDirectory;
-//    list<ex> expressionList;
+// What is this used for?
+//    map<pair<string, string>, SymExprPtr> latexSymbolDirectory;
+//    map<idx, SymExprPtr> indexDirectory;
+//    list<SymExprPtr> expressionList;
 
     // Transforms a string for a symbol into a Latex formatted string.
     string string2latex(const string& s);
@@ -75,13 +74,13 @@ class SymbolInterface{
     static SymbolInterface* instance();
 
     // From a string, return the corresponding symbol. This is required to ensure symbol object is unique for a given string.
-    const symbol& get( const string& s );
+    const SymExprPtr& get( const string& s );
 
     // Returns a standard utf8 symbol or if input is an array of size 2 it returns utf8 symbol and its latex format
-    const symbol& getSymbol( const string& s );
-    const symbol& getSymbol( const string& s, const string& index1 );
-    const symbol& getSymbol( const string& s, const string& index1, const string& index2 );
-    const symbol& getSymbol( const string& s, const string& index1, const string& index2, const string& index3 );
+    Expression getSymbol( const string& s );
+    Expression getSymbol( const string& s, const string& index1 );
+    Expression getSymbol( const string& s, const string& index1, const string& index2 );
+    Expression getSymbol( const string& s, const string& index1, const string& index2, const string& index3 );
 
     // tests if user specified name is a valid string
     bool testnamestring(const string& s);
@@ -89,15 +88,15 @@ class SymbolInterface{
     // tests if user specified reference point is a valid string
     bool teststring(const string& s);
 
-    symtab getSymbolTable();
+    map<string, SymExprPtr> getSymbolTable();
 
 //    template <typename... Args>
 //    const symbol& getIndex( std::string s, std::string latex , Args... indices);
-        
+
     //takes up to 5 ex and the first is a symbol the other 4 is indicies
     /*Variadic function templates in C++*/
     // template <typename ex, typename... exs> const ex  getIndex(ex var1, exs... var2);
-    
+
     // const ex  getIndex( const ex s, const ex s1);
     // const ex  getIndex( const ex s, const ex s1, const ex s2);
     // const ex  getIndex( const ex s, const ex s1, const ex s2, const ex s3);

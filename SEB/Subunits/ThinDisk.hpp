@@ -7,11 +7,11 @@
 /*===========================================================================
 
    This file implements the scattering terms of a infinitesimal thin disk.
-   
+
    The Shell has two reference points:
           center     The geometric point at the center of the disk.
           surface    A randomly selected point on the surface of the disk.
-   
+
    We choose R the radius as the characteristic length scales.
    Hence the dimensionless variable is x=qR.
 
@@ -19,10 +19,10 @@
 ============================================================================= */
 
 class ThinDisk : public SubUnit {
-    public: 
+    public:
     /*Constructor*/
-    public: 
-        ThinDisk() : SubUnit(){    
+    public:
+        ThinDisk() : SubUnit(){
             type = SUBUNITCHILD;
            stype = THINDISK;
         }
@@ -40,15 +40,15 @@ class ThinDisk : public SubUnit {
         // specific reference points for a ThinDisk
         setReferencePointName("center");
 
-        // distributed reference points for a ThinDisk        
+        // distributed reference points for a ThinDisk
         setDistReferencePointType("surface");
         setDistReferencePointType("rim");
 
         // Define symbols
-        symbol q    = GLEX->getSymbol("q");
-        symbol x    = GLEX->getSymbol("x", n); 
-        symbol R    = GLEX->getSymbol("R", n);
-        symbol t    = GLEX->getSymbol("t", n);
+        Expression q    = GLEX->getSymbol("q");
+        Expression x    = GLEX->getSymbol("x", n);
+        Expression R    = GLEX->getSymbol("R", n);
+        Expression t    = GLEX->getSymbol("t", n);
 
         // ========================================================================================
         // Define mapping between dimensionless variables and scattering expressions using R and q as variables:
@@ -60,17 +60,17 @@ class ThinDisk : public SubUnit {
 
         // ========================================================================================
         // Scattering expressions
-        
-        ex Ac = integral(t, 0, Pi/2, 2*BesselJ1(x*sin(t))/x );                                       // Amplitude relative to center of a thin spherical shell
-        
+
+        Expression Ac = integral(t, 0, pi()/2, 2*BesselJ1(x*sin(t))/x );                                       // Amplitude relative to center of a thin spherical shell
+
         FormFactorExpression = 2*(x-BesselJ1(2*x))/pow(x,3);
 
-        // Form factor amplitude expression relative to all reference points.        
+        // Form factor amplitude expression relative to all reference points.
 
         FormFactorAmplitudeExpressions["center"]   = Ac;
         FormFactorAmplitudeExpressions["surface"]  = FormFactorExpression;
-        FormFactorAmplitudeExpressions["rim"]      = integral(t, 0, Pi/2, 2*BesselJ0(x*sin(t))*BesselJ1(x*sin(t))/x ); 
-        
+        FormFactorAmplitudeExpressions["rim"]      = integral(t, 0, Pi/2, 2*BesselJ0(x*sin(t))*BesselJ1(x*sin(t))/x );
+
         // ========================================================================================
         // Phase factors
         // We need phase factors for all reference point pairs except a specific reference point and itself, since PhaseFactor[X][X]=1.
@@ -79,7 +79,7 @@ class ThinDisk : public SubUnit {
         PhaseFactorExpressions["center"]["surface"]    = Ac;
         PhaseFactorExpressions["surface"]["surface"]   = FormFactorExpression;
         PhaseFactorExpressions["center"]["rim"]        = sin(x)/x;
-        PhaseFactorExpressions["rim"]["surface"]       = integral(t, 0, Pi/2, 2*BesselJ0(x*sin(t))*BesselJ1(x*sin(t))/x ); 
+        PhaseFactorExpressions["rim"]["surface"]       = integral(t, 0, Pi/2, 2*BesselJ0(x*sin(t))*BesselJ1(x*sin(t))/x );
         PhaseFactorExpressions["rim"]["rim"]           = BesselJ0(2*x)+Pi/2*(BesselJ1(2*x)*StruveH0(2*x)-BesselJ0(2*x)*StruveH1(2*x));
 
         // ========================================================================================
@@ -93,7 +93,7 @@ class ThinDisk : public SubUnit {
         sigmaMSDref2scat["center"]    = R*R/2;
         sigmaMSDref2scat["surface"]   = R*R;
         sigmaMSDref2scat["rim"]       = 3*R*R/2;
-        
+
         // sigma <R^2> for all distances between pairs of reference points.
         // These are exactly the Guinier expansions of the corresponding phasefactors
 

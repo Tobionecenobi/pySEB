@@ -2,7 +2,7 @@
 #include <set>
 #include <vector>
 #include <utility>
-#include "SymbolInterface.hpp"
+#include "Expression.hpp"
 using namespace std;
 
 //===========================================================================
@@ -20,6 +20,7 @@ typedef pair<refPoint, refPoint> link;
 
 typedef set<refPoint> ReferencePointSet;     // Set of reference points, fast for querying.
 typedef list<refPoint> ReferencePointList;   // Paths are lists of reference point strings
-typedef exmap ParameterList;                 // Lists of parameters with their associated values.
+typedef std::map<std::string, double> ParameterList;  // Lists of parameters with their associated values.
+typedef Expression ex;                          // Symbolic expression type
 
 typedef vector<double> DoubleVector;         // Vectors of values.
