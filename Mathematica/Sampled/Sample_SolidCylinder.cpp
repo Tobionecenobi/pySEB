@@ -8,11 +8,11 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <cmath>
 namespace fs = std::filesystem;
 
 #include <iostream>
 #include <random>
-#include <numbers>
 #include "DebyeSampler.hpp"
 
 using namespace std;
@@ -27,8 +27,14 @@ void Sample(double R, double L)
    
    uniform_real_distribution<double> dist(-1,1);
    uniform_real_distribution<double> unit(0,1);
+   
+   // Reduce sample size for testing
+   #ifdef TESTING
+   int N = 1000;
+   #else
    int N = 100000000;
-
+   #endif
+   
    vector<double> qvec;
    double qmin=1;
    double qmax=50;
@@ -60,8 +66,8 @@ void Sample(double R, double L)
    Sampler PF_point_surface(qvec,  dir+"PF_point_surface.q");
    Sampler PF_surface_surface(qvec, dir+"PF_surface_surface.q");
 
-   double Ahull=2*std::numbers::pi*R*L;
-   double Aend=std::numbers::pi*R*R;
+   double Ahull=2*M_PI*R*L;
+   double Aend=M_PI*R*R;
   
    double Phull = Ahull/(Ahull+2*Aend);   // Area fraction of outside is [0:Pout] whereas [Pout:1] is the inner surface
    

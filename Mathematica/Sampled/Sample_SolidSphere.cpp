@@ -21,6 +21,13 @@ void Sample(double R)
    uniform_real_distribution<double> dist(-R,R);
    uniform_real_distribution<double> unit(0,1);
 
+   // Reduce sample size for testing
+   #ifdef TESTING
+   int N = 1000;
+   #else
+   int N = 100000000;
+   #endif
+
    vector<double> qvec;
    double qmin=1;
    double qmax=50;
@@ -38,7 +45,6 @@ void Sample(double R)
    Sampler PF_center_surface(qvec,   dir+"PF_center_surface.q");
    Sampler PF_surface_surface(qvec,  dir+"PF_surface_surface.q");
 
-   int N = 100000000;
    
    double sample_center_sphere=0;
    double sample_center_surface=0;

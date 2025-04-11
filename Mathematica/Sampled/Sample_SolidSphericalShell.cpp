@@ -28,7 +28,12 @@ void Sample(double Ri, double Ro)
 
    uniform_real_distribution<double> dist(-Ro,Ro);
  
+   // Reduce sample size for testing
+   #ifdef TESTING
+   int N = 1000;
+   #else
    int N = 100000000;
+   #endif
   
    vector<double> qvec;
    double qmin=0.1;

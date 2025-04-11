@@ -1,4 +1,4 @@
-#include <numbers>
+#include <cmath>
 
 /*
    Various generators for randomly distributed 3D vectors.
@@ -73,7 +73,7 @@ void RandomDisk(double R, double &x, double &y, double &z, auto& dist)
 // Random point on a circle with radius R
 void RandomCircle(double R, double &x, double &y, double &z, auto& dist)
 {
-    double theta=std::numbers::pi*dist(re);
+    double theta=M_PI*dist(re);
 
     x=R*cos(theta);
     y=R*sin(theta);
@@ -98,7 +98,7 @@ void RandomSolidCylinder(double L, double R, double &x, double &y, double &z, au
 // Random point on a circle with radius R
 void RandomCylinderHull(double L, double R, double &x, double &y, double &z, auto& dist)
 {
-    double theta=std::numbers::pi*dist(re);
+    double theta=M_PI*dist(re);
 
     x=R*cos(theta);
     y=R*sin(theta);
