@@ -19,7 +19,8 @@ class SubUnit : public ABSSubUnit
 {
     protected:
 
-    /* Every subunit has a unique name, so we can e.g. uniquely refer to its reference points when linking.  */
+    /* Every subunit has a unique name, so we can e.g. uniquely refer to its reference points when linking. */
+    // Updated references to `link` to avoid conflicts.
     subName sub_name;
 
     /* Groups of sub-units might represent structurally idential sub-units, we tag them with the same string to mark

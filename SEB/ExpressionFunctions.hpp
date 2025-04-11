@@ -113,24 +113,24 @@ inline Expression SMALL() {
     return Expression(SymbolicExpression::constant(1e-6));
 }
 
-// Integration function
-inline Expression integral(const Expression& var, const Expression& a, const Expression& b, const Expression& integrand) {
+// Integration function (renamed from integral to avoid C++20 conflict)
+inline Expression integrate(const Expression& var, const Expression& a, const Expression& b, const Expression& integrand) {
     // This is a placeholder implementation
     // In a real implementation, you would perform numerical integration
     return integrand * (b - a);
 }
 
-// Overloads for integral function to handle integers
-inline Expression integral(const Expression& var, int a, const Expression& b, const Expression& integrand) {
-    return integral(var, Expression(SymbolicExpression::constant(a)), b, integrand);
+// Overloads for integrate function to handle integers
+inline Expression integrate(const Expression& var, int a, const Expression& b, const Expression& integrand) {
+    return integrate(var, Expression(SymbolicExpression::constant(a)), b, integrand);
 }
 
-inline Expression integral(const Expression& var, const Expression& a, int b, const Expression& integrand) {
-    return integral(var, a, Expression(SymbolicExpression::constant(b)), integrand);
+inline Expression integrate(const Expression& var, const Expression& a, int b, const Expression& integrand) {
+    return integrate(var, a, Expression(SymbolicExpression::constant(b)), integrand);
 }
 
-inline Expression integral(const Expression& var, int a, int b, const Expression& integrand) {
-    return integral(var, Expression(SymbolicExpression::constant(a)), Expression(SymbolicExpression::constant(b)), integrand);
+inline Expression integrate(const Expression& var, int a, int b, const Expression& integrand) {
+    return integrate(var, Expression(SymbolicExpression::constant(a)), Expression(SymbolicExpression::constant(b)), integrand);
 }
 
 // Hypergeometric function

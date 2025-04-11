@@ -61,7 +61,7 @@ class ThinDisk : public SubUnit {
         // ========================================================================================
         // Scattering expressions
 
-        Expression Ac = integral(t, 0, pi()/2, 2*BesselJ1(x*sin(t))/x );                                       // Amplitude relative to center of a thin spherical shell
+        Expression Ac = integrate(t, 0, pi()/2, 2*BesselJ1(x*sin(t))/x );                                       // Amplitude relative to center of a thin spherical shell
 
         FormFactorExpression = 2*(x-BesselJ1(2*x))/pow(x,3);
 
@@ -69,7 +69,7 @@ class ThinDisk : public SubUnit {
 
         FormFactorAmplitudeExpressions["center"]   = Ac;
         FormFactorAmplitudeExpressions["surface"]  = FormFactorExpression;
-        FormFactorAmplitudeExpressions["rim"]      = integral(t, 0, Pi()/2, 2*BesselJ0(x*sin(t))*BesselJ1(x*sin(t))/x );
+        FormFactorAmplitudeExpressions["rim"]      = integrate(t, 0, Pi()/2, 2*BesselJ0(x*sin(t))*BesselJ1(x*sin(t))/x );
 
         // ========================================================================================
         // Phase factors
@@ -79,7 +79,7 @@ class ThinDisk : public SubUnit {
         PhaseFactorExpressions["center"]["surface"]    = Ac;
         PhaseFactorExpressions["surface"]["surface"]   = FormFactorExpression;
         PhaseFactorExpressions["center"]["rim"]        = sin(x)/x;
-        PhaseFactorExpressions["rim"]["surface"]       = integral(t, 0, Pi()/2, 2*BesselJ0(x*sin(t))*BesselJ1(x*sin(t))/x );
+        PhaseFactorExpressions["rim"]["surface"]       = integrate(t, 0, Pi()/2, 2*BesselJ0(x*sin(t))*BesselJ1(x*sin(t))/x );
         PhaseFactorExpressions["rim"]["rim"]           = BesselJ0(2*x)+Pi()/2*(BesselJ1(2*x)*StruveH0(2*x)-BesselJ0(2*x)*StruveH1(2*x));
 
         // ========================================================================================

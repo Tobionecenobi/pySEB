@@ -66,7 +66,7 @@ GraphID World::Add(GraphID gid, structName name)
 try{
     if (!GLEX->testnamestring(name))      throw SEBException("Bad symbol in structure name:"+name );
     if (!testGraphID(gid))                throw SEBException("Bad graphid:"+to_string(gid) );
-    if (hasName(name))                    throw SEBException("Name "+name+" already exists in the world");
+    if (!hasName(name))                    throw SEBException("Name "+name+" already exists in the world");
 
     Structure *struc = new Structure(name, gid, GLEX);
     totalNumberofGraphs++;
@@ -1383,12 +1383,10 @@ Expression World::PhaseFactor(ReferencePointList& path, int depth, string myself
 
 /* Sorts the link in ascii order so the smallest ascii number comes first in the link where a link = pair<refpoint, refpoint>
    The sanity of the strings should have been tested before here*/
-link World::generateLink(refPoint r1, refPoint r2)
+LinkPair World::generateLink(refPoint r1, refPoint r2)
 {
-    if (r1==r2) throw SEBException("A reference point cannot be linked with itself", "World::generateLink(refPoint r1="+r1+", refPoint r2="+r2+")");
-
-    if (r1<r2) return link(r1,r2);
-          else return link(r2,r1);
+    if (r1 == r2) throw SEBException("A reference point cannot be linked with itself", "World::generateLink(refPoint r1=" + r1 + ", refPoint r2=" + r2 + ")");
+    return make_pair(r1, r2);
 }
 
 

@@ -85,30 +85,30 @@ class SolidCylinder : public SubUnit {
         Expression Psi_center2surface_qvec = (Surface_hull*Psi_center2hull_qvec+Surface_ends*Psi_center2ends_qvec)/(Surface_hull+Surface_ends);
 
         // Form factor is the orientational averege of A_qvec^2.
-        FormFactorExpression = integral(t, SMALL(), Pi()/2, sin(t)* A_qvec*A_qvec );
+        FormFactorExpression = integrate(t, SMALL(), Pi()/2, sin(t)* A_qvec*A_qvec );
 
         // Form factor amplitude expression relative to all reference points are orientational integrals over A_qvec and Psi_center_to_X_qvec
-        FormFactorAmplitudeExpressions["center"]      = integral(t, SMALL(), Pi()/2, sin(t)*A_qvec );
-        FormFactorAmplitudeExpressions["ends"]        = integral(t, SMALL(), Pi()/2, sin(t)*A_qvec*Psi_center2ends_qvec );
-        FormFactorAmplitudeExpressions["hull"]        = integral(t, SMALL(), Pi()/2, sin(t)*A_qvec*Psi_center2hull_qvec );
-        FormFactorAmplitudeExpressions["surface"]     = integral(t, SMALL(), Pi()/2, sin(t)*A_qvec*Psi_center2surface_qvec );
+        FormFactorAmplitudeExpressions["center"]      = integrate(t, SMALL(), Pi()/2, sin(t)*A_qvec );
+        FormFactorAmplitudeExpressions["ends"]        = integrate(t, SMALL(), Pi()/2, sin(t)*A_qvec*Psi_center2ends_qvec );
+        FormFactorAmplitudeExpressions["hull"]        = integrate(t, SMALL(), Pi()/2, sin(t)*A_qvec*Psi_center2hull_qvec );
+        FormFactorAmplitudeExpressions["surface"]     = integrate(t, SMALL(), Pi()/2, sin(t)*A_qvec*Psi_center2surface_qvec );
 
         // ========================================================================================
         // Phase factors
         // We need phase factors for all reference point pairs except a specific reference point and itself, since PhaseFactor[X][X]=1.
 
-        PhaseFactorExpressions["center"]["ends"]     = integral(t, SMALL(), Pi()/2, sin(t)*Psi_center2ends_qvec );
-        PhaseFactorExpressions["center"]["hull"]     = integral(t, SMALL(), Pi()/2, sin(t)*Psi_center2hull_qvec );
-        PhaseFactorExpressions["center"]["surface"]  = integral(t, SMALL(), Pi()/2, sin(t)*Psi_center2surface_qvec );
+        PhaseFactorExpressions["center"]["ends"]     = integrate(t, SMALL(), Pi()/2, sin(t)*Psi_center2ends_qvec );
+        PhaseFactorExpressions["center"]["hull"]     = integrate(t, SMALL(), Pi()/2, sin(t)*Psi_center2hull_qvec );
+        PhaseFactorExpressions["center"]["surface"]  = integrate(t, SMALL(), Pi()/2, sin(t)*Psi_center2surface_qvec );
 
-        PhaseFactorExpressions["ends"]["ends"]       = integral(t, SMALL(), Pi()/2, sin(t)*Psi_center2ends_qvec*Psi_center2ends_qvec );
-        PhaseFactorExpressions["ends"]["hull"]       = integral(t, SMALL(), Pi()/2, sin(t)*Psi_center2hull_qvec*Psi_center2ends_qvec );
-        PhaseFactorExpressions["ends"]["surface"]    = integral(t, SMALL(), Pi()/2, sin(t)*Psi_center2ends_qvec*Psi_center2surface_qvec );
+        PhaseFactorExpressions["ends"]["ends"]       = integrate(t, SMALL(), Pi()/2, sin(t)*Psi_center2ends_qvec*Psi_center2ends_qvec );
+        PhaseFactorExpressions["ends"]["hull"]       = integrate(t, SMALL(), Pi()/2, sin(t)*Psi_center2hull_qvec*Psi_center2ends_qvec );
+        PhaseFactorExpressions["ends"]["surface"]    = integrate(t, SMALL(), Pi()/2, sin(t)*Psi_center2ends_qvec*Psi_center2surface_qvec );
 
-        PhaseFactorExpressions["hull"]["hull"]       = integral(t, SMALL(), Pi()/2, sin(t)*Psi_center2hull_qvec*Psi_center2hull_qvec );
-        PhaseFactorExpressions["hull"]["surface"]    = integral(t, SMALL(), Pi()/2, sin(t)*Psi_center2hull_qvec*Psi_center2surface_qvec );
+        PhaseFactorExpressions["hull"]["hull"]       = integrate(t, SMALL(), Pi()/2, sin(t)*Psi_center2hull_qvec*Psi_center2hull_qvec );
+        PhaseFactorExpressions["hull"]["surface"]    = integrate(t, SMALL(), Pi()/2, sin(t)*Psi_center2hull_qvec*Psi_center2surface_qvec );
 
-        PhaseFactorExpressions["surface"]["surface"] = integral(t, SMALL(), Pi()/2, sin(t)*Psi_center2surface_qvec*Psi_center2surface_qvec );
+        PhaseFactorExpressions["surface"]["surface"] = integrate(t, SMALL(), Pi()/2, sin(t)*Psi_center2surface_qvec*Psi_center2surface_qvec );
 
         // ========================================================================================
         // Sizes

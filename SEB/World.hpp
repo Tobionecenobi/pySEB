@@ -41,7 +41,7 @@ private:
 
            Thus LHS:RHS can be thought of as a defining LHS as containing a RHS inside it.
     */
-    list<link> links;
+    list<LinkPair> links;
 
     /* storage of all sub-units/structures known by world by their unique name. Here names not paths, so no : anywhere. */
     map<string, ABSSubUnit*> nameCatalog;
@@ -252,7 +252,7 @@ public:
     bool isVisited( refPoint& r, ReferencePointList& VisitedAlready);
 
     // Generate a link between the two reference points
-    link generateLink(refPoint r1, refPoint r2);
+    LinkPair generateLink(refPoint r1, refPoint r2);
 
     // Helper to generate product of phase factors along a given path.
     Expression PhaseFactor(ReferencePointList& path, int depth, string, int varForm, bool doCheck=true);
