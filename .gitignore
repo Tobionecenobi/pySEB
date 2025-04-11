@@ -40,3 +40,7 @@ core
 # Temporary files
 *~
 .DS_Store
+Tests/CMakeFiles
+Tests/Makefile
+Tests/Testing
+Tests/*.cmake
