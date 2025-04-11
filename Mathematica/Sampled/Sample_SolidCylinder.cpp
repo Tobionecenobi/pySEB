@@ -30,7 +30,7 @@ void Sample(double R, double L)
    
    // Reduce sample size for testing
    #ifdef TESTING
-   int N = 1000;
+   int N = 50000;
    #else
    int N = 100000000;
    #endif
