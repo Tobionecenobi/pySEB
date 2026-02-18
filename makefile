@@ -10,7 +10,7 @@
 #                            This should not be used for production code!
 #
 # Chose one of the lines below
-flags=-std=c++11   -O2     
+flags=-std=c++11   -O2   -DUSE_GINAC -DUSE_GINAC_IMPL
 
 #flags=-std=c++11  -O2     -DEXCEPTIONCOREDUMP
 #flags=-std=c++11  -ggdb -DEXCEPTIONCOREDUMP
@@ -36,7 +36,7 @@ OBJ=build/obj
 TARGETLIB=build/libseb.a
 
 # SEB depends on GiNaC and GNU Scientific library  (order matters here!)
-LIB= -lgsl -lgslcblas -lm  -lginac
+LIB= -lgsl -lgslcblas -lm  -lginac -lcln
 
 # Include path
 INC=
@@ -54,7 +54,7 @@ INCINC=${INC} -I$(SRC)
 #  it only involves three source files, this is a small price to pay compared to tracking dependencies.
 #
 
-SEBSOURCE  = $(wildcard $(SRC)/*.cpp)
+SEBSOURCE  = $(filter-out $(SRC)/test_expression.cpp,$(wildcard $(SRC)/*.cpp))
 SEBHEADERS = $(wildcard $(SRC)/*.hpp) $(wildcard $(SRCS)/*.hpp)
 SEBOBJ     = $(SEBSOURCE:$(SRC)/%.cpp=$(OBJ)/%.o)
 
