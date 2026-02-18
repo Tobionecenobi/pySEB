@@ -44,3 +44,13 @@ Tests/CMakeFiles
 Tests/Makefile
 Tests/Testing
 Tests/*.cmake
+pyseb/symbolic.py
+venv
+_skbuild
+Tests/sample_solid_sphere_test
+Tests/utility_test
+Tests/validation_test
+Tests/structure_test
+Tests/sample_thin_disk_test
+Tests/sample_solid_spherical_shell_test
+Tests/sample_solid_cylinder_test
