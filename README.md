@@ -1,3 +1,127 @@
+# Notes for this repository in developing
+
+## Release Development Goals
+
+The current development targets are:
+
+- Make setup straightforward for users with a standard Python 3 installation.
+- Enable installation with a single command: `pip install pyseb`.
+- Return scattering equations as native SymPy expressions for downstream symbolic and numerical workflows.
+- Keep GiNAC workflow as is in the old repository.
+
+## Future Development Goals
+
+- Add import/export support for `World` structures, so users can save and reload models from files.
+
+## Developer note: build options
+
+The project currently builds in multiple ways. Pick one of the workflows below.
+
+### 1) Build with Makefile (legacy workflow)
+Build everything (library + `Examples` + `PaperFigs` + `work`):
+```bash
+$ cd /home/tobi/pySEB
+$ make -j"$(nproc)"
+```
+
+Build only the core static library:
+```bash
+$ cd /home/tobi/pySEB
+$ make seb -j"$(nproc)"
+```
+
+### 2) Build with CMake + Ninja (recommended)
+```bash
+$ cd /home/tobi/pySEB
+$ cmake -S . -B build-ninja-ginac -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_GINAC=ON -DUSE_SYMPY=ON -DUSE_GINAC_IMPL=ON
+$ ninja -C build-ninja-ginac
+```
+
+### 3) Build with CMake default generator (Makefiles)
+```bash
+$ cd /home/tobi/pySEB
+$ cmake -S . -B build-cmake -DCMAKE_BUILD_TYPE=Release -DUSE_GINAC=ON -DUSE_SYMPY=ON -DUSE_GINAC_IMPL=ON
+$ cmake --build build-cmake -j"$(nproc)"
+```
+
+### 4) Build and run tests (CTest)
+```bash
+$ cd /home/tobi/pySEB
+cmake -S Tests -B Tests/build-ninja -G Ninja -DCMAKE_BUILD_TYPE=Release
+$ ninja -C Tests/build-ninja
+$ ctest --test-dir Tests/build-ninja --output-on-failure
+```
+
+### 5) Install pySEB locally with pip (developer workflow)
+Create and use a virtual environment:
+```bash
+$ cd /home/tobi/pySEB
+$ python3 -m venv venv
+$ source venv/bin/activate
+$ python -m pip install -U pip setuptools wheel
+```
+
+Editable install from source (recommended while developing):
+```bash
+$ python -m pip install -e .
+```
+
+Quick smoke test:
+```bash
+python - <<'PY'
+import pyseb
+w = pyseb.World()
+print("pyseb OK", type(w).__name__)
+PY
+```
+
+Optional: build and install wheel locally:
+```bash 
+$ python -m pip install -U build
+$ python -m build
+$ python -m pip install dist/pyseb-0.1.0-cp311-cp311-linux_x86_64.whl
+```
+
+### 6) What must be true before users can run `pip install pyseb`
+This project is close, but for a real public `pip install pyseb` release you still need:
+
+1. **Publish artifacts to PyPI**  
+  Build and upload both sdist and wheels (right now this repo can produce Linux cp311 wheel + sdist locally).
+
+2. **Build wheels for target platforms/Python versions**  
+  At minimum define supported Python versions and publish matching wheels (or clearly document source-only install requirements).
+
+3. **Stabilize test suite**  
+  Current development status has 3 segfaulting tests (`UtilityTest`, `StructureTest`, `ValidationTest`).
+
+4. **Align Python API and docs/examples**  
+  Ensure `README`/examples match actual Python binding behavior (naming and `World.Add(...)` usage).
+
+5. **CI packaging checks**  
+  Add CI jobs that run: build wheel, install wheel in clean venv, `import pyseb`, and run a minimal expression evaluation smoke test.
+
+## Current Codebase Challenges
+
+- **Test stability is not yet sufficient**  
+  Some tests still fail (including segfault cases), so reliability is not yet release-ready.
+
+- **Build workflows are fragmented**  
+  Multiple parallel build paths (Make, CMake, Ninja, Python packaging) increase maintenance overhead and developer confusion.
+
+- **Architecture is too monolithic**  
+  Core SEB logic, symbolic backend handling, and Python bindings are tightly coupled.
+  - Consider extracting symbolic backend logic into its own library/module.
+  - Consider making `pySEB` a thin consumer of a stable SEB core library API.
+
+- **Adding new sub-units has become harder**  
+  The implementation and validation path for new sub-units is more complex than before, which slows development.
+
+- **Documentation drift exists**  
+  Several Markdown docs are outdated or inconsistent with current build steps and API behavior.
+
+Current test status in this development branch: 4/7 passing, 3 tests failing with segfaults (`UtilityTest`, `StructureTest`, `ValidationTest`).
+___
+___
 # Scattering Equation Builder - SEB
 
 *SEB is a C++ library where one can build a structure by linking sub-units such as polymers or geometric shapes together and then ask SEB to analytically derive a symbolic expression for the small angle scattering of the structure.*
@@ -12,7 +136,7 @@ To give you a quick overview of how SEB works, imagine a structure that you want
 1. Here we imagine a star-polymer structure one can build from the given sub-units.
 2. Using the SEB library, we write a small C++ program to build the structure by attaching GaussianPolymer sub-units to a central point.
 3. End the code with calling ```cout << getFormFactor("PolymerStar") << endl``` to analytically calculate a symbolic expression for the form factor.
-4. Graph the equation by substituting the symbols in the equation for specific values. 
+4. Graph the equation by substituting the symbols in the equation for specific values.
 
 ### Supported Subunits
 
@@ -28,8 +152,8 @@ Overview of supported sub-units (SEB V1.0):
     **g)** a polymer loop (GaussianLoop: contour),
     **h)** a thin circle (ThinCircle: center, contour),
     **i)** a thin rod (ThinRod: end1, end2, middle, contour),
-    **j)** an invisible point (Point: point). 
-    For each sub-unit type, the parenthesis shows its SEB name and 
+    **j)** an invisible point (Point: point).
+    For each sub-unit type, the parenthesis shows its SEB name and
     reference points by which it can be linked to other sub-units.
 
 ### Example structures
@@ -56,9 +180,9 @@ If you need API information or want more examples than below on how to use SEB p
 SEB has only been compiled on linux systems and has not been extensively tested on mac OS or Windows.  If you are using Windows, we recommend using the *Windows Subsystem for Linux* (WSL), search for it in the search bar. Before downloading the source code make sure you have installed
 
 1. A working C++11 compliant compiler.
-2. A standard development environment with make and git. 
+2. A standard development environment with make and git.
 3. The [GiNaC](https://www.ginac.de/Download.html) symbolic manipulation library for C++. GiNaC depends on the CLN library.
-4. The [GNU scientific Library](https://www.gnu.org/software/gsl/) 
+4. The [GNU scientific Library](https://www.gnu.org/software/gsl/)
 
 ### SEB on Linux (Ubuntu)
 
@@ -202,6 +326,53 @@ To check the Guinier expansions e.g. of a form factor amplitude, we predict the 
 For some of the sub-unit expressions but not all, we can also use GiNaC to expand the scattering terms directly as a Taylor series around $q=0$. That automatically generates the size expressions. In that case we perform a term-by-term comparison with the 1,0, $2 \langle Rg^2 \rangle$ for form factors or 1, 0, $\sigma\langle R^2 \rangle$ for form factor amplitudes and phase factors to check that the expressions match. This does not work for special functions, where GiNaC does not know the Series expansions. The comparison also fails for expressions that are sufficiently complicated so even though $A==B$ GiNaC is not able to simplify $A-B$ to zero and hence prove their identity.
 
 
+## Symbolic Expression Abstraction Layer
+
+SEB now includes a symbolic expression abstraction layer that supports both GiNaC in C++ and SymPy in Python. This allows you to use the same codebase with either backend, depending on your needs.
+
+### Using GiNaC in C++
+
+By default, SEB uses GiNaC for symbolic computations in C++. To explicitly initialize the GiNaC backend:
+
+```cpp
+#include "SEB.hpp"
+#include "GiNaCSymbolic.hpp"
+
+int main() {
+    // Initialize the SymbolicFactory with GiNaC
+    SymbolicFactory::setInstance(new GiNaCSymbolic());
+
+    // Use SEB as normal
+    World w("World");
+    // ...
+}
+```
+
+### Using SymPy in Python
+
+The Python bindings (pySEB) use SymPy for symbolic computations. You can use pySEB with SymPy as follows:
+
+```python
+import pyseb
+import sympy
+
+# Create a world
+world = pyseb.World("World")
+
+# Add a diblock copolymer
+world.Add("diblock", "diblock")
+
+# Get the form factor expression
+form_factor = world.FormFactor("diblock")
+
+# Print the expression
+print(form_factor)
+
+# Convert to LaTeX
+latex_expr = sympy.latex(form_factor.expr)
+print(latex_expr)
+```
+
 ## Using SEB in your own C++ Code
 
 To use SEB you can either **1)** develop code in the SEB/work folder  or **2)** develop code anywhere on your computer. Option 1 allows you to reuse the SEB compilation infrastructure and no installation of SEB is required. Option 2 requires the user to manually compile the code specifying where SEB header files and library is located.
@@ -250,9 +421,9 @@ where the top line is the symbolic expression in the default format, and the bot
 
 ![image](https://github.com/Tobionecenobi/SEB/assets/22714271/99c94093-7292-46d8-a6db-10bf8a6d6617)
 
-Again we can interpret the physical origin of the three terms in this expression. The terms in the numerator are **1)** the Debye form factor of poly2, **2)** the Debye form factor of poly1, and **3)** the interference contribution between scatterers on poly1 and scatterers on poly2. The numerator is the total excess scattering length squared which is given by $(\beta_{poly1}+\beta_{poly2})^2$. 
+Again we can interpret the physical origin of the three terms in this expression. The terms in the numerator are **1)** the Debye form factor of poly2, **2)** the Debye form factor of poly1, and **3)** the interference contribution between scatterers on poly1 and scatterers on poly2. The numerator is the total excess scattering length squared which is given by $(\beta_{poly1}+\beta_{poly2})^2$.
 
-## Compiling 
+## Compiling
 
 To compile the code depends on where your code is located
 
