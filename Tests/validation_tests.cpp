@@ -7,7 +7,7 @@
 // Global initialization of the SymbolicFactory
 struct SymbolicFactoryInitializer {
     SymbolicFactoryInitializer() {
-        GiNaCSymbolic* factory = new GiNaCSymbolic();
+        GiNaCFactory* factory = new GiNaCFactory();
         SymbolicFactory::setInstance(factory);
     }
 } g_initializer;
