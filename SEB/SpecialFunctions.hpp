@@ -11,16 +11,14 @@
 #ifndef INCLUDE_GINAC_EXTENSION_SPECIALFUNCTIONS
 #define INCLUDE_GINAC_EXTENSION_SPECIALFUNCTIONS
 
-#include <ginac/ginac.h>
 #include "Expression.hpp"
-
 #include <gsl/gsl_sf_bessel.h>
 #include <gsl/gsl_sf_dawson.h>
 #include <gsl/gsl_sf_expint.h>
 #include <gsl/gsl_sf_erf.h>
 #include <gsl/gsl_sf_hyperg.h>
 
-// Forward declarations for our wrapper functions
+// Forward declarations
 class Expression;
 Expression csc(const Expression& x);
 Expression sec(const Expression& x);
@@ -36,27 +34,24 @@ Expression Hypergeometric0F1Regularized(const Expression& a, const Expression& x
 Expression StruveH0(const Expression& x);
 Expression StruveH1(const Expression& x);
 
-// These functions simplifying cut'n'pasting from Matematica into GiNaC.
-DECLARE_FUNCTION_1P(csc)                // csc(x) = 1/sin(x)
-DECLARE_FUNCTION_1P(sec)                // sec(x) = 1/cos(x)
-DECLARE_FUNCTION_2P(power)              // power(x) = pow(x)
+#ifdef USE_GINAC
+#include <ginac/ginac.h>
 
-
-DECLARE_FUNCTION_1P(BesselJ0)           // Bessel functions  BesselJ0, BesselJ1, BesselJ2(x)
+// GiNaC function declarations
+DECLARE_FUNCTION_1P(csc)
+DECLARE_FUNCTION_1P(sec)
+DECLARE_FUNCTION_2P(power)
+DECLARE_FUNCTION_1P(BesselJ0)
 DECLARE_FUNCTION_1P(BesselJ1)
 DECLARE_FUNCTION_1P(BesselJ2)
-DECLARE_FUNCTION_1P(DawsonF)            // Dawson integral   DawsonF(x)
-DECLARE_FUNCTION_1P(Si)                 // Sin integral      Si(x)          not used
-DECLARE_FUNCTION_1P(Six)                // Sin integral/x    Si(x)/x
-DECLARE_FUNCTION_1P(Erf)                // Error functions   Erf(x)
-DECLARE_FUNCTION_1P(Erfc)               //                   Erfc(x)=1-Erf(x)
-
-DECLARE_FUNCTION_2P(Hypergeometric0F1Regularized)     //  0F1 hypergeometric function   https://reference.wolfram.com/language/ref/Hypergeometric0F1Regularized.html
-
-
-// http://jean-pierre.moreau.pagesperso-orange.fr/c_function2.html :
-
-DECLARE_FUNCTION_1P(StruveH0)           // StruveH0 function
-DECLARE_FUNCTION_1P(StruveH1)           // StruveH1 function
-
+DECLARE_FUNCTION_1P(DawsonF)
+DECLARE_FUNCTION_1P(Si)
+DECLARE_FUNCTION_1P(Six)
+DECLARE_FUNCTION_1P(Erf)
+DECLARE_FUNCTION_1P(Erfc)
+DECLARE_FUNCTION_2P(Hypergeometric0F1Regularized)
+DECLARE_FUNCTION_1P(StruveH0)
+DECLARE_FUNCTION_1P(StruveH1)
 #endif
+
+#endif // INCLUDE_GINAC_EXTENSION_SPECIALFUNCTIONS

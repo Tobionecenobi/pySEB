@@ -1,5 +1,9 @@
 #include "SymbolInterface.hpp"
 
+#ifdef USE_GINAC_IMPL
+#include "GiNaCExpression.hpp"
+#endif
+
 using namespace std;
 
 /*Resets Symbol interface*/
@@ -203,6 +207,8 @@ string to_string(const SymExprPtr& expr)
 {
     return expr->to_string();
 }
+
+// The implementation of SymbolicFactory methods is in SymbolicInterface.cpp
 
 
 

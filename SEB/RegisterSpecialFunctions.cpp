@@ -1,3 +1,5 @@
+#ifdef USE_GINAC
+
 #include <ginac/ginac.h>
 #include <gsl/gsl_sf_bessel.h>
 #include <gsl/gsl_sf_dawson.h>
@@ -64,3 +66,5 @@ REGISTER_FUNCTION(Erf, eval_func(Erf_eval).
 
 REGISTER_FUNCTION(Erfc, eval_func(Erfc_eval).
                  latex_name("\\operatorname{Erfc}"));
+
+#endif // USE_GINAC
