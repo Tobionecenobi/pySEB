@@ -1,14 +1,19 @@
+import os
 from skbuild import setup
+from skbuild.constants import CMAKE_BUILD_DIR
+from skbuild.cmaker import get_cmake_version
 
 setup(
-    name="pyseb",
-    version="0.1.0",
-    description="Python bindings for the Scattering Equation Builder (SEB) library",
-    author="SEB Team",
-    license="MIT",
     packages=["pyseb"],
     cmake_install_dir="pyseb",
-    cmake_args=["-DCMAKE_BUILD_TYPE=Release"],
+    include_package_data=True,
     python_requires=">=3.7",
-    install_requires=["numpy", "matplotlib"],
+    cmake_args=[
+        "-DUSE_GINAC=OFF",
+        "-DUSE_SYMPY=ON",
+        "-DUSE_GINAC_IMPL=OFF",
+        "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
+        f"-DCMAKE_INSTALL_RPATH=$ORIGIN",
+        "-DCMAKE_BUILD_TYPE=Release",
+    ],
 )

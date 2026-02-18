@@ -13,15 +13,28 @@ authors = [
 license = {text = "MIT"}
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 requires-python = ">=3.7"
 dependencies = [
     "numpy",
     "matplotlib",
+    "sympy>=1.12",
 ]
 
+[tool.scikit-build]
+cmake.version = ">=3.18"
+cmake.source-dir = "."
+cmake.build-type = "Release"
+cmake.install-dir = "pyseb"
+
+[tool.scikit-build.cmake.define]
+USE_GINAC = "OFF"
+USE_SYMPY = "ON"
+USE_GINAC_IMPL = "OFF"
+CMAKE_INSTALL_RPATH_USE_LINK_PATH = "ON"
+CMAKE_INSTALL_RPATH = "$ORIGIN"
+
 [project.urls]
-"Homepage" = "https://github.com/Tobionecenobi/SEB"
+Homepage = "https://github.com/Tobionecenobi/SEB"
 "Bug Tracker" = "https://github.com/Tobionecenobi/SEB/issues"

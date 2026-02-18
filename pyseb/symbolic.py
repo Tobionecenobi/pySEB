@@ -4,460 +4,269 @@ SymPy implementation of the symbolic expression interface.
 
 import sympy
 import numpy as np
-from typing import Dict, List, Union, Optional, Any
-
+import re
+from typing import Dict, Union, Optional
 
 class SymPyExpression:
-    """
-    SymPy implementation of symbolic expressions.
-    """
-
+    """Implementation of the symbolic interface using SymPy"""
     def __init__(self, expr):
-        """
-        Initialize with a SymPy expression.
+        if isinstance(expr, str):
+            # Check if this is a GiNaC expression string
+            if any(ginac_func in expr for ginac_func in ['besselJ0', 'besselJ1', 'dawsonF']):
+                # Convert GiNaC function names to SymPy equivalents
+                expr = self._convert_ginac_to_sympy(expr)
 
-        Parameters
-        ----------
-        expr : sympy.Expr
-            The SymPy expression.
-        """
-        self._expr = expr
+            # Parse the expression with SymPy
+            try:
+                self.expr = sympy.sympify(expr)
+            except Exception as e:
+                print(f"Warning: Could not parse expression: {expr}")
+                print(f"Error: {e}")
+                self.expr = sympy.Symbol(expr)
+        elif isinstance(expr, sympy.Expr):
+            self.expr = expr
+        elif isinstance(expr, SymPyExpression):
+            self.expr = expr.expr
+        else:
+            try:
+                self.expr = sympy.sympify(expr)
+            except:
+                self.expr = expr
 
-    @property
-    def expr(self):
-        """Get the underlying SymPy expression."""
-        return self._expr
+    def _convert_ginac_to_sympy(self, expr_str):
+        """Convert GiNaC function names to SymPy equivalents"""
+        # Function name mappings
+        replacements = {
+            'besselJ0': 'besselj(0, ',
+            'besselJ1': 'besselj(1, ',
+            'dawsonF': 'exp(-x**2) * sqrt(pi)/2 * erf(x)',
+            # Add more mappings as needed
+        }
+
+        # Apply replacements
+        result = expr_str
+        for ginac_name, sympy_name in replacements.items():
+            if ginac_name == 'dawsonF':
+                # Special case for dawson function
+                result = re.sub(r'dawsonF\(([^)]+)\)',
+                               lambda m: sympy_name.replace('x', m.group(1)),
+                               result)
+            else:
+                # Regular function replacement
+                result = result.replace(f"{ginac_name}(", f"{sympy_name}")
+
+        return result
 
     def add(self, other):
-        """Add another expression."""
-        return SymPyExpression(self._expr + other.expr)
+        return SymPyExpression(self.expr + other.expr)
 
     def subtract(self, other):
-        """Subtract another expression."""
-        return SymPyExpression(self._expr - other.expr)
+        return SymPyExpression(self.expr - other.expr)
 
     def multiply(self, other):
-        """Multiply by another expression."""
-        return SymPyExpression(self._expr * other.expr)
+        return SymPyExpression(self.expr * other.expr)
 
     def divide(self, other):
-        """Divide by another expression."""
-        return SymPyExpression(self._expr / other.expr)
+        return SymPyExpression(self.expr / other.expr)
 
     def negate(self):
-        """Negate the expression."""
-        return SymPyExpression(-self._expr)
+        return SymPyExpression(-self.expr)
 
     def pow(self, exponent):
-        """Raise to a power."""
-        return SymPyExpression(self._expr ** exponent.expr)
+        if isinstance(exponent, (int, float)):
+            exp = sympy.Float(exponent)
+        else:
+            exp = exponent.expr
+        return SymPyExpression(self.expr ** exp)
 
+    # Basic functions
     def exp(self):
-        """Exponential function."""
-        return SymPyExpression(sympy.exp(self._expr))
+        return SymPyExpression(sympy.exp(self.expr))
 
     def log(self):
-        """Natural logarithm."""
-        return SymPyExpression(sympy.log(self._expr))
+        return SymPyExpression(sympy.log(self.expr))
 
     def sin(self):
-        """Sine function."""
-        return SymPyExpression(sympy.sin(self._expr))
+        return SymPyExpression(sympy.sin(self.expr))
 
     def cos(self):
-        """Cosine function."""
-        return SymPyExpression(sympy.cos(self._expr))
+        return SymPyExpression(sympy.cos(self.expr))
 
     def tan(self):
-        """Tangent function."""
-        return SymPyExpression(sympy.tan(self._expr))
+        return SymPyExpression(sympy.tan(self.expr))
 
     def asin(self):
-        """Inverse sine function."""
-        return SymPyExpression(sympy.asin(self._expr))
+        return SymPyExpression(sympy.asin(self.expr))
 
     def acos(self):
-        """Inverse cosine function."""
-        return SymPyExpression(sympy.acos(self._expr))
+        return SymPyExpression(sympy.acos(self.expr))
 
     def atan(self):
-        """Inverse tangent function."""
-        return SymPyExpression(sympy.atan(self._expr))
+        return SymPyExpression(sympy.atan(self.expr))
 
     def sinh(self):
-        """Hyperbolic sine function."""
-        return SymPyExpression(sympy.sinh(self._expr))
+        return SymPyExpression(sympy.sinh(self.expr))
 
     def cosh(self):
-        """Hyperbolic cosine function."""
-        return SymPyExpression(sympy.cosh(self._expr))
+        return SymPyExpression(sympy.cosh(self.expr))
 
     def tanh(self):
-        """Hyperbolic tangent function."""
-        return SymPyExpression(sympy.tanh(self._expr))
+        return SymPyExpression(sympy.tanh(self.expr))
 
     def sqrt(self):
-        """Square root function."""
-        return SymPyExpression(sympy.sqrt(self._expr))
+        return SymPyExpression(sympy.sqrt(self.expr))
 
     def abs(self):
-        """Absolute value function."""
-        return SymPyExpression(sympy.Abs(self._expr))
+        return SymPyExpression(sympy.Abs(self.expr))
 
+    # Special functions for scattering
     def bessel_j0(self):
-        """Bessel function of the first kind, order 0."""
-        return SymPyExpression(sympy.besselj(0, self._expr))
+        return SymPyExpression(sympy.besselj(0, self.expr))
 
     def bessel_j1(self):
-        """Bessel function of the first kind, order 1."""
-        return SymPyExpression(sympy.besselj(1, self._expr))
+        return SymPyExpression(sympy.besselj(1, self.expr))
 
     def dawson(self):
-        """Dawson function."""
-        # SymPy doesn't have a built-in Dawson function, so we use the definition
-        # dawson(x) = (sqrt(pi)/2) * exp(-x^2) * erfi(x)
-        x = self._expr
-        result = sympy.sqrt(sympy.pi) / 2 * sympy.exp(-x**2) * sympy.erfi(x)
-        return SymPyExpression(result)
+        # Dawson function F(x) = exp(-x²)∫₀ˣexp(t²)dt
+        x = self.expr
+        return SymPyExpression(sympy.exp(-x**2) * sympy.sqrt(sympy.pi)/2 * sympy.erf(x))
 
     def erf(self):
-        """Error function."""
-        return SymPyExpression(sympy.erf(self._expr))
+        return SymPyExpression(sympy.erf(self.expr))
 
     def erfc(self):
-        """Complementary error function."""
-        return SymPyExpression(sympy.erfc(self._expr))
+        return SymPyExpression(sympy.erfc(self.expr))
 
-    def subs(self, symbol, value=None):
-        """
-        Substitute a symbol with a value.
+    # Substitution and evaluation
+    def subs(self, symbol: str, value) -> 'SymPyExpression':
+        if isinstance(value, SymPyExpression):
+            value = value.expr
+        elif isinstance(value, (int, float)):
+            value = sympy.Float(value)
+        return SymPyExpression(self.expr.subs(symbol, value))
 
-        Parameters
-        ----------
-        symbol : str or dict
-            The symbol to substitute, or a dictionary of substitutions.
-        value : SymPyExpression, optional
-            The value to substitute with. Not used if symbol is a dictionary.
+    def eval(self) -> float:
+        try:
+            result = complex(self.expr.evalf())
+            if abs(result.imag) < 1e-10:  # Small imaginary parts are considered numerical error
+                return float(result.real)
+            return float(abs(result))  # Return magnitude for complex results
+        except Exception:
+            return float(self.expr)  # Handle special cases
 
-        Returns
-        -------
-        SymPyExpression
-            The expression with substitutions applied.
-        """
-        if isinstance(symbol, dict):
-            # Convert values to SymPy expressions
-            subs_dict = {sympy.Symbol(k): v for k, v in symbol.items()}
-            return SymPyExpression(self._expr.subs(subs_dict))
-        else:
-            return SymPyExpression(self._expr.subs(sympy.Symbol(symbol), value.expr))
+    def is_numeric(self) -> bool:
+        return self.expr.is_number
 
-    def eval(self):
-        """
-        Evaluate the expression to a numerical value.
+    # Series expansion
+    def series(self, var, point, order: int) -> 'SymPyExpression':
+        if isinstance(var, SymPyExpression):
+            var = var.expr
+        if isinstance(point, SymPyExpression):
+            point = point.expr
+        return SymPyExpression(self.expr.series(var, point, order).removeO())
 
-        Returns
-        -------
-        float
-            The numerical value of the expression.
+    def series_to_poly(self, series) -> 'SymPyExpression':
+        if isinstance(series, SymPyExpression):
+            series = series.expr
+        return SymPyExpression(sympy.Poly(series))
 
-        Raises
-        ------
-        ValueError
-            If the expression cannot be evaluated to a numerical value.
-        """
-        if not self.is_numeric():
-            raise ValueError("Cannot evaluate non-numeric expression")
-        return float(self._expr)
+    def coeff(self, var, power: int) -> 'SymPyExpression':
+        if isinstance(var, SymPyExpression):
+            var = var.expr
+        return SymPyExpression(self.expr.coeff(var, power))
 
-    def is_numeric(self):
-        """
-        Check if the expression is a numerical value.
+    def evalf(self) -> 'SymPyExpression':
+        return SymPyExpression(self.expr.evalf())
 
-        Returns
-        -------
-        bool
-            True if the expression is a numerical value, False otherwise.
-        """
-        return self._expr.is_number
+    def is_zero(self) -> bool:
+        return self.expr.is_zero
 
-    def series(self, var, point, order):
-        """
-        Compute the series expansion of the expression around a point.
+    def to_double(self) -> float:
+        return float(self.expr.evalf())
 
-        Parameters
-        ----------
-        var : SymPyExpression
-            The variable to expand around.
-        point : SymPyExpression
-            The point to expand around.
-        order : int
-            The order of the expansion.
+    # String representations
+    def __str__(self) -> str:
+        return str(self.expr)
 
-        Returns
-        -------
-        SymPyExpression
-            The series expansion.
-        """
-        return SymPyExpression(self._expr.series(var.expr, point.expr, order))
+    def to_latex(self) -> str:
+        return sympy.latex(self.expr)
 
-    def series_to_poly(self, series):
-        """
-        Convert a series expansion to a polynomial.
+    def to_python(self) -> str:
+        return str(self.expr)
 
-        Parameters
-        ----------
-        series : SymPyExpression
-            The series expansion.
-
-        Returns
-        -------
-        SymPyExpression
-            The polynomial.
-        """
-        # In SymPy, we can use the removeO method to remove the order term
-        return SymPyExpression(series.expr.removeO())
-
-    def coeff(self, var, power):
-        """
-        Extract the coefficient of a variable raised to a power.
-
-        Parameters
-        ----------
-        var : SymPyExpression
-            The variable.
-        power : int
-            The power.
-
-        Returns
-        -------
-        SymPyExpression
-            The coefficient.
-        """
-        return SymPyExpression(self._expr.coeff(var.expr, power))
-
-    def evalf(self):
-        """
-        Evaluate the expression numerically.
-
-        Returns
-        -------
-        SymPyExpression
-            The numerically evaluated expression.
-        """
-        return SymPyExpression(self._expr.evalf())
-
-    def is_zero(self):
-        """
-        Check if the expression is zero.
-
-        Returns
-        -------
-        bool
-            True if the expression is zero, False otherwise.
-        """
-        return self._expr.is_zero
-
-    def to_double(self):
-        """
-        Convert the expression to a double.
-
-        Returns
-        -------
-        float
-            The expression as a double.
-
-        Raises
-        ------
-        ValueError
-            If the expression cannot be converted to a double.
-        """
-        if not self.is_numeric():
-            raise ValueError("Cannot convert non-numeric expression to double")
-        return float(self._expr)
-
-    def to_string(self):
-        """
-        Convert the expression to a string.
-
-        Returns
-        -------
-        str
-            The string representation of the expression.
-        """
-        return str(self._expr)
-
-    def to_latex(self):
-        """
-        Convert the expression to a LaTeX string.
-
-        Returns
-        -------
-        str
-            The LaTeX representation of the expression.
-        """
-        return sympy.latex(self._expr)
-
-    def to_python(self):
-        """
-        Convert the expression to a Python string.
-
-        Returns
-        -------
-        str
-            The Python representation of the expression.
-        """
-        return sympy.python(self._expr)
-
-    def to_cform(self):
-        """
-        Convert the expression to a C/C++ string.
-
-        Returns
-        -------
-        str
-            The C/C++ representation of the expression.
-        """
-        return sympy.ccode(self._expr)
-
-    def __str__(self):
-        """String representation."""
-        return self.to_string()
-
-    def __repr__(self):
-        """Representation for debugging."""
-        return f"SymPyExpression({self._expr})"
-
+    def to_cform(self) -> str:
+        return sympy.ccode(self.expr)
 
 class SymPyFactory:
-    """
-    Factory for creating SymPy expressions.
-    """
-
+    """Factory for creating SymPy-based symbolic expressions"""
     @staticmethod
-    def create_symbol(name):
-        """
-        Create a symbolic variable.
-
-        Parameters
-        ----------
-        name : str
-            The name of the variable.
-
-        Returns
-        -------
-        SymPyExpression
-            The symbolic variable.
-        """
+    def createSymbol(name: str) -> SymPyExpression:
         return SymPyExpression(sympy.Symbol(name))
 
     @staticmethod
-    def create_constant(value):
-        """
-        Create a constant value.
-
-        Parameters
-        ----------
-        value : float
-            The constant value.
-
-        Returns
-        -------
-        SymPyExpression
-            The constant value as a symbolic expression.
-        """
+    def createConstant(value: float) -> SymPyExpression:
         return SymPyExpression(sympy.Float(value))
 
     @staticmethod
-    def create_pi():
-        """
-        Create the constant pi.
-
-        Returns
-        -------
-        SymPyExpression
-            The constant pi as a symbolic expression.
-        """
+    def createPi() -> SymPyExpression:
         return SymPyExpression(sympy.pi)
 
     @staticmethod
-    def create_e():
-        """
-        Create the constant e.
-
-        Returns
-        -------
-        SymPyExpression
-            The constant e as a symbolic expression.
-        """
+    def createE() -> SymPyExpression:
         return SymPyExpression(sympy.E)
 
     @staticmethod
-    def create_i():
-        """
-        Create the imaginary unit i.
-
-        Returns
-        -------
-        SymPyExpression
-            The imaginary unit i as a symbolic expression.
-        """
+    def createI() -> SymPyExpression:
         return SymPyExpression(sympy.I)
 
+# Global factory instance
+_factory = None
 
-# Convenience functions
-def symbol(name):
-    """Create a symbolic variable."""
-    return SymPyFactory.create_symbol(name)
+def get_factory():
+    global _factory
+    if _factory is None:
+        _factory = SymPyFactory()
+    return _factory
 
-def constant(value):
-    """Create a constant value."""
-    return SymPyFactory.create_constant(value)
+def set_factory(factory):
+    global _factory
+    _factory = factory
 
-def pi():
-    """Create the constant pi."""
-    return SymPyFactory.create_pi()
+def to_latex(expr) -> str:
+    """Convert an expression to LaTeX format."""
+    if isinstance(expr, SymPyExpression):
+        return expr.to_latex()
+    return str(expr)
 
-def e():
-    """Create the constant e."""
-    return SymPyFactory.create_e()
+def to_python(expr) -> str:
+    """Convert an expression to Python code."""
+    if isinstance(expr, SymPyExpression):
+        return expr.to_python()
+    return str(expr)
 
-def i():
-    """Create the imaginary unit i."""
-    return SymPyFactory.create_i()
-
-def evaluate_expression(expr, params=None, q_values=None):
+def evaluate_expression(expr, params: Dict[str, float], q_values: np.ndarray) -> np.ndarray:
     """
-    Evaluate a symbolic expression with the given parameters.
+    Evaluate a symbolic expression for given parameters and q values.
 
-    Parameters
-    ----------
-    expr : SymPyExpression
-        The expression to evaluate.
-    params : dict, optional
-        Dictionary of parameter names and values.
-    q_values : array_like, optional
-        If provided, evaluate the expression at each q value.
+    Args:
+        expr: The symbolic expression to evaluate
+        params: Dictionary mapping parameter names to values
+        q_values: Array of q values to evaluate at
 
-    Returns
-    -------
-    float or ndarray
-        The evaluated expression. If q_values is provided, returns an array
-        of the same shape as q_values.
+    Returns:
+        Array of evaluated values
     """
-    if params is None:
-        params = {}
+    if not isinstance(expr, SymPyExpression):
+        raise TypeError("Expression must be a SymPyExpression")
 
-    if q_values is None:
-        # Evaluate at a single point
-        subs_expr = expr.subs(params)
-        return subs_expr.eval()
-    else:
-        # Evaluate at multiple q values
-        q_array = np.asarray(q_values)
-        q_symbol = symbol('q')
+    # Create a function that substitutes q and evaluates
+    q_symbol = sympy.Symbol('q')
+    expr_with_params = expr.expr
+    for name, value in params.items():
+        expr_with_params = expr_with_params.subs(name, value)
 
-        # Create a lambda function for fast evaluation
-        subs_expr = expr.subs(params)
-        q_func = sympy.lambdify(sympy.Symbol('q'), subs_expr.expr, 'numpy')
+    # Convert to a lambda function for fast evaluation
+    func = sympy.lambdify(q_symbol, expr_with_params, modules=['numpy'])
 
-        return q_func(q_array)
+    # Evaluate for all q values
+    return func(q_values)
