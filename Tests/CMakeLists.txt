@@ -22,6 +22,9 @@ include_directories(${CMAKE_SOURCE_DIR}/../src)
 include_directories(${GINAC_INCLUDE_DIRS})
 include_directories(${CLN_INCLUDE_DIRS})
 
+# Ensure GiNaC implementation code paths are enabled in headers
+add_compile_definitions(USE_GINAC USE_GINAC_IMPL)
+
 # Link directories
 link_directories(${CMAKE_SOURCE_DIR}/../build)
 link_directories(${GINAC_LIBRARY_DIRS})
