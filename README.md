@@ -119,6 +119,16 @@ This project is close, but for a real public `pip install pyseb` release you sti
 - **Documentation drift exists**  
   Several Markdown docs are outdated or inconsistent with current build steps and API behavior.
 
+- **Technical debt**  
+  Some inheritance paths are currently messy. For example, `GiNaCSymbolic.hpp` contains a temporary
+  compatibility inheritance used as a quick fix:
+  ```cpp
+  // Backward compatibility for legacy code paths that still construct GiNaCSymbolic.
+  class GiNaCSymbolic : public GiNaCFactory {
+  };
+  ```
+
+
 Current test status in this development branch: 4/7 passing, 3 tests failing with segfaults (`UtilityTest`, `StructureTest`, `ValidationTest`).
 ___
 ___
