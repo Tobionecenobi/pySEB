@@ -271,17 +271,14 @@ public:
 
     Expression subs(const std::map<Expression, Expression>& exprMap) const {
         if (!expr) return Expression();
-        Expression result = *this;
+        std::map<SymExprPtr, SymExprPtr> symExprMap;
         for (const auto& pair : exprMap) {
-            // For each expression in the map, replace all occurrences in the result
-            // This is a simple implementation that might need to be refined
-            // based on the specific requirements of your application
-            if (pair.first.to_string() == result.to_string()) {
-                result = pair.second;
-                break;
+            if (!pair.first.expr || !pair.second.expr) {
+                continue;
             }
+            symExprMap[pair.first.expr] = pair.second.expr;
         }
-        return result;
+        return Expression(expr->subs(symExprMap));
     }
 
     // Handle substitution with a comparison expression like q==0.1

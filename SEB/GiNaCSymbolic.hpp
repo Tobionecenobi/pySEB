@@ -8,12 +8,65 @@
 
 #include <ginac/ginac.h>
 #include <sstream>
+#include <vector>
 #include "Expression.hpp"
 #include "SpecialFunctionsWrapper.hpp"
 
 class GiNaCExpression : public SymbolicExpression {
 private:
     GiNaC::ex _expr;
+
+    static GiNaC::exset collect_symbols(const GiNaC::ex& expr) {
+        GiNaC::exset symbols;
+        std::vector<GiNaC::ex> stack{expr};
+
+        while (!stack.empty()) {
+            GiNaC::ex node = stack.back();
+            stack.pop_back();
+
+            if (GiNaC::is_a<GiNaC::symbol>(node)) {
+                symbols.insert(node);
+            }
+
+            for (std::size_t i = 0; i < node.nops(); ++i) {
+                stack.push_back(node.op(i));
+            }
+        }
+
+        return symbols;
+    }
+
+    static GiNaC::ex substitute_symbol_by_name(const GiNaC::ex& expr,
+                                               const std::string& symbol_name,
+                                               const GiNaC::ex& replacement) {
+        GiNaC::ex substituted = expr;
+        const GiNaC::exset symbols = collect_symbols(substituted);
+
+        for (const auto& sym_ex : symbols) {
+            const GiNaC::symbol& sym = GiNaC::ex_to<GiNaC::symbol>(sym_ex);
+            if (sym.get_name() == symbol_name) {
+                substituted = substituted.subs(sym == replacement);
+            }
+        }
+
+        return substituted;
+    }
+
+    static GiNaC::ex substitute_parameters_by_name(const GiNaC::ex& expr,
+                                                   const ParameterMap& params) {
+        GiNaC::ex substituted = expr;
+        const GiNaC::exset symbols = collect_symbols(substituted);
+
+        for (const auto& sym_ex : symbols) {
+            const GiNaC::symbol& sym = GiNaC::ex_to<GiNaC::symbol>(sym_ex);
+            auto it = params.find(sym.get_name());
+            if (it != params.end()) {
+                substituted = substituted.subs(sym == GiNaC::numeric(it->second));
+            }
+        }
+
+        return substituted;
+    }
 
 public:
     GiNaCExpression(const GiNaC::ex& e) : _expr(e) {}
@@ -137,15 +190,19 @@ public:
     // Substitution and evaluation
     SymExprPtr subs(const std::string& symbol, const SymExprPtr& value) const override {
         auto g_value = std::dynamic_pointer_cast<GiNaCExpression>(value);
-        return std::make_shared<GiNaCExpression>(_expr.subs(GiNaC::symbol(symbol) == g_value->_expr));
+        if (!g_value) {
+            throw std::runtime_error("Cannot substitute non-GiNaCExpression value");
+        }
+
+        return std::make_shared<GiNaCExpression>(
+            substitute_symbol_by_name(_expr, symbol, g_value->_expr)
+        );
     }
 
     SymExprPtr subs(const ParameterMap& params) const override {
-        GiNaC::exmap substitutions;
-        for (const auto& param : params) {
-            substitutions[GiNaC::symbol(param.first)] = GiNaC::numeric(param.second);
-        }
-        return std::make_shared<GiNaCExpression>(_expr.subs(substitutions));
+        return std::make_shared<GiNaCExpression>(
+            substitute_parameters_by_name(_expr, params)
+        );
     }
 
     SymExprPtr subs(const std::map<SymExprPtr, SymExprPtr>& exprMap) const override {
