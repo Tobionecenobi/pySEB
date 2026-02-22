@@ -60,8 +60,8 @@ private:
     map<pair<string, string>, list<refPoint>> alreadyKnownPaths;
     int numberOfPathsFound = 0; //For print to the user.
 
-    /*Pointer to symbol interface*/
-    SymbolInterface *GLEX = SymbolInterface::instance();
+    /* Owned symbol interface for this World instance */
+    SymbolInterface *GLEX = new SymbolInterface();
 
     // Parameter lists
     ParameterList betas, params;
@@ -80,8 +80,8 @@ public:
         // release allocated sub-units / structures.
         for (auto it = nameCatalog.begin(); it != nameCatalog.end(); ++it) delete it->second;
 
-        // release symbol interface
-        GLEX->~SymbolInterface();
+        // release this World's symbol interface
+        delete GLEX;
     };
 
     /* Get graphID from a sub-unit or structure name / sub-unit pointer */
