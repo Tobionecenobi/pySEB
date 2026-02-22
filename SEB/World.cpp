@@ -66,7 +66,7 @@ GraphID World::Add(GraphID gid, structName name)
 try{
     if (!GLEX->testnamestring(name))      throw SEBException("Bad symbol in structure name:"+name );
     if (!testGraphID(gid))                throw SEBException("Bad graphid:"+to_string(gid) );
-    if (!hasName(name))                    throw SEBException("Name "+name+" already exists in the world");
+    if (hasName(name))                    throw SEBException("Name "+name+" already exists in the world");
 
     Structure *struc = new Structure(name, gid, GLEX);
     totalNumberofGraphs++;
