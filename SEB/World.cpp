@@ -411,7 +411,8 @@ ReferencePointList World::findpath(string name1, string name2, bool check)
 {
 try{
 
-    if(prefix(name1) != prefix(name2))    throw SEBException("Both search paths should start in the same structure.");
+    if(prefix(name1) != prefix(name2))
+        throw SEBException("Both search paths should start in the same structure. name1='" + name1 + "' (prefix='" + prefix(name1) + "'), name2='" + name2 + "' (prefix='" + prefix(name2) + "').");
     if (check) testPathSyntax(name1);
     if (check) testPathSyntax(name2);
 
@@ -1386,6 +1387,7 @@ Expression World::PhaseFactor(ReferencePointList& path, int depth, string myself
 LinkPair World::generateLink(refPoint r1, refPoint r2)
 {
     if (r1 == r2) throw SEBException("A reference point cannot be linked with itself", "World::generateLink(refPoint r1=" + r1 + ", refPoint r2=" + r2 + ")");
+    if (r2 < r1) swap(r1, r2);   // Store alphabetically so isLinked can find them.
     return make_pair(r1, r2);
 }
 
