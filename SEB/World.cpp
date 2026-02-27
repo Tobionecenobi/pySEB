@@ -136,13 +136,13 @@ try{
     string oldref = getReferenceBase(oldr);
 
 // test new reference name.
-    if (!sub->hasReference(newref))      throw SEBException("Subunit named "+newname+" does not has reference point "+newref);
+    if (!sub->hasReference(newref))      throw SEBException("Subunit named "+newname+" does not have reference point '"+newref+"'. Valid reference points: "+subunitReferenceList(sub));
     if (sub->hasDistributedReference(newref) && !hasAHash(newr))
                                          throw SEBException("Missing #... for distributed reference point: "+newref);
 
 // rest old reference name
     SubUnit* olds = getSubunit(oldname);
-    if (!olds->hasReference(oldref))     throw SEBException("Subunit "+oldname+" does not have a reference point "+oldref );
+    if (!olds->hasReference(oldref))     throw SEBException("Subunit '"+oldname+"' does not have reference point '"+oldref+"'. Valid reference points: "+subunitReferenceList(olds));
     if (olds->hasDistributedReference(oldref) && !hasAHash(oldr))
                                          throw SEBException("Missing #... for distributed reference point: "+oldref);
 // Handle .distributedref#myname
@@ -1461,7 +1461,10 @@ void World::testPathSyntax(string r, bool skipfirst)  // default false, that is 
 
                // Does the sub-unit recognize the base reference point?
                if (hasAPeriod(r) && !getSubunit(name)->hasReference( getReferenceBase(r) ))
-                      throw SEBException("Subunit "+name+" does not have a reference point "+getReferenceBase(r));
+               {
+                      SubUnit* s = getSubunit(name);
+                      throw SEBException("Subunit '"+name+"' does not have reference point '"+getReferenceBase(r)+"'. Valid reference points: "+subunitReferenceList(s));
+               }
            }
 }
 
@@ -1469,6 +1472,22 @@ void World::testPathSyntax(string r, bool skipfirst)  // default false, that is 
 bool World::testGraphID(int g)
 {
    return g>=1 && g<=totalNumberofGraphs;
+}
+
+// Builds a human-readable list of all valid reference points for a sub-unit.
+string World::subunitReferenceList(SubUnit* s)
+{
+    string result;
+    auto append = [&](const string& name) {
+        if (!result.empty()) result += ", ";
+        result += name;
+    };
+    for (auto it = s->SpecificReferencepoints_cbegin(); it != s->SpecificReferencepoints_cend(); ++it)
+        append(*it);
+    for (auto it = s->DistributedReferencepoints_cbegin(); it != s->DistributedReferencepoints_cend(); ++it)
+        append(*it + " (distributed)");
+    if (result.empty()) result = "(none)";
+    return result;
 }
 
 

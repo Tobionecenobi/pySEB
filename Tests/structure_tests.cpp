@@ -30,9 +30,9 @@ TEST(StructureTest, ShellComplexStructure) {
     World world;
     
     // Create a structure with shells and other shapes
-    GraphID g1 = world.Add(new SolidSphericalShell(), "solid_shell");
-    world.Link(new ThinRod(), "rod.end1", "solid_shell.outer#p1", "rod");
-    world.Link(new ThinSphericalShell(), "thin_shell.center", "solid_shell.outer#p2");
+    GraphID g1 = world.Add(new SolidSphericalShell(), "solidShell");
+    world.Link(new ThinRod(), "rod.end1", "solidShell.surfaceo#p1", "rod");
+    world.Link(new ThinSphericalShell(), "thinShell.center", "solidShell.surfaceo#p2");
     world.Add(g1, "structure");
     
     EXPECT_TRUE(world.hasName("structure"));
@@ -40,19 +40,27 @@ TEST(StructureTest, ShellComplexStructure) {
 }
 
 TEST(StructureTest, DistributedPointStructure) {
-    World world;
-    
-    // Test different shapes with distributed points
-    std::vector<std::pair<SubUnit*, std::string>> shapes = {
-        {new GaussianPolymer(), "contour"},
-        {new ThinDisk(), "contour"},
-        {new SolidSphere(), "surface"}
-    };
-    
-    for (const auto& [shape, name] : shapes) {
-        GraphID g = world.Add(shape, name);
-        world.Add(g, "structure");
-        EXPECT_TRUE(world.hasName("structure"));
+    // Each shape tested independently in its own world (names like "contour" would clash if shared)
+    {
+        World w;
+        GraphID g = w.Add(new GaussianPolymer(), "polymer");
+        w.Add(g, "polymerStruct");
+        EXPECT_TRUE(w.hasName("polymerStruct"));
+        ASSERT_NO_THROW(w.FormFactor("polymerStruct"));
+    }
+    {
+        World w;
+        GraphID g = w.Add(new ThinDisk(), "disk");
+        w.Add(g, "diskStruct");
+        EXPECT_TRUE(w.hasName("diskStruct"));
+        ASSERT_NO_THROW(w.FormFactor("diskStruct"));
+    }
+    {
+        World w;
+        GraphID g = w.Add(new SolidSphere(), "sphere");
+        w.Add(g, "sphereStruct");
+        EXPECT_TRUE(w.hasName("sphereStruct"));
+        ASSERT_NO_THROW(w.FormFactor("sphereStruct"));
     }
 }
 
@@ -64,10 +72,10 @@ TEST(StructureTest, ChainOfRodsStructure) {
         world.Link(new ThinRod(), "rod" + std::to_string(i) + ".end1", 
                   "rod" + std::to_string(i-1) + ".end2");
     }
-    world.Add(chain, "rod_chain");
+    world.Add(chain, "rodChain");
     
-    EXPECT_TRUE(world.hasName("rod_chain"));
-    ASSERT_NO_THROW(world.FormFactor("rod_chain"));
+    EXPECT_TRUE(world.hasName("rodChain"));
+    ASSERT_NO_THROW(world.FormFactor("rodChain"));
 }
 
 // Existing DendrimerCreation test updated with more structure checks
@@ -83,13 +91,13 @@ TEST(StructureTest, DendrimerCreation) {
     
     // First generation
     for(int i = 1; i <= f; i++) {
-        world.Link(new GaussianPolymer(), "poly1_" + std::to_string(i) + ".end1", "core.center");
+        world.Link(new GaussianPolymer(), "poly1" + std::to_string(i) + ".end1", "core.point");
         
         // Second generation
         for(int j = 1; j <= f-1; j++) {
             world.Link(new GaussianPolymer(), 
-                      "poly2_" + std::to_string(i) + "_" + std::to_string(j) + ".end1",
-                      "poly1_" + std::to_string(i) + ".end2");
+                      "poly2" + std::to_string(i) + std::to_string(j) + ".end1",
+                      "poly1" + std::to_string(i) + ".end2");
         }
     }
     world.Add(dendrimer, "dendrimer");
@@ -100,24 +108,27 @@ TEST(StructureTest, DendrimerCreation) {
 
 TEST(StructureTest, DiBlockStarChainStructure) {
     World world;
-    
-    // Create a diblock star chain
-    GraphID chain = world.Add(new Point(), "center1");
-    
-    // Create first star
-    for(int i = 1; i <= 3; i++) {
-        world.Link(new GaussianPolymer(), "poly1_" + std::to_string(i) + ".end1", "center1.center");
-    }
-    
-    // Add second star
-    world.Link(new Point(), "center2.center", "poly1_1.end2");
-    for(int i = 2; i <= 3; i++) {
-        world.Link(new GaussianPolymer(), "poly2_" + std::to_string(i) + ".end1", "center2.center");
-    }
-    
-    world.Add(chain, "star_chain");
-    EXPECT_TRUE(world.hasName("star_chain"));
-    ASSERT_NO_THROW(world.FormFactor("star_chain"));
+
+    // Define diblock copolymer
+    GraphID diblock = world.Add(new GaussianPolymer(), "polyA");
+    world.Link(new GaussianPolymer(), "polyB.end1", "polyA.end2");
+
+    // Define star
+    GraphID star = world.Add(diblock, "diblock1");
+    world.Link(diblock, "diblock2:polyA.end1", "diblock1:polyA.end1");
+    world.Link(diblock, "diblock3:polyA.end1", "diblock1:polyA.end1");
+    world.Link(diblock, "diblock4:polyA.end1", "diblock1:polyA.end1");
+
+    // Define chain of stars
+    GraphID chain = world.Add(star, "star1");
+    world.Link(star, "star2:diblock1:polyB.end2", "star1:diblock3:polyB.end2");
+    world.Link(star, "star3:diblock1:polyB.end2", "star2:diblock3:polyB.end2");
+    world.Link(star, "star4:diblock1:polyB.end2", "star3:diblock3:polyB.end2");
+    world.Link(star, "star5:diblock1:polyB.end2", "star4:diblock3:polyB.end2");
+
+    world.Add(chain, "starchain");
+    EXPECT_TRUE(world.hasName("starchain"));
+    ASSERT_NO_THROW(world.FormFactor("starchain"));
 }
 
 TEST(StructureTest, MicelleStructure) {
@@ -145,7 +156,7 @@ TEST(StructureTest, StarPolymerStructure) {
     GraphID star = world.Add(new Point(), "center");
     
     for(int i = 1; i <= f; i++) {
-        world.Link(new GaussianPolymer(), "arm" + std::to_string(i) + ".end1", "center.center");
+        world.Link(new GaussianPolymer(), "arm" + std::to_string(i) + ".end1", "center.point");
     }
     world.Add(star, "star");
     
@@ -164,4 +175,55 @@ TEST(StructureTest, TriBlockCopolymerStructure) {
     
     EXPECT_TRUE(world.hasName("triblock"));
     ASSERT_NO_THROW(world.FormFactor("triblock"));
+}
+
+// Error message diagnostics: bad reference point names should list valid ones
+TEST(StructureTest, BadReferencePointListsValidOnes) {
+    // ThinRod has: end1, end2, middle
+    // Using an unknown reference point should throw and name all valid ones.
+    {
+        World w;
+        w.Add(new ThinRod(), "rod1");
+        try {
+            w.Link(new ThinRod(), "rod2.badref", "rod1.end2");
+            FAIL() << "Expected SEBException for unknown reference point on new subunit";
+        } catch (const SEBException& e) {
+            std::string msg = e.what();
+            EXPECT_NE(msg.find("badref"), std::string::npos) << "Message should mention the bad name";
+            EXPECT_NE(msg.find("end1"),   std::string::npos) << "Message should list 'end1'";
+            EXPECT_NE(msg.find("end2"),   std::string::npos) << "Message should list 'end2'";
+            EXPECT_NE(msg.find("middle"), std::string::npos) << "Message should list 'middle'";
+        }
+    }
+    {
+        // Same check for the *existing* subunit (second throw site)
+        World w;
+        w.Add(new ThinRod(), "rod1");
+        try {
+            w.Link(new ThinRod(), "rod2.end1", "rod1.badref");
+            FAIL() << "Expected SEBException for unknown reference point on existing subunit";
+        } catch (const SEBException& e) {
+            std::string msg = e.what();
+            EXPECT_NE(msg.find("badref"), std::string::npos) << "Message should mention the bad name";
+            EXPECT_NE(msg.find("end1"),   std::string::npos) << "Message should list 'end1'";
+            EXPECT_NE(msg.find("end2"),   std::string::npos) << "Message should list 'end2'";
+            EXPECT_NE(msg.find("middle"), std::string::npos) << "Message should list 'middle'";
+        }
+    }
+    {
+        // Third throw site: testPathSyntax called via PhaseFactor on a structure path
+        World w;
+        GraphID g = w.Add(new ThinRod(), "rod1");
+        w.Add(g, "chain");
+        try {
+            w.PhaseFactor("chain:rod1.badref", "chain:rod1.end2");
+            FAIL() << "Expected SEBException for unknown reference point in path syntax check";
+        } catch (const SEBException& e) {
+            std::string msg = e.what();
+            EXPECT_NE(msg.find("badref"), std::string::npos) << "Message should mention the bad name";
+            EXPECT_NE(msg.find("end1"),   std::string::npos) << "Message should list 'end1'";
+            EXPECT_NE(msg.find("end2"),   std::string::npos) << "Message should list 'end2'";
+            EXPECT_NE(msg.find("middle"), std::string::npos) << "Message should list 'middle'";
+        }
+    }
 }

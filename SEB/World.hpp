@@ -291,6 +291,9 @@ public:
     // tests if a supplied graphID is valid.
     bool testGraphID(int);
 
+    // builds a human-readable list of valid reference points for a sub-unit, e.g. "end1, end2, contour (distributed)"
+    string subunitReferenceList(SubUnit* s);
+
 
     // Code for generating a symbolic Psi depending on various varforms
     Expression getPsi(string myself, refPoint r1, refPoint r2, int varform);
