@@ -21,7 +21,7 @@ void createRandomWalkPolymer(World& world, int numRods, const std::string& baseN
 // Utility function to evaluate form factors and save results
 void evaluateFormFactor(World& world, const std::string& structureName, const std::string& outputFileName) {
     // Obtain the form factor expression
-    ex formFactor = world.FormFactor(structureName);
+    ex formFactor = world.FormFactor(structureName, WORLDMAXDEPTH, QVAR);
 
     // Set parameters
     ParameterList params;
