@@ -49,6 +49,16 @@ pip install .
 
 ## Usage
 
+### Evaluation API note
+
+In Python, numerical evaluation is intentionally handled by SymPy utilities.
+Use `pyseb.evaluate_expression(...)` for substitutions and numeric evaluation.
+
+- Preferred: `pyseb.evaluate_expression(world, expr, params, q_values)`
+- Avoid relying on `World.Evaluate(...)` from Python code
+
+This keeps C++ focused on building symbolic expressions while Python/SymPy handles evaluation.
+
 Here's a simple example of how to use PySEB to create a diblock copolymer and calculate its form factor:
 
 ```python

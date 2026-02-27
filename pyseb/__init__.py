@@ -1,15 +1,6 @@
 """
 Python bindings for the Scattering Equation Builder (SEB) library.
 """
-from .symbolic import (
-    SymPyExpression,
-    SymPyFactory,
-    get_factory,
-    set_factory,
-    to_latex,
-    to_python,
-    evaluate_expression
-)
 # Import the extension module
 import os
 import sys
@@ -66,6 +57,16 @@ if _pyseb is None:
 
 World = _pyseb.World
 GraphID = getattr(_pyseb, "GraphID", int)
+
+from .symbolic import (
+    SymPyExpression,
+    SymPyFactory,
+    get_factory,
+    set_factory,
+    to_latex,
+    to_python
+)
+from .utils import evaluate_expression
 
 # Set SymPy as the default symbolic engine for Python
 set_factory(SymPyFactory())
