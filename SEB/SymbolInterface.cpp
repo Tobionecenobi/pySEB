@@ -1,5 +1,6 @@
 #include "SymbolInterface.hpp"
 #include <cctype>
+#include <vector>
 
 #ifdef USE_GINAC_IMPL
 #include "GiNaCExpression.hpp"
@@ -102,14 +103,28 @@ bool SymbolInterface::testnamestring(const string& s)
 
 string SymbolInterface::invalid_name_message(const string& s)
 {
-    for (size_t pos = 0; pos + 1 < s.size(); ++pos)
-    {
+    std::vector<std::pair<char, size_t>> invalids;
+    for (size_t pos = 0; pos + 1 < s.size(); ++pos) {
         unsigned char ch = static_cast<unsigned char>(s[pos]);
         if (!std::isalnum(ch)) {
-            return "Invalid character '" + string(1, s[pos]) + "' at position " + std::to_string(pos) + 
-                   ". Allowed characters are A-Z, a-z, and 0-9.";
+            invalids.push_back({s[pos], pos});
         }
     }
+
+    if (!invalids.empty()) {
+        const size_t max_items = 5;
+        string message = "Invalid characters: ";
+        for (size_t i = 0; i < invalids.size() && i < max_items; ++i) {
+            if (i > 0) message += ", ";
+            message += "'" + string(1, invalids[i].first) + "' at position " + std::to_string(invalids[i].second);
+        }
+        if (invalids.size() > max_items) {
+            message += ", and " + std::to_string(invalids.size() - max_items) + " more";
+        }
+        message += ". Allowed characters are A-Z, a-z, and 0-9.";
+        return message;
+    }
+
     return "Name validation failed. Allowed characters are A-Z, a-z, and 0-9.";
 }
 
@@ -129,14 +144,28 @@ bool SymbolInterface::teststring(const string& s)
 
 string SymbolInterface::invalid_reference_message(const string& s)
 {
-    for (size_t pos = 0; pos + 1 < s.size(); ++pos)
-    {
+    std::vector<std::pair<char, size_t>> invalids;
+    for (size_t pos = 0; pos + 1 < s.size(); ++pos) {
         unsigned char ch = static_cast<unsigned char>(s[pos]);
         if (!std::isalnum(ch) && s[pos] != ':' && s[pos] != '#' && s[pos] != '.') {
-            return "Invalid character '" + string(1, s[pos]) + "' at position " + std::to_string(pos) +
-                   ". Allowed characters are A-Z, a-z, 0-9, ':', '.', and '#'.";
+            invalids.push_back({s[pos], pos});
         }
     }
+
+    if (!invalids.empty()) {
+        const size_t max_items = 5;
+        string message = "Invalid characters: ";
+        for (size_t i = 0; i < invalids.size() && i < max_items; ++i) {
+            if (i > 0) message += ", ";
+            message += "'" + string(1, invalids[i].first) + "' at position " + std::to_string(invalids[i].second);
+        }
+        if (invalids.size() > max_items) {
+            message += ", and " + std::to_string(invalids.size() - max_items) + " more";
+        }
+        message += ". Allowed characters are A-Z, a-z, 0-9, ':', '.', and '#'.";
+        return message;
+    }
+
     return "Reference validation failed. Allowed characters are A-Z, a-z, 0-9, ':', '.', and '#'.";
 }
 
@@ -165,15 +194,15 @@ const SymExprPtr& SymbolInterface::get( const string& s ){
 // For instance Rg, L, X
 Expression SymbolInterface::getSymbol( const string& s ){
 
-    if (!testnamestring(s)) throw SEBException("Bad symbol in variable name:"+s,"getSymbol(const string&)");
+    if (!testnamestring(s)) throw SEBException("Bad symbol in variable name:"+s+". "+invalid_name_message(s),"getSymbol(const string&)");
     return Expression(get(s));
 }
 
 // For instance F  <subunit>
 Expression SymbolInterface::getSymbol( const string& s, const string& tag ){
 
-    if (!teststring(s))      throw SEBException("Bad symbol in variable name:"+s,"getSymbol(const string&,const string&)");
-    if (!teststring(tag))    throw SEBException("Bad symbol in variable name:"+tag,"getSymbol(const string&,const string&)");
+    if (!teststring(s))      throw SEBException("Bad symbol in variable name:"+s+". "+invalid_reference_message(s),"getSymbol(const string&,const string&)");
+    if (!teststring(tag))    throw SEBException("Bad symbol in variable name:"+tag+". "+invalid_reference_message(tag),"getSymbol(const string&,const string&)");
 
     string si = s+"_"+tag;
     return Expression(get(si));
@@ -182,9 +211,9 @@ Expression SymbolInterface::getSymbol( const string& s, const string& tag ){
 // s_tag:ref
 Expression SymbolInterface::getSymbol( const string& s, const string& tag, const string& ref ){
 
-    if (!teststring(s))      throw SEBException("Bad symbol in variable name:"+s  , "getSymbol(const string&,const string&,const string&)");
-    if (!teststring(tag))    throw SEBException("Bad symbol in variable name:"+s  , "getSymbol(const string&,const string&,const string&)");
-    if (!teststring(ref))     throw SEBException("Bad symbol in index name:"+tag , "getSymbol(const string&,const string&,const string&)");
+    if (!teststring(s))      throw SEBException("Bad symbol in variable name:"+s+". "+invalid_reference_message(s), "getSymbol(const string&,const string&,const string&)");
+    if (!teststring(tag))    throw SEBException("Bad symbol in variable name:"+tag+". "+invalid_reference_message(tag), "getSymbol(const string&,const string&,const string&)");
+    if (!teststring(ref))    throw SEBException("Bad symbol in index name:"+ref+". "+invalid_reference_message(ref), "getSymbol(const string&,const string&,const string&)");
 
     string si;
     si = s+"_"+tag+":"+ref;
@@ -194,10 +223,10 @@ Expression SymbolInterface::getSymbol( const string& s, const string& tag, const
 //  E.g.  psi   sub_unit/structure   r1, r2
 Expression SymbolInterface::getSymbol(const string& s, const string& tag, const string& index1, const string& index2 ){
 
-    if (!teststring(s))      throw SEBException("Bad symbol in variable name:"+s,"getSymbol(const string&)");
-    if (!teststring(tag))    throw SEBException("Bad symbol in variable name:"+tag  , "getSymbol(const string&,const string&,const string&)");
-    if (!teststring(index1))  throw SEBException("Bad symbol in index name:"+index1 , "getSymbol(const string&,const string&,const string&)");
-    if (!teststring(index2))  throw SEBException("Bad symbol in index name:"+index2 , "getSymbol(const string&,const string&,const string&)");
+    if (!teststring(s))       throw SEBException("Bad symbol in variable name:"+s+". "+invalid_reference_message(s),"getSymbol(const string&)");
+    if (!teststring(tag))     throw SEBException("Bad symbol in variable name:"+tag+". "+invalid_reference_message(tag), "getSymbol(const string&,const string&,const string&)");
+    if (!teststring(index1))  throw SEBException("Bad symbol in index name:"+index1+". "+invalid_reference_message(index1), "getSymbol(const string&,const string&,const string&)");
+    if (!teststring(index2))  throw SEBException("Bad symbol in index name:"+index2+". "+invalid_reference_message(index2), "getSymbol(const string&,const string&,const string&)");
 
     string si;
     if (index1<index2) si = s+"_"+tag+":"+index1+","+index2;
