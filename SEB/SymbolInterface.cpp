@@ -1,4 +1,5 @@
 #include "SymbolInterface.hpp"
+#include <cctype>
 
 #ifdef USE_GINAC_IMPL
 #include "GiNaCExpression.hpp"
@@ -99,6 +100,19 @@ bool SymbolInterface::testnamestring(const string& s)
    return true;
 }
 
+string SymbolInterface::invalid_name_message(const string& s)
+{
+    for (size_t pos = 0; pos + 1 < s.size(); ++pos)
+    {
+        unsigned char ch = static_cast<unsigned char>(s[pos]);
+        if (!std::isalnum(ch)) {
+            return "Invalid character '" + string(1, s[pos]) + "' at position " + std::to_string(pos) + 
+                   ". Allowed characters are A-Z, a-z, and 0-9.";
+        }
+    }
+    return "Name validation failed. Allowed characters are A-Z, a-z, and 0-9.";
+}
+
 
 /*Test strings which can contain A-Za-z0-9, :.# is also allowed */
 bool SymbolInterface::teststring(const string& s)
@@ -111,6 +125,19 @@ bool SymbolInterface::teststring(const string& s)
         pos++;
       }
    return true;
+}
+
+string SymbolInterface::invalid_reference_message(const string& s)
+{
+    for (size_t pos = 0; pos + 1 < s.size(); ++pos)
+    {
+        unsigned char ch = static_cast<unsigned char>(s[pos]);
+        if (!std::isalnum(ch) && s[pos] != ':' && s[pos] != '#' && s[pos] != '.') {
+            return "Invalid character '" + string(1, s[pos]) + "' at position " + std::to_string(pos) +
+                   ". Allowed characters are A-Z, a-z, 0-9, ':', '.', and '#'.";
+        }
+    }
+    return "Reference validation failed. Allowed characters are A-Z, a-z, 0-9, ':', '.', and '#'.";
 }
 
 

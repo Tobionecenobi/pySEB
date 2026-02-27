@@ -86,8 +86,14 @@ class SymbolInterface{
     // tests if user specified name is a valid string
     bool testnamestring(const string& s);
 
+    // Detailed validation message for names (allowed: A-Za-z0-9)
+    string invalid_name_message(const string& s);
+
     // tests if user specified reference point is a valid string
     bool teststring(const string& s);
+
+    // Detailed validation message for references (allowed: A-Za-z0-9, ':', '.', '#')
+    string invalid_reference_message(const string& s);
 
     map<string, SymExprPtr> getSymbolTable();
 

@@ -17,8 +17,8 @@
 GraphID World::Add(SubUnit *sub, subName name, string tag)
 {
 try{
-    if (!GLEX->testnamestring(name))                 throw SEBException("Bad symbol in subunit name:"+name);
-    if (!tag.empty() && !GLEX->testnamestring(tag))  throw SEBException("Bad symbol in subunit tag:"+tag  );
+    if (!GLEX->testnamestring(name))                 throw SEBException("Bad symbol in subunit name:"+name+". "+GLEX->invalid_name_message(name));
+    if (!tag.empty() && !GLEX->testnamestring(tag))  throw SEBException("Bad symbol in subunit tag:"+tag+". "+GLEX->invalid_name_message(tag));
     if (hasName(name))                               throw SEBException("Name "+name+" already exists in the world");
     if (!testSubunitPointer(sub))                    throw SEBException("Supplied subUnit pointer does not point a sub-unit.");
 
@@ -64,7 +64,7 @@ GraphID World::Add(string subtype, subName name, string tag)
 GraphID World::Add(GraphID gid, structName name)
 {
 try{
-    if (!GLEX->testnamestring(name))      throw SEBException("Bad symbol in structure name:"+name );
+    if (!GLEX->testnamestring(name))      throw SEBException("Bad symbol in structure name:"+name+". "+GLEX->invalid_name_message(name));
     if (!testGraphID(gid))                throw SEBException("Bad graphid:"+to_string(gid) );
     if (hasName(name))                    throw SEBException("Name "+name+" already exists in the world");
 
@@ -123,8 +123,8 @@ try{
     string newname = getName(newr); // extract name from  name.ref
     string oldname = getName(oldr);
 
-    if (!GLEX->testnamestring(newname))                  throw SEBException("Bad symbol in sub-unit name:"+newname );
-    if (!tag.empty() && !GLEX->testnamestring(tag))      throw SEBException("Bad symbol in sub-unit tag:"+tag);
+    if (!GLEX->testnamestring(newname))                  throw SEBException("Bad symbol in sub-unit name:"+newname+". "+GLEX->invalid_name_message(newname));
+    if (!tag.empty() && !GLEX->testnamestring(tag))      throw SEBException("Bad symbol in sub-unit tag:"+tag+". "+GLEX->invalid_name_message(tag));
     if (hasName(newname) )                               throw SEBException("Name "+newname+" already exists in the world");
     if (!hasName(oldname))                               throw SEBException("Name "+oldname+" does not exist in the world");
 
