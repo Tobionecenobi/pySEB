@@ -25,8 +25,26 @@ include_directories(${CLN_INCLUDE_DIRS})
 # Ensure GiNaC implementation code paths are enabled in headers
 add_compile_definitions(USE_GINAC USE_GINAC_IMPL)
 
+# Locate libseb from common build directories
+find_library(SEB_LIBRARY
+    NAMES seb libseb.a
+    HINTS
+        ${CMAKE_SOURCE_DIR}/../build
+        ${CMAKE_SOURCE_DIR}/../build-ninja-ginac
+        ${CMAKE_SOURCE_DIR}/../build-cmake
+    NO_DEFAULT_PATH
+)
+
+if(NOT SEB_LIBRARY)
+    message(FATAL_ERROR
+        "Could not find libseb. Build the core library first (e.g. in ../build-ninja-ginac or ../build)."
+    )
+endif()
+
+get_filename_component(SEB_LIBRARY_DIR ${SEB_LIBRARY} DIRECTORY)
+
 # Link directories
-link_directories(${CMAKE_SOURCE_DIR}/../build)
+link_directories(${SEB_LIBRARY_DIR})
 link_directories(${GINAC_LIBRARY_DIRS})
 link_directories(${CLN_LIBRARY_DIRS})
 
@@ -46,7 +64,7 @@ list(APPEND SOURCE_FILES ${CMAKE_SOURCE_DIR}/../SEB/SymbolInterface.cpp)
 
 # Link the libraries
 target_link_libraries(utility_test PRIVATE
-    seb
+    ${SEB_LIBRARY}
     GSL::gsl
     GSL::gslcblas
     GTest::GTest
@@ -56,7 +74,7 @@ target_link_libraries(utility_test PRIVATE
 )
 
 target_link_libraries(structure_test PRIVATE
-    seb
+    ${SEB_LIBRARY}
     GSL::gsl
     GSL::gslcblas
     GTest::GTest
@@ -66,7 +84,7 @@ target_link_libraries(structure_test PRIVATE
 )
 
 target_link_libraries(validation_test PRIVATE
-    seb
+    ${SEB_LIBRARY}
     GSL::gsl
     GSL::gslcblas
     GTest::GTest
@@ -76,7 +94,7 @@ target_link_libraries(validation_test PRIVATE
 )
 
 target_link_libraries(sample_solid_cylinder_test PRIVATE
-    seb
+    ${SEB_LIBRARY}
     GSL::gsl
     GSL::gslcblas
     GTest::GTest
@@ -86,7 +104,7 @@ target_link_libraries(sample_solid_cylinder_test PRIVATE
 )
 
 target_link_libraries(sample_solid_sphere_test PRIVATE
-    seb
+    ${SEB_LIBRARY}
     GSL::gsl
     GSL::gslcblas
     GTest::GTest
@@ -96,7 +114,7 @@ target_link_libraries(sample_solid_sphere_test PRIVATE
 )
 
 target_link_libraries(sample_solid_spherical_shell_test PRIVATE
-    seb
+    ${SEB_LIBRARY}
     GSL::gsl
     GSL::gslcblas
     GTest::GTest
@@ -106,7 +124,7 @@ target_link_libraries(sample_solid_spherical_shell_test PRIVATE
 )
 
 target_link_libraries(sample_thin_disk_test PRIVATE
-    seb
+    ${SEB_LIBRARY}
     GSL::gsl
     GSL::gslcblas
     GTest::GTest
