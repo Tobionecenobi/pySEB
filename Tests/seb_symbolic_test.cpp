@@ -1,4 +1,5 @@
 #include "Symbolic.hpp"
+#include "Types.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -8,6 +9,10 @@
 
 static_assert(std::is_same<Expression, sebsym::Expression>::value,
               "global Expression should remain a compatibility alias");
+static_assert(std::is_same<ex, sebsym::Expression>::value,
+              "SEB expression typedef should use sebsym::Expression");
+static_assert(std::is_same<ExpressionMap, std::map<sebsym::Expression, sebsym::Expression>>::value,
+              "SEB expression maps should use sebsym::Expression");
 
 namespace {
 

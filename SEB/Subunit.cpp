@@ -1,6 +1,7 @@
 #include "Subunit.hpp"
 #include "ExpressionFunctions.hpp"
 
+using sebsym::Expression;
 
 Expression SubUnit::FormFactor(ParameterList&  betas, ParameterList&  params, int varForm )
 {
@@ -506,4 +507,3 @@ bool SubUnit::ValidateExpressionFile( Expression term, Expression SRMS2ex, strin
 
      return dev<tolerance && devg<tolerance;
  }
-

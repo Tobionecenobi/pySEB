@@ -4,6 +4,8 @@
 // Include creation function for sub-units.
 #include "Subunits/CreateSubunit.hpp"
 
+using sebsym::Expression;
+
 /* Adds a new sub unit that is not connected to anything. Thus it receives its own graphID.
 
    Arguments:
@@ -1764,7 +1766,6 @@ Expression World::getFF(string myself, int varform)
                                       return beta * beta * F;
                                    }
 }
-
 
 
 

@@ -72,16 +72,16 @@ class SubUnit : public ABSSubUnit
     ExpressionMap expand;
 
     // Set of local structural parameter expressions for this sub-unit, e.g. Rg for polymer, R for sphere, L for rod and so on.
-    set<Expression> parameters;
-    set<Expression> xparameters;
+    set<sebsym::Expression> parameters;
+    set<sebsym::Expression> xparameters;
 
 
 
     /* A sub-unit stores a lot of scattering expressions, expressed consisely in dimensionless variables (XVAR) */
 
-    Expression FormFactorExpression;                                      // expression for the form factor
-    map<refPoint,Expression> FormFactorAmplitudeExpressions;              // each reference point has an associated form factor amplitude expression
-    map<refPoint ,map<refPoint, Expression> > PhaseFactorExpressions;     // each pair of reference points has an associated phase factor expression equation
+    sebsym::Expression FormFactorExpression;                                      // expression for the form factor
+    map<refPoint,sebsym::Expression> FormFactorAmplitudeExpressions;              // each reference point has an associated form factor amplitude expression
+    map<refPoint ,map<refPoint, sebsym::Expression> > PhaseFactorExpressions;     // each pair of reference points has an associated phase factor expression equation
 
     /* We also need to store mean-square-distances, these are obtained by Guinier expanding the Debye formula, that is the
        various scattering expressions. We note SEB requires   sigma <R^2>  to be defined, which are trivially defined by Guinier expansions.
@@ -100,9 +100,9 @@ class SubUnit : public ABSSubUnit
 
     */
 
-    Expression RadiusOfGyration2;                                    // expression for Rg^2
-    map<refPoint, Expression> sigmaMSDref2scat;                      // sigma_ref <R^2_ref,scat>       mean-square distance between specified reference point and all scatterers.
-    map<refPoint, map<refPoint, Expression>> sigmaMSDref2ref;        // sigma_ref,ref <R^2_ref,ref>    mean-square distance between specified reference points
+    sebsym::Expression RadiusOfGyration2;                                    // expression for Rg^2
+    map<refPoint, sebsym::Expression> sigmaMSDref2scat;                      // sigma_ref <R^2_ref,scat>       mean-square distance between specified reference point and all scatterers.
+    map<refPoint, map<refPoint, sebsym::Expression>> sigmaMSDref2ref;        // sigma_ref,ref <R^2_ref,ref>    mean-square distance between specified reference points
 
     public:
 
@@ -140,31 +140,31 @@ class SubUnit : public ABSSubUnit
     int getSubunitType() { return stype; }
 
     /*Returns the scattering length of the sub unit as the greek letter beta with the sub units tag as an index*/
-    Expression getBeta(){
+    sebsym::Expression getBeta(){
         return GLEX->getSymbol("beta", tag);
     }
 
     /*returns the form factor */
-    virtual Expression FormFactor(ParameterList&  betas, ParameterList&  params, int varForm = GENERIC );
-    virtual Expression FormFactor( int varForm = QVAR );
+    virtual sebsym::Expression FormFactor(ParameterList&  betas, ParameterList&  params, int varForm = GENERIC );
+    virtual sebsym::Expression FormFactor( int varForm = QVAR );
 
     /*returns the form factor amplitude relative to r */
-    virtual Expression FormFactorAmplitude(refPoint r, ParameterList&  betas, ParameterList&  params, int varForm = GENERIC );
-    virtual Expression FormFactorAmplitude(refPoint r,int varForm = QVAR );
+    virtual sebsym::Expression FormFactorAmplitude(refPoint r, ParameterList&  betas, ParameterList&  params, int varForm = GENERIC );
+    virtual sebsym::Expression FormFactorAmplitude(refPoint r,int varForm = QVAR );
 
     // Return the phase factor between r1 and r2
-    virtual Expression PhaseFactor(refPoint r1, refPoint r2, ParameterList&  betas, ParameterList&  params, int varForm = GENERIC );
-    virtual Expression PhaseFactor(refPoint r1, refPoint r2, int varForm = QVAR );
+    virtual sebsym::Expression PhaseFactor(refPoint r1, refPoint r2, ParameterList&  betas, ParameterList&  params, int varForm = GENERIC );
+    virtual sebsym::Expression PhaseFactor(refPoint r1, refPoint r2, int varForm = QVAR );
 
 
     /* Returns the radius of gyration of a sub unit. This always uses explicit structural parameters. */
-    Expression virtual getRadiusOfGyration2() { return RadiusOfGyration2; }
+    virtual sebsym::Expression getRadiusOfGyration2() { return RadiusOfGyration2; }
 
     // Returns sigma <R^2> between the reference point and all scatterers in th
-    Expression virtual getSigmaMSDRef2Scat(refPoint r);
+    virtual sebsym::Expression getSigmaMSDRef2Scat(refPoint r);
 
     // Returns sigma <R^2> between the two reference points.
-    Expression virtual getSigmaMSDRef2Ref(refPoint r1, refPoint r2 );
+    virtual sebsym::Expression getSigmaMSDRef2Ref(refPoint r1, refPoint r2 );
 
 
 
@@ -301,14 +301,14 @@ class SubUnit : public ABSSubUnit
    protected:   // Helper functions used by class methods
 
     // Test if scattering functions have sensible Guinier expansions, and compare these to the hard coded Rg2 and sigma<R^2> expressions.
-    bool ValidateFunctionSymbolically(Expression& F, Expression& SMSD, bool FormFactor, Expression Fsymb, ParameterList pl);
+    bool ValidateFunctionSymbolically(sebsym::Expression& F, sebsym::Expression& SMSD, bool FormFactor, sebsym::Expression Fsymb, ParameterList pl);
 
 
     // Helper
-    bool ValidateExpressionFile( Expression term, Expression SRMS2ex, string filename, bool FF, string str, double tolerance);
+    bool ValidateExpressionFile( sebsym::Expression term, sebsym::Expression SRMS2ex, string filename, bool FF, string str, double tolerance);
 
     // Helper that generates a graph of a given expression, and subtract the Guinier expansion within the range where the expansion should be valid.
-    void ValidateGraph(Expression Fex, Expression sigmaR2ex, bool FormFactor, vector<double>& qvec, string filename);
+    void ValidateGraph(sebsym::Expression Fex, sebsym::Expression sigmaR2ex, bool FormFactor, vector<double>& qvec, string filename);
 
 
     /* tests that a user specificed reference point is valid for this sub-unit. */

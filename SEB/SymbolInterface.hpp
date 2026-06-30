@@ -78,10 +78,10 @@ class SymbolInterface{
     const SymExprPtr& get( const string& s );
 
     // Returns a standard utf8 symbol or if input is an array of size 2 it returns utf8 symbol and its latex format
-    Expression getSymbol( const string& s );
-    Expression getSymbol( const string& s, const string& index1 );
-    Expression getSymbol( const string& s, const string& index1, const string& index2 );
-    Expression getSymbol( const string& s, const string& index1, const string& index2, const string& index3 );
+    sebsym::Expression getSymbol( const string& s );
+    sebsym::Expression getSymbol( const string& s, const string& index1 );
+    sebsym::Expression getSymbol( const string& s, const string& index1, const string& index2 );
+    sebsym::Expression getSymbol( const string& s, const string& index1, const string& index2, const string& index3 );
 
     // tests if user specified name is a valid string
     bool testnamestring(const string& s);

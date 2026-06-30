@@ -7,6 +7,7 @@
 #endif
 
 using namespace std;
+using sebsym::Expression;
 
 /*Resets Symbol interface*/
 SymbolInterface* SymbolInterface::myInstance = 0;
@@ -265,6 +266,5 @@ string to_string(const SymExprPtr& expr)
 }
 
 // The implementation of SymbolicFactory methods is in SymbolicInterface.cpp
-
 
 

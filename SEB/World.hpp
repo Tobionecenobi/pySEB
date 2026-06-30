@@ -165,64 +165,64 @@ public:
     DoubleVector logspace(double q1,double q2,double base);
 
     // Evaluate expression for given parameters returning a value.
-    double Evaluate(Expression, ParameterList&);
+    double Evaluate(sebsym::Expression, ParameterList&);
 
     // Evaluate expression for given parameters, at a single q value and returns a double.
-    double Evaluate(Expression, ParameterList&, double);
+    double Evaluate(sebsym::Expression, ParameterList&, double);
 
     // Evaluate expression for given parameters for a vector of q values, returns a vector of values
-    DoubleVector Evaluate(Expression, ParameterList&, DoubleVector& );
+    DoubleVector Evaluate(sebsym::Expression, ParameterList&, DoubleVector& );
 
     // This does the same as the function above, but saves the result to a file.
     // The first optional argument is a user text, the second the character denoting a comment.
-    DoubleVector Evaluate(Expression e, ParameterList& pl, DoubleVector& q, string, string ="", string = "#");
+    DoubleVector Evaluate(sebsym::Expression e, ParameterList& pl, DoubleVector& q, string, string ="", string = "#");
 
     // These methods are used to produce analytic expressions for scattering tems   --------------------------------------
 
     // Methods for getting phase factors, normalization is never an issue for phase factors.
-    Expression PhaseFactor        ( refPoint r1, refPoint r2, int depth = WORLDMAXDEPTH, int varform=QVAR);
-    Expression PhaseFactorX       ( refPoint r1, refPoint r2, int depth = WORLDMAXDEPTH);
-    Expression PhaseFactorGeneric ( refPoint r1, refPoint r2, int depth = WORLDMAXDEPTH);
+    sebsym::Expression PhaseFactor        ( refPoint r1, refPoint r2, int depth = WORLDMAXDEPTH, int varform=QVAR);
+    sebsym::Expression PhaseFactorX       ( refPoint r1, refPoint r2, int depth = WORLDMAXDEPTH);
+    sebsym::Expression PhaseFactorGeneric ( refPoint r1, refPoint r2, int depth = WORLDMAXDEPTH);
 
     // Methods for getting F->1 for q->0 normalized form factors and form factor amplitudes
-    Expression FormFactorAmplitude        ( refPoint ref, int depth = WORLDMAXDEPTH, int varForm = QVAR );
-    Expression FormFactorAmplitudeX       ( refPoint ref, int depth = WORLDMAXDEPTH);
-    Expression FormFactorAmplitudeGeneric ( refPoint ref, int depth = WORLDMAXDEPTH);
-    Expression FormFactor        ( string name, int depth = WORLDMAXDEPTH, int varForm = QVAR );
-    Expression FormFactorX       ( string name, int depth = WORLDMAXDEPTH);
-    Expression FormFactorGeneric ( string name, int depth = WORLDMAXDEPTH);
+    sebsym::Expression FormFactorAmplitude        ( refPoint ref, int depth = WORLDMAXDEPTH, int varForm = QVAR );
+    sebsym::Expression FormFactorAmplitudeX       ( refPoint ref, int depth = WORLDMAXDEPTH);
+    sebsym::Expression FormFactorAmplitudeGeneric ( refPoint ref, int depth = WORLDMAXDEPTH);
+    sebsym::Expression FormFactor        ( string name, int depth = WORLDMAXDEPTH, int varForm = QVAR );
+    sebsym::Expression FormFactorX       ( string name, int depth = WORLDMAXDEPTH);
+    sebsym::Expression FormFactorGeneric ( string name, int depth = WORLDMAXDEPTH);
 
     // Methods for getting unnormalized form factors and - amplitudes.
     // For q->0 they converge to sum beta
-    Expression FormFactorAmplitude_Unnormalized( refPoint ref, int depth = WORLDMAXDEPTH, int varForm = QVAR );
-    Expression FormFactorAmplitudeX_Unnormalized       ( refPoint ref, int depth = WORLDMAXDEPTH);
-    Expression FormFactorAmplitudeGeneric_Unnormalized( refPoint ref, int depth = WORLDMAXDEPTH);
+    sebsym::Expression FormFactorAmplitude_Unnormalized( refPoint ref, int depth = WORLDMAXDEPTH, int varForm = QVAR );
+    sebsym::Expression FormFactorAmplitudeX_Unnormalized       ( refPoint ref, int depth = WORLDMAXDEPTH);
+    sebsym::Expression FormFactorAmplitudeGeneric_Unnormalized( refPoint ref, int depth = WORLDMAXDEPTH);
 
     // For q->0 they converge to (sum beta)^2
-    Expression FormFactor_Unnormalized        ( string name, int depth = WORLDMAXDEPTH, int varForm = QVAR );
-    Expression FormFactorX_Unnormalized       ( string name, int depth = WORLDMAXDEPTH);
-    Expression FormFactorGeneric_Unnormalized( string name, int depth = WORLDMAXDEPTH);
+    sebsym::Expression FormFactor_Unnormalized        ( string name, int depth = WORLDMAXDEPTH, int varForm = QVAR );
+    sebsym::Expression FormFactorX_Unnormalized       ( string name, int depth = WORLDMAXDEPTH);
+    sebsym::Expression FormFactorGeneric_Unnormalized( string name, int depth = WORLDMAXDEPTH);
 
     // Normalization constants
-    Expression FormFactorAmplitude_Normalization( refPoint ref, int depth = WORLDMAXDEPTH );    // = sum beta
-    Expression FormFactor_Normalization       ( string name, int depth = WORLDMAXDEPTH);        // = (sum beta)^2
+    sebsym::Expression FormFactorAmplitude_Normalization( refPoint ref, int depth = WORLDMAXDEPTH );    // = sum beta
+    sebsym::Expression FormFactor_Normalization       ( string name, int depth = WORLDMAXDEPTH);        // = (sum beta)^2
 
     // These methods are used to provide analytic expressions for Radius of gyration etc. ---------------------------------
 
     // Measure apparent sizes. Weighed by beta terms and normalized by (sum beta)^2 and (sum beta), respectively.
-    Expression RadiusOfGyration2( string name, int depth = WORLDMAXDEPTH );
-    Expression SMSD_ref2scat( refPoint ref, int depth = WORLDMAXDEPTH );
+    sebsym::Expression RadiusOfGyration2( string name, int depth = WORLDMAXDEPTH );
+    sebsym::Expression SMSD_ref2scat( refPoint ref, int depth = WORLDMAXDEPTH );
 
     // Measure absolute mean-square distance between reference point pairs.
-    Expression SMSD_ref2ref( refPoint r1, refPoint r2, int depth = WORLDMAXDEPTH);
+    sebsym::Expression SMSD_ref2ref( refPoint r1, refPoint r2, int depth = WORLDMAXDEPTH);
 
     // Miscellanious methods. --------------------------------------------------------------------------------------------
 
     // Count number of structures/sub-units connected to ref at the specifie depth
-    Expression Count(refPoint ref, int depth = WORLDMAXDEPTH);
+    sebsym::Expression Count(refPoint ref, int depth = WORLDMAXDEPTH);
 
     // Count number of pairs of structures/sub-units within structure at specific depth. Count / Countpairs returns N vs. N^2 elements.
-    Expression CountPairs( string name, int depth = WORLDMAXDEPTH);
+    sebsym::Expression CountPairs( string name, int depth = WORLDMAXDEPTH);
 
     // Find a path of reference points connecting the two reference points, recursing fown to the specified level.  (NOT used by SEB)
     ReferencePointList  Path( refPoint r1, refPoint r2, int depth=WORLDMAXDEPTH, bool =true);
@@ -235,9 +235,9 @@ public:
 
   private:
     // These three methods does all the traversal used in all scattering expressions above.
-    Expression GenerateRefToRef( refPoint r1, refPoint r2, int depth, int varForm );
-    Expression GenerateRefToAll( refPoint r,               int depth, int varForm );
-    Expression GenerateAllToAll( string name,              int depth, int varForm );
+    sebsym::Expression GenerateRefToRef( refPoint r1, refPoint r2, int depth, int varForm );
+    sebsym::Expression GenerateRefToAll( refPoint r,               int depth, int varForm );
+    sebsym::Expression GenerateAllToAll( string name,              int depth, int varForm );
 
     // Makes a list of all neighbors, that is link partners, and reference points inside the same structure / sub-unit
     ReferencePointList getNeighbors( refPoint last, ReferencePointList& VisitedAlready);
@@ -255,7 +255,7 @@ public:
     LinkPair generateLink(refPoint r1, refPoint r2);
 
     // Helper to generate product of phase factors along a given path.
-    Expression PhaseFactor(ReferencePointList& path, int depth, string, int varForm, bool doCheck=true);
+    sebsym::Expression PhaseFactor(ReferencePointList& path, int depth, string, int varForm, bool doCheck=true);
 
     // Const iterators over subgraphs
     list<string>::const_iterator subgraph_cbegin(GraphID);
@@ -296,13 +296,13 @@ public:
 
 
     // Code for generating a symbolic Psi depending on various varforms
-    Expression getPsi(string myself, refPoint r1, refPoint r2, int varform);
+    sebsym::Expression getPsi(string myself, refPoint r1, refPoint r2, int varform);
 
     // Code for generating a symbolic Form Factor Amplitude depending on various varforms
-    Expression getFFA(string myself, refPoint r, int varform);
+    sebsym::Expression getFFA(string myself, refPoint r, int varform);
 
     // Code for generating a symbolic Form Factor depending on various varforms
-    Expression getFF(string myself, int varform);
+    sebsym::Expression getFF(string myself, int varform);
 };
 
 
