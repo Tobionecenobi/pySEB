@@ -32,7 +32,11 @@ We've used the factory pattern to create symbolic expressions. The `SymbolicFact
 
 ### 5. Python Bindings
 
-We've created Python bindings for the symbolic interface in `src/symbolic_bindings.cpp`. This allows Python code to interact with the C++ symbolic interface.
+Python bindings now expose the symbolic facade through the main pySEB module.
+The common expression and backend API lives in `src/bindingsTypes.cpp`, while
+world-level symbolic expression conversion is shared in `src/bindingsSymbolic.cpp`.
+This allows Python code to build `sebsym::Expression` values, select a backend,
+and convert expressions to real SymPy objects through `pyseb.to_sympy`.
 
 ## Usage
 

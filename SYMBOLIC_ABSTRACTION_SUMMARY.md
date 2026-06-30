@@ -116,29 +116,11 @@ public:
 
 ### 6. Python Bindings
 
-We've created Python bindings for our symbolic interface in `src/symbolic_bindings.cpp`:
-
-```cpp
-void init_symbolic(py::module& m) {
-    // Bind the SymbolicExpression class
-    py::class_<SymbolicExpression, PySymbolicExpression, std::shared_ptr<SymbolicExpression>>(m, "SymbolicExpression")
-        // ...
-    
-    // Bind the SymbolicFactory class
-    py::class_<SymbolicFactory, PySymbolicFactory>(m, "SymbolicFactory")
-        // ...
-    
-#ifdef USE_GINAC
-    // Bind the GiNaCExpression class
-    py::class_<GiNaCExpression, SymbolicExpression, std::shared_ptr<GiNaCExpression>>(m, "GiNaCExpression")
-        // ...
-    
-    // Bind the GiNaCFactory class
-    py::class_<GiNaCFactory, SymbolicFactory>(m, "GiNaCFactory")
-        // ...
-#endif
-}
-```
+The Python bindings expose the symbolic facade through the main pySEB module.
+Common expression construction and `pyseb.to_sympy` are registered in
+`src/bindingsTypes.cpp`, while shared world-expression conversion lives in
+`src/bindingsSymbolic.cpp`. Backend selection is exposed with
+`pyseb.available_backends()`, `pyseb.get_backend()`, and `pyseb.set_backend()`.
 
 ### 7. CMake Configuration
 

@@ -1,6 +1,5 @@
 include .gitignore
 include CMakeLists.txt
-include CMakeLists.txt.new
 include Examples/Chain_Rod_end-to-end.cpp
 include Examples/Dendrimer.cpp
 include Examples/DiBlockStarChain.cpp
@@ -205,15 +204,12 @@ include PaperFigs/fig3_end2contour.cpp
 include PaperFigs/fig3_end2end.cpp
 include README.md
 include SEB/Abstract_subunit.hpp
-include SEB/CMakeLists.txt
 include SEB/Constants.hpp
 include SEB/Exceptions.hpp
 include SEB/Expression.hpp
-include SEB/Expression.hpp.new
 include SEB/ExpressionFunctions.hpp
 include SEB/GiNaCSymbolic.cpp
 include SEB/GiNaCSymbolic.hpp
-include SEB/Makefile.test
 include SEB/README
 include SEB/RegisterSpecialFunctions.cpp
 include SEB/SEB.hpp
@@ -265,18 +261,11 @@ include build/README
 include makefile
 include pyproject.toml
 include pyseb/__init__.py
-include pyseb/__init__.py.new
 include pyseb/subunits.py
 include pyseb/symbolic.py
 include pyseb/utils.py
 include setup.py
 include src/bindings.cpp
-include src/symbolic_bindings.cpp
-include src/symbolic_bindings_part1.cpp
-include src/symbolic_bindings_part2.cpp
-include src/symbolic_bindings_part3.cpp
-include src/symbolic_bindings_part4.cpp
-include src/symbolic_bindings_part5.cpp
 include src/utility.cpp
 include work/Evaluating.cpp
 
