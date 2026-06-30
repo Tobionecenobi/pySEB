@@ -121,12 +121,10 @@ endif()
 set(BINDING_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindingsTypes.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindingsSymPy.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindingsFallback.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bindingsSymbolic.cpp
 )
 
 if(USE_GINAC)
-    list(APPEND BINDING_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/bindingsGiNaC.cpp)
     add_definitions(-DUSE_GINAC_BINDINGS)
 endif()
 

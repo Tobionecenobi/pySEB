@@ -10,22 +10,15 @@
 #include "Subunits/Subunits.hpp"
 #include "SymbolicPortable.hpp"
 #include "SymbolInterface.hpp"
+#include "bindingsSymbolic.hpp"
 
 namespace py = pybind11;
 
 // Forward declaration of the function that registers common types
 void register_common_types(py::module& m);
 
-// Include the appropriate bindings based on the build configuration
 #ifdef USE_GINAC_BINDINGS
-#include "bindingsGiNaC.hpp"
 #include "GiNaCSymbolic.hpp"
-#endif
-
-#ifdef USE_SYMPY
-#include "bindingsSymPy.hpp"
-#else
-#include "bindingsFallback.hpp"
 #endif
 
 PYBIND11_MODULE(_pyseb, m) {
@@ -90,14 +83,5 @@ PYBIND11_MODULE(_pyseb, m) {
         .def("getq", &World::getq, py::arg("value") = 0)
         .def("q", &World::q, py::arg("value") = 0);
 
-    // Register backend-specific bindings
-#ifdef USE_GINAC_BINDINGS
-    register_ginac_bindings(world);
-#endif
-
-#ifdef USE_SYMPY
-    register_sympy_bindings(world);
-#else
-    register_fallback_bindings(world);
-#endif
+    register_symbolic_world_bindings(world);
 }

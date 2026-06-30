@@ -9,6 +9,7 @@
 #include "Subunits/Subunits.hpp"
 #include "Expression.hpp"
 #include "SymbolicInterface.hpp"
+#include "bindingsSymbolic.hpp"
 
 namespace py = pybind11;
 
@@ -100,9 +101,7 @@ void register_common_types(py::module& m) {
     m.def("log", [](const Expression& expr) { return expr.log(); }, py::arg("expr"));
     m.def("sqrt", [](const Expression& expr) { return expr.sqrt(); }, py::arg("expr"));
     m.def("abs", [](const Expression& expr) { return expr.abs(); }, py::arg("expr"));
-    m.def("to_sympy", [](const Expression& expr) {
-        return py::module::import("pyseb.symbolic").attr("SymPyExpression")(expr.to_python());
-    }, py::arg("expr"));
+    m.def("to_sympy", &pyseb_expression_to_sympy, py::arg("expr"));
 
     // Expose SubUnit class
     py::class_<SubUnit>(m, "SubUnit")
