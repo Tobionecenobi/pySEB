@@ -36,6 +36,30 @@ struct SebSymbolicFixture : public ::testing::Test {
     }
 };
 
+sebsym::Expression parity_expression()
+{
+    auto x = sebsym::symbol("x");
+    auto y = sebsym::symbol("y");
+
+    return (x * sebsym::constant(2.0) + y).sin()
+        + (x / sebsym::constant(3.0)).exp()
+        + (y + sebsym::constant(4.0)).log()
+        + (x + sebsym::e()).sqrt()
+        + sebsym::pi().sin();
+}
+
+double evaluate_parity_expression(const std::string& backend)
+{
+    if (!sebsym::set_backend(backend)) {
+        throw std::runtime_error("backend is not available: " + backend);
+    }
+
+    return parity_expression()
+        .subs("x", 1.25)
+        .subs("y", 2.5)
+        .eval();
+}
+
 } // namespace
 
 TEST_F(SebSymbolicFixture, PortableBackendBuildsSubstitutesAndEvaluates)
@@ -90,4 +114,40 @@ TEST_F(SebSymbolicFixture, GiNaCBackendReportsSeriesCapabilityWhenAvailable)
     EXPECT_TRUE(caps.numeric_evaluation);
     EXPECT_TRUE(caps.series_expansion);
     EXPECT_TRUE(caps.symbolic_simplification);
+}
+
+TEST_F(SebSymbolicFixture, PortableAndGiNaCAgreeOnCommonNumericSubset)
+{
+    auto backends = sebsym::available_backends();
+    if (std::find(backends.begin(), backends.end(), "ginac") == backends.end()) {
+        GTEST_SKIP() << "GiNaC backend is not available";
+    }
+
+    double portable_value = evaluate_parity_expression("portable");
+    double ginac_value = evaluate_parity_expression("ginac");
+
+    EXPECT_NEAR(portable_value, ginac_value, 1e-12);
+}
+
+TEST_F(SebSymbolicFixture, PortableExportsCommonSubsetToSymPySyntax)
+{
+    ASSERT_TRUE(sebsym::set_backend("portable"));
+    std::string python = parity_expression().to_python();
+
+    EXPECT_NE(python.find("sin"), std::string::npos);
+    EXPECT_NE(python.find("exp"), std::string::npos);
+    EXPECT_NE(python.find("log"), std::string::npos);
+    EXPECT_NE(python.find("sqrt"), std::string::npos);
+}
+
+TEST_F(SebSymbolicFixture, PortableExportsSpecialFunctionsToSymPySyntax)
+{
+    ASSERT_TRUE(sebsym::set_backend("portable"));
+    auto x = sebsym::symbol("x");
+    std::string python = (x.erf() + x.erfc() + x.bessel_j0() + x.bessel_j1()).to_python();
+
+    EXPECT_NE(python.find("erf"), std::string::npos);
+    EXPECT_NE(python.find("erfc"), std::string::npos);
+    EXPECT_NE(python.find("besselj(0"), std::string::npos);
+    EXPECT_NE(python.find("besselj(1"), std::string::npos);
 }

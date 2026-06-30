@@ -107,6 +107,55 @@ class TestPySEBSmoke(unittest.TestCase):
         if "ginac" in results:
             self.assertAlmostEqual(results["portable"], results["ginac"], places=12)
 
+    def test_symbolic_backend_common_function_parity(self):
+        def build_expression():
+            x = pyseb.symbol("x")
+            y = pyseb.symbol("y")
+            return (
+                pyseb.sin(x * 2.0 + y)
+                + pyseb.exp(x / 3.0)
+                + pyseb.log(y + 4.0)
+                + pyseb.sqrt(x + pyseb.e())
+                + pyseb.sin(pyseb.pi())
+            )
+
+        results = {}
+        for backend in ("portable", "ginac"):
+            if backend not in pyseb.available_backends():
+                continue
+
+            pyseb.set_backend(backend)
+            expr = build_expression()
+            results[backend] = expr.subs("x", 1.25).subs("y", 2.5).eval()
+
+        self.assertIn("portable", results)
+
+        pyseb.set_backend("portable")
+        expr = build_expression()
+        sympy_expr = pyseb.to_sympy(expr)
+        sympy_value = float(sympy_expr.subs({"x": 1.25, "y": 2.5}).evalf())
+        results["sympy"] = sympy_value
+
+        for value in results.values():
+            self.assertTrue(math.isfinite(value))
+            self.assertAlmostEqual(value, results["portable"], places=12)
+
+    def test_portable_special_functions_convert_to_sympy(self):
+        pyseb.set_backend("portable")
+        x = pyseb.symbol("x")
+        expr = (x / 2.0).erf() + (x / 5.0).erfc() + x.bessel_j0() + x.bessel_j1()
+
+        sympy_expr = pyseb.to_sympy(expr)
+        value = float(sympy_expr.subs("x", 1.25).evalf())
+        expected = (
+            math.erf(1.25 / 2.0)
+            + math.erfc(1.25 / 5.0)
+            + float(sympy.besselj(0, 1.25).evalf())
+            + float(sympy.besselj(1, 1.25).evalf())
+        )
+
+        self.assertAlmostEqual(value, expected, places=12)
+
 
 if __name__ == "__main__":
     unittest.main()
