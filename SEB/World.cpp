@@ -782,12 +782,12 @@ Expression World::SMSD_ref2ref( refPoint r1, refPoint r2, int depth  )
 
 Expression World::Count(refPoint ref, int depth)
 {
-    return FormFactorAmplitude_Unnormalized(ref, depth, ONE);
+    return FormFactorAmplitude_Unnormalized(ref, depth, ONE).evalf();
 }
 
 Expression World::CountPairs( string name, int depth)
 {
-    return FormFactor_Unnormalized(name, depth, ONE);
+    return FormFactor_Unnormalized(name, depth, ONE).evalf();
 }
 
 
