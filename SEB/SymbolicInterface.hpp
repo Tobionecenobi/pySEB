@@ -18,6 +18,18 @@ typedef std::map<std::string, double> ParameterMap;
 typedef std::vector<double> DoubleVector;
 
 //===========================================================================
+// Optional backend features. Core expression construction should work for every
+// backend; validation, evaluation, and printers can branch on these capabilities.
+struct SymbolicCapabilities {
+    bool symbolic_simplification = false;
+    bool numeric_evaluation = false;
+    bool series_expansion = false;
+    bool latex_output = false;
+    bool python_output = false;
+    bool c_code_output = false;
+};
+
+//===========================================================================
 // Abstract interface for symbolic expressions
 class SymbolicExpression {
 public:
@@ -87,6 +99,9 @@ public:
 class SymbolicFactory {
 public:
     virtual ~SymbolicFactory() = default;
+
+    virtual std::string backendName() const { return "unknown"; }
+    virtual SymbolicCapabilities capabilities() const { return SymbolicCapabilities(); }
 
     virtual SymExprPtr createSymbol(const std::string& name) = 0;
     virtual SymExprPtr createConstant(double value) = 0;

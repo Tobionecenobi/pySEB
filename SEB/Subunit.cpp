@@ -469,19 +469,19 @@ bool SubUnit::ValidateExpressionFile( Expression term, Expression SRMS2ex, strin
     double devg=0.0;
 
     Expression q = GLEX->getSymbol("q");
-    if (!is_a_numeric(SRMS2ex)) throw SEBException("Expression for sigma<R^2> did not evaluate to number","bool ValidateExpressionFile( Expression term, Expression SRMS, string filename, bool FF, double tolerance)");
+    if (!is_a_numeric(SRMS2ex)) throw SEBException("Expression for sigma<R^2> of "+str+" did not evaluate to a number.\n  Expression after parameter substitution: "+SRMS2ex.to_string()+"\n  Check that all required parameters are set.","ValidateExpressionFile()");
     double SRMS2=ex_to_numeric(SRMS2ex);
     if (FF) SRMS2/=3;
        else SRMS2/=6;
 
     ifstream fi(filename);
-    if (!fi.is_open()) throw SEBException("Can not open input file "+filename,"bool ValidateExpressionFile( Expression term, Expression SRMS, string filename, bool FF, double tolerance)");
+    if (!fi.is_open()) throw SEBException("Can not open input file "+filename,"ValidateExpressionFile()");
 
     double qval,Ival;
     while (fi >> qval >> Ival)
        {
            Expression Iex = term.subs(q==qval).evalf();
-           if (!is_a_numeric(Iex)) throw SEBException("Expression for scattering term did not evaluate to number","bool ValidateExpressionFile( Expression term, Expression SRMS, string filename, bool FF, double tolerance)");
+           if (!is_a_numeric(Iex)) throw SEBException("Expression for "+str+" did not evaluate to a number at q="+std::to_string(qval)+".\n  Expression after parameter substitution: "+term.to_string()+"\n  Value at q="+std::to_string(qval)+": "+Iex.to_string()+"\n  Check that all required parameters are set.","ValidateExpressionFile()");
            double I=ex_to_numeric(Iex);
 
            // Test max deviation between data in file and SEB calculation

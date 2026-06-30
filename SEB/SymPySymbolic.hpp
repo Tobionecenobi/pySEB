@@ -295,6 +295,14 @@ public:
     SymPySymbolic() = default;
     virtual ~SymPySymbolic() = default;
 
+    std::string backendName() const override { return "sympy-string"; }
+
+    SymbolicCapabilities capabilities() const override {
+        SymbolicCapabilities caps;
+        caps.python_output = true;
+        return caps;
+    }
+
     SymExprPtr createSymbol(const std::string& name) override {
         return std::make_shared<SymPyExpression>("sympy.Symbol('" + name + "')");
     }

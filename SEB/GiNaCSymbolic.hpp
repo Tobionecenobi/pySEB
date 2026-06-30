@@ -281,6 +281,19 @@ public:
 
 class GiNaCFactory : public SymbolicFactory {
 public:
+    std::string backendName() const override { return "ginac"; }
+
+    SymbolicCapabilities capabilities() const override {
+        SymbolicCapabilities caps;
+        caps.symbolic_simplification = true;
+        caps.numeric_evaluation = true;
+        caps.series_expansion = true;
+        caps.latex_output = true;
+        caps.python_output = true;
+        caps.c_code_output = true;
+        return caps;
+    }
+
     SymExprPtr createSymbol(const std::string& name) override;
     SymExprPtr createConstant(double value) override;
     SymExprPtr createPi() override;

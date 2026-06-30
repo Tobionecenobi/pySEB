@@ -251,7 +251,7 @@ class SubUnit : public ABSSubUnit
 
     bool ValidateFormFactorFile(ParameterList &pl, string filename, double tolerance=1e-4)
      {
-         return ValidateExpressionFile( FormFactorExpression.subs(expand).subs(pl), RadiusOfGyration2.subs(pl), filename, true, "FormFactor" , tolerance);
+         return ValidateExpressionFile( FormFactorExpression.subs(expand).subs(pl), RadiusOfGyration2.subs(pl), filename, true, "FormFactor("+sub_name+")" , tolerance);
      }
 
 
@@ -259,14 +259,14 @@ class SubUnit : public ABSSubUnit
      {
          if (!hasAmplitudeRef(r))
               throw SEBException("Refpoint "+r+" not valid for sub-unit form factor","ValidateFormFactorAmplitudeFile(refPoint r, ParameterList &pl, string filename, double tolerance=1e-4)");
-         return ValidateExpressionFile( FormFactorAmplitudeExpressions[r].subs(expand).subs(pl), sigmaMSDref2scat[r].subs(pl), filename, false, "FormFactorAmplitude["+r+"]", tolerance);
+         return ValidateExpressionFile( FormFactorAmplitudeExpressions[r].subs(expand).subs(pl), sigmaMSDref2scat[r].subs(pl), filename, false, "FormFactorAmplitude("+sub_name+")["+r+"]", tolerance);
      }
 
     bool ValidatePhaseFactorFile(refPoint r1, refPoint r2,ParameterList &pl, string filename, double tolerance=1e-4)
      {
          if (!hasPhaseFactorRefs(r1,r2))
               throw SEBException("Refpoints "+r1+" and "+r2+" not valid for sub-unit phase factor","bool ValidatePhaseFactorFile(refPoint r1, refPoint r2,ParameterList &pl, string filename, double tolerance=1e-4)");
-         return ValidateExpressionFile( PhaseFactorExpressions[r1][r2].subs(expand).subs(pl), sigmaMSDref2ref[r1][r2].subs(pl), filename, false, "PhaseFactor["+r1+"]["+r2+"]", tolerance);
+         return ValidateExpressionFile( PhaseFactorExpressions[r1][r2].subs(expand).subs(pl), sigmaMSDref2ref[r1][r2].subs(pl), filename, false, "PhaseFactor("+sub_name+")["+r1+"]["+r2+"]", tolerance);
      }
 
 
