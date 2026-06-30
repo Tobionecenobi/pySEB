@@ -57,6 +57,9 @@ if _pyseb is None:
 
 World = _pyseb.World
 GraphID = getattr(_pyseb, "GraphID", int)
+available_backends = _pyseb.available_backends
+get_backend = _pyseb.get_backend
+set_backend = _pyseb.set_backend
 
 from .symbolic import (
     SymPyExpression,
@@ -71,14 +74,23 @@ from .utils import evaluate_expression
 # Set SymPy as the default symbolic engine for Python
 set_factory(SymPyFactory())
 
+def to_sympy(expr):
+    if isinstance(expr, SymPyExpression):
+        return expr.expr
+    return SymPyExpression(str(expr)).expr
+
 __all__ = [
     'World',
     'GraphID',
+    'available_backends',
+    'get_backend',
+    'set_backend',
     'SymPyExpression',
     'SymPyFactory',
     'get_factory',
     'set_factory',
     'to_latex',
     'to_python',
+    'to_sympy',
     'evaluate_expression'
 ]

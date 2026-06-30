@@ -7,6 +7,29 @@ import numpy as np
 import re
 from typing import Dict, Union, Optional
 
+_SYMPY_LOCALS = {
+    'besselj': sympy.besselj,
+    'dawson': lambda x: sympy.exp(-x**2) * sympy.sqrt(sympy.pi) / 2 * sympy.erf(x),
+    'erf': sympy.erf,
+    'erfc': sympy.erfc,
+    'Abs': sympy.Abs,
+    'sqrt': sympy.sqrt,
+    'exp': sympy.exp,
+    'log': sympy.log,
+    'sin': sympy.sin,
+    'cos': sympy.cos,
+    'tan': sympy.tan,
+    'asin': sympy.asin,
+    'acos': sympy.acos,
+    'atan': sympy.atan,
+    'sinh': sympy.sinh,
+    'cosh': sympy.cosh,
+    'tanh': sympy.tanh,
+    'pi': sympy.pi,
+    'E': sympy.E,
+    'I': sympy.I,
+}
+
 class SymPyExpression:
     """Implementation of the symbolic interface using SymPy"""
     def __init__(self, expr):
@@ -18,7 +41,7 @@ class SymPyExpression:
 
             # Parse the expression with SymPy
             try:
-                self.expr = sympy.sympify(expr)
+                self.expr = sympy.sympify(expr.replace('^', '**'), locals=_SYMPY_LOCALS)
             except Exception as e:
                 print(f"Warning: Could not parse expression: {expr}")
                 print(f"Error: {e}")

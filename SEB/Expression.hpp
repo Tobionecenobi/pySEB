@@ -264,6 +264,11 @@ public:
         return Expression(expr->subs(symbol, value.expr));
     }
 
+    Expression subs(const std::string& symbol, double value) const {
+        if (!expr) return Expression();
+        return Expression(expr->subs(symbol, SymbolicExpression::constant(value)));
+    }
+
     Expression subs(const ParameterMap& params) const {
         if (!expr) return Expression();
         return Expression(expr->subs(params));

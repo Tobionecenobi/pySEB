@@ -380,7 +380,7 @@ void SubUnit::ValidateGraph(Expression Fex, Expression sigmaR2ex, bool FormFacto
     // In our abstraction layer, we would need to implement these operations or provide alternatives
     Expression q = GLEX->getSymbol("q");
 
-    if (!is_a_numeric(sigmaR2ex) || !is_a_numeric(Fex.subs(q==0.1).evalf()))
+    if (!is_a_numeric(sigmaR2ex) || !is_a_numeric(Fex.subs("q", 0.1).evalf()))
         {
            cout << "Fails to evaluate to number for numerical hint supplied!" << filename << endl;
            return;
@@ -391,7 +391,7 @@ void SubUnit::ValidateGraph(Expression Fex, Expression sigmaR2ex, bool FormFacto
     string f=filename+".q";
     ofstream fo(f.c_str());
     for (int i=0;i<qvec.size(); i++)
-       fo << qvec[i] << " " << Fex.subs(q==qvec[i]).evalf() << "\n";
+       fo << qvec[i] << " " << Fex.subs("q", qvec[i]).evalf() << "\n";
     fo.close();
 
     f=filename+"_guinierdiff.q";
@@ -401,7 +401,7 @@ void SubUnit::ValidateGraph(Expression Fex, Expression sigmaR2ex, bool FormFacto
     for (int i=0;i<qvec.size(); i++)
        {
            double q2=qvec[i]*qvec[i];
-           double Fval= ex_to_numeric(Fex.subs(q==qvec[i]).evalf());
+           double Fval= ex_to_numeric(Fex.subs("q", qvec[i]).evalf());
            double Fg;
            if (FormFactor) Fg= q2*sigmaR2/3;
                       else Fg= q2*sigmaR2/6;
@@ -480,7 +480,7 @@ bool SubUnit::ValidateExpressionFile( Expression term, Expression SRMS2ex, strin
     double qval,Ival;
     while (fi >> qval >> Ival)
        {
-           Expression Iex = term.subs(q==qval).evalf();
+           Expression Iex = term.subs("q", qval).evalf();
            if (!is_a_numeric(Iex)) throw SEBException("Expression for "+str+" did not evaluate to a number at q="+std::to_string(qval)+".\n  Expression after parameter substitution: "+term.to_string()+"\n  Value at q="+std::to_string(qval)+": "+Iex.to_string()+"\n  Check that all required parameters are set.","ValidateExpressionFile()");
            double I=ex_to_numeric(Iex);
 
@@ -506,5 +506,4 @@ bool SubUnit::ValidateExpressionFile( Expression term, Expression SRMS2ex, strin
 
      return dev<tolerance && devg<tolerance;
  }
-
 

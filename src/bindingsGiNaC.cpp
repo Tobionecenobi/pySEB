@@ -14,7 +14,7 @@ namespace py = pybind11;
 
 // Helper function to convert GiNaC Expression to Python SymPyExpression
 py::object convert_ginac_to_sympy(const Expression& expr) {
-    return py::module::import("pyseb.symbolic").attr("SymPyExpression")(expr.to_string());
+    return py::module::import("pyseb.symbolic").attr("SymPyExpression")(expr.to_python());
 }
 
 void register_ginac_bindings(py::class_<World>& world) {

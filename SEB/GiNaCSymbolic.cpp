@@ -37,7 +37,8 @@ static GiNaCFactory ginacFactory;
 // Initialize the factory at program startup
 struct GiNaCSymbolicInitializer {
     GiNaCSymbolicInitializer() {
-        SymbolicFactory::setInstance(&ginacFactory);
+        SymbolicFactory::registerBackend("ginac", &ginacFactory);
+        SymbolicFactory::setBackend("ginac");
     }
 };
 

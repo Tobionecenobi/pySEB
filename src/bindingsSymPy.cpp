@@ -13,8 +13,7 @@ namespace py = pybind11;
 
 // Helper function to convert C++ Expression to Python SymPyExpression
 py::object convert_to_sympy_expression(const Expression& expr) {
-    // Just use the string representation
-    return py::module::import("pyseb.symbolic").attr("SymPyExpression")(expr.to_string());
+    return py::module::import("pyseb.symbolic").attr("SymPyExpression")(expr.to_python());
 }
 
 void register_sympy_bindings(py::class_<World>& world) {

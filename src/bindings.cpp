@@ -1,6 +1,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/functional.h>
+#include <algorithm>
+#include <stdexcept>
 
 #include "SEB.hpp"
 #include "World.hpp"
@@ -30,8 +32,32 @@ PYBIND11_MODULE(_pyseb, m) {
 
 #ifdef USE_GINAC_BINDINGS
     static GiNaCFactory ginac_factory;
-    SymbolicFactory::setInstance(&ginac_factory);
+    SymbolicFactory::registerBackend("ginac", &ginac_factory);
 #endif
+    SymbolicFactory::instance();
+
+    m.def("available_backends", []() {
+        auto backends = SymbolicFactory::availableBackends();
+        if (std::find(backends.begin(), backends.end(), "sympy") == backends.end()) {
+            backends.push_back("sympy");
+        }
+        return backends;
+    });
+    m.def("get_backend", []() {
+        return SymbolicFactory::activeBackendName();
+    });
+    m.def("set_backend", [](const std::string& name) {
+        if (name == "sympy") {
+            if (!SymbolicFactory::setBackend("portable")) {
+                throw std::runtime_error("portable backend is not available for SymPy adapter");
+            }
+            return std::string("sympy");
+        }
+        if (!SymbolicFactory::setBackend(name)) {
+            throw std::runtime_error("Unknown symbolic backend: " + name);
+        }
+        return SymbolicFactory::activeBackendName();
+    });
 
     // Register common types
     register_common_types(m);

@@ -38,9 +38,13 @@ Python.
 
 Current backends:
 
+- `portable`: always-available C++ expression tree used as the neutral core.
+  It can build expressions, substitute symbols, evaluate fully numeric
+  expressions for supported elementary functions, and export SymPy/Python text.
 - `ginac`: native C++ symbolic algebra with numeric evaluation, series support,
   and printers.
-- `sympy-string`: C++ expression-string builder for Python/SymPy workflows.
+- `sympy`: Python adapter exposed through pySEB. It selects the portable C++
+  backend and converts exported expression text into real `sympy.Expr` objects.
 
 Future backends should be added as peer implementations, not by adding
 library-specific behavior to `Expression`, `World`, or subunit classes.
@@ -55,4 +59,3 @@ library-specific behavior to `Expression`, `World`, or subunit classes.
 4. Keep `Expression` as the stable facade used by subunits and structures.
 5. Treat Python/SymPy evaluation as a Python backend feature rather than a C++
    numeric-evaluation feature.
-

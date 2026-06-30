@@ -46,27 +46,44 @@ if(USE_GINAC)
     endif()
 endif()
 
+# Add the reusable symbolic backend library
+add_library(seb-symbolic STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/SEB/SymbolicInterface.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/SEB/SymbolicPortable.cpp
+)
+
+target_include_directories(seb-symbolic PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/SEB
+)
+
+set_target_properties(seb-symbolic PROPERTIES
+    PUBLIC_HEADER
+        "${CMAKE_CURRENT_SOURCE_DIR}/SEB/Symbolic.hpp;${CMAKE_CURRENT_SOURCE_DIR}/SEB/SymbolicInterface.hpp;${CMAKE_CURRENT_SOURCE_DIR}/SEB/SymbolicPortable.hpp;${CMAKE_CURRENT_SOURCE_DIR}/SEB/Expression.hpp"
+)
+
 # Add the SEB library
 add_library(seb STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/SEB/SpecialFunctions.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/SEB/SpecialFunctionsWrapper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/SEB/Subunit.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/SEB/SymbolicInterface.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/SEB/SymbolInterface.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/SEB/World.cpp
 )
 
 if(USE_GINAC)
-    target_sources(seb PRIVATE
+    target_sources(seb-symbolic PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/SEB/GiNaCSymbolic.cpp
+    )
+    target_sources(seb PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/SEB/RegisterSpecialFunctions.cpp
     )
 
     # Add GiNaC-specific include directories and libraries
     find_package(GiNaC REQUIRED)
     find_package(CLN REQUIRED)
-    target_include_directories(seb PUBLIC ${GINAC_INCLUDE_DIRS})
-    target_link_libraries(seb PUBLIC ${GINAC_LIBRARIES} ${CLN_LIBRARY})
+    target_include_directories(seb-symbolic PUBLIC ${GINAC_INCLUDE_DIRS})
+    target_link_libraries(seb-symbolic PUBLIC ${GINAC_LIBRARIES} ${CLN_LIBRARY})
 
     # Add GiNaC-specific definitions
     add_definitions(-DUSE_GINAC_IMPL)
@@ -88,6 +105,7 @@ target_include_directories(seb PUBLIC
 
 # Link libraries to SEB
 target_link_libraries(seb PUBLIC
+    seb-symbolic
     GSL::gsl
     GSL::gslcblas
 )
@@ -131,6 +149,9 @@ set_target_properties(_pyseb PROPERTIES
 
 # Install the Python module into pyseb package directory
 install(TARGETS _pyseb DESTINATION pyseb)
+install(TARGETS seb-symbolic
+        ARCHIVE DESTINATION lib
+        PUBLIC_HEADER DESTINATION include/SEB)
 
 # Create Python examples directory
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/examples/python)

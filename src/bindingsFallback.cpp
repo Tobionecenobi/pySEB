@@ -25,8 +25,7 @@ namespace py = pybind11;
 
 // Helper function to convert Expression to Python SymPyExpression using string representation
 py::object convert_to_string_representation(const Expression& expr) {
-    // Just use the string representation
-    return py::module::import("pyseb.symbolic").attr("SymPyExpression")(expr.to_string());
+    return py::module::import("pyseb.symbolic").attr("SymPyExpression")(expr.to_python());
 }
 
 void register_fallback_bindings(py::class_<World>& world) {

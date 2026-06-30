@@ -9,6 +9,7 @@
 #include <map>
 #include <vector>
 #include <memory>
+#include <functional>
 
 //===========================================================================
 // Forward declarations
@@ -115,8 +116,16 @@ public:
     // Set the factory implementation
     static void setInstance(SymbolicFactory* factory);
 
+    static void registerBackend(const std::string& name, SymbolicFactory* factory);
+    static bool setBackend(const std::string& name);
+    static std::vector<std::string> availableBackends();
+    static std::string activeBackendName();
+    static SymbolicCapabilities activeCapabilities();
+
 private:
     static SymbolicFactory* _instance;
+    static std::string _activeBackend;
+    static std::map<std::string, SymbolicFactory*> _backends;
 };
 
 // Inline implementation of static methods
