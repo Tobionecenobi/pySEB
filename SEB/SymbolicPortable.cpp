@@ -1,6 +1,8 @@
 #include "SymbolicPortable.hpp"
 
 #include <cmath>
+#include <gsl/gsl_sf_bessel.h>
+#include <gsl/gsl_sf_dawson.h>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
@@ -48,6 +50,9 @@ double evaluate_function(const std::string& name, double x)
     if (name == "tanh") return std::tanh(x);
     if (name == "sqrt") return std::sqrt(x);
     if (name == "abs") return std::fabs(x);
+    if (name == "bessel_j0") return gsl_sf_bessel_J0(x);
+    if (name == "bessel_j1") return gsl_sf_bessel_J1(x);
+    if (name == "dawson") return gsl_sf_dawson(x);
     if (name == "erf") return std::erf(x);
     if (name == "erfc") return std::erfc(x);
     throw std::runtime_error("portable backend cannot numerically evaluate function: " + name);

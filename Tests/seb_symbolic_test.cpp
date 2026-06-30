@@ -60,6 +60,27 @@ double evaluate_parity_expression(const std::string& backend)
         .eval();
 }
 
+sebsym::Expression special_function_expression()
+{
+    auto x = sebsym::symbol("x");
+    return (x / sebsym::constant(2.0)).erf()
+        + (x / sebsym::constant(5.0)).erfc()
+        + x.bessel_j0()
+        + x.bessel_j1()
+        + (x / sebsym::constant(3.0)).dawson();
+}
+
+double evaluate_special_function_expression(const std::string& backend)
+{
+    if (!sebsym::set_backend(backend)) {
+        throw std::runtime_error("backend is not available: " + backend);
+    }
+
+    return special_function_expression()
+        .subs("x", 1.25)
+        .eval();
+}
+
 } // namespace
 
 TEST_F(SebSymbolicFixture, PortableBackendBuildsSubstitutesAndEvaluates)
@@ -143,11 +164,24 @@ TEST_F(SebSymbolicFixture, PortableExportsCommonSubsetToSymPySyntax)
 TEST_F(SebSymbolicFixture, PortableExportsSpecialFunctionsToSymPySyntax)
 {
     ASSERT_TRUE(sebsym::set_backend("portable"));
-    auto x = sebsym::symbol("x");
-    std::string python = (x.erf() + x.erfc() + x.bessel_j0() + x.bessel_j1()).to_python();
+    std::string python = special_function_expression().to_python();
 
     EXPECT_NE(python.find("erf"), std::string::npos);
     EXPECT_NE(python.find("erfc"), std::string::npos);
     EXPECT_NE(python.find("besselj(0"), std::string::npos);
     EXPECT_NE(python.find("besselj(1"), std::string::npos);
+    EXPECT_NE(python.find("dawson"), std::string::npos);
+}
+
+TEST_F(SebSymbolicFixture, PortableAndGiNaCAgreeOnSpecialFunctions)
+{
+    auto backends = sebsym::available_backends();
+    if (std::find(backends.begin(), backends.end(), "ginac") == backends.end()) {
+        GTEST_SKIP() << "GiNaC backend is not available";
+    }
+
+    double portable_value = evaluate_special_function_expression("portable");
+    double ginac_value = evaluate_special_function_expression("ginac");
+
+    EXPECT_NEAR(portable_value, ginac_value, 1e-12);
 }

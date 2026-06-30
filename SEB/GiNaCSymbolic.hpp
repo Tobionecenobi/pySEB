@@ -10,7 +10,7 @@
 #include <sstream>
 #include <vector>
 #include "Expression.hpp"
-#include "SpecialFunctionsWrapper.hpp"
+#include "SpecialFunctions.hpp"
 
 class GiNaCExpression : public SymbolicExpression {
 private:
@@ -156,35 +156,23 @@ public:
 
     // Special functions
     SymExprPtr bessel_j0() const override {
-        // GiNaC doesn't have a direct bessel_j0 function
-        // We'll use a simple approximation: J0(x) ≈ cos(x)
-        return std::make_shared<GiNaCExpression>(GiNaC::cos(_expr));
+        return std::make_shared<GiNaCExpression>(BesselJ0(_expr));
     }
 
     SymExprPtr bessel_j1() const override {
-        // GiNaC doesn't have a direct bessel_j1 function
-        // We'll use a simple approximation: J1(x) ≈ sin(x)/x
-        return std::make_shared<GiNaCExpression>(GiNaC::sin(_expr) / _expr);
+        return std::make_shared<GiNaCExpression>(BesselJ1(_expr));
     }
 
     SymExprPtr dawson() const override {
-        // GiNaC doesn't have a built-in dawson function, so we implement it
-        // Dawson function F(x) = exp(-x²)∫₀ˣexp(t²)dt
-        // We'll use a simple approximation here
-        return std::make_shared<GiNaCExpression>(
-            GiNaC::exp(-GiNaC::pow(_expr, 2)) * GiNaC::sqrt(GiNaC::Pi) / 2
-        );
+        return std::make_shared<GiNaCExpression>(DawsonF(_expr));
     }
 
     SymExprPtr erf() const override {
-        // GiNaC doesn't have a built-in erf function, so we'll use an approximation
-        // erf(x) ≈ 1 - exp(-x²)
-        return std::make_shared<GiNaCExpression>(1 - GiNaC::exp(-GiNaC::pow(_expr, 2)));
+        return std::make_shared<GiNaCExpression>(Erf(_expr));
     }
 
     SymExprPtr erfc() const override {
-        // erfc(x) = 1 - erf(x) ≈ exp(-x²)
-        return std::make_shared<GiNaCExpression>(GiNaC::exp(-GiNaC::pow(_expr, 2)));
+        return std::make_shared<GiNaCExpression>(Erfc(_expr));
     }
 
     // Substitution and evaluation

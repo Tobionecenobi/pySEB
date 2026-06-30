@@ -70,13 +70,12 @@ Python.
 
 ## Backend roles
 
-## Backend roles
-
 - `portable`: always-available C++ expression tree used as the neutral core.
   It can build expressions, substitute symbols, evaluate fully numeric
-  expressions for supported elementary functions, and export SymPy/Python text.
+  expressions for supported elementary and special functions, and export
+  SymPy/Python text.
 - `ginac`: native C++ symbolic algebra with numeric evaluation, series support,
-  and printers.
+  printers, and GSL-backed numeric special functions.
 - `sympy`: Python adapter exposed through pySEB. It selects the portable C++
   backend and converts exported expression text into real `sympy.Expr` objects.
 
@@ -95,17 +94,13 @@ The common tested numeric subset across `portable`, `ginac`, and SymPy
 conversion includes arithmetic, explicit substitution, `sin`, `exp`, `log`,
 `sqrt`, `pi`, and `e`.
 
-The portable backend also exports special functions such as `erf`, `erfc`, and
-Bessel J0/J1 to SymPy syntax. Exact numeric parity for special functions should
-be added once every native backend implements the same functions rather than
-approximations.
+Special-function parity is also tested for `erf`, `erfc`, Bessel J0/J1, and
+Dawson. The C++ backends use GSL for numeric special-function evaluation, while
+the Python adapter converts portable expressions to real SymPy expressions.
 
 ## Practical next steps
 
-1. Replace remaining `USE_GINAC`/`USE_SYMPY` branching in binding code with selected
-   backend registration where possible.
-2. Add parity tests for more special functions once native backend
-   implementations are exact enough to compare numerically.
-3. Keep `Expression` as the stable compatibility alias for old user code.
-4. Treat Python/SymPy evaluation as a Python backend feature rather than a C++
+1. Keep `Expression` as the stable compatibility alias for old user code.
+2. Treat Python/SymPy evaluation as a Python backend feature rather than a C++
    numeric-evaluation feature.
+3. Add more special functions as peer backend operations when SEB needs them.

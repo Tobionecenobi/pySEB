@@ -145,7 +145,7 @@ public:
     SymExprPtr dawson() const override {
         // Dawson function F(x) = exp(-x²)∫₀ˣexp(t²)dt
         return std::make_shared<SymPyExpression>(
-            "(sympy.exp(-(" + _expr_str + ")**2) * sympy.sqrt(sympy.pi)/2 * sympy.erf(" + _expr_str + "))"
+            "(sympy.exp(-(" + _expr_str + ")**2) * sympy.sqrt(sympy.pi)/2 * sympy.erfi(" + _expr_str + "))"
         );
     }
 

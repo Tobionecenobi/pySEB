@@ -9,9 +9,10 @@ from typing import Dict, Union, Optional
 
 _SYMPY_LOCALS = {
     'besselj': sympy.besselj,
-    'dawson': lambda x: sympy.exp(-x**2) * sympy.sqrt(sympy.pi) / 2 * sympy.erf(x),
+    'dawson': lambda x: sympy.exp(-x**2) * sympy.sqrt(sympy.pi) / 2 * sympy.erfi(x),
     'erf': sympy.erf,
     'erfc': sympy.erfc,
+    'erfi': sympy.erfi,
     'Abs': sympy.Abs,
     'sqrt': sympy.sqrt,
     'exp': sympy.exp,
@@ -62,7 +63,7 @@ class SymPyExpression:
         replacements = {
             'besselJ0': 'besselj(0, ',
             'besselJ1': 'besselj(1, ',
-            'dawsonF': 'exp(-x**2) * sqrt(pi)/2 * erf(x)',
+            'dawsonF': 'exp(-x**2) * sqrt(pi)/2 * erfi(x)',
             # Add more mappings as needed
         }
 

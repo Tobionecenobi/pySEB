@@ -140,10 +140,30 @@ class TestPySEBSmoke(unittest.TestCase):
             self.assertTrue(math.isfinite(value))
             self.assertAlmostEqual(value, results["portable"], places=12)
 
-    def test_portable_special_functions_convert_to_sympy(self):
+    def test_symbolic_backend_special_function_parity(self):
+        def build_expression():
+            x = pyseb.symbol("x")
+            return (
+                (x / 2.0).erf()
+                + (x / 5.0).erfc()
+                + x.bessel_j0()
+                + x.bessel_j1()
+                + (x / 3.0).dawson()
+            )
+
+        results = {}
+        for backend in ("portable", "ginac"):
+            if backend not in pyseb.available_backends():
+                continue
+
+            pyseb.set_backend(backend)
+            expr = build_expression()
+            results[backend] = expr.subs("x", 1.25).eval()
+
+        self.assertIn("portable", results)
+
         pyseb.set_backend("portable")
-        x = pyseb.symbol("x")
-        expr = (x / 2.0).erf() + (x / 5.0).erfc() + x.bessel_j0() + x.bessel_j1()
+        expr = build_expression()
 
         sympy_expr = pyseb.to_sympy(expr)
         value = float(sympy_expr.subs("x", 1.25).evalf())
@@ -152,9 +172,22 @@ class TestPySEBSmoke(unittest.TestCase):
             + math.erfc(1.25 / 5.0)
             + float(sympy.besselj(0, 1.25).evalf())
             + float(sympy.besselj(1, 1.25).evalf())
+            + float(
+                (
+                    sympy.exp(-(1.25 / 3.0) ** 2)
+                    * sympy.sqrt(sympy.pi)
+                    / 2
+                    * sympy.erfi(1.25 / 3.0)
+                ).evalf()
+            )
         )
 
         self.assertAlmostEqual(value, expected, places=12)
+        results["sympy"] = value
+
+        for result in results.values():
+            self.assertTrue(math.isfinite(result))
+            self.assertAlmostEqual(result, results["portable"], places=12)
 
 
 if __name__ == "__main__":

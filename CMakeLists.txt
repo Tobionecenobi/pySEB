@@ -57,6 +57,11 @@ target_include_directories(seb-symbolic PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/SEB
 )
 
+target_link_libraries(seb-symbolic PUBLIC
+    GSL::gsl
+    GSL::gslcblas
+)
+
 set_target_properties(seb-symbolic PROPERTIES
     PUBLIC_HEADER
         "${CMAKE_CURRENT_SOURCE_DIR}/SEB/Symbolic.hpp;${CMAKE_CURRENT_SOURCE_DIR}/SEB/SymbolicInterface.hpp;${CMAKE_CURRENT_SOURCE_DIR}/SEB/SymbolicPortable.hpp;${CMAKE_CURRENT_SOURCE_DIR}/SEB/Expression.hpp"
@@ -74,8 +79,6 @@ add_library(seb STATIC
 if(USE_GINAC)
     target_sources(seb-symbolic PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/SEB/GiNaCSymbolic.cpp
-    )
-    target_sources(seb PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/SEB/RegisterSpecialFunctions.cpp
     )
 
@@ -106,8 +109,6 @@ target_include_directories(seb PUBLIC
 # Link libraries to SEB
 target_link_libraries(seb PUBLIC
     seb-symbolic
-    GSL::gsl
-    GSL::gslcblas
 )
 
 if(USE_GINAC)
