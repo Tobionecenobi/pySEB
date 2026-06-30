@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.18)
-project(pyseb)
+project(pyseb VERSION 0.1.0)
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 14)
@@ -18,14 +21,9 @@ option(USE_SYMPY "Use SymPy for Python symbolic computations" ON)
 # Option to use GiNaC implementation
 option(USE_GINAC_IMPL "Use GiNaC implementation for symbolic interface" OFF)
 
-# When USE_SYMPY is ON, add the definition
 if(USE_SYMPY)
-    add_definitions(-DUSE_SYMPY)
     message(STATUS "Building with SymPy support (for Python)")
 endif()
-
-# Always include special functions implementation
-add_definitions(-DSPECIALFUNCTIONS_IMPL)
 
 # Find Python and pybind11
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
@@ -38,7 +36,6 @@ if(USE_GINAC)
     find_library(GINAC_LIBRARY NAMES ginac)
     find_library(CLN_LIBRARY NAMES cln)
     if(GINAC_LIBRARY AND CLN_LIBRARY)
-        add_definitions(-DUSE_GINAC)
         message(STATUS "Building with GiNaC support")
     else()
         message(WARNING "GiNaC requested but not found, building without GiNaC")
@@ -53,8 +50,9 @@ add_library(seb-symbolic STATIC
 )
 
 target_include_directories(seb-symbolic PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/SEB
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/SEB>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 target_link_libraries(seb-symbolic PUBLIC
@@ -62,10 +60,15 @@ target_link_libraries(seb-symbolic PUBLIC
     GSL::gslcblas
 )
 
+target_compile_definitions(seb-symbolic PUBLIC SPECIALFUNCTIONS_IMPL)
+
 set_target_properties(seb-symbolic PROPERTIES
+    EXPORT_NAME symbolic
     PUBLIC_HEADER
-        "${CMAKE_CURRENT_SOURCE_DIR}/SEB/Symbolic.hpp;${CMAKE_CURRENT_SOURCE_DIR}/SEB/SymbolicInterface.hpp;${CMAKE_CURRENT_SOURCE_DIR}/SEB/SymbolicPortable.hpp;${CMAKE_CURRENT_SOURCE_DIR}/SEB/Expression.hpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/SEB/Symbolic.hpp;${CMAKE_CURRENT_SOURCE_DIR}/SEB/SymbolicInterface.hpp;${CMAKE_CURRENT_SOURCE_DIR}/SEB/Expression.hpp"
 )
+
+add_library(SEB::symbolic ALIAS seb-symbolic)
 
 # Add the SEB library
 add_library(seb STATIC
@@ -88,14 +91,12 @@ if(USE_GINAC)
     target_include_directories(seb-symbolic PUBLIC ${GINAC_INCLUDE_DIRS})
     target_link_libraries(seb-symbolic PUBLIC ${GINAC_LIBRARIES} ${CLN_LIBRARY})
 
-    # Add GiNaC-specific definitions
-    add_definitions(-DUSE_GINAC_IMPL)
+    target_compile_definitions(seb-symbolic PUBLIC USE_GINAC USE_GINAC_IMPL)
 else()
     # When USE_GINAC is OFF, we're using SymPy
     message(STATUS "Building with SymPy support only (no GiNaC)")
 
-    # Add SymPy-specific definitions
-    add_definitions(-DUSE_SYMPY_IMPL)
+    target_compile_definitions(seb-symbolic PUBLIC USE_SYMPY_IMPL)
 endif()
 
 # Include directories for SEB library
@@ -111,6 +112,10 @@ target_link_libraries(seb PUBLIC
     seb-symbolic
 )
 
+if(USE_SYMPY)
+    target_compile_definitions(seb PUBLIC USE_SYMPY)
+endif()
+
 if(USE_GINAC)
     target_link_libraries(seb PUBLIC
         ${GINAC_LIBRARY}
@@ -125,12 +130,12 @@ set(BINDING_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bindingsSymbolic.cpp
 )
 
-if(USE_GINAC)
-    add_definitions(-DUSE_GINAC_BINDINGS)
-endif()
-
 pybind11_add_module(_pyseb MODULE ${BINDING_SOURCES})
 target_link_libraries(_pyseb PRIVATE seb)
+
+if(USE_GINAC)
+    target_compile_definitions(_pyseb PRIVATE USE_GINAC_BINDINGS)
+endif()
 
 # Ensure Python bindings can find headers
 target_include_directories(_pyseb PRIVATE
@@ -149,8 +154,34 @@ set_target_properties(_pyseb PROPERTIES
 # Install the Python module into pyseb package directory
 install(TARGETS _pyseb DESTINATION pyseb)
 install(TARGETS seb-symbolic
-        ARCHIVE DESTINATION lib
-        PUBLIC_HEADER DESTINATION include/SEB)
+        EXPORT SEBSymbolicTargets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/SEB)
+
+install(EXPORT SEBSymbolicTargets
+        FILE SEBSymbolicTargets.cmake
+        NAMESPACE SEB::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SEBSymbolic)
+
+set(SEB_SYMBOLIC_WITH_GINAC ${USE_GINAC})
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/SEBSymbolicConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/SEBSymbolicConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SEBSymbolic
+)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/SEBSymbolicConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/SEBSymbolicConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/SEBSymbolicConfigVersion.cmake
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindGiNaC.cmake
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindCLN.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SEBSymbolic)
 
 # Create Python examples directory
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/examples/python)

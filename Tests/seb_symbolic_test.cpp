@@ -1,8 +1,5 @@
 #include "Symbolic.hpp"
 #include "Types.hpp"
-#ifdef USE_GINAC_IMPL
-#include "GiNaCSymbolic.hpp"
-#endif
 
 #include <algorithm>
 #include <cmath>
@@ -19,19 +16,10 @@ static_assert(std::is_same<ExpressionMap, std::map<sebsym::Expression, sebsym::E
 
 namespace {
 
-void register_optional_ginac_backend()
-{
-#ifdef USE_GINAC_IMPL
-    static GiNaCFactory ginac_factory;
-    SymbolicFactory::registerBackend("ginac", &ginac_factory);
-#endif
-}
-
 struct SebSymbolicFixture : public ::testing::Test {
     void SetUp() override
     {
         sebsym::initialize();
-        register_optional_ginac_backend();
         ASSERT_TRUE(sebsym::set_backend("portable"));
     }
 };

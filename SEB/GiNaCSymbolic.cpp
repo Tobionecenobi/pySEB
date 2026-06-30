@@ -31,18 +31,14 @@ SymExprPtr GiNaCFactory::createI() {
     return std::make_shared<GiNaCExpression>(GiNaC::I);
 }
 
-// Create a global instance of the GiNaC factory
-static GiNaCFactory ginacFactory;
+namespace sebsym {
 
-// Initialize the factory at program startup
-struct GiNaCSymbolicInitializer {
-    GiNaCSymbolicInitializer() {
-        SymbolicFactory::registerBackend("ginac", &ginacFactory);
-        SymbolicFactory::setBackend("ginac");
-    }
-};
+void registerGiNaCBackend()
+{
+    static GiNaCFactory ginacFactory;
+    SymbolicFactory::registerBackend("ginac", &ginacFactory);
+}
 
-// Create a static instance of the initializer
-static GiNaCSymbolicInitializer initializer;
+}
 
 #endif // USE_GINAC_IMPL

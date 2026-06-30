@@ -8,7 +8,7 @@
 #include "World.hpp"
 #include "Subunit.hpp"
 #include "Subunits/Subunits.hpp"
-#include "SymbolicPortable.hpp"
+#include "Symbolic.hpp"
 #include "SymbolInterface.hpp"
 #include "bindingsSymbolic.hpp"
 
@@ -17,18 +17,10 @@ namespace py = pybind11;
 // Forward declaration of the function that registers common types
 void register_common_types(py::module& m);
 
-#ifdef USE_GINAC_BINDINGS
-#include "GiNaCSymbolic.hpp"
-#endif
-
 PYBIND11_MODULE(_pyseb, m) {
     m.doc() = "Python bindings for the Scattering Equation Builder (SEB) library";
 
-    sebsym::registerPortableBackend();
-#ifdef USE_GINAC_BINDINGS
-    static GiNaCFactory ginac_factory;
-    SymbolicFactory::registerBackend("ginac", &ginac_factory);
-#endif
+    sebsym::initialize();
     SymbolicFactory::instance();
 
     m.def("available_backends", []() {

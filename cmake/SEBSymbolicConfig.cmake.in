@@ -1,0 +1,15 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+
+find_dependency(GSL REQUIRED)
+
+set(SEB_SYMBOLIC_WITH_GINAC @SEB_SYMBOLIC_WITH_GINAC@)
+if(SEB_SYMBOLIC_WITH_GINAC)
+    find_dependency(GiNaC REQUIRED)
+    find_dependency(CLN REQUIRED)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/SEBSymbolicTargets.cmake")

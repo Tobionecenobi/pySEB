@@ -3,7 +3,6 @@
 
 #include "Expression.hpp"
 #include "SymbolicInterface.hpp"
-#include "SymbolicPortable.hpp"
 
 namespace sebsym {
 
@@ -40,7 +39,7 @@ public:
 
 inline void initialize()
 {
-    registerPortableBackend();
+    registerDefaultBackends();
 }
 
 inline bool set_backend(const std::string& name)

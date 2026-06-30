@@ -15,7 +15,7 @@ SEB code should use `sebsym::Expression` and the backend registry. The older
 global `Expression` name remains as a compatibility alias.
 
 ```cpp
-#include "Symbolic.hpp"
+#include <SEB/Symbolic.hpp>
 
 sebsym::initialize();
 sebsym::set_backend("portable");
@@ -28,6 +28,13 @@ auto expr = (x * 2.0 + y).sin()
           + (x + sebsym::e()).sqrt();
 
 double value = expr.subs("x", 1.25).subs("y", 2.5).eval();
+```
+
+Installed C++ consumers can link the symbolic layer through CMake:
+
+```cmake
+find_package(SEBSymbolic CONFIG REQUIRED)
+target_link_libraries(my_app PRIVATE SEB::symbolic)
 ```
 
 Python users can build expressions with pySEB and convert them to SymPy:

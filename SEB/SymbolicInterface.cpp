@@ -1,7 +1,12 @@
 #include "SymbolicInterface.hpp"
 #include "SymbolicPortable.hpp"
 #include <stdexcept>
-#include <iostream>
+
+#ifdef USE_GINAC_IMPL
+namespace sebsym {
+void registerGiNaCBackend();
+}
+#endif
 
 // Initialize the static instance pointer
 SymbolicFactory* SymbolicFactory::_instance = nullptr;
@@ -25,7 +30,7 @@ std::string& active_backend_name()
 // Get the singleton instance
 SymbolicFactory* SymbolicFactory::instance() {
     if (_instance == nullptr) {
-        sebsym::registerPortableBackend();
+        sebsym::registerDefaultBackends();
         setBackend("portable");
     }
     if (_instance == nullptr) {
@@ -60,7 +65,7 @@ bool SymbolicFactory::setBackend(const std::string& name) {
 }
 
 std::vector<std::string> SymbolicFactory::availableBackends() {
-    sebsym::registerPortableBackend();
+    sebsym::registerDefaultBackends();
     std::vector<std::string> names;
     for (const auto& backend : backend_registry()) {
         names.push_back(backend.first);
@@ -77,4 +82,16 @@ std::string SymbolicFactory::activeBackendName() {
 
 SymbolicCapabilities SymbolicFactory::activeCapabilities() {
     return instance()->capabilities();
+}
+
+namespace sebsym {
+
+void registerDefaultBackends()
+{
+    registerPortableBackend();
+#ifdef USE_GINAC_IMPL
+    registerGiNaCBackend();
+#endif
+}
+
 }

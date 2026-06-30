@@ -149,4 +149,8 @@ inline SymExprPtr SymbolicExpression::i() {
     return SymbolicFactory::instance()->createI();
 }
 
+namespace sebsym {
+void registerDefaultBackends();
+}
+
 #endif // INCLUDE_GUARD_SYMBOLICINTERFACE

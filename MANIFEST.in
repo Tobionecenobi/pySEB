@@ -1,5 +1,8 @@
 include .gitignore
 include CMakeLists.txt
+include cmake/FindCLN.cmake
+include cmake/FindGiNaC.cmake
+include cmake/SEBSymbolicConfig.cmake.in
 include Examples/Chain_Rod_end-to-end.cpp
 include Examples/Dendrimer.cpp
 include Examples/DiBlockStarChain.cpp
@@ -240,6 +243,9 @@ include SEB/SymbolInterface.cpp
 include SEB/SymbolInterface.hpp
 include SEB/SymbolicInterface.cpp
 include SEB/SymbolicInterface.hpp
+include SEB/Symbolic.hpp
+include SEB/SymbolicPortable.cpp
+include SEB/SymbolicPortable.hpp
 include SEB/Types.hpp
 include SEB/World.cpp
 include SEB/World.hpp
