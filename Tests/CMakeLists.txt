@@ -123,6 +123,7 @@ target_link_libraries(validation_test PRIVATE
 )
 
 target_link_libraries(seb_symbolic_test PRIVATE
+    ${SEB_LIBRARY}
     ${SEB_SYMBOLIC_LIBRARY}
     GSL::gsl
     GSL::gslcblas

@@ -1,38 +1,30 @@
 #include <iostream>
 #include "SEB.hpp"
-#include "GiNaCSymbolic.hpp"
+#include "Symbolic.hpp"
+#include "SymbolInterface.hpp"
 
 int main() {
     try {
-        // Initialize the SymbolicFactory with GiNaC
-        SymbolicFactory::setInstance(new GiNaCSymbolic());
-        std::cout << "Using GiNaC for symbolic computations" << std::endl;
-        
-        // Create a world
-        World w("GiNaCWorld");
-        
-        // Add a diblock copolymer
-        w.Add("diblock", "diblock");
-        
-        // Get the form factor expression
-        Expression F = w.FormFactor("diblock");
-        
-        // Print in different formats
-        std::cout << "\nForm Factor (default):" << std::endl;
-        std::cout << F << std::endl;
-        
-        std::cout << "\nForm Factor (LaTeX):" << std::endl;
-        std::cout << F.to_latex() << std::endl;
-        
-        std::cout << "\nForm Factor (C code):" << std::endl;
-        std::cout << F.to_cform() << std::endl;
-        
-        std::cout << "\nForm Factor (Python):" << std::endl;
-        std::cout << F.to_python() << std::endl;
-        
-        // Evaluate at q=0.1
-        // This would require substituting q with 0.1 and evaluating
-        
+        sebsym::initialize();
+        if (!sebsym::set_backend("ginac")) {
+            throw std::runtime_error("This example requires the GiNaC symbolic backend");
+        }
+
+        SymbolInterface *symbols = SymbolInterface::instance();
+
+        Expression alpha = symbols->getSymbol("alpha");
+        Expression F = symbols->getSymbol("F", "chain");
+        Expression A = symbols->getSymbol("A", "polymer", "end1");
+        Expression P = symbols->getSymbol("Psi", "polymer", "end1", "end2");
+
+        Expression test = alpha*F + 2*A*P*A;
+
+        std::cout << "Backend: " << sebsym::active_backend() << std::endl;
+        std::cout << "Symbolic expression: " << test << std::endl;
+        std::cout << "Symbolic expression (LaTeX): " << test.to_latex() << std::endl;
+        std::cout << "Symbolic expression (Python): " << test.to_python() << std::endl;
+        std::cout << "Symbolic expression (C code): " << test.to_cform() << std::endl;
+
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;

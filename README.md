@@ -91,8 +91,8 @@ This project is close, but for a real public `pip install pyseb` release you sti
 2. **Build wheels for target platforms/Python versions**  
   At minimum define supported Python versions and publish matching wheels (or clearly document source-only install requirements).
 
-3. **Stabilize test suite**  
-  Current development status has 3 segfaulting tests (`UtilityTest`, `StructureTest`, `ValidationTest`).
+3. **Keep test suite green**  
+  Current C++ test status is 8/8 passing with the documented CTest workflow.
 
 4. **Align Python API and docs/examples**  
   Ensure `README`/examples match actual Python binding behavior (naming and `World.Add(...)` usage).
@@ -102,8 +102,8 @@ This project is close, but for a real public `pip install pyseb` release you sti
 
 ## Current Codebase Challenges
 
-- **Test stability is not yet sufficient**  
-  Some tests still fail (including segfault cases), so reliability is not yet release-ready.
+- **Test stability needs to stay visible**  
+  The current C++ suite is passing, but reliability should remain release-gated by the CTest and Python smoke-test workflows.
 
 - **Build workflows are fragmented**  
   Multiple parallel build paths (Make, CMake, Ninja, Python packaging) increase maintenance overhead and developer confusion.
@@ -129,7 +129,7 @@ This project is close, but for a real public `pip install pyseb` release you sti
   ```
 
 
-Current test status in this development branch: 4/7 passing, 3 tests failing with segfaults (`UtilityTest`, `StructureTest`, `ValidationTest`).
+Current C++ test status in this development branch: 8/8 passing with `ctest --test-dir Tests/build-ninja --output-on-failure`.
 ___
 ___
 # Scattering Equation Builder - SEB
@@ -496,4 +496,3 @@ SEB is Open Source and we wellcome contributions from users. Each time a new sub
   doi={10.1107/S1600576724001729},
   url={http://doi.org/10.1107/S1600576724001729}
 }
-

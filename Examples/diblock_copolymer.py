@@ -2,6 +2,11 @@
 Example of creating a diblock copolymer and calculating its form factor.
 """
 
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 import pyseb
 import numpy as np
 import matplotlib.pyplot as plt

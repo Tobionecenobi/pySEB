@@ -227,3 +227,19 @@ TEST(StructureTest, BadReferencePointListsValidOnes) {
         }
     }
 }
+
+TEST(StructureTest, ExceptionExampleThrowsForInvalidGraphID) {
+    World w("World");
+    w.Add(new GaussianPolymer(), "polyA");
+
+    try {
+        w.Add(2, "structure");
+        FAIL() << "Expected SEBException for invalid GraphID";
+    } catch (const SEBException& e) {
+        std::string message = e.what();
+        std::string where = e.where();
+
+        EXPECT_NE(message.find("2"), std::string::npos);
+        EXPECT_NE(where.find("World::Add"), std::string::npos);
+    }
+}

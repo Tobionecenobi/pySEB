@@ -1,4 +1,8 @@
 import math
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
 
 import pyseb
@@ -13,7 +17,7 @@ class TestPySEBSmoke(unittest.TestCase):
 
     def test_build_diblock_structure_and_form_factor(self):
         world = pyseb.World()
-        graph_id = world.Add("GaussianPolymer", "poly1", "")
+        graph_id = world.Add("GaussianPolymer", "poly1")
         world.Link("GaussianPolymer", "poly2.end1", "poly1.end2")
         world.Add(graph_id, "diblockcopolymer")
 
@@ -22,7 +26,7 @@ class TestPySEBSmoke(unittest.TestCase):
 
     def test_form_factor_string_is_generated(self):
         world = pyseb.World()
-        graph_id = world.Add("GaussianPolymer", "poly1", "")
+        graph_id = world.Add("GaussianPolymer", "poly1")
         world.Link("GaussianPolymer", "poly2.end1", "poly1.end2")
         world.Add(graph_id, "diblockcopolymer")
 
@@ -33,7 +37,7 @@ class TestPySEBSmoke(unittest.TestCase):
 
     def test_print_form_factor_as_sympy_equation(self):
         world = pyseb.World()
-        graph_id = world.Add("GaussianPolymer", "poly1", "")
+        graph_id = world.Add("GaussianPolymer", "poly1")
         world.Link("GaussianPolymer", "poly2.end1", "poly1.end2")
         world.Add(graph_id, "diblockcopolymer")
 
@@ -48,7 +52,7 @@ class TestPySEBSmoke(unittest.TestCase):
 
     def test_sympy_evaluate_expression(self):
         world = pyseb.World()
-        graph_id = world.Add("GaussianPolymer", "poly1", "")
+        graph_id = world.Add("GaussianPolymer", "poly1")
         world.Link("GaussianPolymer", "poly2.end1", "poly1.end2")
         world.Add(graph_id, "diblockcopolymer")
 
@@ -69,6 +73,58 @@ class TestPySEBSmoke(unittest.TestCase):
         self.assertIsInstance(values_at_q_list, np.ndarray)
         for value in values_at_q_list:
             self.assertTrue(math.isfinite(float(value)))
+
+    def test_add_type_and_name_overload_matches_examples(self):
+        world = pyseb.World()
+        graph_id = world.Add("GaussianPolymer", "poly1")
+
+        world.Link("GaussianPolymer", "poly2.end1", "poly1.end2")
+        world.Add(graph_id, "diblockcopolymer")
+
+        form_factor = world.FormFactor("diblockcopolymer")
+        self.assertIn("beta_poly1", str(form_factor))
+        self.assertIn("beta_poly2", str(form_factor))
+
+    def test_small_micelle_example_builds_and_evaluates(self):
+        world = pyseb.World()
+        graph_id = world.Add("SolidSphere", "sphere")
+
+        for index in range(3):
+            world.Link(
+                "GaussianPolymer",
+                f"poly{index}.end1",
+                f"sphere.surface#r{index}",
+                "poly",
+            )
+
+        world.Add(graph_id, "micelle")
+        form_factor = world.FormFactor("micelle")
+
+        params = {
+            "beta_sphere": 1.0,
+            "beta_poly": 0.5,
+            "R_sphere": 50.0,
+            "Rg_poly": 20.0,
+        }
+        value = pyseb.evaluate_expression(world, form_factor, params, 0.1)
+
+        self.assertTrue(math.isfinite(value))
+
+    def test_sympy_example_runs_when_launched_by_absolute_path(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        script = repo_root / "examples" / "python" / "sympy_example.py"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = subprocess.run(
+                [sys.executable, str(script)],
+                cwd=tmpdir,
+                text=True,
+                capture_output=True,
+                timeout=30,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Form Factor Expression:", result.stdout)
 
     def test_python_symbolic_construction_converts_to_sympy(self):
         pyseb.set_backend("portable")

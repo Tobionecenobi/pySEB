@@ -52,9 +52,9 @@ PYBIND11_MODULE(_pyseb, m) {
     // Expose World class - basic structure only, symbolic methods are registered in backend-specific files
     py::class_<World> world(m, "World");
     world.def(py::init<std::string>(), py::arg("id") = "World")
-        .def("Add", [](World& self, const std::string& subunit_type, const std::string& tag) {
-            return self.Add(subunit_type, subunit_type, tag);
-        }, py::arg("subunit_type"), py::arg("tag") = "")
+        .def("Add", [](World& self, const std::string& subunit_type) {
+            return self.Add(subunit_type, subunit_type);
+        }, py::arg("subunit_type"))
         .def("Add", [](World& self, GraphID gid, const std::string& name) {
             return self.Add(gid, name);
         }, py::arg("gid"), py::arg("name"))

@@ -2,10 +2,14 @@
 Example of creating a diblock copolymer and calculating its form factor using SymPy.
 """
 
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 import pyseb
 import numpy as np
 import matplotlib.pyplot as plt
-import sympy
 
 def main():
     # Create a world
@@ -47,7 +51,7 @@ def main():
     }
 
     q_values = np.logspace(-3, 0, 100)
-    intensity = pyseb.evaluate_expression(form_factor, params, q_values)
+    intensity = pyseb.evaluate_expression(world, form_factor, params, q_values)
 
     # Plot the form factor
     plt.figure(figsize=(10, 6))

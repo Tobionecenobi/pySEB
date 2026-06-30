@@ -1,4 +1,5 @@
 #include "Symbolic.hpp"
+#include "SymbolInterface.hpp"
 #include "Types.hpp"
 
 #include <algorithm>
@@ -172,4 +173,32 @@ TEST_F(SebSymbolicFixture, PortableAndGiNaCAgreeOnSpecialFunctions)
     double ginac_value = evaluate_special_function_expression("ginac");
 
     EXPECT_NEAR(portable_value, ginac_value, 1e-12);
+}
+
+TEST_F(SebSymbolicFixture, SymbolInterfaceBuildsExampleExpressionWithGiNaCBackend)
+{
+    auto backends = sebsym::available_backends();
+    if (std::find(backends.begin(), backends.end(), "ginac") == backends.end()) {
+        GTEST_SKIP() << "GiNaC backend is not available";
+    }
+
+    ASSERT_TRUE(sebsym::set_backend("ginac"));
+    SymbolInterface* symbols = SymbolInterface::instance();
+
+    sebsym::Expression alpha = symbols->getSymbol("alpha");
+    sebsym::Expression alpha_again = symbols->getSymbol("alpha");
+    sebsym::Expression form_factor = symbols->getSymbol("F", "chain");
+    sebsym::Expression amplitude = symbols->getSymbol("A", "polymer", "end1");
+    sebsym::Expression phase = symbols->getSymbol("Psi", "polymer", "end1", "end2");
+
+    sebsym::Expression expression = alpha * form_factor + 2 * amplitude * phase * amplitude;
+
+    EXPECT_EQ(alpha.to_string(), alpha_again.to_string());
+    EXPECT_NE(expression.to_string().find("alpha"), std::string::npos);
+    EXPECT_NE(expression.to_string().find("F_chain"), std::string::npos);
+    EXPECT_NE(expression.to_string().find("A_polymer:end1"), std::string::npos);
+    EXPECT_NE(expression.to_string().find("Psi_polymer:end1,end2"), std::string::npos);
+    EXPECT_FALSE(expression.to_latex().empty());
+    EXPECT_FALSE(expression.to_python().empty());
+    EXPECT_FALSE(expression.to_cform().empty());
 }

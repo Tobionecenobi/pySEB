@@ -3,6 +3,11 @@
 Example demonstrating the use of pySEB with SymPy.
 """
 
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import pyseb
 import sympy
 
@@ -10,11 +15,13 @@ def main():
     # Create a world
     world = pyseb.World("SymPyWorld")
     
-    # Add a diblock copolymer
-    world.Add("diblock", "diblock")
+    # Build a diblock copolymer from two linked Gaussian polymers
+    graph_id = world.Add("GaussianPolymer", "poly1")
+    world.Link("GaussianPolymer", "poly2.end1", "poly1.end2")
+    world.Add(graph_id, "diblockcopolymer")
     
     # Get the form factor expression
-    form_factor = world.FormFactor("diblock")
+    form_factor = world.FormFactor("diblockcopolymer")
     
     print("Form Factor Expression:")
     print(form_factor)
