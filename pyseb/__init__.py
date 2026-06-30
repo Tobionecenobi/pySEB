@@ -56,10 +56,24 @@ if _pyseb is None:
     raise ImportError("Could not find _pyseb extension module")
 
 World = _pyseb.World
+Expression = _pyseb.Expression
 GraphID = getattr(_pyseb, "GraphID", int)
 available_backends = _pyseb.available_backends
 get_backend = _pyseb.get_backend
 set_backend = _pyseb.set_backend
+symbol = _pyseb.symbol
+constant = _pyseb.constant
+pi = _pyseb.pi
+e = _pyseb.e
+i = _pyseb.i
+pow = _pyseb.pow
+sin = _pyseb.sin
+cos = _pyseb.cos
+tan = _pyseb.tan
+exp = _pyseb.exp
+log = _pyseb.log
+sqrt = _pyseb.sqrt
+abs = _pyseb.abs
 
 from .symbolic import (
     SymPyExpression,
@@ -77,14 +91,35 @@ set_factory(SymPyFactory())
 def to_sympy(expr):
     if isinstance(expr, SymPyExpression):
         return expr.expr
+    if hasattr(_pyseb, "Expression") and isinstance(expr, _pyseb.Expression):
+        converted = _pyseb.to_sympy(expr)
+        if isinstance(converted, SymPyExpression):
+            return converted.expr
+        return converted
+    if hasattr(expr, "to_python"):
+        return SymPyExpression(expr.to_python()).expr
     return SymPyExpression(str(expr)).expr
 
 __all__ = [
     'World',
+    'Expression',
     'GraphID',
     'available_backends',
     'get_backend',
     'set_backend',
+    'symbol',
+    'constant',
+    'pi',
+    'e',
+    'i',
+    'pow',
+    'sin',
+    'cos',
+    'tan',
+    'exp',
+    'log',
+    'sqrt',
+    'abs',
     'SymPyExpression',
     'SymPyFactory',
     'get_factory',

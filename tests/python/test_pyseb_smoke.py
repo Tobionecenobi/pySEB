@@ -70,6 +70,43 @@ class TestPySEBSmoke(unittest.TestCase):
         for value in values_at_q_list:
             self.assertTrue(math.isfinite(float(value)))
 
+    def test_python_symbolic_construction_converts_to_sympy(self):
+        pyseb.set_backend("portable")
+        x = pyseb.symbol("x")
+        expr = pyseb.sin(x * pyseb.constant(2.0) + 3.0)
+
+        self.assertIsInstance(expr, pyseb.Expression)
+        self.assertIn("sin", expr.to_python())
+
+        sympy_expr = pyseb.to_sympy(expr)
+        self.assertIsInstance(sympy_expr, sympy.Expr)
+        self.assertEqual(float(sympy_expr.subs("x", 4.0).evalf()), expr.subs("x", 4.0).eval())
+
+    def test_symbolic_backend_numeric_parity(self):
+        results = {}
+        for backend in ("portable", "ginac"):
+            if backend not in pyseb.available_backends():
+                continue
+
+            pyseb.set_backend(backend)
+            x = pyseb.symbol("x")
+            expr = pyseb.sin(x * 2.0 + 3.0)
+            results[backend] = expr.subs("x", 4.0).eval()
+
+        self.assertIn("portable", results)
+
+        pyseb.set_backend("portable")
+        x = pyseb.symbol("x")
+        expr = pyseb.sin(x * 2.0 + 3.0)
+        sympy_value = float(pyseb.to_sympy(expr).subs("x", 4.0).evalf())
+        results["sympy"] = sympy_value
+
+        for value in results.values():
+            self.assertAlmostEqual(value, math.sin(11.0), places=12)
+
+        if "ginac" in results:
+            self.assertAlmostEqual(results["portable"], results["ginac"], places=12)
+
 
 if __name__ == "__main__":
     unittest.main()

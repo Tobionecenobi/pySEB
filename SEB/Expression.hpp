@@ -7,6 +7,7 @@
 // included dependencies
 #include <string>
 #include <map>
+#include <ostream>
 #include <stdexcept>
 #include "SymbolicInterface.hpp"
 
@@ -35,6 +36,8 @@ private:
 public:
     // Constructors
     Expression() : expr(nullptr) {}
+    Expression(int value) : expr(SymbolicExpression::constant(value)) {}
+    Expression(double value) : expr(SymbolicExpression::constant(value)) {}
     Expression(const SymExprPtr& e) : expr(e) {}
     Expression(const Expression& other) : expr(other.expr) {}
 
