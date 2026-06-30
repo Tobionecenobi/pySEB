@@ -19,6 +19,24 @@ namespace sebsym {
 
 using ::ParameterMap;
 
+inline void require_capability(const std::string& operation, bool supported)
+{
+    if (!supported) {
+        throw std::runtime_error("symbolic backend '" + SymbolicFactory::activeBackendName() +
+                                 "' does not support " + operation);
+    }
+}
+
+inline void require_numeric_evaluation(const std::string& operation)
+{
+    require_capability(operation, SymbolicFactory::activeCapabilities().numeric_evaluation);
+}
+
+inline void require_series_expansion(const std::string& operation)
+{
+    require_capability(operation, SymbolicFactory::activeCapabilities().series_expansion);
+}
+
 /**
  * Expression class that wraps SymExprPtr and provides operator overloading
  * to make it compatible with the existing GiNaC-based code.
@@ -299,6 +317,7 @@ public:
 
     double eval() const {
         if (!expr) throw std::runtime_error("Cannot evaluate null expression");
+        require_numeric_evaluation("numeric evaluation");
         return expr->eval();
     }
 
@@ -322,16 +341,19 @@ public:
     // Series expansion and coefficient extraction
     Expression series(const Expression& var, const Expression& point, int order) const {
         if (!expr) return Expression();
+        require_series_expansion("series expansion");
         return Expression(expr->series(var.expr, point.expr, order));
     }
 
     Expression series_to_poly(const Expression& series) const {
         if (!expr) return Expression();
+        require_series_expansion("series-to-polynomial conversion");
         return Expression(expr->series_to_poly(series.expr));
     }
 
     Expression coeff(const Expression& var, int power) const {
         if (!expr) return Expression();
+        require_series_expansion("coefficient extraction");
         return Expression(expr->coeff(var.expr, power));
     }
 
@@ -342,6 +364,7 @@ public:
 
     double to_double() const {
         if (!expr) throw std::runtime_error("Cannot convert null expression to double");
+        require_numeric_evaluation("numeric conversion");
         return expr->to_double();
     }
 

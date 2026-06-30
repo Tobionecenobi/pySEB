@@ -126,6 +126,8 @@ target_link_libraries(seb_symbolic_test PRIVATE
     ${SEB_SYMBOLIC_LIBRARY}
     GTest::GTest
     GTest::Main
+    ${GINAC_LIBRARIES}
+    ${CLN_LIBRARIES}
 )
 
 target_link_libraries(sample_solid_cylinder_test PRIVATE
