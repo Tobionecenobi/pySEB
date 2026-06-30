@@ -15,15 +15,9 @@
 class GiNaCSymbolic;
 class GiNaCExpression;
 
-//===========================================================================
-// used namespaces
-using namespace std;
+namespace sebsym {
 
-// Forward declarations
-class Expression;
-
-// Define parameter map type
-typedef std::map<std::string, double> ParameterMap;
+using ::ParameterMap;
 
 /**
  * Expression class that wraps SymExprPtr and provides operator overloading
@@ -455,6 +449,30 @@ inline Expression pow(const Expression& base, double exponent) {
 // Convenience functions for numeric conversion
 inline double to_double(const Expression& e) {
     return e.eval();
+}
+
+} // namespace sebsym
+
+using Expression = sebsym::Expression;
+
+inline Expression symbol(const std::string& name) {
+    return sebsym::symbol(name);
+}
+
+inline Expression constant(double value) {
+    return sebsym::constant(value);
+}
+
+inline Expression pi() {
+    return sebsym::pi();
+}
+
+inline Expression e() {
+    return sebsym::e();
+}
+
+inline Expression i() {
+    return sebsym::i();
 }
 
 #endif // INCLUDE_GUARD_EXPRESSION

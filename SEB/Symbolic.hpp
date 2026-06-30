@@ -7,7 +7,6 @@
 
 namespace sebsym {
 
-using Expression = ::Expression;
 using Backend = ::SymbolicFactory;
 using BackendCapabilities = ::SymbolicCapabilities;
 
@@ -62,31 +61,6 @@ inline std::string active_backend()
 inline BackendCapabilities active_capabilities()
 {
     return BackendRegistry::active_capabilities();
-}
-
-inline Expression symbol(const std::string& name)
-{
-    return ::symbol(name);
-}
-
-inline Expression constant(double value)
-{
-    return ::constant(value);
-}
-
-inline Expression pi()
-{
-    return Expression(::SymbolicExpression::pi());
-}
-
-inline Expression e()
-{
-    return Expression(::SymbolicExpression::e());
-}
-
-inline Expression i()
-{
-    return Expression(::SymbolicExpression::i());
 }
 
 } // namespace sebsym

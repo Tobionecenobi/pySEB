@@ -51,7 +51,7 @@ void register_common_types(py::module& m) {
         .def(double() / py::self)
         .def(-py::self)
         .def("__pow__", [](const Expression& self, const Expression& exponent) {
-            return ::pow(self, exponent);
+            return sebsym::pow(self, exponent);
         }, py::is_operator())
         .def("exp", &Expression::exp)
         .def("log", &Expression::log)
@@ -91,7 +91,7 @@ void register_common_types(py::module& m) {
     m.def("pi", &pi);
     m.def("e", &e);
     m.def("i", &i);
-    m.def("pow", static_cast<Expression (*)(const Expression&, const Expression&)>(&::pow),
+    m.def("pow", static_cast<Expression (*)(const Expression&, const Expression&)>(&sebsym::pow),
           py::arg("base"), py::arg("exponent"));
     m.def("sin", [](const Expression& expr) { return expr.sin(); }, py::arg("expr"));
     m.def("cos", [](const Expression& expr) { return expr.cos(); }, py::arg("expr"));

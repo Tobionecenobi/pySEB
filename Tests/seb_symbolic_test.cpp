@@ -4,6 +4,10 @@
 #include <cmath>
 #include <gtest/gtest.h>
 #include <stdexcept>
+#include <type_traits>
+
+static_assert(std::is_same<Expression, sebsym::Expression>::value,
+              "global Expression should remain a compatibility alias");
 
 namespace {
 

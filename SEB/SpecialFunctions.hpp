@@ -18,8 +18,6 @@
 #include <gsl/gsl_sf_erf.h>
 #include <gsl/gsl_sf_hyperg.h>
 
-// Forward declarations
-class Expression;
 Expression csc(const Expression& x);
 Expression sec(const Expression& x);
 Expression power(const Expression& x, const Expression& a);
