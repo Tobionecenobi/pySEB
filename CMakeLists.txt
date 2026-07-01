@@ -102,6 +102,8 @@ target_include_directories(seb PUBLIC
 # Link libraries to SEB
 target_link_libraries(seb PUBLIC
     seb-symbolic
+    GSL::gsl
+    GSL::gslcblas
 )
 
 set_target_properties(seb PROPERTIES
@@ -133,7 +135,7 @@ if(BUILD_PYTHON)
     )
 
     pybind11_add_module(_pyseb MODULE ${BINDING_SOURCES})
-    target_link_libraries(_pyseb PRIVATE SEB::seb)
+    target_link_libraries(_pyseb PRIVATE SEB::seb GSL::gsl GSL::gslcblas)
 
     if(SEB_ENABLE_GINAC_BACKEND)
         target_compile_definitions(_pyseb PRIVATE USE_GINAC_BINDINGS)
