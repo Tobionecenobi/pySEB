@@ -10,6 +10,9 @@
 *.so
 *.dylib
 build/
+build-*/
+dist/
+*.egg-info/
 
 # Executables
 Examples/Chain_Rod_end-to-end
@@ -40,13 +43,15 @@ core
 # Temporary files
 *~
 .DS_Store
+__pycache__/
+*.py[cod]
 Tests/CMakeFiles
 Tests/Makefile
 Tests/Testing
 Tests/*.cmake
-pyseb/symbolic.py
 venv
 .venv-sympy/
+.venv*/
 _skbuild
 Tests/sample_solid_sphere_test
 Tests/utility_test
@@ -55,12 +60,4 @@ Tests/structure_test
 Tests/sample_thin_disk_test
 Tests/sample_solid_spherical_shell_test
 Tests/sample_solid_cylinder_test
-Tests/build-ninja/*
-build-ninja-ginac/*
-pyseb.egg-info/*
-build-cmake/*
-build-cmake-ginac/*
-build-symbolic-portable/*
-dist/*
-tests/python/__pycache__/*
-pyseb/__pycache__/*
+Tests/build-ninja/

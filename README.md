@@ -104,22 +104,27 @@ $ python -m pip install dist/pyseb-0.1.0-cp311-cp311-linux_x86_64.whl
 ```
 
 ### 5) What must be true before users can run `pip install pyseb`
-This project is close, but for a real public `pip install pyseb` release you still need:
+This project now has the local packaging and CI checks needed for a first
+Linux source/wheel release. Before a real public `pip install pyseb` release,
+the remaining external release work is:
 
-1. **Publish artifacts to PyPI**  
-  Build and upload both sdist and wheels (right now this repo can produce Linux cp311 wheel + sdist locally).
+1. **Publish artifacts to PyPI**
+  Build and upload both sdist and wheels after the packaging workflow is green.
 
-2. **Build wheels for target platforms/Python versions**  
-  At minimum define supported Python versions and publish matching wheels (or clearly document source-only install requirements).
+2. **Build wheels for supported Python versions**
+  Supported Python versions are currently 3.9, 3.10, 3.11, and 3.12 on Linux.
+  The packaging workflow builds and smoke-tests wheels for each version.
 
-3. **Keep test suite green**  
-  Current C++ test status is 8/8 passing with the documented CTest workflow.
+3. **Keep test suite green**
+  C++ tests are release-gated by the `Packaging` workflow's CTest job.
 
-4. **Align Python API and docs/examples**  
-  Ensure `README`/examples match actual Python binding behavior (naming and `World.Add(...)` usage).
+4. **Keep Python API and docs/examples aligned**
+  `docs/python.md`, `pyseb/examples/python/sympy_example.py`, and the Python
+  smoke tests use the current `World.Add(...)`/`World.Link(...)` calling style.
 
-5. **CI packaging checks**  
-  Add CI jobs that run: build wheel, install wheel in clean venv, `import pyseb`, and run a minimal expression evaluation smoke test.
+5. **Release securely**
+  Configure PyPI trusted publishing or a release-token workflow before uploading
+  artifacts from CI.
 
 ## Current Codebase Challenges
 

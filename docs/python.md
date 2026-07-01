@@ -3,6 +3,9 @@
 PySEB provides Python bindings for SEB. The Python package is a thin layer over
 the C++ `seb` core and `seb-symbolic` expression/backend library.
 
+Supported Python versions for packaged wheels are currently 3.9, 3.10, 3.11,
+and 3.12 on Linux.
+
 ## Install From Source
 
 Create a virtual environment and install the package in editable mode:

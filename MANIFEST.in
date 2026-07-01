@@ -281,4 +281,13 @@ recursive-include pyseb/bindings *.cpp *.hpp
 recursive-include pyseb/examples/python *.py
 recursive-include pyseb/tests/python *.py
 include work/README
+
+prune _cmake_test_compile
+prune _skbuild
+prune build
+prune build-*
+prune dist
+prune Tests/build-ninja
+global-exclude __pycache__/*
+global-exclude *.py[cod]
 exclude MANIFEST.in

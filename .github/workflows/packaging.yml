@@ -1,0 +1,78 @@
+name: Packaging
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  cxx-tests:
+    name: C++ tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgsl-dev libginac-dev libgtest-dev pkg-config
+
+      - name: Configure and build GiNaC core
+        run: |
+          cmake -S . -B build-ninja-ginac -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_PYTHON=OFF \
+            -DSEB_ENABLE_GINAC_BACKEND=ON
+          cmake --build build-ninja-ginac
+
+      - name: Configure and build tests
+        run: |
+          cmake -S Tests -B Tests/build-ninja -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSEB_BUILD_DIR="$GITHUB_WORKSPACE/build-ninja-ginac"
+          cmake --build Tests/build-ninja
+
+      - name: Run tests
+        run: ctest --test-dir Tests/build-ninja --output-on-failure
+
+  wheel-smoke:
+    name: Wheel smoke (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgsl-dev pkg-config
+
+      - name: Build wheel and sdist
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Install wheel in clean venv
+        run: |
+          python -m venv .venv-wheel
+          . .venv-wheel/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.whl
+
+      - name: Smoke test installed wheel
+        run: |
+          . .venv-wheel/bin/activate
+          cd "$(mktemp -d)"
+          python "$GITHUB_WORKSPACE/ci/installed_wheel_smoke.py"
