@@ -114,6 +114,16 @@ if(BUILD_PYTHON)
     message(STATUS "Building Python bindings")
 
     find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
+    execute_process(
+        COMMAND ${Python_EXECUTABLE} -m pybind11 --cmakedir
+        OUTPUT_VARIABLE PYBIND11_CMAKE_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if(PYBIND11_CMAKE_DIR AND EXISTS "${PYBIND11_CMAKE_DIR}")
+        set(pybind11_DIR "${PYBIND11_CMAKE_DIR}" CACHE PATH "pybind11 CMake package directory")
+        list(APPEND CMAKE_PREFIX_PATH "${PYBIND11_CMAKE_DIR}")
+    endif()
     find_package(pybind11 CONFIG REQUIRED)
 
     set(BINDING_SOURCES
