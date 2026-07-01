@@ -118,30 +118,32 @@ public:
 
 The Python bindings expose the symbolic facade through the main pySEB module.
 Common expression construction and `pyseb.to_sympy` are registered in
-`src/bindingsTypes.cpp`, while shared world-expression conversion lives in
-`src/bindingsSymbolic.cpp`. Backend selection is exposed with
+`pyseb/bindings/bindingsTypes.cpp`, while shared world-expression conversion
+lives in `pyseb/bindings/bindingsSymbolic.cpp`. Backend selection is exposed with
 `pyseb.available_backends()`, `pyseb.get_backend()`, and `pyseb.set_backend()`.
 
 ### 7. CMake Configuration
 
-We've updated the CMake configuration to support building with or without GiNaC:
+The CMake configuration supports a clean C++ core build, optional Python bindings,
+and backend-specific symbolic options:
 
 ```cmake
-option(USE_GINAC "Use GiNaC for symbolic manipulation" ON)
 option(BUILD_PYTHON "Build Python bindings" OFF)
+option(SEB_ENABLE_PORTABLE_BACKEND "Enable portable symbolic backend" ON)
+option(SEB_ENABLE_GINAC_BACKEND "Enable GiNaC symbolic backend" OFF)
 
-# Add GiNaC implementation if enabled
-if(USE_GINAC)
+# Add GiNaC implementation if enabled.
+if(SEB_ENABLE_GINAC_BACKEND)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(GINAC REQUIRED ginac)
     pkg_check_modules(CLN REQUIRED cln)
-    
+
     list(APPEND SEB_SOURCES
-        SEB/GiNaCSymbolic.hpp
-        SEB/GiNaCSymbolic.cpp
+        seb-symbolic/GiNaCSymbolic.hpp
+        seb-symbolic/GiNaCSymbolic.cpp
     )
-    
-    add_definitions(-DUSE_GINAC)
+
+    target_compile_definitions(seb-symbolic PUBLIC USE_GINAC USE_GINAC_IMPL)
 endif()
 ```
 

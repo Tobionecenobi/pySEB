@@ -4,13 +4,18 @@ This document outlines the approach for making the Scattering Equation Builder (
 
 ## Overview
 
-The key idea is to create an abstraction layer that can work with either GiNaC (in C++) or SymPy (in Python). This allows SEB to be used in Python without requiring GiNaC to be installed, which simplifies the installation process for Python users.
+The key idea is to create an abstraction layer that can work with pluggable C++
+symbolic backends and a Python SymPy adapter. This allows SEB to be used in
+Python without requiring GiNaC to be installed, which simplifies the
+installation process for Python users.
 
 ## Implementation Details
 
 ### 1. Symbolic Expression Interface
 
-We've created an abstract interface for symbolic expressions in `SymbolicInterface.hpp`. This interface defines all the operations that SEB needs to perform on symbolic expressions, such as:
+We've created an abstract interface for symbolic expressions in
+`seb-symbolic/SymbolicInterface.hpp`. This interface defines all the operations
+that SEB needs to perform on symbolic expressions, such as:
 
 - Basic arithmetic operations (add, subtract, multiply, divide)
 - Mathematical functions (sin, cos, exp, log, etc.)
@@ -20,21 +25,29 @@ We've created an abstract interface for symbolic expressions in `SymbolicInterfa
 
 ### 2. GiNaC Implementation
 
-We've implemented this interface for GiNaC in `GiNaCSymbolic.hpp`. This implementation wraps GiNaC expressions and provides the functionality defined in the interface.
+We've implemented this interface for GiNaC in
+`seb-symbolic/GiNaCSymbolic.hpp`. This implementation wraps GiNaC expressions
+and provides the functionality defined in the interface.
 
 ### 3. SymPy Implementation
 
-We've implemented the interface for SymPy in `pyseb/symbolic.py`. This implementation wraps SymPy expressions and provides the same functionality as the GiNaC implementation.
+Python SymPy support lives in `pyseb/symbolic.py`. The compiled C++ backend
+exports SymPy-compatible expression text, and the Python adapter converts it to
+real SymPy expressions for downstream use.
 
 ### 4. Factory Pattern
 
-We've used the factory pattern to create symbolic expressions. The `SymbolicFactory` class is an abstract factory that can create symbolic expressions. We've implemented this factory for both GiNaC and SymPy.
+We've used the factory pattern to create symbolic expressions. The
+`SymbolicFactory` class is an abstract factory that can create symbolic
+expressions. The portable backend is always available; GiNaC is an optional C++
+backend selected with `SEB_ENABLE_GINAC_BACKEND`.
 
 ### 5. Python Bindings
 
 Python bindings now expose the symbolic facade through the main pySEB module.
-The common expression and backend API lives in `src/bindingsTypes.cpp`, while
-world-level symbolic expression conversion is shared in `src/bindingsSymbolic.cpp`.
+The common expression and backend API lives in
+`pyseb/bindings/bindingsTypes.cpp`, while world-level symbolic expression
+conversion is shared in `pyseb/bindings/bindingsSymbolic.cpp`.
 This allows Python code to build `sebsym::Expression` values, select a backend,
 and convert expressions to real SymPy objects through `pyseb.to_sympy`.
 

@@ -9,9 +9,8 @@ setup(
     include_package_data=True,
     python_requires=">=3.7",
     cmake_args=[
-        "-DUSE_GINAC=OFF",
-        "-DUSE_SYMPY=ON",
-        "-DUSE_GINAC_IMPL=OFF",
+        "-DBUILD_PYTHON=ON",
+        "-DSEB_ENABLE_GINAC_BACKEND=OFF",
         "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
         f"-DCMAKE_INSTALL_RPATH=$ORIGIN",
         "-DCMAKE_BUILD_TYPE=Release",

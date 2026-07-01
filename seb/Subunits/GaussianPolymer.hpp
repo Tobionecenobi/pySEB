@@ -3,7 +3,7 @@
 #ifndef INCLUDE_GUARD_GAUSSIANPOLYMER
 #define INCLUDE_GUARD_GAUSSIANPOLYMER
 
-#include "../ExpressionFunctions.hpp"
+#include "ExpressionFunctions.hpp"
 
 /*===========================================================================
 

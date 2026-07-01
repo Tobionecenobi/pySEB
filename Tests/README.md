@@ -7,11 +7,19 @@ This folder contains unit tests for the project, written using Google Test. The 
 - Test cases are written to validate the behavior of individual components.
 
 ## Running Tests
-1. Ensure Google Test is set up in the project.
-2. Build the project using CMake or the provided build system.
-3. Run the tests using the following command:
+1. Ensure Google Test and the optional GiNaC dependencies are available.
+2. Build and run the tests from the repository root:
    ```
-   ctest
+   make tests
+   ```
+
+Or run the CTest build manually:
+   ```
+   cmake -S . -B build-ninja-ginac -G Ninja -DBUILD_PYTHON=OFF -DSEB_ENABLE_GINAC_BACKEND=ON
+   cmake --build build-ninja-ginac
+   cmake -S Tests -B Tests/build-ninja -G Ninja -DSEB_BUILD_DIR=$PWD/build-ninja-ginac
+   cmake --build Tests/build-ninja
+   ctest --test-dir Tests/build-ninja --output-on-failure
    ```
 
 ## Adding New Tests

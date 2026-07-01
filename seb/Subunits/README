@@ -15,9 +15,8 @@ To add a new sub-unit do:
       to CreateSubunit.hpp 
    
    
-and do make seb in the root to recompile the library.
+and run `make core` in the repository root to recompile the library.
 
 
 NB we strongly advise testing all scattering expression e.g. against numerically sampled distances
 to validate that the expressions are correct. See e.g. the examples folder for examples how to do this.
-

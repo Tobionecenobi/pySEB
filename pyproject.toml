@@ -29,9 +29,8 @@ cmake.build-type = "Release"
 cmake.install-dir = "pyseb"
 
 [tool.scikit-build.cmake.define]
-USE_GINAC = "OFF"
-USE_SYMPY = "ON"
-USE_GINAC_IMPL = "OFF"
+BUILD_PYTHON = "ON"
+SEB_ENABLE_GINAC_BACKEND = "OFF"
 CMAKE_INSTALL_RPATH_USE_LINK_PATH = "ON"
 CMAKE_INSTALL_RPATH = "$ORIGIN"
 

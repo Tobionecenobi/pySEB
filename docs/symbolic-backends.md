@@ -15,7 +15,7 @@ SEB code should use `sebsym::Expression` and the backend registry. The older
 global `Expression` name remains as a compatibility alias.
 
 ```cpp
-#include <SEB/Symbolic.hpp>
+#include <Symbolic.hpp>
 
 sebsym::initialize();
 sebsym::set_backend("portable");
@@ -71,9 +71,9 @@ More advanced behavior should be optional and discovered through
 - C code output
 
 This matters because not every useful backend can do every operation inside
-C++. For example, the current C++ `SymPySymbolic` backend can build Python
-expression strings, but actual SymPy simplification/evaluation happens in
-Python.
+C++. For example, the portable C++ backend can export SymPy-compatible Python
+expression strings, while actual SymPy simplification/evaluation happens in
+the Python adapter.
 
 ## Backend roles
 

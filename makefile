@@ -1,153 +1,46 @@
-#Compile flags 
+# Convenience wrapper around the canonical CMake + Ninja builds.
 #
-#   If EXCEPTIONCOREDUMP is defined then exceptions does abort() to dump a core for debugging.
-#                       not defined then exceptions are thrown and should be handled by the user.
-#                         NB remember to enable coredumps  ulimit -c unlimited
-#
-#   If SPECIALFUNCTIONSERIES is defined, then special functions are replaced by series expansions around 0
-#                            which allows sub-unit validate to check the series expansions of some of the
-#                            scattering terms, which is otherwise prevented by a division by zero.
-#                            This should not be used for production code!
-#
-# Chose one of the lines below
-flags=-std=c++11   -O2   -DUSE_GINAC -DUSE_GINAC_IMPL
+# Direct CMake commands remain the source of truth; these targets are shortcuts
+# for common developer workflows.
 
-#flags=-std=c++11  -O2     -DEXCEPTIONCOREDUMP
-#flags=-std=c++11  -ggdb -DEXCEPTIONCOREDUMP
-#flags=-std=c++11  -ggdb -DEXCEPTIONCOREDUMP  -DSPECIALFUNCTIONSERIES
+GENERATOR ?= Ninja
+CMAKE_BUILD_TYPE ?= Release
+CORE_BUILD_DIR ?= build-core
+GINAC_BUILD_DIR ?= build-ninja-ginac
+PYTHON_BUILD_DIR ?= build-python
+TEST_BUILD_DIR ?= Tests/build-ninja
 
+.PHONY: all core ginac python tests clean clean-core clean-ginac clean-python clean-tests
 
-# Detect number of cores
-CORES := $(shell nproc)
+all: core
 
-# Build on multiple cores
-$(info Building on $(CORES) cores out of $(shell nproc --all) cores available)
+core:
+	cmake -S . -B $(CORE_BUILD_DIR) -G "$(GENERATOR)" -DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) -DBUILD_PYTHON=OFF -DSEB_ENABLE_GINAC_BACKEND=OFF
+	cmake --build $(CORE_BUILD_DIR) --target seb seb-symbolic
 
-# Set default make options
-MAKEFLAGS += -j$(CORES) 
+ginac:
+	cmake -S . -B $(GINAC_BUILD_DIR) -G "$(GENERATOR)" -DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) -DBUILD_PYTHON=OFF -DSEB_ENABLE_GINAC_BACKEND=ON
+	cmake --build $(GINAC_BUILD_DIR)
 
+python:
+	cmake -S . -B $(PYTHON_BUILD_DIR) -G "$(GENERATOR)" -DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) -DBUILD_PYTHON=ON -DSEB_ENABLE_GINAC_BACKEND=OFF
+	cmake --build $(PYTHON_BUILD_DIR)
 
-#folders
-SRC=SEB
-SRCS=SEB/Subunits
-OBJ=build/obj
+tests: ginac
+	cmake -S Tests -B $(TEST_BUILD_DIR) -G "$(GENERATOR)" -DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) -DSEB_BUILD_DIR=$(abspath $(GINAC_BUILD_DIR))
+	cmake --build $(TEST_BUILD_DIR)
+	ctest --test-dir $(TEST_BUILD_DIR) --output-on-failure
 
-#target LIBrary to build
-TARGETLIB=build/libseb.a
+clean: clean-core clean-ginac clean-python clean-tests
 
-# SEB depends on GiNaC and GNU Scientific library  (order matters here!)
-LIB= -lgsl -lgslcblas -lm  -lginac -lcln
+clean-core:
+	cmake -E rm -rf $(CORE_BUILD_DIR)
 
-# Include path
-INC=
-#Uncomment the following line on Mac computers, but update 1.8.7 to fit your version of ginac
-#INC=-I/opt/homebrew/Cellar/ginac/1.8.7/include/
+clean-ginac:
+	cmake -E rm -rf $(GINAC_BUILD_DIR)
 
-# Code Examples should be linked against the SEB library using
-LIBLIB=-lseb ${LIB} -L./build 
-INCINC=${INC} -I$(SRC) 
+clean-python:
+	cmake -E rm -rf $(PYTHON_BUILD_DIR)
 
-#
-#  Compile library
-#
-#  The entire library is recompiled from scratch, if any of the header files changes, since 
-#  it only involves three source files, this is a small price to pay compared to tracking dependencies.
-#
-
-SEBSOURCE  = $(filter-out $(SRC)/test_expression.cpp,$(wildcard $(SRC)/*.cpp))
-SEBHEADERS = $(wildcard $(SRC)/*.hpp) $(wildcard $(SRCS)/*.hpp)
-SEBOBJ     = $(SEBSOURCE:$(SRC)/%.cpp=$(OBJ)/%.o)
-
-#Generate object files for each SEB source file
-${OBJ}/%.o : ${SRC}/%.cpp $(SEBHEADERS)
-	mkdir -p ${OBJ}
-	c++ ${flags} -c ${INC}  $< -o $@
-#	c++ ${flags} -c ${LIB} ${INC}  $< -o $@
-
-#Merge object files into library
-$(TARGETLIB) : $(SEBOBJ)
-	ar -rcs $@  $^
-
-
-#
-#  Compile all examples
-#
-
-EXDIR=Examples
-EXSOURCE = $(wildcard $(EXDIR)/*.cpp)
-EXTARGET = $(EXSOURCE:%.cpp=%)
-EXOBJ = $(EXSOURCE:%.cpp=%.o)
-
-$(EXDIR)/%.o : $(EXDIR)/%.cpp $(TARGETLIB)
-	c++ ${flags} -c ${LIBLIB} ${INCINC}  $< -o $@
-
-$(EXDIR)/% : $(EXDIR)/%.o $(TARGETLIB)
-	c++ ${flags}  $< ${LIBLIB} ${INCINC}  -o $@
-	rm -f $<
-
-
-#
-#  Compile all PaperFigs
-#
-
-PAPERDIR=PaperFigs
-PAPERSOURCE = $(wildcard $(PAPERDIR)/*.cpp)
-PAPERTARGET = $(PAPERSOURCE:%.cpp=%)
-PAPEROBJ = $(PAPERSOURCE:%.cpp=%.o)
-
-$(PAPERDIR)/%.o : $(PAPERDIR)/%.cpp $(TARGETLIB)
-	c++ ${flags} -c ${LIBLIB} ${INCINC}  $< -o $@
-
-$(PAPERDIR)/% : $(PAPERDIR)/%.o $(TARGETLIB)
-	c++ ${flags}  $< ${LIBLIB} ${INCINC}  -o $@
-	rm -f $<
-
-
-
-#
-#  Compile work  (useful for working with the library)
-#
-
-WORKDIR=work
-WORKSOURCE = $(wildcard $(WORKDIR)/*.cpp)
-WORKTARGET = $(WORKSOURCE:%.cpp=%)
-WORKOBJ = $(WORKSOURCE:%.cpp=%.o)
-
-$(WORKDIR)/%.o : $(WORKDIR)/%.cpp $(TARGETLIB)
-	c++ ${flags} -c ${LIBLIB} ${INCINC}  $< -o $@
-
-$(WORKDIR)/% : $(WORKDIR)/%.o $(TARGETLIB)
-	c++ ${flags}  $< ${LIBLIB} ${INCINC}  -o $@
-	rm -f $<
-
-
-
-#
-#  What to compile, default everything, optionally examples or clean.
-#
-
-
-all : ${TARGETLIB} $(EXTARGET)  ${PAPERTARGET} ${WORKTARGET}
-seb : ${TARGETLIB}
-work : $(WORKTARGET)
-examples : $(EXTARGET)
-paperfigs : ${PAPERTARGET}
-
-
-
-.PHONY : all
-.DEFAULT_GOAL := all
-
-
-#Clean up by removing all object files and example executables
-clean: 
-	rm -f $(OBJ)/*.o  $(EXTARGET)  ${PAPERTARGET} ${WORKTARGET} ${VALIDATIONTARGET} ${TARGETLIB}
-
-cleanexamples: 
-	rm -f  ${EXTARGET}
-
-cleanpaperfigs: 
-	rm -f  ${PAPERTARGET} PaperFigs/*.q
-	
-cleanwork: 
-	rm -f  ${WORKTARGET} ${WORKOBJ}
+clean-tests:
+	cmake -E rm -rf $(TEST_BUILD_DIR)

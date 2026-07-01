@@ -17,8 +17,9 @@ pkg_check_modules(GINAC REQUIRED ginac)
 pkg_check_modules(CLN REQUIRED cln)
 
 # Include directories
-include_directories(${CMAKE_SOURCE_DIR}/../SEB)
-include_directories(${CMAKE_SOURCE_DIR}/../src)
+include_directories(${CMAKE_SOURCE_DIR}/../seb)
+include_directories(${CMAKE_SOURCE_DIR}/../seb-symbolic)
+include_directories(${CMAKE_SOURCE_DIR}/../pyseb/bindings)
 include_directories(${GINAC_INCLUDE_DIRS})
 include_directories(${CLN_INCLUDE_DIRS})
 
@@ -84,9 +85,6 @@ add_executable(sample_solid_cylinder_test Sample_SolidCylinder_test.cpp)
 add_executable(sample_solid_sphere_test Sample_SolidSphere_test.cpp)
 add_executable(sample_solid_spherical_shell_test Sample_SolidSphericalShell_test.cpp)
 add_executable(sample_thin_disk_test Sample_ThinDisk_test.cpp)
-
-# Add SymbolInterface implementation
-list(APPEND SOURCE_FILES ${CMAKE_SOURCE_DIR}/../SEB/SymbolInterface.cpp)
 
 # Link the libraries
 target_link_libraries(utility_test PRIVATE

@@ -13,7 +13,7 @@ The goal of this project was to make SEB independent of GiNaC by creating an abs
 
 ## Implementation Details
 
-### 1. SymbolicInterface (SEB/SymbolicInterface.hpp, SEB/SymbolicInterface.cpp)
+### 1. SymbolicInterface (seb-symbolic/SymbolicInterface.hpp, seb-symbolic/SymbolicInterface.cpp)
 
 The `SymbolicInterface` class defines the abstract interface for symbolic expressions. It includes methods for:
 
@@ -25,7 +25,7 @@ The `SymbolicInterface` class defines the abstract interface for symbolic expres
 
 This interface allows SEB to work with different symbolic expression libraries without being tied to a specific implementation.
 
-### 2. GiNaCSymbolic (SEB/GiNaCSymbolic.hpp, SEB/GiNaCSymbolic.cpp)
+### 2. GiNaCSymbolic (seb-symbolic/GiNaCSymbolic.hpp, seb-symbolic/GiNaCSymbolic.cpp)
 
 The `GiNaCSymbolic` class implements the `SymbolicInterface` for GiNaC. It wraps GiNaC's `ex` type and provides implementations for all the methods defined in the interface. This allows SEB to continue using GiNaC as the symbolic engine while adhering to the abstraction layer.
 
@@ -34,7 +34,7 @@ Key features:
 - Implements all methods defined in the `SymbolicInterface`
 - Provides factory methods for creating symbols, constants, and special values (pi, e, i)
 
-### 3. Expression (SEB/Expression.hpp)
+### 3. Expression (seb-symbolic/Expression.hpp)
 
 The `Expression` class is a wrapper that provides operator overloading to make the code compatible with the existing GiNaC-based code. It delegates all operations to the underlying `SymExprPtr` (a shared pointer to a `SymbolicInterface` implementation).
 
@@ -58,21 +58,21 @@ Key features:
 
 To make SEB work with the abstraction layer, we had to update several existing classes:
 
-### 1. World Class (SEB/World.hpp, SEB/World.cpp)
+### 1. World Class (seb/World.hpp, seb/World.cpp)
 
 The `World` class was updated to use the `Expression` class instead of GiNaC's `ex` type. This involved:
 - Changing the type of member variables from `ex` to `Expression`
 - Updating method signatures to use `Expression` instead of `ex`
 - Modifying the implementation to work with the `Expression` class
 
-### 2. Subunit Class (SEB/Subunit.hpp, SEB/Subunit.cpp)
+### 2. Subunit Class (seb/Subunit.hpp, seb/Subunit.cpp)
 
 The `Subunit` class was updated to use the `Expression` class instead of GiNaC's `ex` type. This involved:
 - Changing the type of member variables from `ex` to `Expression`
 - Updating method signatures to use `Expression` instead of `ex`
 - Modifying the implementation to work with the `Expression` class
 
-### 3. Specific Subunit Classes (SEB/Subunits/*.hpp)
+### 3. Specific Subunit Classes (seb/Subunits/*.hpp)
 
 All specific subunit classes (GaussianPolymer, SolidSphere, SolidCylinder, etc.) were updated to use the `Expression` class instead of GiNaC's `ex` type. This involved:
 - Changing the type of local variables from `ex` to `Expression`
@@ -100,7 +100,9 @@ In the Python implementation, we added the same methods to the `SymPyExpression`
 
 ## Testing
 
-To ensure that the abstraction layer works correctly, we created a test program (SEB/test_expression.cpp) that exercises the key functionality of the `Expression` class:
+To ensure that the abstraction layer works correctly, we created a test program
+(`seb/test_expression.cpp`) that exercises the key functionality of the
+`Expression` class:
 - Basic arithmetic operations
 - Mathematical functions
 - Substitution and evaluation

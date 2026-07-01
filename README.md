@@ -13,46 +13,67 @@ The current development targets are:
 
 - Add import/export support for `World` structures, so users can save and reload models from files.
 
+## Documentation
+
+- Python usage and packaging: [docs/python.md](docs/python.md)
+- Symbolic backend architecture: [docs/symbolic-backends.md](docs/symbolic-backends.md)
+- Symbolic abstraction design notes: [docs/design/symbolic-abstraction.md](docs/design/symbolic-abstraction.md)
+
 ## Developer note: build options
 
-The project currently builds in multiple ways. Pick one of the workflows below.
+The canonical build uses CMake + Ninja. The top-level `makefile` is now only a
+thin convenience wrapper around those CMake commands.
 
-### 1) Build with Makefile (legacy workflow)
-Build everything (library + `Examples` + `PaperFigs` + `work`):
+### 1) Build with Makefile shortcuts
+Build the portable C++ core:
 ```bash
 $ cd /home/tobi/pySEB
-$ make -j"$(nproc)"
+$ make core
 ```
 
-Build only the core static library:
+Build with the optional GiNaC backend:
 ```bash
 $ cd /home/tobi/pySEB
-$ make seb -j"$(nproc)"
+$ make ginac
+```
+
+Build the Python extension:
+```bash
+$ cd /home/tobi/pySEB
+$ make python
+```
+
+Build and run C++ tests:
+```bash
+$ cd /home/tobi/pySEB
+$ make tests
 ```
 
 ### 2) Build with CMake + Ninja (recommended)
 ```bash
 $ cd /home/tobi/pySEB
-$ cmake -S . -B build-ninja-ginac -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_GINAC=ON -DUSE_SYMPY=ON -DUSE_GINAC_IMPL=ON
-$ ninja -C build-ninja-ginac
+$ cmake -S . -B build-core -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON=OFF -DSEB_ENABLE_GINAC_BACKEND=OFF
+$ cmake --build build-core --target seb seb-symbolic
 ```
 
-### 3) Build with CMake default generator (Makefiles)
+Build with the optional GiNaC backend:
 ```bash
 $ cd /home/tobi/pySEB
-$ cmake -S . -B build-cmake -DCMAKE_BUILD_TYPE=Release -DUSE_GINAC=ON -DUSE_SYMPY=ON -DUSE_GINAC_IMPL=ON
-$ cmake --build build-cmake -j"$(nproc)"
+$ cmake -S . -B build-ninja-ginac -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON=OFF -DSEB_ENABLE_GINAC_BACKEND=ON
+$ cmake --build build-ninja-ginac
 ```
 
-### 4) Build and run tests (CTest)
+### 3) Build and run tests (CTest)
 ```bash
 $ cd /home/tobi/pySEB
-cmake -S Tests -B Tests/build-ninja -G Ninja -DCMAKE_BUILD_TYPE=Release
-$ ninja -C Tests/build-ninja
+$ cmake -S . -B build-ninja-ginac -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON=OFF -DSEB_ENABLE_GINAC_BACKEND=ON
+$ cmake --build build-ninja-ginac
+$ cmake -S Tests -B Tests/build-ninja -G Ninja -DCMAKE_BUILD_TYPE=Release -DSEB_BUILD_DIR=/home/tobi/pySEB/build-ninja-ginac
+$ cmake --build Tests/build-ninja
 $ ctest --test-dir Tests/build-ninja --output-on-failure
 ```
 
-### 5) Install pySEB locally with pip (developer workflow)
+### 4) Install pySEB locally with pip (developer workflow)
 Create and use a virtual environment:
 ```bash
 $ cd /home/tobi/pySEB
@@ -82,7 +103,7 @@ $ python -m build
 $ python -m pip install dist/pyseb-0.1.0-cp311-cp311-linux_x86_64.whl
 ```
 
-### 6) What must be true before users can run `pip install pyseb`
+### 5) What must be true before users can run `pip install pyseb`
 This project is close, but for a real public `pip install pyseb` release you still need:
 
 1. **Publish artifacts to PyPI**  
@@ -108,10 +129,13 @@ This project is close, but for a real public `pip install pyseb` release you sti
 - **Build workflows are fragmented**  
   Multiple parallel build paths (Make, CMake, Ninja, Python packaging) increase maintenance overhead and developer confusion.
 
-- **Architecture is too monolithic**  
-  Core SEB logic, symbolic backend handling, and Python bindings are tightly coupled.
-  - Consider extracting symbolic backend logic into its own library/module.
-  - Consider making `pySEB` a thin consumer of a stable SEB core library API.
+- **Architecture is partially modularized, but build boundaries still need care**  
+  Symbolic backend logic lives in `seb-symbolic`, and Python bindings are optional with `BUILD_PYTHON`.
+  The active source layout is split into `seb/` for the C++ scattering core,
+  `seb-symbolic/` for symbolic expressions/backends, and `pyseb/` for Python
+  bindings, package code, examples, and Python tests.
+  - Keep new symbolic engines as backend-specific implementations registered through `SymbolicFactory`.
+  - Keep `pySEB` as a thin binding/package layer over the stable `seb` and `seb-symbolic` targets.
 
 - **Adding new sub-units has become harder**  
   The implementation and validation path for new sub-units is more complex than before, which slows development.
@@ -246,12 +270,13 @@ This creates a sub-folder SEB in which you find the source code. Before you can 
 find /opt/homebrew -name ginac.h
 ```
 
-If it returns "/opt/homebrew/Cellar/ginac/1.8.7/include/ginac/ginac.h" then you should edit SEB/makefile and the INC line should be changed to
+If Homebrew installed GiNaC in a non-standard prefix, pass that prefix to CMake when configuring the optional GiNaC backend:
 ```
-INC=-I/opt/homebrew/Cellar/ginac/1.8.7/include/
+cmake -S . -B build-ninja-ginac -G Ninja -DSEB_ENABLE_GINAC_BACKEND=ON -DCMAKE_PREFIX_PATH=/opt/homebrew
+cmake --build build-ninja-ginac
 ```
 
-Nb. your version might be different from the one above. Then you are ready to compile SEB.
+Nb. your exact Homebrew prefix might be different from the one above. Then you are ready to compile SEB.
 
 
 
@@ -323,7 +348,7 @@ For more complex geometries, we have sampled the scattering profiles directly. W
 ### Analytical Derivation and Comparison with Synthetic Data
 We have used Wolfram Mathematica to derive analytic expressions for the sub-units (Code in Mathematica/*.nb). Where relevant these expressions have been compared the synthetic data to ensure that all expressions derived by Mathematica match the sampled data within the statistical accuracy of our sampling. At this stage we can trust that theoretical expressions match the synthetic scattering data.
 ### Implementation in SEB
-To implement sub-units in SEB, we have exported the Mathematica expressions to C++ either manually or using CForm[expression]. The resulting expresions are in sub-unit header files in the [SEB/Subunits folder](https://github.com/Tobionecenobi/SEB/tree/main/SEB/Subunits), where each header file is a specific sub-unit geometry. We also generate Guinier expansions of all scattering expressions to obtain size expressions for $\langle Rg^2 \rangle$ for the form factor, and $\sigma\langle R^2 \rangle$ for form factor amplitudes and phase factors. The size expressions are also exported to the C++ code. The ```SubUnit->ValidateDefinedTerms()``` method checks that all scattering terms and size terms are defined for the reference points combinations for a sub-unit.
+To implement sub-units in SEB, we have exported the Mathematica expressions to C++ either manually or using CForm[expression]. The resulting expresions are in sub-unit header files in the [seb/Subunits folder](seb/Subunits), where each header file is a specific sub-unit geometry. We also generate Guinier expansions of all scattering expressions to obtain size expressions for $\langle Rg^2 \rangle$ for the form factor, and $\sigma\langle R^2 \rangle$ for form factor amplitudes and phase factors. The size expressions are also exported to the C++ code. The ```SubUnit->ValidateDefinedTerms()``` method checks that all scattering terms and size terms are defined for the reference points combinations for a sub-unit.
 ### Validation of Mathematical Correctness
 Finally, to ensure that the scattering terms not only exist but are also mathematically correct, we have taken the following steps:
 1. **Generation of Theoretical Scattering Data**: Using Mathematica, we have created tabulated theory scattering curves for each scattering expression. This data, devoid of statistical sampling errors, can be found in the [Examples/Validate subfolders](https://github.com/Tobionecenobi/SEB/tree/main/Examples/Validation).
@@ -338,11 +363,11 @@ For some of the sub-unit expressions but not all, we can also use GiNaC to expan
 
 ## Symbolic Expression Abstraction Layer
 
-SEB now includes a symbolic expression abstraction layer that supports both GiNaC in C++ and SymPy in Python. This allows you to use the same codebase with either backend, depending on your needs.
+SEB now includes a symbolic expression abstraction layer with a portable C++ backend, optional GiNaC support in C++, and SymPy conversion in Python. See [docs/symbolic-backends.md](docs/symbolic-backends.md) for the backend model.
 
 ### Using GiNaC in C++
 
-By default, SEB uses GiNaC for symbolic computations in C++. To explicitly initialize the GiNaC backend:
+GiNaC is an optional C++ symbolic backend. To explicitly initialize it in a GiNaC-enabled build:
 
 ```cpp
 #include "SEB.hpp"
@@ -385,7 +410,7 @@ print(latex_expr)
 
 ## Using SEB in your own C++ Code
 
-To use SEB you can either **1)** develop code in the SEB/work folder  or **2)** develop code anywhere on your computer. Option 1 allows you to reuse the SEB compilation infrastructure and no installation of SEB is required. Option 2 requires the user to manually compile the code specifying where SEB header files and library is located.
+To use SEB you can either **1)** develop code in the repository `work/` folder or **2)** develop code anywhere on your computer. Option 1 allows you to reuse the SEB compilation infrastructure and no installation of SEB is required. Option 2 requires the user to manually compile the code specifying where SEB header files and library is located.
 
 ### Example source code
 
@@ -437,21 +462,23 @@ Again we can interpret the physical origin of the three terms in this expression
 
 To compile the code depends on where your code is located
 
-## SEB/work folder
+## work folder
 
 ```
 make work
 ```
-Running this command in the SEB parent folder will compile and link user C++ code in the work folder using the SEB compile infrastructure. The resulting executable is placed in the SEB/work folder.
+Running this command in the repository root will compile and link user C++ code in the `work/` folder using the SEB compile infrastructure. The resulting executable is placed in `work/`.
 
 ### Elsewhere
 
 Assuming your code is in code.cpp then you can compile and link your code manually with
 ```
-c++ -O2 -c -IFOLDER/SEB/SEB code.cpp
-c++  code.o  -lseb -lgsl -lgslcblas -lm -lginac -LFOLDER/SEB/build  -o myexecutable
+c++ -O2 -c -IFOLDER/pySEB/seb -IFOLDER/pySEB/seb-symbolic code.cpp
+c++  code.o  -lseb -lseb-symbolic -lgsl -lgslcblas -lm -lginac -LFOLDER/pySEB/build-ninja-ginac  -o myexecutable
 ```
-where the user manually has to specify the location of the header files (FOLDER/SEB/SEB/ is the folder where SEB.hpp is located) and the library (FOLDER/SEB/build/ is the folder where libseb.a is located), where you should modify FOLDER to fit your local environment. Note its important the object file is specified before the libraries when compiling.
+where the user manually has to specify the location of the header files and
+libraries, where you should modify FOLDER to fit your local environment. Note
+its important the object file is specified before the libraries when compiling.
 
 ## Contributing
 

@@ -23,6 +23,7 @@ if _pyseb is None:
     candidate_dirs = [
         dir_path,
         os.path.join(dir_path, "pyseb"),
+        os.path.join(root_path, "build-python", "pyseb"),
         os.path.join(root_path, "build-ninja-ginac", "pyseb"),
         os.path.join(root_path, "build-ninja", "pyseb"),
         os.path.join(root_path, "build", "pyseb"),

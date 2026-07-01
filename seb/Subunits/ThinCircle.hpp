@@ -3,7 +3,7 @@
 #ifndef INCLUDE_GUARD_THINCIRCLE
 #define INCLUDE_GUARD_THINCIRCLE
 
-#include "../ExpressionFunctions.hpp"
+#include "ExpressionFunctions.hpp"
 
 
 /*===========================================================================

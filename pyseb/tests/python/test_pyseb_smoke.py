@@ -111,8 +111,8 @@ class TestPySEBSmoke(unittest.TestCase):
         self.assertTrue(math.isfinite(value))
 
     def test_sympy_example_runs_when_launched_by_absolute_path(self):
-        repo_root = Path(__file__).resolve().parents[2]
-        script = repo_root / "examples" / "python" / "sympy_example.py"
+        repo_root = Path(__file__).resolve().parents[3]
+        script = repo_root / "pyseb" / "examples" / "python" / "sympy_example.py"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = subprocess.run(

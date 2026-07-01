@@ -3,7 +3,7 @@
 #ifndef INCLUDE_GUARD_SOLIDCYLINDER
 #define INCLUDE_GUARD_SOLIDCYLINDER
 
-#include "../ExpressionFunctions.hpp"
+#include "ExpressionFunctions.hpp"
 
 
 /*===========================================================================
