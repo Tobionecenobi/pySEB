@@ -113,7 +113,7 @@ add_library(SEB::seb ALIAS seb)
 if(BUILD_PYTHON)
     message(STATUS "Building Python bindings")
 
-    find_package(Python COMPONENTS Interpreter Development REQUIRED)
+    find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
     find_package(pybind11 CONFIG REQUIRED)
 
     set(BINDING_SOURCES
