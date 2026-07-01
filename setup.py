@@ -4,6 +4,7 @@ setup(
     packages=["pyseb"],
     cmake_install_dir="pyseb",
     include_package_data=True,
+    license_files=[],
     python_requires=">=3.9",
     cmake_args=[
         "-DBUILD_PYTHON=ON",
