@@ -4,7 +4,9 @@ PySEB provides Python bindings for SEB. The Python package is a thin layer over
 the C++ `seb` core and `seb-symbolic` expression/backend library.
 
 Supported Python versions for packaged wheels are currently 3.9, 3.10, 3.11,
-and 3.12 on Linux.
+and 3.12. First-release wheels target Linux x86_64, Windows AMD64, and macOS
+x86_64 plus Apple Silicon. iPhone/iPad iOS wheels are not part of the first
+release.
 
 ## Install From Source
 
@@ -19,6 +21,10 @@ python -m pip install -e .
 
 The Python packaging path enables the CMake `BUILD_PYTHON` option and builds the
 `_pyseb` extension through scikit-build.
+
+Source installs on platforms without a prebuilt wheel require Python 3.9+,
+CMake, a C++ compiler, pybind11, GSL, and the platform's Python development
+headers/tools.
 
 ## Developer Build
 

@@ -104,16 +104,17 @@ $ python -m pip install dist/pyseb-0.1.0-cp311-cp311-linux_x86_64.whl
 ```
 
 ### 5) What must be true before users can run `pip install pyseb`
-This project now has the local packaging and CI checks needed for a first
-Linux source/wheel release. Before a real public `pip install pyseb` release,
-the remaining external release work is:
+This project now has packaging CI for source distributions and desktop Python
+wheels. Before a real public `pip install pyseb` release, the remaining
+external release work is:
 
 1. **Publish artifacts to PyPI**
   Build and upload both sdist and wheels after the packaging workflow is green.
 
-2. **Build wheels for supported Python versions**
-  Supported Python versions are currently 3.9, 3.10, 3.11, and 3.12 on Linux.
-  The packaging workflow builds and smoke-tests wheels for each version.
+2. **Build wheels for supported Python versions and desktop platforms**
+  Supported Python versions are currently 3.9, 3.10, 3.11, and 3.12. Planned
+  first-release wheels target Linux x86_64, Windows AMD64, and macOS x86_64
+  plus Apple Silicon. iPhone/iPad iOS wheels are not part of the first release.
 
 3. **Keep test suite green**
   C++ tests are release-gated by the `Packaging` workflow's CTest job.
@@ -125,6 +126,9 @@ the remaining external release work is:
 5. **Release securely**
   Configure PyPI trusted publishing or a release-token workflow before uploading
   artifacts from CI.
+
+Unsupported platforms can still install from source if Python 3.9+, CMake, a
+C++ compiler, pybind11, GSL, and platform-specific build tools are available.
 
 ## Current Codebase Challenges
 
