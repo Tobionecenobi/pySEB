@@ -105,16 +105,19 @@ $ python -m pip install dist/pyseb-0.1.0-cp311-cp311-linux_x86_64.whl
 
 ### 5) What must be true before users can run `pip install pyseb`
 This project now has packaging CI for source distributions and desktop Python
-wheels. Before a real public `pip install pyseb` release, the remaining
-external release work is:
+wheels, and the `Packaging` workflow currently builds green wheels for every
+target platform. Before a real public `pip install pyseb` release, the
+remaining external release work is:
 
 1. **Publish artifacts to PyPI**
   Build and upload both sdist and wheels after the packaging workflow is green.
+  This still needs a tagged release run.
 
-2. **Build wheels for supported Python versions and desktop platforms**
-  Supported Python versions are currently 3.9, 3.10, 3.11, and 3.12. Planned
-  first-release wheels target Linux x86_64, Windows AMD64, and macOS x86_64
-  plus Apple Silicon. iPhone/iPad iOS wheels are not part of the first release.
+2. **Build wheels for supported Python versions and desktop platforms** ✅
+  Supported Python versions are currently 3.9, 3.10, 3.11, and 3.12. Wheels
+  build and repair successfully for Linux x86_64 (manylinux), Windows AMD64,
+  macOS x86_64 (Intel, macOS 14+), and macOS arm64 (Apple Silicon, macOS 15+).
+  iPhone/iPad iOS wheels are not part of the first release.
 
 3. **Keep test suite green**
   C++ tests are release-gated by the `Packaging` workflow's CTest job.
@@ -124,8 +127,11 @@ external release work is:
   smoke tests use the current `World.Add(...)`/`World.Link(...)` calling style.
 
 5. **Release securely**
-  Configure PyPI trusted publishing or a release-token workflow before uploading
-  artifacts from CI.
+  Configure PyPI trusted publishing (register this GitHub repository/workflow
+  as a trusted publisher on the PyPI project settings) before uploading
+  artifacts from CI. The `release.yml` publish job already requests
+  `id-token: write` and uses `pypa/gh-action-pypi-publish`, so no code change
+  is needed once the PyPI-side trust relationship is configured.
 
 Unsupported platforms can still install from source if Python 3.9+, CMake, a
 C++ compiler, pybind11, GSL, and platform-specific build tools are available.

@@ -5,8 +5,10 @@ the C++ `seb` core and `seb-symbolic` expression/backend library.
 
 Supported Python versions for packaged wheels are currently 3.9, 3.10, 3.11,
 and 3.12. First-release wheels target Linux x86_64, Windows AMD64, and macOS
-x86_64 plus Apple Silicon. iPhone/iPad iOS wheels are not part of the first
-release.
+x86_64 plus Apple Silicon, and CI currently builds and repairs all of these
+successfully (macOS x86_64 requires macOS 14+, macOS arm64 requires macOS
+15+, both due to Homebrew's bundled GSL). iPhone/iPad iOS wheels are not part
+of the first release.
 
 ## Install From Source
 
