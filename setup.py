@@ -1,7 +1,4 @@
-import os
 from skbuild import setup
-from skbuild.constants import CMAKE_BUILD_DIR
-from skbuild.cmaker import get_cmake_version
 
 setup(
     packages=["pyseb"],
