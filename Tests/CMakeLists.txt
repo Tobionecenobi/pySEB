@@ -19,6 +19,7 @@ pkg_check_modules(CLN REQUIRED cln)
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/../seb)
 include_directories(${CMAKE_SOURCE_DIR}/../seb-symbolic)
+include_directories(${CMAKE_SOURCE_DIR}/../seb-symbolic-ginac)
 include_directories(${CMAKE_SOURCE_DIR}/../pyseb/bindings)
 include_directories(${GINAC_INCLUDE_DIRS})
 include_directories(${CLN_INCLUDE_DIRS})

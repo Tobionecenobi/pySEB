@@ -139,8 +139,8 @@ if(SEB_ENABLE_GINAC_BACKEND)
     pkg_check_modules(CLN REQUIRED cln)
 
     list(APPEND SEB_SOURCES
-        seb-symbolic/GiNaCSymbolic.hpp
-        seb-symbolic/GiNaCSymbolic.cpp
+        seb-symbolic-ginac/GiNaCSymbolic.hpp
+        seb-symbolic-ginac/GiNaCSymbolic.cpp
     )
 
     target_compile_definitions(seb-symbolic PUBLIC USE_GINAC USE_GINAC_IMPL)

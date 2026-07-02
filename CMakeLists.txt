@@ -79,8 +79,13 @@ add_library(seb STATIC
 
 if(SEB_ENABLE_GINAC_BACKEND)
     target_sources(seb-symbolic PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/seb-symbolic/GiNaCSymbolic.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/seb-symbolic/RegisterSpecialFunctions.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/seb-symbolic-ginac/GiNaCSymbolic.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/seb-symbolic-ginac/RegisterSpecialFunctions.cpp
+    )
+
+    target_include_directories(seb-symbolic PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/seb-symbolic-ginac>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/seb-symbolic-ginac>
     )
 
     target_include_directories(seb-symbolic PUBLIC ${GINAC_INCLUDE_DIRS})
@@ -180,6 +185,15 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/seb-symbolic/
             PATTERN "*.hpp"
             PATTERN "build" EXCLUDE
             PATTERN "__pycache__" EXCLUDE)
+
+if(SEB_ENABLE_GINAC_BACKEND)
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/seb-symbolic-ginac/
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/seb-symbolic-ginac
+            FILES_MATCHING
+                PATTERN "*.hpp"
+                PATTERN "build" EXCLUDE
+                PATTERN "__pycache__" EXCLUDE)
+endif()
 
 install(EXPORT SEBSymbolicTargets
         FILE SEBSymbolicTargets.cmake

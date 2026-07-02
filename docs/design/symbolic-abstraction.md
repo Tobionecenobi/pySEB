@@ -26,7 +26,7 @@ that SEB needs to perform on symbolic expressions, such as:
 ### 2. GiNaC Implementation
 
 We've implemented this interface for GiNaC in
-`seb-symbolic/GiNaCSymbolic.hpp`. This implementation wraps GiNaC expressions
+`seb-symbolic-ginac/GiNaCSymbolic.hpp`. This implementation wraps GiNaC expressions
 and provides the functionality defined in the interface.
 
 ### 3. SymPy Implementation

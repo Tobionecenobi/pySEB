@@ -25,7 +25,7 @@ The `SymbolicInterface` class defines the abstract interface for symbolic expres
 
 This interface allows SEB to work with different symbolic expression libraries without being tied to a specific implementation.
 
-### 2. GiNaCSymbolic (seb-symbolic/GiNaCSymbolic.hpp, seb-symbolic/GiNaCSymbolic.cpp)
+### 2. GiNaCSymbolic (seb-symbolic-ginac/GiNaCSymbolic.hpp, seb-symbolic-ginac/GiNaCSymbolic.cpp)
 
 The `GiNaCSymbolic` class implements the `SymbolicInterface` for GiNaC. It wraps GiNaC's `ex` type and provides implementations for all the methods defined in the interface. This allows SEB to continue using GiNaC as the symbolic engine while adhering to the abstraction layer.
 
