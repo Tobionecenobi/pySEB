@@ -95,6 +95,8 @@ def evaluate_expression(world, expression, parameters, q_values=None):
     for name, value in parameters.items():
         sympy_expr = sympy_expr.subs(sympy.Symbol(name), value)
 
+    sympy_expr = sympy_expr.doit()
+
     if q_values is None:
         evaluated = sympy_expr.evalf()
         return float(evaluated)

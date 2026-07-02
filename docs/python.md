@@ -75,6 +75,24 @@ q_values = np.logspace(-3, 0, 100)
 intensity = pyseb.evaluate_expression(world, form_factor, params, q_values)
 ```
 
+## Examples
+
+Packaged examples live in `pyseb/examples/python/`:
+
+```bash
+python pyseb/examples/python/sympy_example.py
+python pyseb/examples/python/backend_simplification_comparison.py
+python pyseb/examples/python/diblock_evaluation.py
+python pyseb/examples/python/figure13_star_chain.py
+python pyseb/examples/python/micelle_evaluation.py
+python pyseb/examples/python/nested_structures.py
+python pyseb/examples/python/symbolic_backend.py
+```
+
+These cover SymPy export, numeric evaluation over `q`, a small micelle model,
+nested structures, the Figure 13 star-chain model, and direct symbolic
+expression construction.
+
 ## Symbolic Backends
 
 Python users normally interact with the `sympy` adapter:

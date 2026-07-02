@@ -10,6 +10,11 @@ from typing import Dict, Union, Optional
 _SYMPY_LOCALS = {
     'besselj': sympy.besselj,
     'dawson': lambda x: sympy.exp(-x**2) * sympy.sqrt(sympy.pi) / 2 * sympy.erfi(x),
+    'Integral': sympy.Integral,
+    'Si': sympy.Si,
+    'hyper': sympy.hyper,
+    'gamma': sympy.gamma,
+    'struve': sympy.Function('struve'),
     'erf': sympy.erf,
     'erfc': sympy.erfc,
     'erfi': sympy.erfi,
@@ -153,7 +158,7 @@ class SymPyExpression:
     def dawson(self):
         # Dawson function F(x) = exp(-x²)∫₀ˣexp(t²)dt
         x = self.expr
-        return SymPyExpression(sympy.exp(-x**2) * sympy.sqrt(sympy.pi)/2 * sympy.erf(x))
+        return SymPyExpression(sympy.exp(-x**2) * sympy.sqrt(sympy.pi)/2 * sympy.erfi(x))
 
     def erf(self):
         return SymPyExpression(sympy.erf(self.expr))

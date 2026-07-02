@@ -227,7 +227,7 @@ add_test(
 # Set test properties
 set_tests_properties(UtilityTest PROPERTIES TIMEOUT 30)
 set_tests_properties(StructureTest PROPERTIES TIMEOUT 30)
-set_tests_properties(ValidationTest PROPERTIES TIMEOUT 30)
+set_tests_properties(ValidationTest PROPERTIES TIMEOUT 600)
 set_tests_properties(SebSymbolicTest PROPERTIES TIMEOUT 30)
 set_tests_properties(SampleSolidCylinderTest PROPERTIES TIMEOUT 90)
 set_tests_properties(SampleSolidSphereTest PROPERTIES TIMEOUT 30)

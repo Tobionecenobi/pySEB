@@ -2,6 +2,18 @@
 #define INCLUDE_EXPRESSION_FUNCTIONS_HPP
 
 #include "Expression.hpp"
+#include "SymbolicPortable.hpp"
+
+#ifdef USE_GINAC_IMPL
+#include "GiNaCSymbolic.hpp"
+#include <ginac/integral.h>
+#endif
+
+#include <cmath>
+#include <stdexcept>
+#include <vector>
+
+Expression Hypergeometric0F1Regularized(const Expression& a, const Expression& x);
 
 // Global functions that work with Expression objects
 
@@ -48,18 +60,18 @@ inline Expression tanh(const Expression& x) {
 
 // These functions are not implemented in the Expression class yet
 inline Expression asinh(const Expression& x) {
-    // Placeholder implementation
-    return x;
+    (void)x;
+    throw std::runtime_error("asinh is not part of the SEB expression construction interface");
 }
 
 inline Expression acosh(const Expression& x) {
-    // Placeholder implementation
-    return x;
+    (void)x;
+    throw std::runtime_error("acosh is not part of the SEB expression construction interface");
 }
 
 inline Expression atanh(const Expression& x) {
-    // Placeholder implementation
-    return x;
+    (void)x;
+    throw std::runtime_error("atanh is not part of the SEB expression construction interface");
 }
 
 // Exponential and logarithmic functions
@@ -115,9 +127,32 @@ inline Expression SMALL() {
 
 // Integration function (renamed from integral to avoid C++20 conflict)
 inline Expression integrate(const Expression& var, const Expression& a, const Expression& b, const Expression& integrand) {
-    // This is a placeholder implementation
-    // In a real implementation, you would perform numerical integration
-    return integrand * (b - a);
+#ifdef USE_GINAC_IMPL
+    if (SymbolicFactory::activeBackendName() == "ginac") {
+        auto g_var = std::dynamic_pointer_cast<GiNaCExpression>(var.get());
+        auto g_a = std::dynamic_pointer_cast<GiNaCExpression>(a.get());
+        auto g_b = std::dynamic_pointer_cast<GiNaCExpression>(b.get());
+        auto g_integrand = std::dynamic_pointer_cast<GiNaCExpression>(integrand.get());
+        if (!g_var || !g_a || !g_b || !g_integrand) {
+            throw std::runtime_error("GiNaC integral requires GiNaC expressions");
+        }
+        return Expression(std::make_shared<GiNaCExpression>(
+            GiNaC::integral(g_var->get_ginac_expr(),
+                            g_a->get_ginac_expr(),
+                            g_b->get_ginac_expr(),
+                            g_integrand->get_ginac_expr())));
+    }
+#endif
+
+    if (SymbolicFactory::activeBackendName() != "portable") {
+        throw std::runtime_error("symbolic backend '" + SymbolicFactory::activeBackendName() +
+                                 "' does not support unevaluated integrals");
+    }
+
+    return Expression(std::make_shared<sebsym::PortableExpression>(
+        sebsym::PortableExpression::Kind::Function,
+        "Integral",
+        std::vector<SymExprPtr>{var.get(), a.get(), b.get(), integrand.get()}));
 }
 
 // Overloads for integrate function to handle integers
@@ -135,8 +170,7 @@ inline Expression integrate(const Expression& var, int a, int b, const Expressio
 
 // Hypergeometric function
 inline Expression Hypergeometric0F1Regularized(int a, const Expression& x) {
-    // This is a placeholder implementation
-    return Expression(SymbolicExpression::constant(1.0));
+    return Hypergeometric0F1Regularized(Expression(SymbolicExpression::constant(a)), x);
 }
 
 // GiNaC compatibility functions

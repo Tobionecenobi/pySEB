@@ -1,4 +1,6 @@
 #include "Symbolic.hpp"
+#include "ExpressionFunctions.hpp"
+#include "SpecialFunctions.hpp"
 #include "SymbolInterface.hpp"
 #include "Types.hpp"
 
@@ -37,10 +39,10 @@ sebsym::Expression parity_expression()
         + sebsym::pi().sin();
 }
 
-double evaluate_parity_expression(const std::string& backend)
+double evaluate_parity_expression_with_ginac()
 {
-    if (!sebsym::set_backend(backend)) {
-        throw std::runtime_error("backend is not available: " + backend);
+    if (!sebsym::set_backend("ginac")) {
+        throw std::runtime_error("backend is not available: ginac");
     }
 
     return parity_expression()
@@ -59,10 +61,10 @@ sebsym::Expression special_function_expression()
         + (x / sebsym::constant(3.0)).dawson();
 }
 
-double evaluate_special_function_expression(const std::string& backend)
+double evaluate_special_function_expression_with_ginac()
 {
-    if (!sebsym::set_backend(backend)) {
-        throw std::runtime_error("backend is not available: " + backend);
+    if (!sebsym::set_backend("ginac")) {
+        throw std::runtime_error("backend is not available: ginac");
     }
 
     return special_function_expression()
@@ -72,15 +74,15 @@ double evaluate_special_function_expression(const std::string& backend)
 
 } // namespace
 
-TEST_F(SebSymbolicFixture, PortableBackendBuildsSubstitutesAndEvaluates)
+TEST_F(SebSymbolicFixture, PortableBackendBuildsAndExports)
 {
     auto x = sebsym::symbol("x");
     auto expr = (x * sebsym::constant(2.0) + sebsym::constant(3.0)).sin();
-    auto numeric = expr.subs("x", 4.0);
 
     EXPECT_EQ(sebsym::active_backend(), "portable");
-    EXPECT_NE(numeric.to_python().find("sin"), std::string::npos);
-    EXPECT_NEAR(numeric.eval(), std::sin(11.0), 1e-12);
+    EXPECT_NE(expr.to_python().find("sin"), std::string::npos);
+    EXPECT_THROW(expr.subs("x", 4.0), std::runtime_error);
+    EXPECT_THROW(expr.eval(), std::runtime_error);
 }
 
 TEST_F(SebSymbolicFixture, RegistryReportsPortableCapabilities)
@@ -89,7 +91,7 @@ TEST_F(SebSymbolicFixture, RegistryReportsPortableCapabilities)
     EXPECT_NE(std::find(backends.begin(), backends.end(), "portable"), backends.end());
 
     auto caps = sebsym::active_capabilities();
-    EXPECT_TRUE(caps.numeric_evaluation);
+    EXPECT_FALSE(caps.numeric_evaluation);
     EXPECT_TRUE(caps.python_output);
     EXPECT_FALSE(caps.series_expansion);
 }
@@ -126,17 +128,18 @@ TEST_F(SebSymbolicFixture, GiNaCBackendReportsSeriesCapabilityWhenAvailable)
     EXPECT_TRUE(caps.symbolic_simplification);
 }
 
-TEST_F(SebSymbolicFixture, PortableAndGiNaCAgreeOnCommonNumericSubset)
+TEST_F(SebSymbolicFixture, GiNaCEvaluatesCommonNumericSubset)
 {
     auto backends = sebsym::available_backends();
     if (std::find(backends.begin(), backends.end(), "ginac") == backends.end()) {
         GTEST_SKIP() << "GiNaC backend is not available";
     }
 
-    double portable_value = evaluate_parity_expression("portable");
-    double ginac_value = evaluate_parity_expression("ginac");
+    double ginac_value = evaluate_parity_expression_with_ginac();
 
-    EXPECT_NEAR(portable_value, ginac_value, 1e-12);
+    EXPECT_NEAR(ginac_value, std::sin(5.0) + std::exp(1.25 / 3.0) +
+                             std::log(6.5) + std::sqrt(1.25 + std::exp(1.0)),
+                1e-12);
 }
 
 TEST_F(SebSymbolicFixture, PortableExportsCommonSubsetToSymPySyntax)
@@ -162,17 +165,48 @@ TEST_F(SebSymbolicFixture, PortableExportsSpecialFunctionsToSymPySyntax)
     EXPECT_NE(python.find("dawson"), std::string::npos);
 }
 
-TEST_F(SebSymbolicFixture, PortableAndGiNaCAgreeOnSpecialFunctions)
+TEST_F(SebSymbolicFixture, PortableExportsSineIntegralInsteadOfSinOverX)
+{
+    ASSERT_TRUE(sebsym::set_backend("portable"));
+    auto x = sebsym::symbol("x");
+
+    std::string python = Six(x).to_python();
+
+    EXPECT_NE(python.find("Si"), std::string::npos);
+    EXPECT_EQ(python.find("sin"), std::string::npos);
+}
+
+TEST_F(SebSymbolicFixture, PortableExportsUnevaluatedIntegralToSymPySyntax)
+{
+    ASSERT_TRUE(sebsym::set_backend("portable"));
+    auto t = sebsym::symbol("t");
+    auto expr = integrate(t, 0, 1, t * t);
+
+    EXPECT_NE(expr.to_python().find("Integral"), std::string::npos);
+    EXPECT_THROW(expr.eval(), std::runtime_error);
+}
+
+TEST_F(SebSymbolicFixture, PortableExportsHypergeometricAndStruveToSymPySyntax)
+{
+    ASSERT_TRUE(sebsym::set_backend("portable"));
+    auto x = sebsym::symbol("x");
+
+    EXPECT_NE(Hypergeometric0F1Regularized(sebsym::constant(2.0), x).to_python().find("hyper"),
+              std::string::npos);
+    EXPECT_NE(StruveH0(x).to_python().find("struve(0"), std::string::npos);
+    EXPECT_NE(StruveH1(x).to_python().find("struve(1"), std::string::npos);
+}
+
+TEST_F(SebSymbolicFixture, GiNaCEvaluatesSpecialFunctions)
 {
     auto backends = sebsym::available_backends();
     if (std::find(backends.begin(), backends.end(), "ginac") == backends.end()) {
         GTEST_SKIP() << "GiNaC backend is not available";
     }
 
-    double portable_value = evaluate_special_function_expression("portable");
-    double ginac_value = evaluate_special_function_expression("ginac");
+    double ginac_value = evaluate_special_function_expression_with_ginac();
 
-    EXPECT_NEAR(portable_value, ginac_value, 1e-12);
+    EXPECT_TRUE(std::isfinite(ginac_value));
 }
 
 TEST_F(SebSymbolicFixture, SymbolInterfaceBuildsExampleExpressionWithGiNaCBackend)

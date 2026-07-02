@@ -1,8 +1,6 @@
 #include "SymbolicPortable.hpp"
 
 #include <cmath>
-#include <gsl/gsl_sf_bessel.h>
-#include <gsl/gsl_sf_dawson.h>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
@@ -33,29 +31,6 @@ std::string sympy_function_name(const std::string& name)
     if (name == "bessel_j1") return "besselj";
     if (name == "dawson") return "dawson";
     return name;
-}
-
-double evaluate_function(const std::string& name, double x)
-{
-    if (name == "exp") return std::exp(x);
-    if (name == "log") return std::log(x);
-    if (name == "sin") return std::sin(x);
-    if (name == "cos") return std::cos(x);
-    if (name == "tan") return std::tan(x);
-    if (name == "asin") return std::asin(x);
-    if (name == "acos") return std::acos(x);
-    if (name == "atan") return std::atan(x);
-    if (name == "sinh") return std::sinh(x);
-    if (name == "cosh") return std::cosh(x);
-    if (name == "tanh") return std::tanh(x);
-    if (name == "sqrt") return std::sqrt(x);
-    if (name == "abs") return std::fabs(x);
-    if (name == "bessel_j0") return gsl_sf_bessel_J0(x);
-    if (name == "bessel_j1") return gsl_sf_bessel_J1(x);
-    if (name == "dawson") return gsl_sf_dawson(x);
-    if (name == "erf") return std::erf(x);
-    if (name == "erfc") return std::erfc(x);
-    throw std::runtime_error("portable backend cannot numerically evaluate function: " + name);
 }
 
 } // namespace
@@ -128,7 +103,10 @@ SymExprPtr PortableExpression::erfc() const { return function("erfc"); }
 
 SymExprPtr PortableExpression::subs(const std::string& symbol, const SymExprPtr& value) const
 {
-    as_portable(value);
+    auto portable_value = as_portable(value);
+    if (portable_value->kind() == Kind::Constant) {
+        throw std::runtime_error("portable backend exports expressions only; use a symbolic library for numeric substitution");
+    }
     if (_kind == Kind::Symbol && _op == symbol) {
         return value;
     }
@@ -145,11 +123,8 @@ SymExprPtr PortableExpression::subs(const std::string& symbol, const SymExprPtr&
 
 SymExprPtr PortableExpression::subs(const ParameterMap& params) const
 {
-    SymExprPtr result = clone();
-    for (const auto& param : params) {
-        result = result->subs(param.first, std::make_shared<PortableExpression>(param.second));
-    }
-    return result;
+    (void)params;
+    throw std::runtime_error("portable backend exports expressions only; use a symbolic library for numeric substitution");
 }
 
 SymExprPtr PortableExpression::subs(const std::map<SymExprPtr, SymExprPtr>& exprMap) const
@@ -173,27 +148,7 @@ SymExprPtr PortableExpression::subs(const std::map<SymExprPtr, SymExprPtr>& expr
 
 double PortableExpression::eval() const
 {
-    if (_kind == Kind::Constant) return _value;
-    if (_kind == Kind::Symbol) {
-        throw std::runtime_error("portable backend cannot evaluate unresolved symbol: " + _op);
-    }
-    if (_kind == Kind::Unary) {
-        double x = _args[0]->eval();
-        if (_op == "-") return -x;
-    }
-    if (_kind == Kind::Binary) {
-        double a = _args[0]->eval();
-        double b = _args[1]->eval();
-        if (_op == "+") return a + b;
-        if (_op == "-") return a - b;
-        if (_op == "*") return a * b;
-        if (_op == "/") return a / b;
-        if (_op == "**") return std::pow(a, b);
-    }
-    if (_kind == Kind::Function) {
-        return evaluate_function(_op, _args[0]->eval());
-    }
-    throw std::runtime_error("portable backend cannot evaluate expression");
+    throw std::runtime_error("portable backend exports expressions only; use a symbolic library to evaluate");
 }
 
 bool PortableExpression::has_symbols() const
@@ -228,20 +183,17 @@ SymExprPtr PortableExpression::coeff(const SymExprPtr&, int) const
 
 SymExprPtr PortableExpression::evalf() const
 {
-    if (is_numeric()) {
-        return std::make_shared<PortableExpression>(eval());
-    }
     return clone();
 }
 
 bool PortableExpression::is_zero() const
 {
-    return is_numeric() && std::fabs(eval()) < 1e-14;
+    return _kind == Kind::Constant && std::fabs(_value) < 1e-14;
 }
 
 double PortableExpression::to_double() const
 {
-    return eval();
+    throw std::runtime_error("portable backend exports expressions only; use a symbolic library to convert to double");
 }
 
 std::string PortableExpression::render_python() const
@@ -254,6 +206,30 @@ std::string PortableExpression::render_python() const
                as_portable(_args[1])->render_python() + ")";
     }
     if (_kind == Kind::Function) {
+        if (_op == "Integral") {
+            if (_args.size() != 4) {
+                throw std::runtime_error("portable backend Integral expects variable, lower, upper, integrand");
+            }
+            std::string var = as_portable(_args[0])->render_python();
+            std::string lower = as_portable(_args[1])->render_python();
+            std::string upper = as_portable(_args[2])->render_python();
+            std::string integrand = as_portable(_args[3])->render_python();
+            return "Integral(" + integrand + ", (" + var + ", " + lower + ", " + upper + "))";
+        }
+        if (_op == "hyper0f1_regularized") {
+            if (_args.size() != 2) {
+                throw std::runtime_error("portable backend hyper0f1_regularized expects two arguments");
+            }
+            std::string a = as_portable(_args[0])->render_python();
+            std::string x = as_portable(_args[1])->render_python();
+            return "(hyper([], [" + a + "], " + x + ") / gamma(" + a + "))";
+        }
+        if (_op == "struve_h0") {
+            return "struve(0, " + as_portable(_args[0])->render_python() + ")";
+        }
+        if (_op == "struve_h1") {
+            return "struve(1, " + as_portable(_args[0])->render_python() + ")";
+        }
         std::string arg = as_portable(_args[0])->render_python();
         if (_op == "bessel_j0") return "besselj(0, " + arg + ")";
         if (_op == "bessel_j1") return "besselj(1, " + arg + ")";
@@ -275,7 +251,6 @@ std::string PortableExpression::to_cform() const { return render_python(); }
 SymbolicCapabilities PortableFactory::capabilities() const
 {
     SymbolicCapabilities caps;
-    caps.numeric_evaluation = true;
     caps.python_output = true;
     return caps;
 }
