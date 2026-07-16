@@ -1,9 +1,12 @@
+import hashlib
 import math
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+import urllib.request
 
 import pyseb
 import numpy as np
@@ -286,6 +289,51 @@ class TestPySEBSmoke(unittest.TestCase):
                 ),
                 16.0,
             )
+
+    @unittest.skipUnless(
+        os.environ.get("PYSEB_RUN_NETWORK_TESTS") == "1",
+        "Set PYSEB_RUN_NETWORK_TESTS=1 to run network integration tests",
+    )
+    def test_downloads_parses_and_removes_official_rcsb_pdb(self):
+        url = "https://files.rcsb.org/download/1CRN.pdb"
+        expected_sha256 = (
+            "42199a30a0701864a2a5cc76cd7f35cc"
+            "544cd0e65fbcf63e03c166543249b811"
+        )
+
+        downloaded_path = None
+        with tempfile.TemporaryDirectory() as tmpdir:
+            downloaded_path = Path(tmpdir) / "1CRN.pdb"
+            with urllib.request.urlopen(url, timeout=30) as response:
+                contents = response.read()
+            downloaded_path.write_bytes(contents)
+
+            self.assertEqual(
+                hashlib.sha256(contents).hexdigest(),
+                expected_sha256,
+            )
+
+            parser = pyseb.PDBParser()
+            atoms = parser.parse_file(str(downloaded_path))
+            self.assertEqual(len(atoms), 327)
+
+            profile = pyseb.AtomParameterProfile()
+            profile.set_element("C", radius=1.70, beta=1.0)
+            profile.set_element("N", radius=1.55, beta=1.0)
+            profile.set_element("O", radius=1.52, beta=1.0)
+            profile.set_element("S", radius=1.80, beta=1.0)
+
+            cloud = pyseb.AtomCloudBuilder.build(atoms, profile)
+            world = pyseb.World()
+            world.Add(cloud, "crambin")
+            self.assertTrue(
+                math.isfinite(
+                    world.EvaluateFormFactor("crambin", {}, 0.1)
+                )
+            )
+
+        self.assertIsNotNone(downloaded_path)
+        self.assertFalse(downloaded_path.exists())
 
     def test_sympy_and_helper_evaluation_match_for_micelle(self):
         world = pyseb.World()

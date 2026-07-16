@@ -277,6 +277,10 @@ include pyseb/bindings/bindingsSymbolic.hpp
 include work/Evaluating.cpp
 
 # Keep packaging robust as bindings evolve
+recursive-include seb *.cpp *.hpp
+recursive-include seb-symbolic *.cpp *.hpp
+recursive-include seb-symbolic-ginac *.cpp *.hpp
+recursive-include Tests *.cpp *.pdb
 recursive-include pyseb/bindings *.cpp *.hpp
 recursive-include pyseb/examples/python *.py
 recursive-include pyseb/tests/python *.py

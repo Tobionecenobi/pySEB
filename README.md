@@ -100,7 +100,7 @@ Optional: build and install wheel locally:
 ```bash 
 $ python -m pip install -U build
 $ python -m build
-$ python -m pip install dist/pyseb-0.1.0-cp311-cp311-linux_x86_64.whl
+$ python -m pip install dist/pyseb-0.2.0-cp311-cp311-linux_x86_64.whl
 ```
 
 ### 5) What must be true before users can run `pip install pyseb`

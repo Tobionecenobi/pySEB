@@ -75,6 +75,68 @@ q_values = np.logspace(-3, 0, 100)
 intensity = pyseb.evaluate_expression(world, form_factor, params, q_values)
 ```
 
+## Numerical Subunits
+
+`World` can evaluate structures containing both analytic subunits and numerical
+subunits. `DebyeSphereCloud` is the first concrete numerical model:
+
+```python
+import pyseb
+
+cloud = pyseb.DebyeSphereCloud([
+    pyseb.SphereScatterer(0.0, 0.0, 0.0, 1.0, 2.0),
+    pyseb.SphereScatterer(3.0, 0.0, 0.0, 1.0, -0.5),
+])
+cloud.addReferencePoint("left", 0.0, 0.0, 0.0)
+
+world = pyseb.World()
+world.Add(cloud, "cloud")
+
+q_values = [0.0, 0.05, 0.1, 0.2]
+form_factor = world.EvaluateFormFactor("cloud", {}, q_values)
+rg2 = world.EvaluateRadiusOfGyration2("cloud", {})
+```
+
+`NumericalSubunit` also exposes callbacks for form factors, form-factor
+amplitudes, phase factors, total excess scattering length, and Guinier data.
+This supports geometries whose scattering functions require numerical
+integration while preserving the usual symbolic placeholders in symbolic
+expressions.
+
+## PDB Atom Clouds
+
+The built-in PDB pipeline is separated into parser, parameter profile, and
+cloud builder layers:
+
+```text
+PDBParser -> AtomRecord[] -> AtomParameterProfile -> DebyeSphereCloud
+```
+
+For example:
+
+```python
+import pyseb
+
+profile = pyseb.AtomParameterProfile()
+profile.set_element("C", radius=1.70, beta=6.0)
+profile.set_element("N", radius=1.55, beta=7.0)
+profile.set_element("O", radius=1.52, beta=8.0)
+profile.set_element("S", radius=1.80, beta=16.0)
+
+cloud = pyseb.StructureCloudLoader.load_pdb("protein.pdb", profile)
+world = pyseb.World()
+world.Add(cloud, "protein")
+
+form_factor = world.EvaluateFormFactor("protein", {}, [0.0, 0.05, 0.1])
+rg2 = world.EvaluateRadiusOfGyration2("protein", {})
+```
+
+Named atom references can be supplied through
+`AtomCloudBuildOptions.reference_atom_serials`. They can then be used to attach
+analytic subunits, such as connecting `GaussianPolymer.end1` to a terminal
+protein atom. The combined structure is evaluated by the same numerical
+`World` traversal.
+
 ## Examples
 
 Packaged examples live in `pyseb/examples/python/`:
@@ -87,11 +149,15 @@ python pyseb/examples/python/figure13_star_chain.py
 python pyseb/examples/python/micelle_evaluation.py
 python pyseb/examples/python/nested_structures.py
 python pyseb/examples/python/symbolic_backend.py
+python pyseb/examples/python/debye_sphere_cloud.py
+python pyseb/examples/python/crambin_form_factor.py
+python pyseb/examples/python/crambin_polymer_form_factor.py
 ```
 
 These cover SymPy export, numeric evaluation over `q`, a small micelle model,
 nested structures, the Figure 13 star-chain model, and direct symbolic
-expression construction.
+expression construction. The Crambin examples download the official 1CRN PDB
+file, verify its checksum, and remove the temporary file after evaluation.
 
 ## Symbolic Backends
 
