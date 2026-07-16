@@ -1055,6 +1055,170 @@ DoubleVector World::Evaluate(Expression e, ParameterList& pl, DoubleVector& q, s
    return I;
 }
 
+double World::EvaluateFormFactor(
+    string name,
+    const ParameterList& values,
+    double q)
+{
+    const double beta = GenerateTotalBetaNumeric(name, values);
+    if (std::abs(beta) <= 1e-14) {
+        throw SEBException(
+            "Cannot normalize a form factor when the total excess scattering length is zero",
+            "World::EvaluateFormFactor()"
+        );
+    }
+    return GenerateAllToAllNumeric(name, q, values) / (beta * beta);
+}
+
+DoubleVector World::EvaluateFormFactor(
+    string name,
+    const ParameterList& values,
+    const DoubleVector& q)
+{
+    DoubleVector result;
+    result.reserve(q.size());
+    for (const double value : q) {
+        result.push_back(EvaluateFormFactor(name, values, value));
+    }
+    return result;
+}
+
+double World::EvaluateFormFactorUnnormalized(
+    string name,
+    const ParameterList& values,
+    double q)
+{
+    return GenerateAllToAllNumeric(name, q, values);
+}
+
+DoubleVector World::EvaluateFormFactorUnnormalized(
+    string name,
+    const ParameterList& values,
+    const DoubleVector& q)
+{
+    DoubleVector result;
+    result.reserve(q.size());
+    for (const double value : q) {
+        result.push_back(EvaluateFormFactorUnnormalized(name, values, value));
+    }
+    return result;
+}
+
+double World::EvaluateFormFactorAmplitude(
+    refPoint ref,
+    const ParameterList& values,
+    double q)
+{
+    const double beta = GenerateTotalBetaNumeric(prefix(ref), values);
+    if (std::abs(beta) <= 1e-14) {
+        throw SEBException(
+            "Cannot normalize a form-factor amplitude when the total excess scattering length is zero",
+            "World::EvaluateFormFactorAmplitude()"
+        );
+    }
+    return GenerateRefToAllNumeric(ref, q, values) / beta;
+}
+
+DoubleVector World::EvaluateFormFactorAmplitude(
+    refPoint ref,
+    const ParameterList& values,
+    const DoubleVector& q)
+{
+    DoubleVector result;
+    result.reserve(q.size());
+    for (const double value : q) {
+        result.push_back(EvaluateFormFactorAmplitude(ref, values, value));
+    }
+    return result;
+}
+
+double World::EvaluateFormFactorAmplitudeUnnormalized(
+    refPoint ref,
+    const ParameterList& values,
+    double q)
+{
+    return GenerateRefToAllNumeric(ref, q, values);
+}
+
+DoubleVector World::EvaluateFormFactorAmplitudeUnnormalized(
+    refPoint ref,
+    const ParameterList& values,
+    const DoubleVector& q)
+{
+    DoubleVector result;
+    result.reserve(q.size());
+    for (const double value : q) {
+        result.push_back(EvaluateFormFactorAmplitudeUnnormalized(ref, values, value));
+    }
+    return result;
+}
+
+double World::EvaluatePhaseFactor(
+    refPoint r1,
+    refPoint r2,
+    const ParameterList& values,
+    double q)
+{
+    return GenerateRefToRefNumeric(r1, r2, q, values);
+}
+
+DoubleVector World::EvaluatePhaseFactor(
+    refPoint r1,
+    refPoint r2,
+    const ParameterList& values,
+    const DoubleVector& q)
+{
+    DoubleVector result;
+    result.reserve(q.size());
+    for (const double value : q) {
+        result.push_back(EvaluatePhaseFactor(r1, r2, values, value));
+    }
+    return result;
+}
+
+double World::EvaluateRadiusOfGyration2(
+    string name,
+    const ParameterList& values)
+{
+    const GuinierTerm term = GenerateAllToAllGuinier(name, values);
+    if (std::abs(term.constant) <= 1e-14) {
+        throw SEBException(
+            "Cannot calculate radius of gyration when the total excess scattering length is zero",
+            "World::EvaluateRadiusOfGyration2()"
+        );
+    }
+    return 3.0 * term.q2Coefficient / term.constant;
+}
+
+double World::EvaluateSMSDRef2Scat(
+    refPoint ref,
+    const ParameterList& values)
+{
+    const GuinierTerm term = GenerateRefToAllGuinier(ref, values);
+    if (std::abs(term.constant) <= 1e-14) {
+        throw SEBException(
+            "Cannot calculate reference-to-scatterer sigma<R^2> when total beta is zero",
+            "World::EvaluateSMSDRef2Scat()"
+        );
+    }
+    return 6.0 * term.q2Coefficient / term.constant;
+}
+
+double World::EvaluateSMSDRef2Ref(
+    refPoint r1,
+    refPoint r2,
+    const ParameterList& values)
+{
+    const GuinierTerm term = GenerateRefToRefGuinier(r1, r2, values);
+    if (std::abs(term.constant) <= 1e-14) {
+        throw SEBException(
+            "Reference-to-reference Guinier normalization is zero",
+            "World::EvaluateSMSDRef2Ref()"
+        );
+    }
+    return 6.0 * term.q2Coefficient / term.constant;
+}
+
 
 /*
 Prints out all nested structures in a structure using a directory format.
@@ -1383,6 +1547,369 @@ Expression World::PhaseFactor(ReferencePointList& path, int depth, string myself
     return Psi;
 }
 
+double World::GenerateTotalBetaNumeric(
+    string name,
+    const ParameterList& values)
+{
+    if (isSubunit(name)) {
+        return getSubunit(name)->NumericTotalBeta(values);
+    }
+
+    if (isStructure(name)) {
+        double beta = 0.0;
+        const GraphID gid = getStructure(name)->getGraphID();
+        for (auto child = subgraph_cbegin(gid); child != subgraph_cend(gid); ++child) {
+            beta += GenerateTotalBetaNumeric(*child, values);
+        }
+        return beta;
+    }
+
+    throw SEBException(
+        "Unknown sub-unit or structure " + name,
+        "World::GenerateTotalBetaNumeric()"
+    );
+}
+
+double World::GenerateRefToRefNumeric(
+    refPoint r1,
+    refPoint r2,
+    double q,
+    const ParameterList& values)
+{
+    if (!std::isfinite(q)) {
+        throw SEBException("q must be finite", "World::GenerateRefToRefNumeric()");
+    }
+
+    const string myself = prefix(r1);
+    if (myself != prefix(r2)) {
+        throw SEBException(
+            "Both reference points must start at the same structure level",
+            "World::GenerateRefToRefNumeric()"
+        );
+    }
+
+    if (isStructure(myself)) {
+        if (isLinked(r1, r2) || r1 == r2) {
+            return 1.0;
+        }
+
+        if (prefix(postfix(r1)) == prefix(postfix(r2))) {
+            return GenerateRefToRefNumeric(postfix(r1), postfix(r2), q, values);
+        }
+
+        ReferencePointList path = findpath(r1, r2, false);
+        return PhaseFactorNumeric(path, q, values);
+    }
+
+    if (isSubunit(myself)) {
+        return getSubunit(getName(r1))->NumericPhaseFactor(
+            getReference(r1),
+            getReference(r2),
+            q,
+            values
+        );
+    }
+
+    throw SEBException(
+        "Unknown object in numerical reference-to-reference traversal",
+        "World::GenerateRefToRefNumeric()"
+    );
+}
+
+double World::GenerateRefToAllNumeric(
+    refPoint ref,
+    double q,
+    const ParameterList& values)
+{
+    if (!std::isfinite(q)) {
+        throw SEBException("q must be finite", "World::GenerateRefToAllNumeric()");
+    }
+
+    const string myself = prefix(ref);
+    if (isStructure(myself)) {
+        double amplitude = 0.0;
+        const GraphID gid = getStructure(myself)->getGraphID();
+
+        for (auto child = subgraph_cbegin(gid); child != subgraph_cend(gid); ++child) {
+            ReferencePointList path = findpath(ref, myself + ":" + *child);
+            double term = 0.0;
+            if (path.empty()) {
+                term = GenerateRefToAllNumeric(postfix(ref), q, values);
+            } else {
+                term = PhaseFactorNumeric(path, q, values) *
+                       GenerateRefToAllNumeric(path.back(), q, values);
+            }
+            amplitude += term;
+        }
+        return amplitude;
+    }
+
+    if (isSubunit(myself)) {
+        return getSubunit(myself)->NumericFormFactorAmplitudeUnnormalized(
+            getReference(ref),
+            q,
+            values
+        );
+    }
+
+    throw SEBException(
+        "Unknown object in numerical reference-to-all traversal",
+        "World::GenerateRefToAllNumeric()"
+    );
+}
+
+double World::GenerateAllToAllNumeric(
+    string name,
+    double q,
+    const ParameterList& values)
+{
+    if (!std::isfinite(q)) {
+        throw SEBException("q must be finite", "World::GenerateAllToAllNumeric()");
+    }
+
+    if (isSubunit(name)) {
+        return getSubunit(name)->NumericFormFactorUnnormalized(q, values);
+    }
+
+    if (isStructure(name)) {
+        double formFactor = 0.0;
+        const GraphID gid = getStructure(name)->getGraphID();
+
+        for (auto child1 = subgraph_cbegin(gid); child1 != subgraph_cend(gid); ++child1) {
+            for (auto child2 = child1; child2 != subgraph_cend(gid); ++child2) {
+                if (child1 == child2) {
+                    formFactor += GenerateAllToAllNumeric(*child1, q, values);
+                    continue;
+                }
+
+                ReferencePointList path = findpath(
+                    name + ":" + *child1,
+                    name + ":" + *child2,
+                    false
+                );
+                const double amplitude1 = GenerateRefToAllNumeric(path.front(), q, values);
+                const double phase = PhaseFactorNumeric(path, q, values);
+                const double amplitude2 = GenerateRefToAllNumeric(path.back(), q, values);
+                formFactor += 2.0 * amplitude1 * phase * amplitude2;
+            }
+        }
+        return formFactor;
+    }
+
+    throw SEBException(
+        "Unknown object in numerical all-to-all traversal",
+        "World::GenerateAllToAllNumeric()"
+    );
+}
+
+double World::PhaseFactorNumeric(
+    ReferencePointList& path,
+    double q,
+    const ParameterList& values)
+{
+    if (path.size() < 2) {
+        return 1.0;
+    }
+
+    double phase = 1.0;
+    auto current = path.begin();
+    auto next = current;
+    ++next;
+    while (next != path.end()) {
+        if (!isLinked(*current, *next)) {
+            phase *= GenerateRefToRefNumeric(*current, *next, q, values);
+        }
+        current = next;
+        ++next;
+    }
+    return phase;
+}
+
+World::GuinierTerm World::AddGuinier(
+    const GuinierTerm& left,
+    const GuinierTerm& right)
+{
+    return GuinierTerm(
+        left.constant + right.constant,
+        left.q2Coefficient + right.q2Coefficient
+    );
+}
+
+World::GuinierTerm World::MultiplyGuinier(
+    const GuinierTerm& left,
+    const GuinierTerm& right)
+{
+    return GuinierTerm(
+        left.constant * right.constant,
+        left.q2Coefficient * right.constant +
+            left.constant * right.q2Coefficient
+    );
+}
+
+World::GuinierTerm World::ScaleGuinier(
+    double scale,
+    const GuinierTerm& term)
+{
+    return GuinierTerm(
+        scale * term.constant,
+        scale * term.q2Coefficient
+    );
+}
+
+World::GuinierTerm World::GenerateRefToRefGuinier(
+    refPoint r1,
+    refPoint r2,
+    const ParameterList& values)
+{
+    const string myself = prefix(r1);
+    if (myself != prefix(r2)) {
+        throw SEBException(
+            "Both reference points must start at the same structure level",
+            "World::GenerateRefToRefGuinier()"
+        );
+    }
+
+    if (isStructure(myself)) {
+        if (isLinked(r1, r2) || r1 == r2) {
+            return GuinierTerm(1.0, 0.0);
+        }
+
+        if (prefix(postfix(r1)) == prefix(postfix(r2))) {
+            return GenerateRefToRefGuinier(postfix(r1), postfix(r2), values);
+        }
+
+        ReferencePointList path = findpath(r1, r2, false);
+        return PhaseFactorGuinier(path, values);
+    }
+
+    if (isSubunit(myself)) {
+        SubUnit* subunit = getSubunit(getName(r1));
+        const double sigma = subunit->NumericSigmaMSDRef2Ref(
+            getReference(r1),
+            getReference(r2),
+            values
+        );
+        return GuinierTerm(1.0, sigma / 6.0);
+    }
+
+    throw SEBException(
+        "Unknown object in Guinier reference-to-reference traversal",
+        "World::GenerateRefToRefGuinier()"
+    );
+}
+
+World::GuinierTerm World::GenerateRefToAllGuinier(
+    refPoint ref,
+    const ParameterList& values)
+{
+    const string myself = prefix(ref);
+    if (isStructure(myself)) {
+        GuinierTerm amplitude;
+        const GraphID gid = getStructure(myself)->getGraphID();
+
+        for (auto child = subgraph_cbegin(gid); child != subgraph_cend(gid); ++child) {
+            ReferencePointList path = findpath(ref, myself + ":" + *child);
+            GuinierTerm term;
+            if (path.empty()) {
+                term = GenerateRefToAllGuinier(postfix(ref), values);
+            } else {
+                term = MultiplyGuinier(
+                    PhaseFactorGuinier(path, values),
+                    GenerateRefToAllGuinier(path.back(), values)
+                );
+            }
+            amplitude = AddGuinier(amplitude, term);
+        }
+        return amplitude;
+    }
+
+    if (isSubunit(myself)) {
+        SubUnit* subunit = getSubunit(myself);
+        const refPoint reference = getReference(ref);
+        const double beta = subunit->NumericTotalBeta(values);
+        const double sigma = subunit->NumericSigmaMSDRef2Scat(reference, values);
+        return GuinierTerm(beta, beta * sigma / 6.0);
+    }
+
+    throw SEBException(
+        "Unknown object in Guinier reference-to-all traversal",
+        "World::GenerateRefToAllGuinier()"
+    );
+}
+
+World::GuinierTerm World::GenerateAllToAllGuinier(
+    string name,
+    const ParameterList& values)
+{
+    if (isSubunit(name)) {
+        SubUnit* subunit = getSubunit(name);
+        const double beta = subunit->NumericTotalBeta(values);
+        const double rg2 = subunit->NumericRadiusOfGyration2(values);
+        return GuinierTerm(beta * beta, beta * beta * rg2 / 3.0);
+    }
+
+    if (isStructure(name)) {
+        GuinierTerm formFactor;
+        const GraphID gid = getStructure(name)->getGraphID();
+
+        for (auto child1 = subgraph_cbegin(gid); child1 != subgraph_cend(gid); ++child1) {
+            for (auto child2 = child1; child2 != subgraph_cend(gid); ++child2) {
+                GuinierTerm term;
+                if (child1 == child2) {
+                    term = GenerateAllToAllGuinier(*child1, values);
+                } else {
+                    ReferencePointList path = findpath(
+                        name + ":" + *child1,
+                        name + ":" + *child2,
+                        false
+                    );
+                    term = ScaleGuinier(
+                        2.0,
+                        MultiplyGuinier(
+                            MultiplyGuinier(
+                                GenerateRefToAllGuinier(path.front(), values),
+                                PhaseFactorGuinier(path, values)
+                            ),
+                            GenerateRefToAllGuinier(path.back(), values)
+                        )
+                    );
+                }
+                formFactor = AddGuinier(formFactor, term);
+            }
+        }
+        return formFactor;
+    }
+
+    throw SEBException(
+        "Unknown object in Guinier all-to-all traversal",
+        "World::GenerateAllToAllGuinier()"
+    );
+}
+
+World::GuinierTerm World::PhaseFactorGuinier(
+    ReferencePointList& path,
+    const ParameterList& values)
+{
+    GuinierTerm phase(1.0, 0.0);
+    if (path.size() < 2) {
+        return phase;
+    }
+
+    auto current = path.begin();
+    auto next = current;
+    ++next;
+    while (next != path.end()) {
+        if (!isLinked(*current, *next)) {
+            phase = MultiplyGuinier(
+                phase,
+                GenerateRefToRefGuinier(*current, *next, values)
+            );
+        }
+        current = next;
+        ++next;
+    }
+    return phase;
+}
 
 /* Sorts the link in ascii order so the smallest ascii number comes first in the link where a link = pair<refpoint, refpoint>
    The sanity of the strings should have been tested before here*/
@@ -1766,8 +2293,6 @@ Expression World::getFF(string myself, int varform)
                                       return beta * beta * F;
                                    }
 }
-
-
 
 
 

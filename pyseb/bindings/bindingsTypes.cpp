@@ -3,6 +3,8 @@
 #include <pybind11/functional.h>
 #include <pybind11/operators.h>
 
+#include <memory>
+
 #include "SEB.hpp"
 #include "World.hpp"
 #include "Subunit.hpp"
@@ -104,7 +106,7 @@ void register_common_types(py::module& m) {
     m.def("to_sympy", &pyseb_expression_to_sympy, py::arg("expr"));
 
     // Expose SubUnit class
-    py::class_<SubUnit>(m, "SubUnit")
+    py::class_<SubUnit, std::unique_ptr<SubUnit, py::nodelete>>(m, "SubUnit")
         .def("getType", &SubUnit::getType)
         .def("getName", &SubUnit::getName)
         .def("getTag", &SubUnit::getTag)

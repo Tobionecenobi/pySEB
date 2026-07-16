@@ -81,7 +81,7 @@ TEST_F(SebSymbolicFixture, PortableBackendBuildsAndExports)
 
     EXPECT_EQ(sebsym::active_backend(), "portable");
     EXPECT_NE(expr.to_python().find("sin"), std::string::npos);
-    EXPECT_THROW(expr.subs("x", 4.0), std::runtime_error);
+    EXPECT_NEAR(expr.subs("x", 4.0).eval(), std::sin(11.0), 1e-12);
     EXPECT_THROW(expr.eval(), std::runtime_error);
 }
 
@@ -91,7 +91,7 @@ TEST_F(SebSymbolicFixture, RegistryReportsPortableCapabilities)
     EXPECT_NE(std::find(backends.begin(), backends.end(), "portable"), backends.end());
 
     auto caps = sebsym::active_capabilities();
-    EXPECT_FALSE(caps.numeric_evaluation);
+    EXPECT_TRUE(caps.numeric_evaluation);
     EXPECT_TRUE(caps.python_output);
     EXPECT_FALSE(caps.series_expansion);
 }

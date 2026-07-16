@@ -75,6 +75,22 @@ exp = _pyseb.exp
 log = _pyseb.log
 sqrt = _pyseb.sqrt
 abs = _pyseb.abs
+NormalizationMode = _pyseb.NormalizationMode
+SymbolicSubunit = _pyseb.SymbolicSubunit
+NumericalSubunit = _pyseb.NumericalSubunit
+CartesianPoint3D = _pyseb.CartesianPoint3D
+SphereScatterer = _pyseb.SphereScatterer
+DebyeSphereCloud = _pyseb.DebyeSphereCloud
+AtomRecord = _pyseb.AtomRecord
+AlternateLocationPolicy = _pyseb.AlternateLocationPolicy
+StructureParseOptions = _pyseb.StructureParseOptions
+StructureParser = _pyseb.StructureParser
+PDBParser = _pyseb.PDBParser
+AtomScattererParameters = _pyseb.AtomScattererParameters
+AtomParameterProfile = _pyseb.AtomParameterProfile
+AtomCloudBuildOptions = _pyseb.AtomCloudBuildOptions
+AtomCloudBuilder = _pyseb.AtomCloudBuilder
+StructureCloudLoader = _pyseb.StructureCloudLoader
 
 from .symbolic import (
     SymPyExpression,
@@ -121,6 +137,22 @@ __all__ = [
     'log',
     'sqrt',
     'abs',
+    'NormalizationMode',
+    'SymbolicSubunit',
+    'NumericalSubunit',
+    'CartesianPoint3D',
+    'SphereScatterer',
+    'DebyeSphereCloud',
+    'AtomRecord',
+    'AlternateLocationPolicy',
+    'StructureParseOptions',
+    'StructureParser',
+    'PDBParser',
+    'AtomScattererParameters',
+    'AtomParameterProfile',
+    'AtomCloudBuildOptions',
+    'AtomCloudBuilder',
+    'StructureCloudLoader',
     'SymPyExpression',
     'SymPyFactory',
     'get_factory',

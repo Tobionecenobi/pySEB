@@ -1,9 +1,12 @@
+import hashlib
 import math
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+import urllib.request
 
 import pyseb
 import numpy as np
@@ -136,6 +139,202 @@ class TestPySEBSmoke(unittest.TestCase):
 
         np.testing.assert_allclose(sympy_values, helper_values, rtol=1e-12, atol=1e-12)
 
+    def test_numerical_subunit_callbacks_and_symbolic_placeholder(self):
+        unit = pyseb.NumericalSubunit(pyseb.NormalizationMode.Normalized)
+        unit.addReferencePoint("center")
+        unit.setTotalBeta(2.0)
+        unit.setFormFactorFunction(lambda q, params: math.exp(-q * q))
+        unit.setFormFactorAmplitudeFunction(
+            "center", lambda q, params: math.exp(-0.5 * q * q)
+        )
+        unit.setRadiusOfGyration2(3.0)
+        unit.setSigmaMSDRef2Scat("center", 3.0)
+        unit.ValidateNumerically()
+
+        world = pyseb.World()
+        world.Add(unit, "numeric")
+
+        self.assertAlmostEqual(
+            world.EvaluateFormFactor("numeric", {}, 0.2),
+            math.exp(-0.04),
+        )
+        self.assertAlmostEqual(
+            world.EvaluateFormFactorAmplitude("numeric.center", {}, 0.2),
+            math.exp(-0.02),
+        )
+        self.assertIn("F_numeric", str(world.FormFactor("numeric")))
+
+    def test_debye_sphere_cloud_matches_single_sphere(self):
+        cloud = pyseb.DebyeSphereCloud(
+            [pyseb.SphereScatterer(0.0, 0.0, 0.0, 2.0, 3.0)]
+        )
+        world = pyseb.World()
+        world.Add(cloud, "cloud")
+        world.Add("SolidSphere", "sphere")
+        params = {"beta_sphere": 3.0, "R_sphere": 2.0}
+
+        for q in (0.0, 0.05, 0.2, 0.7):
+            self.assertAlmostEqual(
+                world.EvaluateFormFactor("cloud", params, q),
+                world.EvaluateFormFactor("sphere", params, q),
+                places=10,
+            )
+            self.assertAlmostEqual(
+                world.EvaluateFormFactorAmplitude("cloud.center", params, q),
+                world.EvaluateFormFactorAmplitude("sphere.center", params, q),
+                places=10,
+            )
+
+        self.assertAlmostEqual(
+            world.EvaluateRadiusOfGyration2("cloud", params),
+            12.0 / 5.0,
+        )
+
+    def test_debye_reference_distances_and_vector_evaluation(self):
+        cloud = pyseb.DebyeSphereCloud(
+            [
+                pyseb.SphereScatterer(0.0, 0.0, 0.0, 0.0, 1.0),
+                pyseb.SphereScatterer(2.0, 0.0, 0.0, 0.0, 1.0),
+            ]
+        )
+        cloud.addReferencePoint("left", 0.0, 0.0, 0.0)
+        cloud.addReferencePoint("right", 2.0, 0.0, 0.0)
+        world = pyseb.World()
+        world.Add(cloud, "cloud")
+
+        q_values = [0.1, 0.2, 0.4]
+        vector = world.EvaluateFormFactor("cloud", {}, q_values)
+        scalar = [
+            world.EvaluateFormFactor("cloud", {}, q)
+            for q in q_values
+        ]
+        self.assertEqual(len(vector), len(q_values))
+        for actual, expected in zip(vector, scalar):
+            self.assertAlmostEqual(actual, expected)
+
+        self.assertAlmostEqual(
+            world.EvaluateSMSDRef2Ref("cloud.left", "cloud.right", {}),
+            4.0,
+        )
+
+    def test_debye_zero_total_beta_only_allows_unnormalized_scattering(self):
+        cloud = pyseb.DebyeSphereCloud(
+            [
+                pyseb.SphereScatterer(0.0, 0.0, 0.0, 0.0, 1.0),
+                pyseb.SphereScatterer(1.0, 0.0, 0.0, 0.0, -1.0),
+            ]
+        )
+        world = pyseb.World()
+        world.Add(cloud, "cloud")
+
+        self.assertTrue(
+            math.isfinite(
+                world.EvaluateFormFactorUnnormalized("cloud", {}, 0.2)
+            )
+        )
+        with self.assertRaises(RuntimeError):
+            world.EvaluateFormFactor("cloud", {}, 0.2)
+
+    def test_pdb_parser_profile_and_cloud_builder_pipeline(self):
+        pdb = (
+            "ATOM      1  N   ALA A   1      11.104  13.207   9.234"
+            "  0.50 20.00           N  \n"
+            "ATOM      2  CA AALA A   1      12.560  13.100   9.500"
+            "  1.00 21.00           C  \n"
+            "ATOM      3  CA BALA A   1      12.700  13.200   9.600"
+            "  1.00 22.00           C  \n"
+        )
+
+        parser = pyseb.PDBParser()
+        atoms = parser.parse_string(pdb)
+        self.assertEqual(len(atoms), 2)
+        self.assertEqual(atoms[0].element, "N")
+        self.assertEqual(atoms[1].alternate_location, "A")
+
+        profile = pyseb.AtomParameterProfile()
+        profile.set_element("N", radius=1.0, beta=2.0)
+        profile.set_element("C", radius=1.5, beta=-1.0)
+        profile.set_atom("ALA", "CA", radius=1.7, beta=3.0)
+
+        build_options = pyseb.AtomCloudBuildOptions()
+        build_options.reference_atom_serials = {"n_term": 1}
+        cloud = pyseb.AtomCloudBuilder.build(
+            atoms,
+            profile,
+            build_options,
+        )
+
+        world = pyseb.World()
+        world.Add(cloud, "protein")
+        self.assertEqual(cloud.scattererCount(), 2)
+        self.assertAlmostEqual(
+            world.EvaluateFormFactorUnnormalized("protein", {}, 0.0),
+            16.0,
+        )
+        self.assertIn("n_term", cloud.getReferenceCoordinates())
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = Path(tmpdir) / "protein.pdb"
+            filename.write_text(pdb)
+            loaded_cloud = pyseb.StructureCloudLoader.load_pdb(
+                str(filename),
+                profile,
+                build_options=build_options,
+            )
+            loaded_world = pyseb.World()
+            loaded_world.Add(loaded_cloud, "loaded")
+            self.assertAlmostEqual(
+                loaded_world.EvaluateFormFactorUnnormalized(
+                    "loaded", {}, 0.0
+                ),
+                16.0,
+            )
+
+    @unittest.skipUnless(
+        os.environ.get("PYSEB_RUN_NETWORK_TESTS") == "1",
+        "Set PYSEB_RUN_NETWORK_TESTS=1 to run network integration tests",
+    )
+    def test_downloads_parses_and_removes_official_rcsb_pdb(self):
+        url = "https://files.rcsb.org/download/1CRN.pdb"
+        expected_sha256 = (
+            "42199a30a0701864a2a5cc76cd7f35cc"
+            "544cd0e65fbcf63e03c166543249b811"
+        )
+
+        downloaded_path = None
+        with tempfile.TemporaryDirectory() as tmpdir:
+            downloaded_path = Path(tmpdir) / "1CRN.pdb"
+            with urllib.request.urlopen(url, timeout=30) as response:
+                contents = response.read()
+            downloaded_path.write_bytes(contents)
+
+            self.assertEqual(
+                hashlib.sha256(contents).hexdigest(),
+                expected_sha256,
+            )
+
+            parser = pyseb.PDBParser()
+            atoms = parser.parse_file(str(downloaded_path))
+            self.assertEqual(len(atoms), 327)
+
+            profile = pyseb.AtomParameterProfile()
+            profile.set_element("C", radius=1.70, beta=1.0)
+            profile.set_element("N", radius=1.55, beta=1.0)
+            profile.set_element("O", radius=1.52, beta=1.0)
+            profile.set_element("S", radius=1.80, beta=1.0)
+
+            cloud = pyseb.AtomCloudBuilder.build(atoms, profile)
+            world = pyseb.World()
+            world.Add(cloud, "crambin")
+            self.assertTrue(
+                math.isfinite(
+                    world.EvaluateFormFactor("crambin", {}, 0.1)
+                )
+            )
+
+        self.assertIsNotNone(downloaded_path)
+        self.assertFalse(downloaded_path.exists())
+
     def test_sympy_and_helper_evaluation_match_for_micelle(self):
         world = pyseb.World()
         graph_id = world.Add("SolidSphere", "core")
@@ -223,8 +422,7 @@ class TestPySEBSmoke(unittest.TestCase):
         sympy_expr = pyseb.to_sympy(expr)
         self.assertIsInstance(sympy_expr, sympy.Expr)
         self.assertEqual(float(sympy_expr.subs("x", 4.0).evalf()), math.sin(11.0))
-        with self.assertRaises(RuntimeError):
-            expr.subs("x", 4.0)
+        self.assertAlmostEqual(expr.subs("x", 4.0).eval(), math.sin(11.0))
 
     def test_symbolic_backend_exports_to_sympy_for_numeric_evaluation(self):
         results = {}

@@ -177,6 +177,24 @@ public:
     // The first optional argument is a user text, the second the character denoting a comment.
     DoubleVector Evaluate(sebsym::Expression e, ParameterList& pl, DoubleVector& q, string, string ="", string = "#");
 
+    // Direct numerical evaluation of analytic and numerical sub-units in mixed structures.
+    double EvaluateFormFactor(string name, const ParameterList& values, double q);
+    DoubleVector EvaluateFormFactor(string name, const ParameterList& values, const DoubleVector& q);
+    double EvaluateFormFactorUnnormalized(string name, const ParameterList& values, double q);
+    DoubleVector EvaluateFormFactorUnnormalized(string name, const ParameterList& values, const DoubleVector& q);
+
+    double EvaluateFormFactorAmplitude(refPoint ref, const ParameterList& values, double q);
+    DoubleVector EvaluateFormFactorAmplitude(refPoint ref, const ParameterList& values, const DoubleVector& q);
+    double EvaluateFormFactorAmplitudeUnnormalized(refPoint ref, const ParameterList& values, double q);
+    DoubleVector EvaluateFormFactorAmplitudeUnnormalized(refPoint ref, const ParameterList& values, const DoubleVector& q);
+
+    double EvaluatePhaseFactor(refPoint r1, refPoint r2, const ParameterList& values, double q);
+    DoubleVector EvaluatePhaseFactor(refPoint r1, refPoint r2, const ParameterList& values, const DoubleVector& q);
+
+    double EvaluateRadiusOfGyration2(string name, const ParameterList& values);
+    double EvaluateSMSDRef2Scat(refPoint ref, const ParameterList& values);
+    double EvaluateSMSDRef2Ref(refPoint r1, refPoint r2, const ParameterList& values);
+
     // These methods are used to produce analytic expressions for scattering tems   --------------------------------------
 
     // Methods for getting phase factors, normalization is never an issue for phase factors.
@@ -234,10 +252,34 @@ public:
     ReferencePointList findpath(string name1, string name2, bool =true);
 
   private:
+    struct GuinierTerm {
+        double constant;
+        double q2Coefficient;
+
+        GuinierTerm(double c0 = 0.0, double c2 = 0.0)
+            : constant(c0), q2Coefficient(c2) {}
+    };
+
     // These three methods does all the traversal used in all scattering expressions above.
     sebsym::Expression GenerateRefToRef( refPoint r1, refPoint r2, int depth, int varForm );
     sebsym::Expression GenerateRefToAll( refPoint r,               int depth, int varForm );
     sebsym::Expression GenerateAllToAll( string name,              int depth, int varForm );
+
+    // Parallel numerical traversal.
+    double GenerateTotalBetaNumeric(string name, const ParameterList& values);
+    double GenerateRefToRefNumeric(refPoint r1, refPoint r2, double q, const ParameterList& values);
+    double GenerateRefToAllNumeric(refPoint ref, double q, const ParameterList& values);
+    double GenerateAllToAllNumeric(string name, double q, const ParameterList& values);
+    double PhaseFactorNumeric(ReferencePointList& path, double q, const ParameterList& values);
+
+    // Guinier traversal using c0 - q^2 c2 + O(q^4).
+    GuinierTerm GenerateRefToRefGuinier(refPoint r1, refPoint r2, const ParameterList& values);
+    GuinierTerm GenerateRefToAllGuinier(refPoint ref, const ParameterList& values);
+    GuinierTerm GenerateAllToAllGuinier(string name, const ParameterList& values);
+    GuinierTerm PhaseFactorGuinier(ReferencePointList& path, const ParameterList& values);
+    static GuinierTerm AddGuinier(const GuinierTerm& left, const GuinierTerm& right);
+    static GuinierTerm MultiplyGuinier(const GuinierTerm& left, const GuinierTerm& right);
+    static GuinierTerm ScaleGuinier(double scale, const GuinierTerm& term);
 
     // Makes a list of all neighbors, that is link partners, and reference points inside the same structure / sub-unit
     ReferencePointList getNeighbors( refPoint last, ReferencePointList& VisitedAlready);

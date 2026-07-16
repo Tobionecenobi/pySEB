@@ -80,6 +80,8 @@ add_executable(utility_test utility_test.cpp)
 add_executable(structure_test structure_tests.cpp)
 add_executable(validation_test validation_tests.cpp)
 add_executable(seb_symbolic_test seb_symbolic_test.cpp)
+add_executable(numerical_subunit_test numerical_subunit_tests.cpp)
+add_executable(pdb_parser_test pdb_parser_tests.cpp)
 
 # Add sample test executables
 add_executable(sample_solid_cylinder_test Sample_SolidCylinder_test.cpp)
@@ -130,6 +132,33 @@ target_link_libraries(seb_symbolic_test PRIVATE
     GTest::Main
     ${GINAC_LIBRARIES}
     ${CLN_LIBRARIES}
+)
+
+target_link_libraries(numerical_subunit_test PRIVATE
+    ${SEB_LIBRARY}
+    ${SEB_SYMBOLIC_LIBRARY}
+    GSL::gsl
+    GSL::gslcblas
+    GTest::GTest
+    GTest::Main
+    ${GINAC_LIBRARIES}
+    ${CLN_LIBRARIES}
+)
+
+target_link_libraries(pdb_parser_test PRIVATE
+    ${SEB_LIBRARY}
+    ${SEB_SYMBOLIC_LIBRARY}
+    GSL::gsl
+    GSL::gslcblas
+    GTest::GTest
+    GTest::Main
+    ${GINAC_LIBRARIES}
+    ${CLN_LIBRARIES}
+)
+
+target_compile_definitions(
+    pdb_parser_test
+    PRIVATE PDB_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/data/"
 )
 
 target_link_libraries(sample_solid_cylinder_test PRIVATE
@@ -204,6 +233,16 @@ add_test(
     COMMAND seb_symbolic_test
 )
 
+add_test(
+    NAME NumericalSubunitTest
+    COMMAND numerical_subunit_test
+)
+
+add_test(
+    NAME PDBParserTest
+    COMMAND pdb_parser_test
+)
+
 # Add sample tests
 add_test(
     NAME SampleSolidCylinderTest
@@ -230,6 +269,8 @@ set_tests_properties(UtilityTest PROPERTIES TIMEOUT 30)
 set_tests_properties(StructureTest PROPERTIES TIMEOUT 30)
 set_tests_properties(ValidationTest PROPERTIES TIMEOUT 600)
 set_tests_properties(SebSymbolicTest PROPERTIES TIMEOUT 30)
+set_tests_properties(NumericalSubunitTest PROPERTIES TIMEOUT 30)
+set_tests_properties(PDBParserTest PROPERTIES TIMEOUT 30)
 set_tests_properties(SampleSolidCylinderTest PROPERTIES TIMEOUT 90)
 set_tests_properties(SampleSolidSphereTest PROPERTIES TIMEOUT 30)
 set_tests_properties(SampleSolidSphericalShellTest PROPERTIES TIMEOUT 90)

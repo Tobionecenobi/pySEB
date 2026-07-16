@@ -4,18 +4,24 @@ Subunits module for the SEB Python bindings.
 This module provides Python wrappers for the SEB subunits.
 """
 
-from ._pyseb import (
-    GaussianPolymer as _GaussianPolymer,
-    GaussianLoop as _GaussianLoop,
-    ThinCircle as _ThinCircle,
-    ThinRod as _ThinRod,
-    ThinDisk as _ThinDisk,
-    ThinSphericalShell as _ThinSphericalShell,
-    SolidSphere as _SolidSphere,
-    SolidSphericalShell as _SolidSphericalShell,
-    SolidCylinder as _SolidCylinder,
-    Point as _Point
-)
+from . import _pyseb as _extension
+
+_GaussianPolymer = _extension.GaussianPolymer
+_GaussianLoop = _extension.GaussianLoop
+_ThinCircle = _extension.ThinCircle
+_ThinRod = _extension.ThinRod
+_ThinDisk = _extension.ThinDisk
+_ThinSphericalShell = _extension.ThinSphericalShell
+_SolidSphere = _extension.SolidSphere
+_SolidSphericalShell = _extension.SolidSphericalShell
+_SolidCylinder = _extension.SolidCylinder
+_Point = _extension.Point
+_SymbolicSubunit = _extension.SymbolicSubunit
+_NumericalSubunit = _extension.NumericalSubunit
+_DebyeSphereCloud = _extension.DebyeSphereCloud
+SphereScatterer = _extension.SphereScatterer
+CartesianPoint3D = _extension.CartesianPoint3D
+NormalizationMode = _extension.NormalizationMode
 
 
 class GaussianPolymer(_GaussianPolymer):
@@ -106,3 +112,38 @@ class Point(_Point):
     This represents a point scatterer.
     """
     pass
+
+
+class SymbolicSubunit(_SymbolicSubunit):
+    """A subunit represented by symbolic F, A and Psi placeholders."""
+    pass
+
+
+class NumericalSubunit(_NumericalSubunit):
+    """A callback-driven numerical subunit."""
+    pass
+
+
+class DebyeSphereCloud(_DebyeSphereCloud):
+    """A Debye sphere cloud with finite-radius sphere scatterers."""
+    pass
+
+
+__all__ = [
+    "GaussianPolymer",
+    "GaussianLoop",
+    "ThinCircle",
+    "ThinRod",
+    "ThinDisk",
+    "ThinSphericalShell",
+    "SolidSphere",
+    "SolidSphericalShell",
+    "SolidCylinder",
+    "Point",
+    "SymbolicSubunit",
+    "NumericalSubunit",
+    "DebyeSphereCloud",
+    "SphereScatterer",
+    "CartesianPoint3D",
+    "NormalizationMode",
+]
