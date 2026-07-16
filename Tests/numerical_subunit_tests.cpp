@@ -1,4 +1,5 @@
 #include <cmath>
+#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -98,14 +99,90 @@ DebyeSphereCloud* sampledSphereCloud(
 
 DebyeSphereCloud* sampledRodCloud(
     double length,
-    double beta)
+    double beta,
+    std::size_t scattererCount = 600)
 {
     DebyeSphereCloud* cloud =
-        new DebyeSphereCloud(sampleThinRod(length, beta, 600));
+        new DebyeSphereCloud(
+            sampleThinRod(length, beta, scattererCount)
+        );
     cloud->addReferencePoint("end1", 0.0, 0.0, 0.0);
     cloud->addReferencePoint("middle", length / 2.0, 0.0, 0.0);
     cloud->addReferencePoint("end2", length, 0.0, 0.0);
     return cloud;
+}
+
+enum class RodDendrimerLayerMode {
+    AllCloud,
+    AllSymbolic,
+    AlternatingWithSymbolicRoot
+};
+
+bool useCloudRodAtLevel(
+    RodDendrimerLayerMode mode,
+    int level,
+    int levels)
+{
+    if (mode == RodDendrimerLayerMode::AllCloud) {
+        return true;
+    }
+    if (mode == RodDendrimerLayerMode::AllSymbolic) {
+        return false;
+    }
+
+    const int distanceFromRoot = levels - 1 - level;
+    return distanceFromRoot % 2 == 1;
+}
+
+void buildBinaryRodDendrimer(
+    World& world,
+    RodDendrimerLayerMode mode,
+    int levels,
+    double length,
+    double beta,
+    std::size_t cloudScattererCount)
+{
+    if (levels < 1) {
+        throw std::invalid_argument("Dendrimer must contain at least one level");
+    }
+
+    string currentRoot = "level0Rod";
+    GraphID currentGraph = useCloudRodAtLevel(mode, 0, levels)
+        ? world.Add(
+            sampledRodCloud(length, beta, cloudScattererCount),
+            currentRoot,
+            "rod"
+        )
+        : world.Add(new ThinRod(), currentRoot, "rod");
+
+    for (int level = 1; level < levels; ++level) {
+        const string newRoot = "level" + std::to_string(level) + "Rod";
+        const GraphID nextGraph = useCloudRodAtLevel(mode, level, levels)
+            ? world.Add(
+                sampledRodCloud(length, beta, cloudScattererCount),
+                newRoot,
+                "rod"
+            )
+            : world.Add(new ThinRod(), newRoot, "rod");
+
+        const string leftBranch = "level" + std::to_string(level) + "Left";
+        const string rightBranch = "level" + std::to_string(level) + "Right";
+        world.Link(
+            currentGraph,
+            leftBranch + ":" + currentRoot + ".end1",
+            newRoot + ".end2"
+        );
+        world.Link(
+            currentGraph,
+            rightBranch + ":" + currentRoot + ".end1",
+            newRoot + ".end2"
+        );
+
+        currentGraph = nextGraph;
+        currentRoot = newRoot;
+    }
+
+    world.Add(currentGraph, "dendrimer");
 }
 
 void expectRodSphereStructureMatchesAnalytic(
@@ -798,6 +875,173 @@ TEST(NumericalWorldTest, ConnectedAnalyticRodAndRodCloudApproximateAnalyticRods)
         2e-3,
         1e-3,
         1e-2
+    );
+}
+
+// Verify hierarchical composition for a binary rod dendrimer at the configured
+// depth, with each rod producing two child rods from end2. A dendrimer built
+// from sampled rod clouds must reproduce the same structure built from
+// analytic ThinRod subunits.
+TEST(NumericalWorldTest, BinaryRodCloudDendrimerApproximatesAnalyticDendrimer)
+{
+    const int levels = 7;
+    const double rodLength = 3.0;
+    const double rodBeta = 1.0;
+    const std::size_t effectiveRodCount =
+        (static_cast<std::size_t>(1) << levels) - 1;
+    const string rootReference =
+        "dendrimer:level" + std::to_string(levels - 1) + "Rod.end1";
+
+    World cloudWorld;
+    buildBinaryRodDendrimer(
+        cloudWorld,
+        RodDendrimerLayerMode::AllCloud,
+        levels,
+        rodLength,
+        rodBeta,
+        300
+    );
+
+    World analyticWorld;
+    buildBinaryRodDendrimer(
+        analyticWorld,
+        RodDendrimerLayerMode::AllSymbolic,
+        levels,
+        rodLength,
+        rodBeta,
+        0
+    );
+
+    const ParameterList parameters{
+        {"beta_rod", rodBeta},
+        {"L_rod", rodLength}
+    };
+
+    EXPECT_NEAR(
+        cloudWorld.EvaluateFormFactorUnnormalized(
+            "dendrimer",
+            parameters,
+            0.0
+        ),
+        static_cast<double>(effectiveRodCount * effectiveRodCount),
+        1e-10
+    );
+
+    for (const double q : std::vector<double>{0.0, 0.05, 0.15, 0.3}) {
+        EXPECT_NEAR(
+            cloudWorld.EvaluateFormFactor("dendrimer", parameters, q),
+            analyticWorld.EvaluateFormFactor("dendrimer", parameters, q),
+            4e-3
+        );
+        EXPECT_NEAR(
+            cloudWorld.EvaluateFormFactorAmplitude(
+                rootReference,
+                parameters,
+                q
+            ),
+            analyticWorld.EvaluateFormFactorAmplitude(
+                rootReference,
+                parameters,
+                q
+            ),
+            3e-3
+        );
+    }
+
+    EXPECT_NEAR(
+        cloudWorld.EvaluateRadiusOfGyration2("dendrimer", parameters),
+        analyticWorld.EvaluateRadiusOfGyration2("dendrimer", parameters),
+        3e-2
+    );
+}
+
+// Verify that numerical and analytic subunits can alternate through every
+// recursive layer of a dendrimer. The root layer is symbolic, the next layer
+// uses rod clouds, and the pattern repeats down to the leaves.
+TEST(NumericalWorldTest, AlternatingRodCloudAndSymbolicDendrimerApproximatesAnalyticDendrimer)
+{
+    const int levels = 7;
+    const double rodLength = 3.0;
+    const double rodBeta = 1.0;
+    const std::size_t effectiveRodCount =
+        (static_cast<std::size_t>(1) << levels) - 1;
+    const string rootReference =
+        "dendrimer:level" + std::to_string(levels - 1) + "Rod.end1";
+
+    World alternatingWorld;
+    buildBinaryRodDendrimer(
+        alternatingWorld,
+        RodDendrimerLayerMode::AlternatingWithSymbolicRoot,
+        levels,
+        rodLength,
+        rodBeta,
+        300
+    );
+
+    World analyticWorld;
+    buildBinaryRodDendrimer(
+        analyticWorld,
+        RodDendrimerLayerMode::AllSymbolic,
+        levels,
+        rodLength,
+        rodBeta,
+        0
+    );
+
+    const ParameterList parameters{
+        {"beta_rod", rodBeta},
+        {"L_rod", rodLength}
+    };
+
+    EXPECT_NEAR(
+        alternatingWorld.EvaluateFormFactorUnnormalized(
+            "dendrimer",
+            parameters,
+            0.0
+        ),
+        static_cast<double>(effectiveRodCount * effectiveRodCount),
+        1e-10
+    );
+
+    for (const double q : std::vector<double>{0.0, 0.05, 0.15, 0.3}) {
+        EXPECT_NEAR(
+            alternatingWorld.EvaluateFormFactor(
+                "dendrimer",
+                parameters,
+                q
+            ),
+            analyticWorld.EvaluateFormFactor(
+                "dendrimer",
+                parameters,
+                q
+            ),
+            4e-3
+        );
+        EXPECT_NEAR(
+            alternatingWorld.EvaluateFormFactorAmplitude(
+                rootReference,
+                parameters,
+                q
+            ),
+            analyticWorld.EvaluateFormFactorAmplitude(
+                rootReference,
+                parameters,
+                q
+            ),
+            3e-3
+        );
+    }
+
+    EXPECT_NEAR(
+        alternatingWorld.EvaluateRadiusOfGyration2(
+            "dendrimer",
+            parameters
+        ),
+        analyticWorld.EvaluateRadiusOfGyration2(
+            "dendrimer",
+            parameters
+        ),
+        3e-2
     );
 }
 
