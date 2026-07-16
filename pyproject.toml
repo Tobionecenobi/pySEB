@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyseb"
-version = "0.2.0"
+version = "0.2.2"
 description = "Python bindings for the Scattering Equation Builder (SEB) library"
 readme = "README.md"
 authors = [
@@ -66,5 +66,5 @@ repair-wheel-command = "delvewheel repair --add-path %VCPKG_INSTALLATION_ROOT%\\
 environment = { CMAKE_ARGS = "-DBUILD_PYTHON=ON -DSEB_ENABLE_GINAC_BACKEND=OFF -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows" }
 
 [project.urls]
-Homepage = "https://github.com/Tobionecenobi/SEB"
-"Bug Tracker" = "https://github.com/Tobionecenobi/SEB/issues"
+Homepage = "https://github.com/Tobionecenobi/pySEB"
+"Bug Tracker" = "https://github.com/Tobionecenobi/pySEB/issues"
