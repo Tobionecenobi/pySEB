@@ -59,6 +59,99 @@ std::vector<SphereScatterer> sampleSolidSphere(
     return scatterers;
 }
 
+std::vector<SphereScatterer> sampleThinRod(
+    double length,
+    double totalBeta,
+    std::size_t scattererCount)
+{
+    const double betaPerScatterer =
+        totalBeta / static_cast<double>(scattererCount);
+
+    std::vector<SphereScatterer> scatterers;
+    scatterers.reserve(scattererCount);
+    for (std::size_t index = 0; index < scattererCount; ++index) {
+        // Midpoint sampling gives equal scattering length per contour segment
+        // and avoids placing a finite point mass exactly at either endpoint.
+        const double contour =
+            (static_cast<double>(index) + 0.5) /
+            static_cast<double>(scattererCount);
+        scatterers.emplace_back(
+            length * contour,
+            0.0,
+            0.0,
+            0.0,
+            betaPerScatterer
+        );
+    }
+    return scatterers;
+}
+
+DebyeSphereCloud* sampledSphereCloud(
+    double radius,
+    double beta)
+{
+    DebyeSphereCloud* cloud =
+        new DebyeSphereCloud(sampleSolidSphere(radius, beta, 1200));
+    cloud->addReferencePoint("surface", radius, 0.0, 0.0);
+    return cloud;
+}
+
+DebyeSphereCloud* sampledRodCloud(
+    double length,
+    double beta)
+{
+    DebyeSphereCloud* cloud =
+        new DebyeSphereCloud(sampleThinRod(length, beta, 600));
+    cloud->addReferencePoint("end1", 0.0, 0.0, 0.0);
+    cloud->addReferencePoint("middle", length / 2.0, 0.0, 0.0);
+    cloud->addReferencePoint("end2", length, 0.0, 0.0);
+    return cloud;
+}
+
+void expectRodSphereStructureMatchesAnalytic(
+    World& candidate,
+    const ParameterList& parameters,
+    double formFactorTolerance,
+    double amplitudeTolerance,
+    double rg2Tolerance)
+{
+    World analytic;
+    const GraphID graph = analytic.Add(new ThinRod(), "rod");
+    analytic.Link(
+        new SolidSphere(),
+        "sphere.surface#join",
+        "rod.end1"
+    );
+    analytic.Add(graph, "pair");
+
+    for (const double q : std::vector<double>{0.0, 0.05, 0.15, 0.3}) {
+        EXPECT_NEAR(
+            candidate.EvaluateFormFactor("pair", parameters, q),
+            analytic.EvaluateFormFactor("pair", parameters, q),
+            formFactorTolerance
+        );
+        EXPECT_NEAR(
+            candidate.EvaluateFormFactorAmplitude(
+                "pair:rod.end1",
+                parameters,
+                q
+            ),
+            analytic.EvaluateFormFactorAmplitude(
+                "pair:rod.end1",
+                parameters,
+                q
+            ),
+            amplitudeTolerance
+        );
+    }
+
+    EXPECT_NEAR(
+        candidate.EvaluateRadiusOfGyration2("pair", parameters),
+        analytic.EvaluateRadiusOfGyration2("pair", parameters),
+        rg2Tolerance
+    );
+}
+
 }
 
 // Verify that the two callback contracts are equivalent after World applies
@@ -315,6 +408,180 @@ TEST(NumericalWorldTest, TwoConnectedSphereCloudsApproximateTwoAnalyticSpheres)
     EXPECT_NEAR(
         cloudWorld.EvaluateRadiusOfGyration2("cloudPair", parameters),
         analyticWorld.EvaluateRadiusOfGyration2("analyticPair", parameters),
+        2e-2
+    );
+}
+
+// Verify hybrid composition: replacing only one sphere in an analytic
+// two-sphere structure by a sampled cloud should preserve the total form
+// factor, connection-point amplitude, and Rg^2 within sampling accuracy.
+TEST(NumericalWorldTest, ConnectedCloudAndAnalyticSphereApproximateTwoAnalyticSpheres)
+{
+    const double radius = 2.0;
+    const double beta = 3.0;
+
+    DebyeSphereCloud* cloud =
+        new DebyeSphereCloud(sampleSolidSphere(radius, beta, 1200));
+    cloud->addReferencePoint("surface", radius, 0.0, 0.0);
+
+    World mixedWorld;
+    const GraphID mixedGraph = mixedWorld.Add(cloud, "cloud");
+    mixedWorld.Link(
+        new SolidSphere(),
+        "sphere2.surface#join",
+        "cloud.surface"
+    );
+    mixedWorld.Add(mixedGraph, "mixedPair");
+
+    World analyticWorld;
+    const GraphID analyticGraph =
+        analyticWorld.Add(new SolidSphere(), "sphere1");
+    analyticWorld.Link(
+        new SolidSphere(),
+        "sphere2.surface#join",
+        "sphere1.surface#join"
+    );
+    analyticWorld.Add(analyticGraph, "analyticPair");
+
+    const ParameterList parameters{
+        {"beta_sphere1", beta},
+        {"beta_sphere2", beta},
+        {"R_sphere1", radius},
+        {"R_sphere2", radius}
+    };
+
+    for (const double q : std::vector<double>{0.0, 0.1, 0.3, 0.6}) {
+        EXPECT_NEAR(
+            mixedWorld.EvaluateFormFactor("mixedPair", parameters, q),
+            analyticWorld.EvaluateFormFactor("analyticPair", parameters, q),
+            1e-3
+        );
+        EXPECT_NEAR(
+            mixedWorld.EvaluateFormFactorAmplitude(
+                "mixedPair:cloud.surface",
+                parameters,
+                q
+            ),
+            analyticWorld.EvaluateFormFactorAmplitude(
+                "analyticPair:sphere1.surface#join",
+                parameters,
+                q
+            ),
+            6e-4
+        );
+    }
+
+    EXPECT_NEAR(
+        mixedWorld.EvaluateRadiusOfGyration2("mixedPair", parameters),
+        analyticWorld.EvaluateRadiusOfGyration2("analyticPair", parameters),
+        1e-2
+    );
+}
+
+// Verify a fully numerical rod-sphere structure. A line-sampled rod cloud and
+// a volume-sampled sphere cloud are connected at rod.end1 and sphere.surface,
+// then compared with the corresponding ThinRod-SolidSphere structure.
+TEST(NumericalWorldTest, ConnectedRodCloudAndSphereCloudApproximateAnalyticPair)
+{
+    const double rodLength = 5.0;
+    const double rodBeta = 2.0;
+    const double sphereRadius = 2.0;
+    const double sphereBeta = 3.0;
+
+    World candidate;
+    const GraphID graph = candidate.Add(
+        sampledRodCloud(rodLength, rodBeta),
+        "rod"
+    );
+    candidate.Link(
+        sampledSphereCloud(sphereRadius, sphereBeta),
+        "sphere.surface",
+        "rod.end1"
+    );
+    candidate.Add(graph, "pair");
+
+    const ParameterList parameters{
+        {"beta_rod", rodBeta},
+        {"L_rod", rodLength},
+        {"beta_sphere", sphereBeta},
+        {"R_sphere", sphereRadius}
+    };
+    expectRodSphereStructureMatchesAnalytic(
+        candidate,
+        parameters,
+        3e-3,
+        2e-3,
+        3e-2
+    );
+}
+
+// Verify the cloud-symbolic ordering. Replacing only the rod by its sampled
+// cloud must give the same rod-sphere structure scattering as ThinRod linked
+// to SolidSphere.
+TEST(NumericalWorldTest, ConnectedRodCloudAndAnalyticSphereApproximateAnalyticPair)
+{
+    const double rodLength = 5.0;
+    const double rodBeta = 2.0;
+    const double sphereRadius = 2.0;
+    const double sphereBeta = 3.0;
+
+    World candidate;
+    const GraphID graph = candidate.Add(
+        sampledRodCloud(rodLength, rodBeta),
+        "rod"
+    );
+    candidate.Link(
+        new SolidSphere(),
+        "sphere.surface#join",
+        "rod.end1"
+    );
+    candidate.Add(graph, "pair");
+
+    const ParameterList parameters{
+        {"beta_rod", rodBeta},
+        {"L_rod", rodLength},
+        {"beta_sphere", sphereBeta},
+        {"R_sphere", sphereRadius}
+    };
+    expectRodSphereStructureMatchesAnalytic(
+        candidate,
+        parameters,
+        2e-3,
+        1e-3,
+        2e-2
+    );
+}
+
+// Verify the symbolic-cloud ordering. Replacing only the sphere by its sampled
+// cloud must give the same rod-sphere structure scattering as ThinRod linked
+// to SolidSphere.
+TEST(NumericalWorldTest, ConnectedAnalyticRodAndSphereCloudApproximateAnalyticPair)
+{
+    const double rodLength = 5.0;
+    const double rodBeta = 2.0;
+    const double sphereRadius = 2.0;
+    const double sphereBeta = 3.0;
+
+    World candidate;
+    const GraphID graph = candidate.Add(new ThinRod(), "rod");
+    candidate.Link(
+        sampledSphereCloud(sphereRadius, sphereBeta),
+        "sphere.surface",
+        "rod.end1"
+    );
+    candidate.Add(graph, "pair");
+
+    const ParameterList parameters{
+        {"beta_rod", rodBeta},
+        {"L_rod", rodLength},
+        {"beta_sphere", sphereBeta},
+        {"R_sphere", sphereRadius}
+    };
+    expectRodSphereStructureMatchesAnalytic(
+        candidate,
+        parameters,
+        2e-3,
+        1e-3,
         2e-2
     );
 }
