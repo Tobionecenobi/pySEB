@@ -152,6 +152,50 @@ void expectRodSphereStructureMatchesAnalytic(
     );
 }
 
+void expectRodRodStructureMatchesAnalytic(
+    World& candidate,
+    const ParameterList& parameters,
+    double formFactorTolerance,
+    double amplitudeTolerance,
+    double rg2Tolerance)
+{
+    World analytic;
+    const GraphID graph = analytic.Add(new ThinRod(), "rod1");
+    analytic.Link(
+        new ThinRod(),
+        "rod2.end1",
+        "rod1.end2"
+    );
+    analytic.Add(graph, "pair");
+
+    for (const double q : std::vector<double>{0.0, 0.05, 0.15, 0.3}) {
+        EXPECT_NEAR(
+            candidate.EvaluateFormFactor("pair", parameters, q),
+            analytic.EvaluateFormFactor("pair", parameters, q),
+            formFactorTolerance
+        );
+        EXPECT_NEAR(
+            candidate.EvaluateFormFactorAmplitude(
+                "pair:rod1.end1",
+                parameters,
+                q
+            ),
+            analytic.EvaluateFormFactorAmplitude(
+                "pair:rod1.end1",
+                parameters,
+                q
+            ),
+            amplitudeTolerance
+        );
+    }
+
+    EXPECT_NEAR(
+        candidate.EvaluateRadiusOfGyration2("pair", parameters),
+        analytic.EvaluateRadiusOfGyration2("pair", parameters),
+        rg2Tolerance
+    );
+}
+
 }
 
 // Verify that the two callback contracts are equivalent after World applies
@@ -271,6 +315,69 @@ TEST(DebyeSphereCloudTest, SampledSolidSphereCloudApproximatesRayleighSphere)
         world.EvaluateRadiusOfGyration2("cloud", parameters),
         12.0 / 5.0,
         1e-2
+    );
+}
+
+// Verify the basic rod discretization independently of structure composition.
+// A line-sampled point cloud must reproduce the analytic ThinRod form factor,
+// amplitudes from its named references, end-to-end phase factor, and Rg^2.
+TEST(DebyeSphereCloudTest, SampledThinRodCloudApproximatesAnalyticThinRod)
+{
+    const double length = 5.0;
+    const double beta = 2.0;
+
+    World world;
+    world.Add(sampledRodCloud(length, beta), "cloud");
+    world.Add(new ThinRod(), "rod");
+
+    const ParameterList parameters{
+        {"beta_rod", beta},
+        {"L_rod", length}
+    };
+
+    for (const double q : std::vector<double>{0.0, 0.05, 0.15, 0.3, 0.6}) {
+        EXPECT_NEAR(
+            world.EvaluateFormFactor("cloud", parameters, q),
+            world.EvaluateFormFactor("rod", parameters, q),
+            1e-4
+        );
+        for (const string& reference :
+             std::vector<string>{"end1", "middle", "end2"}) {
+            EXPECT_NEAR(
+                world.EvaluateFormFactorAmplitude(
+                    "cloud." + reference,
+                    parameters,
+                    q
+                ),
+                world.EvaluateFormFactorAmplitude(
+                    "rod." + reference,
+                    parameters,
+                    q
+                ),
+                1e-4
+            );
+        }
+        EXPECT_NEAR(
+            world.EvaluatePhaseFactor(
+                "cloud.end1",
+                "cloud.end2",
+                parameters,
+                q
+            ),
+            world.EvaluatePhaseFactor(
+                "rod.end1",
+                "rod.end2",
+                parameters,
+                q
+            ),
+            1e-12
+        );
+    }
+
+    EXPECT_NEAR(
+        world.EvaluateRadiusOfGyration2("cloud", parameters),
+        world.EvaluateRadiusOfGyration2("rod", parameters),
+        1e-5
     );
 }
 
@@ -583,6 +690,114 @@ TEST(NumericalWorldTest, ConnectedAnalyticRodAndSphereCloudApproximateAnalyticPa
         2e-3,
         1e-3,
         2e-2
+    );
+}
+
+// Verify a fully numerical two-rod structure under World's factorized,
+// orientationally averaged composition. Two sampled rod clouds linked
+// end-to-end must reproduce two linked analytic ThinRod subunits.
+TEST(NumericalWorldTest, ConnectedRodCloudsApproximateConnectedAnalyticRods)
+{
+    const double rod1Length = 4.0;
+    const double rod1Beta = 2.0;
+    const double rod2Length = 6.0;
+    const double rod2Beta = 1.5;
+
+    World candidate;
+    const GraphID graph = candidate.Add(
+        sampledRodCloud(rod1Length, rod1Beta),
+        "rod1"
+    );
+    candidate.Link(
+        sampledRodCloud(rod2Length, rod2Beta),
+        "rod2.end1",
+        "rod1.end2"
+    );
+    candidate.Add(graph, "pair");
+
+    const ParameterList parameters{
+        {"beta_rod1", rod1Beta},
+        {"L_rod1", rod1Length},
+        {"beta_rod2", rod2Beta},
+        {"L_rod2", rod2Length}
+    };
+    expectRodRodStructureMatchesAnalytic(
+        candidate,
+        parameters,
+        3e-3,
+        2e-3,
+        2e-2
+    );
+}
+
+// Verify the cloud-symbolic ordering for two rods. Replacing rod1 by a
+// line-sampled cloud must preserve the scattering of the analytic
+// ThinRod-ThinRod structure.
+TEST(NumericalWorldTest, ConnectedRodCloudAndAnalyticRodApproximateAnalyticRods)
+{
+    const double rod1Length = 4.0;
+    const double rod1Beta = 2.0;
+    const double rod2Length = 6.0;
+    const double rod2Beta = 1.5;
+
+    World candidate;
+    const GraphID graph = candidate.Add(
+        sampledRodCloud(rod1Length, rod1Beta),
+        "rod1"
+    );
+    candidate.Link(
+        new ThinRod(),
+        "rod2.end1",
+        "rod1.end2"
+    );
+    candidate.Add(graph, "pair");
+
+    const ParameterList parameters{
+        {"beta_rod1", rod1Beta},
+        {"L_rod1", rod1Length},
+        {"beta_rod2", rod2Beta},
+        {"L_rod2", rod2Length}
+    };
+    expectRodRodStructureMatchesAnalytic(
+        candidate,
+        parameters,
+        2e-3,
+        1e-3,
+        1e-2
+    );
+}
+
+// Verify the symbolic-cloud ordering for two rods. Replacing rod2 by a
+// line-sampled cloud must preserve the scattering of the analytic
+// ThinRod-ThinRod structure.
+TEST(NumericalWorldTest, ConnectedAnalyticRodAndRodCloudApproximateAnalyticRods)
+{
+    const double rod1Length = 4.0;
+    const double rod1Beta = 2.0;
+    const double rod2Length = 6.0;
+    const double rod2Beta = 1.5;
+
+    World candidate;
+    const GraphID graph = candidate.Add(new ThinRod(), "rod1");
+    candidate.Link(
+        sampledRodCloud(rod2Length, rod2Beta),
+        "rod2.end1",
+        "rod1.end2"
+    );
+    candidate.Add(graph, "pair");
+
+    const ParameterList parameters{
+        {"beta_rod1", rod1Beta},
+        {"L_rod1", rod1Length},
+        {"beta_rod2", rod2Beta},
+        {"L_rod2", rod2Length}
+    };
+    expectRodRodStructureMatchesAnalytic(
+        candidate,
+        parameters,
+        2e-3,
+        1e-3,
+        1e-2
     );
 }
 
