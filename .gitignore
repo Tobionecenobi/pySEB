@@ -61,3 +61,8 @@ Tests/sample_thin_disk_test
 Tests/sample_solid_spherical_shell_test
 Tests/sample_solid_cylinder_test
 Tests/build-ninja/
+.sympy_venv/
+.tools/
+.cache/
+.jupyter/
+.local/
