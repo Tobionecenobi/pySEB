@@ -166,6 +166,25 @@ class SubUnit : public ABSSubUnit
     // Returns sigma <R^2> between the two reference points.
     virtual sebsym::Expression getSigmaMSDRef2Ref(refPoint r1, refPoint r2 );
 
+    /*
+       Numerical scattering interface.
+
+       The form-factor and amplitude methods return unnormalized contributions:
+         I(q) = beta^2 F(q)
+         A(q) = beta A_normalized(q)
+
+       Phase factors are always normalized and dimensionless.  Analytic sub-units
+       use the symbolic expressions above as their default numerical implementation;
+       NumericalSubunit overrides these methods with callbacks.
+    */
+    virtual double NumericTotalBeta(const ParameterList& values);
+    virtual double NumericFormFactorUnnormalized(double q, const ParameterList& values);
+    virtual double NumericFormFactorAmplitudeUnnormalized(refPoint r, double q, const ParameterList& values);
+    virtual double NumericPhaseFactor(refPoint r1, refPoint r2, double q, const ParameterList& values);
+    virtual double NumericRadiusOfGyration2(const ParameterList& values);
+    virtual double NumericSigmaMSDRef2Scat(refPoint r, const ParameterList& values);
+    virtual double NumericSigmaMSDRef2Ref(refPoint r1, refPoint r2, const ParameterList& values);
+
 
 
     /* Tests if this sub-unit has a distributed reference point e.g. contour for polymer*/

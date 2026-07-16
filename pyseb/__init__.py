@@ -75,6 +75,12 @@ exp = _pyseb.exp
 log = _pyseb.log
 sqrt = _pyseb.sqrt
 abs = _pyseb.abs
+NormalizationMode = _pyseb.NormalizationMode
+SymbolicSubunit = _pyseb.SymbolicSubunit
+NumericalSubunit = _pyseb.NumericalSubunit
+CartesianPoint3D = _pyseb.CartesianPoint3D
+SphereScatterer = _pyseb.SphereScatterer
+DebyeSphereCloud = _pyseb.DebyeSphereCloud
 
 from .symbolic import (
     SymPyExpression,
@@ -121,6 +127,12 @@ __all__ = [
     'log',
     'sqrt',
     'abs',
+    'NormalizationMode',
+    'SymbolicSubunit',
+    'NumericalSubunit',
+    'CartesianPoint3D',
+    'SphereScatterer',
+    'DebyeSphereCloud',
     'SymPyExpression',
     'SymPyFactory',
     'get_factory',

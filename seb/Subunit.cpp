@@ -3,6 +3,30 @@
 
 using sebsym::Expression;
 
+namespace {
+
+double evaluateNumericExpression(const Expression& expression,
+                                 double q,
+                                 const ParameterList& values,
+                                 const string& where)
+{
+    Expression result = expression.subs(values).subs("q", q).evalf();
+    if (!result.is_numeric()) {
+        throw SEBException(
+            "Expression did not evaluate to a number; one or more parameters are missing",
+            where
+        );
+    }
+
+    const double value = result.eval();
+    if (!std::isfinite(value)) {
+        throw SEBException("Numerical evaluation produced a non-finite value", where);
+    }
+    return value;
+}
+
+}
+
 Expression SubUnit::FormFactor(ParameterList&  betas, ParameterList&  params, int varForm )
 {
   try{
@@ -245,6 +269,109 @@ Expression SubUnit::getSigmaMSDRef2Ref(refPoint r1, refPoint r2 )
                              throw SEBException("Invalid reference point "+r2+" not found in PhaseFactors table", "SubUnit::getSigmaMSDRef2Ref()");
 
     return  sigmaMSDref2ref[r1][r2];
+}
+
+double SubUnit::NumericTotalBeta(const ParameterList& values)
+{
+    return evaluateNumericExpression(
+        getBeta(),
+        0.0,
+        values,
+        "SubUnit::NumericTotalBeta()"
+    );
+}
+
+double SubUnit::NumericFormFactorUnnormalized(double q, const ParameterList& values)
+{
+    if (q == 0.0) {
+        const double beta = NumericTotalBeta(values);
+        return beta * beta;
+    }
+
+    ParameterList betasLocal;
+    ParameterList paramsLocal;
+    return evaluateNumericExpression(
+        FormFactor(betasLocal, paramsLocal, QVAR),
+        q,
+        values,
+        "SubUnit::NumericFormFactorUnnormalized()"
+    );
+}
+
+double SubUnit::NumericFormFactorAmplitudeUnnormalized(
+    refPoint r,
+    double q,
+    const ParameterList& values)
+{
+    if (q == 0.0) {
+        return NumericTotalBeta(values);
+    }
+
+    ParameterList betasLocal;
+    ParameterList paramsLocal;
+    return evaluateNumericExpression(
+        FormFactorAmplitude(r, betasLocal, paramsLocal, QVAR),
+        q,
+        values,
+        "SubUnit::NumericFormFactorAmplitudeUnnormalized()"
+    );
+}
+
+double SubUnit::NumericPhaseFactor(
+    refPoint r1,
+    refPoint r2,
+    double q,
+    const ParameterList& values)
+{
+    if (q == 0.0) {
+        return 1.0;
+    }
+
+    ParameterList betasLocal;
+    ParameterList paramsLocal;
+    return evaluateNumericExpression(
+        PhaseFactor(r1, r2, betasLocal, paramsLocal, QVAR),
+        q,
+        values,
+        "SubUnit::NumericPhaseFactor()"
+    );
+}
+
+double SubUnit::NumericRadiusOfGyration2(const ParameterList& values)
+{
+    return evaluateNumericExpression(
+        getRadiusOfGyration2(),
+        0.0,
+        values,
+        "SubUnit::NumericRadiusOfGyration2()"
+    );
+}
+
+double SubUnit::NumericSigmaMSDRef2Scat(refPoint r, const ParameterList& values)
+{
+    return evaluateNumericExpression(
+        getSigmaMSDRef2Scat(r),
+        0.0,
+        values,
+        "SubUnit::NumericSigmaMSDRef2Scat()"
+    );
+}
+
+double SubUnit::NumericSigmaMSDRef2Ref(
+    refPoint r1,
+    refPoint r2,
+    const ParameterList& values)
+{
+    if (r1 == r2) {
+        return 0.0;
+    }
+
+    return evaluateNumericExpression(
+        getSigmaMSDRef2Ref(r1, r2),
+        0.0,
+        values,
+        "SubUnit::NumericSigmaMSDRef2Ref()"
+    );
 }
 
 

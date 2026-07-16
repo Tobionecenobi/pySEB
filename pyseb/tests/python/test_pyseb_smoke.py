@@ -136,6 +136,102 @@ class TestPySEBSmoke(unittest.TestCase):
 
         np.testing.assert_allclose(sympy_values, helper_values, rtol=1e-12, atol=1e-12)
 
+    def test_numerical_subunit_callbacks_and_symbolic_placeholder(self):
+        unit = pyseb.NumericalSubunit(pyseb.NormalizationMode.Normalized)
+        unit.addReferencePoint("center")
+        unit.setTotalBeta(2.0)
+        unit.setFormFactorFunction(lambda q, params: math.exp(-q * q))
+        unit.setFormFactorAmplitudeFunction(
+            "center", lambda q, params: math.exp(-0.5 * q * q)
+        )
+        unit.setRadiusOfGyration2(3.0)
+        unit.setSigmaMSDRef2Scat("center", 3.0)
+        unit.ValidateNumerically()
+
+        world = pyseb.World()
+        world.Add(unit, "numeric")
+
+        self.assertAlmostEqual(
+            world.EvaluateFormFactor("numeric", {}, 0.2),
+            math.exp(-0.04),
+        )
+        self.assertAlmostEqual(
+            world.EvaluateFormFactorAmplitude("numeric.center", {}, 0.2),
+            math.exp(-0.02),
+        )
+        self.assertIn("F_numeric", str(world.FormFactor("numeric")))
+
+    def test_debye_sphere_cloud_matches_single_sphere(self):
+        cloud = pyseb.DebyeSphereCloud(
+            [pyseb.SphereScatterer(0.0, 0.0, 0.0, 2.0, 3.0)]
+        )
+        world = pyseb.World()
+        world.Add(cloud, "cloud")
+        world.Add("SolidSphere", "sphere")
+        params = {"beta_sphere": 3.0, "R_sphere": 2.0}
+
+        for q in (0.0, 0.05, 0.2, 0.7):
+            self.assertAlmostEqual(
+                world.EvaluateFormFactor("cloud", params, q),
+                world.EvaluateFormFactor("sphere", params, q),
+                places=10,
+            )
+            self.assertAlmostEqual(
+                world.EvaluateFormFactorAmplitude("cloud.center", params, q),
+                world.EvaluateFormFactorAmplitude("sphere.center", params, q),
+                places=10,
+            )
+
+        self.assertAlmostEqual(
+            world.EvaluateRadiusOfGyration2("cloud", params),
+            12.0 / 5.0,
+        )
+
+    def test_debye_reference_distances_and_vector_evaluation(self):
+        cloud = pyseb.DebyeSphereCloud(
+            [
+                pyseb.SphereScatterer(0.0, 0.0, 0.0, 0.0, 1.0),
+                pyseb.SphereScatterer(2.0, 0.0, 0.0, 0.0, 1.0),
+            ]
+        )
+        cloud.addReferencePoint("left", 0.0, 0.0, 0.0)
+        cloud.addReferencePoint("right", 2.0, 0.0, 0.0)
+        world = pyseb.World()
+        world.Add(cloud, "cloud")
+
+        q_values = [0.1, 0.2, 0.4]
+        vector = world.EvaluateFormFactor("cloud", {}, q_values)
+        scalar = [
+            world.EvaluateFormFactor("cloud", {}, q)
+            for q in q_values
+        ]
+        self.assertEqual(len(vector), len(q_values))
+        for actual, expected in zip(vector, scalar):
+            self.assertAlmostEqual(actual, expected)
+
+        self.assertAlmostEqual(
+            world.EvaluateSMSDRef2Ref("cloud.left", "cloud.right", {}),
+            4.0,
+        )
+
+    def test_debye_zero_total_beta_only_allows_unnormalized_scattering(self):
+        cloud = pyseb.DebyeSphereCloud(
+            [
+                pyseb.SphereScatterer(0.0, 0.0, 0.0, 0.0, 1.0),
+                pyseb.SphereScatterer(1.0, 0.0, 0.0, 0.0, -1.0),
+            ]
+        )
+        world = pyseb.World()
+        world.Add(cloud, "cloud")
+
+        self.assertTrue(
+            math.isfinite(
+                world.EvaluateFormFactorUnnormalized("cloud", {}, 0.2)
+            )
+        )
+        with self.assertRaises(RuntimeError):
+            world.EvaluateFormFactor("cloud", {}, 0.2)
+
     def test_sympy_and_helper_evaluation_match_for_micelle(self):
         world = pyseb.World()
         graph_id = world.Add("SolidSphere", "core")
@@ -223,8 +319,7 @@ class TestPySEBSmoke(unittest.TestCase):
         sympy_expr = pyseb.to_sympy(expr)
         self.assertIsInstance(sympy_expr, sympy.Expr)
         self.assertEqual(float(sympy_expr.subs("x", 4.0).evalf()), math.sin(11.0))
-        with self.assertRaises(RuntimeError):
-            expr.subs("x", 4.0)
+        self.assertAlmostEqual(expr.subs("x", 4.0).eval(), math.sin(11.0))
 
     def test_symbolic_backend_exports_to_sympy_for_numeric_evaluation(self):
         results = {}

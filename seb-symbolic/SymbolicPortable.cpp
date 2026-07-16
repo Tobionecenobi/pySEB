@@ -5,6 +5,10 @@
 #include <sstream>
 #include <stdexcept>
 
+#include <gsl/gsl_sf_bessel.h>
+#include <gsl/gsl_sf_dawson.h>
+#include <gsl/gsl_sf_expint.h>
+
 namespace sebsym {
 namespace {
 
@@ -103,10 +107,7 @@ SymExprPtr PortableExpression::erfc() const { return function("erfc"); }
 
 SymExprPtr PortableExpression::subs(const std::string& symbol, const SymExprPtr& value) const
 {
-    auto portable_value = as_portable(value);
-    if (portable_value->kind() == Kind::Constant) {
-        throw std::runtime_error("portable backend exports expressions only; use a symbolic library for numeric substitution");
-    }
+    as_portable(value);
     if (_kind == Kind::Symbol && _op == symbol) {
         return value;
     }
@@ -123,8 +124,22 @@ SymExprPtr PortableExpression::subs(const std::string& symbol, const SymExprPtr&
 
 SymExprPtr PortableExpression::subs(const ParameterMap& params) const
 {
-    (void)params;
-    throw std::runtime_error("portable backend exports expressions only; use a symbolic library for numeric substitution");
+    if (_kind == Kind::Symbol) {
+        const auto value = params.find(_op);
+        if (value != params.end()) {
+            return std::make_shared<PortableExpression>(value->second);
+        }
+        return clone();
+    }
+    if (_kind == Kind::Constant) {
+        return clone();
+    }
+
+    std::vector<SymExprPtr> new_args;
+    for (const auto& arg : _args) {
+        new_args.push_back(arg->subs(params));
+    }
+    return std::make_shared<PortableExpression>(_kind, _op, new_args);
 }
 
 SymExprPtr PortableExpression::subs(const std::map<SymExprPtr, SymExprPtr>& exprMap) const
@@ -148,7 +163,67 @@ SymExprPtr PortableExpression::subs(const std::map<SymExprPtr, SymExprPtr>& expr
 
 double PortableExpression::eval() const
 {
-    throw std::runtime_error("portable backend exports expressions only; use a symbolic library to evaluate");
+    if (_kind == Kind::Constant) {
+        return _value;
+    }
+    if (_kind == Kind::Symbol) {
+        throw std::runtime_error("cannot numerically evaluate unresolved symbol " + _op);
+    }
+    if (_kind == Kind::Unary) {
+        const double value = as_portable(_args.at(0))->eval();
+        if (_op == "-") return -value;
+        throw std::runtime_error("unsupported portable unary operator " + _op);
+    }
+    if (_kind == Kind::Binary) {
+        const double left = as_portable(_args.at(0))->eval();
+        const double right = as_portable(_args.at(1))->eval();
+        if (_op == "+") return left + right;
+        if (_op == "-") return left - right;
+        if (_op == "*") return left * right;
+        if (_op == "/") return left / right;
+        if (_op == "**") return std::pow(left, right);
+        throw std::runtime_error("unsupported portable binary operator " + _op);
+    }
+    if (_kind == Kind::Function) {
+        if (_op == "Integral") {
+            throw std::runtime_error(
+                "portable backend cannot numerically evaluate an unresolved integral; "
+                "use NumericalSubunit for numerical quadrature"
+            );
+        }
+        if (_args.size() != 1) {
+            throw std::runtime_error(
+                "portable numerical evaluation does not support function " + _op
+            );
+        }
+
+        const double value = as_portable(_args.at(0))->eval();
+        if (_op == "exp") return std::exp(value);
+        if (_op == "log") return std::log(value);
+        if (_op == "sin") return std::sin(value);
+        if (_op == "cos") return std::cos(value);
+        if (_op == "tan") return std::tan(value);
+        if (_op == "asin") return std::asin(value);
+        if (_op == "acos") return std::acos(value);
+        if (_op == "atan") return std::atan(value);
+        if (_op == "sinh") return std::sinh(value);
+        if (_op == "cosh") return std::cosh(value);
+        if (_op == "tanh") return std::tanh(value);
+        if (_op == "sqrt") return std::sqrt(value);
+        if (_op == "abs") return std::abs(value);
+        if (_op == "bessel_j0") return gsl_sf_bessel_J0(value);
+        if (_op == "bessel_j1") return gsl_sf_bessel_J1(value);
+        if (_op == "dawson") return gsl_sf_dawson(value);
+        if (_op == "Si") return gsl_sf_Si(value);
+        if (_op == "erf") return std::erf(value);
+        if (_op == "erfc") return std::erfc(value);
+
+        throw std::runtime_error(
+            "portable numerical evaluation does not support function " + _op
+        );
+    }
+
+    throw std::runtime_error("unknown portable expression kind");
 }
 
 bool PortableExpression::has_symbols() const
@@ -193,7 +268,7 @@ bool PortableExpression::is_zero() const
 
 double PortableExpression::to_double() const
 {
-    throw std::runtime_error("portable backend exports expressions only; use a symbolic library to convert to double");
+    return eval();
 }
 
 std::string PortableExpression::render_python() const
@@ -251,6 +326,7 @@ std::string PortableExpression::to_cform() const { return render_python(); }
 SymbolicCapabilities PortableFactory::capabilities() const
 {
     SymbolicCapabilities caps;
+    caps.numeric_evaluation = true;
     caps.python_output = true;
     return caps;
 }
