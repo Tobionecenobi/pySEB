@@ -2,8 +2,14 @@ name: Packaging
 
 on:
   push:
+    branches:
+      - main
   pull_request:
   workflow_dispatch:
+
+concurrency:
+  group: packaging-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   cxx-tests:
@@ -56,13 +62,6 @@ jobs:
           python -m build --sdist
           twine check dist/*
 
-      - name: Upload sdist
-        uses: actions/upload-artifact@v4
-        with:
-          name: sdist
-          path: dist/*.tar.gz
-          retention-days: 1
-
   wheels:
     name: Wheels (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
@@ -103,9 +102,3 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macos_deployment_target }}
         with:
           output-dir: wheelhouse
-
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-${{ matrix.name }}
-          path: wheelhouse/*.whl

@@ -112,6 +112,7 @@ jobs:
         with:
           name: wheels-${{ matrix.name }}
           path: wheelhouse/*.whl
+          retention-days: 1
 
   publish:
     name: Publish to PyPI
