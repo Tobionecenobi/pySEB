@@ -253,6 +253,72 @@ TEST(DebyeSphereCloudTest, ZeroTotalBetaKeepsUnnormalizedScattering)
     );
 }
 
+// Verify that numerical clouds and analytic subunits compose identically at
+// structure level. Two sampled solid spheres are linked at surface reference
+// points and compared with two analytic SolidSphere subunits linked through
+// their corresponding distributed surface references.
+TEST(NumericalWorldTest, TwoConnectedSphereCloudsApproximateTwoAnalyticSpheres)
+{
+    const double radius = 2.0;
+    const double beta = 3.0;
+
+    DebyeSphereCloud* cloud1 =
+        new DebyeSphereCloud(sampleSolidSphere(radius, beta, 1200));
+    DebyeSphereCloud* cloud2 =
+        new DebyeSphereCloud(sampleSolidSphere(radius, beta, 1200));
+    cloud1->addReferencePoint("surface", radius, 0.0, 0.0);
+    cloud2->addReferencePoint("surface", radius, 0.0, 0.0);
+
+    World cloudWorld;
+    const GraphID cloudGraph = cloudWorld.Add(cloud1, "cloud1");
+    cloudWorld.Link(cloud2, "cloud2.surface", "cloud1.surface");
+    cloudWorld.Add(cloudGraph, "cloudPair");
+
+    World analyticWorld;
+    const GraphID analyticGraph =
+        analyticWorld.Add(new SolidSphere(), "sphere1");
+    analyticWorld.Link(
+        new SolidSphere(),
+        "sphere2.surface#join",
+        "sphere1.surface#join"
+    );
+    analyticWorld.Add(analyticGraph, "analyticPair");
+
+    const ParameterList parameters{
+        {"beta_sphere1", beta},
+        {"beta_sphere2", beta},
+        {"R_sphere1", radius},
+        {"R_sphere2", radius}
+    };
+
+    for (const double q : std::vector<double>{0.0, 0.1, 0.3, 0.6}) {
+        EXPECT_NEAR(
+            cloudWorld.EvaluateFormFactor("cloudPair", parameters, q),
+            analyticWorld.EvaluateFormFactor("analyticPair", parameters, q),
+            2e-3
+        );
+        EXPECT_NEAR(
+            cloudWorld.EvaluateFormFactorAmplitude(
+                "cloudPair:cloud1.surface",
+                parameters,
+                q
+            ),
+            analyticWorld.EvaluateFormFactorAmplitude(
+                "analyticPair:sphere1.surface#join",
+                parameters,
+                q
+            ),
+            1e-3
+        );
+    }
+
+    EXPECT_NEAR(
+        cloudWorld.EvaluateRadiusOfGyration2("cloudPair", parameters),
+        analyticWorld.EvaluateRadiusOfGyration2("analyticPair", parameters),
+        2e-2
+    );
+}
+
 // Verify that World composes an analytic SolidSphere and a numerical Debye
 // cloud using the standard interference expression
 // I_total = I_1 + I_2 + 2 A_1 Psi A_2, followed by total-beta normalization.
