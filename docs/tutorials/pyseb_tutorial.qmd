@@ -1,0 +1,455 @@
+---
+title: "PySEB: symbolic and numerical scattering"
+subtitle: "An executable Quarto and Jupyter tutorial"
+author: "The PySEB project"
+format:
+  html:
+    toc: true
+    code-fold: false
+    code-tools: true
+    fig-format: svg
+jupyter: python3
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+## What this tutorial covers
+
+PySEB builds scattering expressions from connected subunits. A subunit may be:
+
+- **analytic**, such as `GaussianPolymer` or `SolidSphere`;
+- **symbolic**, represented by unknown \(F\), \(A\), and \(\Psi\) functions;
+- **numerical**, such as a `DebyeSphereCloud` or a callback-driven
+  `NumericalSubunit`.
+
+The same `World` graph can contain all three kinds. This tutorial demonstrates:
+
+1. an analytic diblock polymer;
+2. direct numerical evaluation over a vector of \(q\)-values;
+3. a Debye cloud of finite spheres;
+4. a custom callback-driven numerical subunit;
+5. PDB parsing and conversion to a sphere cloud;
+6. an analytic polymer attached to a numerical protein model.
+
+All lengths in this tutorial are measured in Ångström, so \(q\) is measured in
+\(\mathrm{Å}^{-1}\).
+
+::: {.callout-note}
+To run this document from a source checkout, first build the Python extension
+and make it importable:
+
+```bash
+cmake -S . -B build-python -G Ninja \
+  -DBUILD_PYTHON=ON \
+  -DSEB_ENABLE_GINAC_BACKEND=OFF
+cmake --build build-python
+
+PYTHONPATH="$PWD/build-python:$PWD" \
+  quarto preview docs/tutorials/pyseb_tutorial.qmd
+```
+:::
+
+## Setup
+
+```{python}
+import math
+from pathlib import Path
+import tempfile
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+plt.rcParams["figure.figsize"] = (7, 4.5)
+plt.rcParams["axes.grid"] = True
+
+print("Symbolic backends:", pyseb.available_backends())
+```
+
+## The three scattering terms
+
+For a subunit, PySEB works with three orientationally averaged quantities:
+
+- \(F(q)\): the normalized form factor;
+- \(A_r(q)\): the normalized form-factor amplitude relative to reference point
+  \(r\);
+- \(\Psi_{r,s}(q)\): the phase factor between reference points \(r\) and \(s\).
+
+For two connected subunits, their unnormalized intensity contains
+
+\[
+I(q) =
+\beta_1^2 F_1(q)
++ \beta_2^2 F_2(q)
++ 2\beta_1 A_1(q)\Psi_{1,2}(q)\beta_2 A_2(q).
+\]
+
+`World` constructs this relationship from the graph and normalizes the result
+by the square of the total excess scattering length.
+
+## An analytic diblock polymer
+
+Start with two Gaussian polymers. `end1` and `end2` are named reference points
+provided by `GaussianPolymer`.
+
+```{python}
+analytic_world = pyseb.World()
+
+diblock_graph = analytic_world.Add("GaussianPolymer", "poly1")
+analytic_world.Link(
+    "GaussianPolymer",
+    "poly2.end1",
+    "poly1.end2",
+)
+analytic_world.Add(diblock_graph, "diblock")
+```
+
+The form factor is assembled symbolically:
+
+```{python}
+diblock_expression = pyseb.to_sympy(
+    analytic_world.FormFactor("diblock")
+)
+
+diblock_expression
+```
+
+The subunit names become parameter suffixes:
+
+```{python}
+diblock_parameters = {
+    "beta_poly1": 1.0,
+    "beta_poly2": 0.8,
+    "Rg_poly1": 5.0,
+    "Rg_poly2": 8.0,
+}
+
+q_values = np.geomspace(1e-3, 0.5, 150)
+diblock_form_factor = np.asarray(
+    analytic_world.EvaluateFormFactor(
+        "diblock",
+        diblock_parameters,
+        q_values.tolist(),
+    )
+)
+
+diblock_rg2 = analytic_world.EvaluateRadiusOfGyration2(
+    "diblock",
+    diblock_parameters,
+)
+
+print(f"Rg(diblock) = {math.sqrt(diblock_rg2):.4f} Å")
+```
+
+```{python}
+#| label: fig-diblock
+#| fig-cap: "Normalized form factor of an analytic Gaussian diblock."
+
+plt.loglog(q_values, diblock_form_factor)
+plt.xlabel(r"$q\;[\mathrm{\AA}^{-1}]$")
+plt.ylabel(r"$F(q)$")
+plt.show()
+```
+
+## A numerical Debye sphere cloud
+
+`DebyeSphereCloud` represents scatterers with coordinates, radii, and excess
+scattering lengths:
+
+```{python}
+scatterers = [
+    pyseb.SphereScatterer(-2.0, 0.0, 0.0, 1.2, 1.0),
+    pyseb.SphereScatterer( 0.0, 1.0, 0.0, 0.8, 0.7),
+    pyseb.SphereScatterer( 2.0, 0.0, 0.0, 1.0, 0.4),
+]
+
+cloud = pyseb.DebyeSphereCloud(scatterers)
+cloud.addReferencePoint("left", -2.0, 0.0, 0.0)
+cloud.addReferencePoint("right", 2.0, 0.0, 0.0)
+
+cloud_world = pyseb.World()
+cloud_world.Add(cloud, "cloud")
+```
+
+The form factor, amplitude, and phase factor can all be evaluated for a vector
+of \(q\)-values:
+
+```{python}
+cloud_q = np.linspace(0.0, 1.5, 200)
+
+cloud_form_factor = np.asarray(
+    cloud_world.EvaluateFormFactor(
+        "cloud", {}, cloud_q.tolist()
+    )
+)
+left_amplitude = np.asarray(
+    cloud_world.EvaluateFormFactorAmplitude(
+        "cloud.left", {}, cloud_q.tolist()
+    )
+)
+left_to_right_phase = np.asarray(
+    cloud_world.EvaluatePhaseFactor(
+        "cloud.left",
+        "cloud.right",
+        {},
+        cloud_q.tolist(),
+    )
+)
+
+cloud_rg2 = cloud_world.EvaluateRadiusOfGyration2("cloud", {})
+print(f"Rg(cloud) = {math.sqrt(cloud_rg2):.4f} Å")
+```
+
+```{python}
+#| label: fig-cloud-terms
+#| fig-cap: "Numerical scattering terms from a finite sphere cloud."
+
+plt.plot(cloud_q, cloud_form_factor, label=r"$F(q)$")
+plt.plot(cloud_q, left_amplitude, label=r"$A_\mathrm{left}(q)$")
+plt.plot(
+    cloud_q,
+    left_to_right_phase,
+    label=r"$\Psi_{\mathrm{left,right}}(q)$",
+)
+plt.xlabel(r"$q\;[\mathrm{\AA}^{-1}]$")
+plt.legend()
+plt.show()
+```
+
+The cloud precomputes and reuses scatterer--scatterer,
+reference--scatterer, and reference--reference distances.
+
+## Defining a numerical subunit with callbacks
+
+`NumericalSubunit` is the general interface for a model that cannot be written
+as a closed symbolic expression. In normalized mode, the callbacks must obey
+\(F(0)=A(0)=\Psi(0)=1\).
+
+```{python}
+callback_rg2 = 9.0
+
+callback_unit = pyseb.NumericalSubunit(
+    pyseb.NormalizationMode.Normalized
+)
+callback_unit.addReferencePoint("center")
+callback_unit.setTotalBeta(2.0)
+callback_unit.setFormFactorFunction(
+    lambda q, parameters: math.exp(-q * q * callback_rg2 / 3.0)
+)
+callback_unit.setFormFactorAmplitudeFunction(
+    "center",
+    lambda q, parameters: math.exp(-q * q * callback_rg2 / 6.0),
+)
+callback_unit.setRadiusOfGyration2(callback_rg2)
+callback_unit.setSigmaMSDRef2Scat("center", callback_rg2)
+callback_unit.ValidateNumerically()
+
+callback_world = pyseb.World()
+callback_world.Add(callback_unit, "callback")
+
+print(
+    "F(0.2) =",
+    callback_world.EvaluateFormFactor("callback", {}, 0.2),
+)
+print(
+    "Symbolic placeholder:",
+    callback_world.FormFactor("callback"),
+)
+```
+
+The numerical evaluator calls the callbacks. The symbolic evaluator still
+returns a placeholder such as \(F_\mathrm{callback}(q)\), which allows the
+subunit to participate in symbolic graph construction.
+
+## Parse a PDB structure
+
+The structure-import architecture separates parsing from the scattering
+parameter profile:
+
+```text
+PDBParser -> AtomRecord[] -> AtomParameterProfile -> DebyeSphereCloud
+```
+
+This small glycine structure keeps the tutorial deterministic and independent
+of network access:
+
+```{python}
+glycine_pdb = """\
+HEADER    MINIMAL GLYCINE TUTORIAL STRUCTURE
+ATOM      1  N   GLY A   1       0.000   0.000   0.000  1.00 10.00           N
+ATOM      2  CA  GLY A   1       1.450   0.000   0.000  1.00 11.00           C
+ATOM      3  C   GLY A   1       2.050   1.400   0.000  1.00 12.00           C
+ATOM      4  O   GLY A   1       1.400   2.400   0.000  1.00 13.00           O
+TER
+END
+"""
+
+parser = pyseb.PDBParser()
+atoms = parser.parse_string(glycine_pdb)
+
+for atom in atoms:
+    print(
+        atom.serial,
+        atom.atom_name,
+        atom.element,
+        (
+            atom.coordinate.x,
+            atom.coordinate.y,
+            atom.coordinate.z,
+        ),
+    )
+```
+
+Define how each atom type contributes to the sphere cloud. These illustrative
+values use van der Waals radii and approximate electron counts. A quantitative
+SAXS or SANS model should instead use an appropriate solvent-corrected
+parameter profile.
+
+```{python}
+atom_profile = pyseb.AtomParameterProfile()
+atom_profile.set_element("C", radius=1.70, beta=6.0)
+atom_profile.set_element("N", radius=1.55, beta=7.0)
+atom_profile.set_element("O", radius=1.52, beta=8.0)
+
+build_options = pyseb.AtomCloudBuildOptions()
+build_options.reference_atom_serials = {
+    "nterminus": 1,
+    "cterminus": 3,
+}
+
+protein_cloud = pyseb.AtomCloudBuilder.build(
+    atoms,
+    atom_profile,
+    build_options,
+)
+
+protein_world = pyseb.World()
+protein_graph = protein_world.Add(protein_cloud, "protein")
+
+protein_q = np.linspace(0.0, 1.0, 150)
+protein_form_factor = np.asarray(
+    protein_world.EvaluateFormFactor(
+        "protein", {}, protein_q.tolist()
+    )
+)
+protein_rg2 = protein_world.EvaluateRadiusOfGyration2(
+    "protein", {}
+)
+
+print("Number of atom scatterers:", protein_cloud.scattererCount())
+print(f"Rg(protein model) = {math.sqrt(protein_rg2):.4f} Å")
+```
+
+## Attach an analytic polymer to the numerical protein
+
+The PDB-derived cloud has a named `cterminus` reference point. Connect the
+analytic polymer's `end1` reference to it:
+
+```{python}
+protein_world.Link(
+    "GaussianPolymer",
+    "polymer.end1",
+    "protein.cterminus",
+)
+protein_world.Add(protein_graph, "proteinpolymer")
+
+protein_polymer_parameters = {
+    "beta_polymer": 10.0,
+    "Rg_polymer": 6.0,
+}
+
+conjugate_form_factor = np.asarray(
+    protein_world.EvaluateFormFactor(
+        "proteinpolymer",
+        protein_polymer_parameters,
+        protein_q.tolist(),
+    )
+)
+conjugate_rg2 = protein_world.EvaluateRadiusOfGyration2(
+    "proteinpolymer",
+    protein_polymer_parameters,
+)
+
+print(f"Rg(protein) = {math.sqrt(protein_rg2):.4f} Å")
+print(
+    "Rg(protein + polymer) = "
+    f"{math.sqrt(conjugate_rg2):.4f} Å"
+)
+```
+
+```{python}
+#| label: fig-protein-polymer
+#| fig-cap: "A numerical PDB-derived cloud combined with an analytic polymer."
+
+plt.plot(protein_q, protein_form_factor, label="protein cloud")
+plt.plot(
+    protein_q,
+    conjugate_form_factor,
+    label="protein + Gaussian polymer",
+)
+plt.xlabel(r"$q\;[\mathrm{\AA}^{-1}]$")
+plt.ylabel(r"$F(q)$")
+plt.legend()
+plt.show()
+```
+
+The combined numerical traversal evaluates the protein's Debye callbacks and
+the polymer's analytic expressions, then constructs the cross term along the
+graph path.
+
+## Optional: Crambin from the Protein Data Bank
+
+The following cell downloads the official 1CRN PDB file. It is not executed
+when this tutorial is rendered, because network access should not be required
+to build the documentation.
+
+```{python}
+#| eval: false
+
+import hashlib
+import urllib.request
+
+crambin_url = "https://files.rcsb.org/download/1CRN.pdb"
+expected_sha256 = (
+    "42199a30a0701864a2a5cc76cd7f35cc"
+    "544cd0e65fbcf63e03c166543249b811"
+)
+
+with tempfile.TemporaryDirectory() as temporary_directory:
+    crambin_path = Path(temporary_directory) / "1CRN.pdb"
+    with urllib.request.urlopen(crambin_url, timeout=30) as response:
+        contents = response.read()
+
+    if hashlib.sha256(contents).hexdigest() != expected_sha256:
+        raise RuntimeError("Unexpected checksum for 1CRN.pdb")
+
+    crambin_path.write_bytes(contents)
+    crambin_cloud = pyseb.StructureCloudLoader.load_pdb(
+        str(crambin_path),
+        atom_profile,
+    )
+
+    crambin_world = pyseb.World()
+    crambin_world.Add(crambin_cloud, "crambin")
+
+    crambin_rg = math.sqrt(
+        crambin_world.EvaluateRadiusOfGyration2(
+            "crambin", {}
+        )
+    )
+    print("Scatterers:", crambin_cloud.scattererCount())
+    print(f"Rg = {crambin_rg:.4f} Å")
+```
+
+## Where to go next
+
+- Use `NumericalSubunit` callbacks to wrap numerical quadrature for ellipsoids,
+  superballs, or other geometries.
+- Add atom- or residue-specific entries to `AtomParameterProfile`.
+- Add named PDB atom references and connect analytic subunits to them.
+- Use `EvaluateFormFactorUnnormalized` when the absolute
+  excess-scattering-length scale is required.
+- Use `EvaluateFormFactorAmplitude` and `EvaluatePhaseFactor` to inspect
+  individual graph contributions.

@@ -281,6 +281,7 @@ recursive-include seb *.cpp *.hpp
 recursive-include seb-symbolic *.cpp *.hpp
 recursive-include seb-symbolic-ginac *.cpp *.hpp
 recursive-include Tests *.cpp *.pdb
+recursive-include docs *.md *.qmd
 recursive-include pyseb/bindings *.cpp *.hpp
 recursive-include pyseb/examples/python *.py
 recursive-include pyseb/tests/python *.py

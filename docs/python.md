@@ -28,6 +28,20 @@ Source installs on platforms without a prebuilt wheel require Python 3.9+,
 CMake, a C++ compiler, pybind11, GSL, and the platform's Python development
 headers/tools.
 
+## Executable Tutorial
+
+The Quarto/Jupyter tutorial
+[`docs/tutorials/pyseb_tutorial.qmd`](tutorials/pyseb_tutorial.qmd) covers
+symbolic polymers, numerical callbacks, Debye sphere clouds, PDB import, and a
+mixed protein--polymer structure.
+
+Render or preview it with:
+
+```bash
+PYTHONPATH="$PWD/build-python:$PWD" \
+  quarto preview docs/tutorials/pyseb_tutorial.qmd
+```
+
 ## Developer Build
 
 To build the Python extension without installing the package:
