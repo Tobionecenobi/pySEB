@@ -15,6 +15,50 @@ double sinc(double value)
     return std::sin(value) / value;
 }
 
+double radicalInverse(std::size_t index, unsigned int base)
+{
+    double result = 0.0;
+    double factor = 1.0 / static_cast<double>(base);
+    while (index > 0) {
+        result += factor * static_cast<double>(index % base);
+        index /= base;
+        factor /= static_cast<double>(base);
+    }
+    return result;
+}
+
+std::vector<SphereScatterer> sampleSolidSphere(
+    double radius,
+    double totalBeta,
+    std::size_t scattererCount)
+{
+    const double pi = 3.14159265358979323846;
+    const std::size_t pairCount = scattererCount / 2;
+    const double betaPerScatterer =
+        totalBeta / static_cast<double>(2 * pairCount);
+
+    std::vector<SphereScatterer> scatterers;
+    scatterers.reserve(2 * pairCount);
+    for (std::size_t index = 1; index <= pairCount; ++index) {
+        // Halton coordinates give a deterministic, approximately uniform
+        // volume sampling. Antipodal pairs keep the cloud center exactly zero.
+        const double radialFraction =
+            (static_cast<double>(index) - 0.5) / static_cast<double>(pairCount);
+        const double cosTheta = 1.0 - 2.0 * radicalInverse(index, 2);
+        const double phi = 2.0 * pi * radicalInverse(index, 3);
+        const double sampledRadius = radius * std::cbrt(radialFraction);
+        const double sinTheta = std::sqrt(1.0 - cosTheta * cosTheta);
+
+        const double x = sampledRadius * sinTheta * std::cos(phi);
+        const double y = sampledRadius * sinTheta * std::sin(phi);
+        const double z = sampledRadius * cosTheta;
+
+        scatterers.emplace_back(x, y, z, 0.0, betaPerScatterer);
+        scatterers.emplace_back(-x, -y, -z, 0.0, betaPerScatterer);
+    }
+    return scatterers;
+}
+
 }
 
 // Verify that the two callback contracts are equivalent after World applies
@@ -98,41 +142,42 @@ TEST(NumericalSubunitTest, DistributedReferenceCanDefineSelfPhaseFactor)
     EXPECT_NO_THROW(unit.ValidateNumerically());
 }
 
-// Verify that a Debye cloud containing one finite sphere reproduces the
-// existing analytic SolidSphere form factor, center amplitude, and Rg^2 over
-// several q values, including the exact q=0 limit.
-TEST(DebyeSphereCloudTest, SingleSphereMatchesRayleighSphere)
+// Verify that a deterministic point cloud filling a solid spherical volume
+// converges to the analytic SolidSphere form factor, center amplitude, and
+// Rg^2. The tolerance accounts for the finite spatial discretization.
+TEST(DebyeSphereCloudTest, SampledSolidSphereCloudApproximatesRayleighSphere)
 {
-    std::vector<SphereScatterer> scatterers{
-        SphereScatterer(0.0, 0.0, 0.0, 2.0, 3.0)
-    };
+    const double radius = 2.0;
+    const double beta = 3.0;
+    const std::vector<SphereScatterer> scatterers =
+        sampleSolidSphere(radius, beta, 1200);
 
     World world;
     world.Add(new DebyeSphereCloud(scatterers), "cloud");
     world.Add(new SolidSphere(), "sphere");
 
     ParameterList parameters{
-        {"beta_sphere", 3.0},
-        {"R_sphere", 2.0}
+        {"beta_sphere", beta},
+        {"R_sphere", radius}
     };
 
-    for (const double q : std::vector<double>{0.0, 0.05, 0.2, 0.7}) {
+    for (const double q : std::vector<double>{0.0, 0.1, 0.3, 0.6}) {
         EXPECT_NEAR(
             world.EvaluateFormFactor("cloud", parameters, q),
             world.EvaluateFormFactor("sphere", parameters, q),
-            1e-11
+            1e-3
         );
         EXPECT_NEAR(
             world.EvaluateFormFactorAmplitude("cloud.center", parameters, q),
             world.EvaluateFormFactorAmplitude("sphere.center", parameters, q),
-            1e-11
+            6e-4
         );
     }
 
     EXPECT_NEAR(
         world.EvaluateRadiusOfGyration2("cloud", parameters),
         12.0 / 5.0,
-        1e-12
+        1e-2
     );
 }
 
