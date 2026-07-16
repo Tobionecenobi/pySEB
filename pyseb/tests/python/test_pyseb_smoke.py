@@ -232,6 +232,61 @@ class TestPySEBSmoke(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             world.EvaluateFormFactor("cloud", {}, 0.2)
 
+    def test_pdb_parser_profile_and_cloud_builder_pipeline(self):
+        pdb = (
+            "ATOM      1  N   ALA A   1      11.104  13.207   9.234"
+            "  0.50 20.00           N  \n"
+            "ATOM      2  CA AALA A   1      12.560  13.100   9.500"
+            "  1.00 21.00           C  \n"
+            "ATOM      3  CA BALA A   1      12.700  13.200   9.600"
+            "  1.00 22.00           C  \n"
+        )
+
+        parser = pyseb.PDBParser()
+        atoms = parser.parse_string(pdb)
+        self.assertEqual(len(atoms), 2)
+        self.assertEqual(atoms[0].element, "N")
+        self.assertEqual(atoms[1].alternate_location, "A")
+
+        profile = pyseb.AtomParameterProfile()
+        profile.set_element("N", radius=1.0, beta=2.0)
+        profile.set_element("C", radius=1.5, beta=-1.0)
+        profile.set_atom("ALA", "CA", radius=1.7, beta=3.0)
+
+        build_options = pyseb.AtomCloudBuildOptions()
+        build_options.reference_atom_serials = {"n_term": 1}
+        cloud = pyseb.AtomCloudBuilder.build(
+            atoms,
+            profile,
+            build_options,
+        )
+
+        world = pyseb.World()
+        world.Add(cloud, "protein")
+        self.assertEqual(cloud.scattererCount(), 2)
+        self.assertAlmostEqual(
+            world.EvaluateFormFactorUnnormalized("protein", {}, 0.0),
+            16.0,
+        )
+        self.assertIn("n_term", cloud.getReferenceCoordinates())
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = Path(tmpdir) / "protein.pdb"
+            filename.write_text(pdb)
+            loaded_cloud = pyseb.StructureCloudLoader.load_pdb(
+                str(filename),
+                profile,
+                build_options=build_options,
+            )
+            loaded_world = pyseb.World()
+            loaded_world.Add(loaded_cloud, "loaded")
+            self.assertAlmostEqual(
+                loaded_world.EvaluateFormFactorUnnormalized(
+                    "loaded", {}, 0.0
+                ),
+                16.0,
+            )
+
     def test_sympy_and_helper_evaluation_match_for_micelle(self):
         world = pyseb.World()
         graph_id = world.Add("SolidSphere", "core")

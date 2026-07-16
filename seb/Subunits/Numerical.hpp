@@ -8,6 +8,7 @@
 #include <string>
 #include <utility>
 
+#include "Subunit.hpp"
 #include "Symbolic.hpp"
 
 enum class NormalizationMode {

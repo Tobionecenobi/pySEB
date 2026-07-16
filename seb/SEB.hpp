@@ -5,5 +5,6 @@
 #define INCLUDE_GUARD_SEB
 
 #include "World.hpp"
+#include "StructureIO/StructureIO.hpp"
 
 #endif

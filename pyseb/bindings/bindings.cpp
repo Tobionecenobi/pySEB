@@ -3,6 +3,7 @@
 #include <pybind11/functional.h>
 #include <algorithm>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 
 #include "SEB.hpp"
@@ -121,6 +122,138 @@ PYBIND11_MODULE(_pyseb, m) {
         .def_readwrite("center", &SphereScatterer::center)
         .def_readwrite("radius", &SphereScatterer::radius)
         .def_readwrite("beta", &SphereScatterer::beta);
+
+    py::class_<AtomRecord>(m, "AtomRecord")
+        .def(py::init<>())
+        .def_readwrite("record_type", &AtomRecord::recordType)
+        .def_readwrite("serial", &AtomRecord::serial)
+        .def_readwrite("atom_name", &AtomRecord::atomName)
+        .def_readwrite("alternate_location", &AtomRecord::alternateLocation)
+        .def_readwrite("residue_name", &AtomRecord::residueName)
+        .def_readwrite("chain_id", &AtomRecord::chainId)
+        .def_readwrite("residue_number", &AtomRecord::residueNumber)
+        .def_readwrite("insertion_code", &AtomRecord::insertionCode)
+        .def_readwrite("coordinate", &AtomRecord::coordinate)
+        .def_readwrite("occupancy", &AtomRecord::occupancy)
+        .def_readwrite("temperature_factor", &AtomRecord::temperatureFactor)
+        .def_readwrite("element", &AtomRecord::element)
+        .def_readwrite("charge", &AtomRecord::charge)
+        .def_readwrite("model_number", &AtomRecord::modelNumber);
+
+    py::enum_<AlternateLocationPolicy>(m, "AlternateLocationPolicy")
+        .value("Primary", AlternateLocationPolicy::Primary)
+        .value("All", AlternateLocationPolicy::All);
+
+    py::class_<StructureParseOptions>(m, "StructureParseOptions")
+        .def(py::init<>())
+        .def_readwrite("model_number", &StructureParseOptions::modelNumber)
+        .def_readwrite("include_hetatm", &StructureParseOptions::includeHetatm)
+        .def_readwrite("include_water", &StructureParseOptions::includeWater)
+        .def_readwrite("include_hydrogen", &StructureParseOptions::includeHydrogen)
+        .def_readwrite(
+            "alternate_locations",
+            &StructureParseOptions::alternateLocations
+        );
+
+    py::class_<StructureParser>(m, "StructureParser");
+
+    py::class_<PDBParser, StructureParser>(m, "PDBParser")
+        .def(py::init<>())
+        .def("parse_file", &PDBParser::ParseFile,
+             py::arg("filename"),
+             py::arg("options") = StructureParseOptions())
+        .def(
+            "parse_string",
+            [](const PDBParser& parser,
+               const std::string& contents,
+               const StructureParseOptions& options) {
+                std::istringstream input(contents);
+                return parser.Parse(input, options, "<string>");
+            },
+            py::arg("contents"),
+            py::arg("options") = StructureParseOptions()
+        );
+
+    py::class_<AtomScattererParameters>(m, "AtomScattererParameters")
+        .def(py::init<double, double>(),
+             py::arg("radius") = 0.0, py::arg("beta") = 0.0)
+        .def_readwrite("radius", &AtomScattererParameters::radius)
+        .def_readwrite("beta", &AtomScattererParameters::beta);
+
+    py::class_<AtomParameterProfile>(m, "AtomParameterProfile")
+        .def(py::init<>())
+        .def(
+            "set_element",
+            py::overload_cast<const std::string&, double, double>(
+                &AtomParameterProfile::SetElement
+            ),
+            py::arg("element"), py::arg("radius"), py::arg("beta")
+        )
+        .def(
+            "set_atom",
+            py::overload_cast<
+                const std::string&,
+                const std::string&,
+                double,
+                double
+            >(&AtomParameterProfile::SetAtom),
+            py::arg("residue_name"), py::arg("atom_name"),
+            py::arg("radius"), py::arg("beta")
+        )
+        .def("has_parameters", &AtomParameterProfile::HasParameters,
+             py::arg("atom"))
+        .def("resolve", &AtomParameterProfile::Resolve,
+             py::arg("atom"));
+
+    py::class_<AtomCloudBuildOptions>(m, "AtomCloudBuildOptions")
+        .def(py::init<>())
+        .def_readwrite(
+            "scale_beta_by_occupancy",
+            &AtomCloudBuildOptions::scaleBetaByOccupancy
+        )
+        .def_readwrite(
+            "reference_atom_serials",
+            &AtomCloudBuildOptions::referenceAtomSerials
+        );
+
+    py::class_<AtomCloudBuilder>(m, "AtomCloudBuilder")
+        .def_static(
+            "build",
+            [](const std::vector<AtomRecord>& atoms,
+               const AtomParameterProfile& profile,
+               const AtomCloudBuildOptions& options) {
+                return AtomCloudBuilder::Build(
+                    atoms,
+                    profile,
+                    options
+                ).release();
+            },
+            py::arg("atoms"),
+            py::arg("profile"),
+            py::arg("options") = AtomCloudBuildOptions(),
+            py::return_value_policy::reference
+        );
+
+    py::class_<StructureCloudLoader>(m, "StructureCloudLoader")
+        .def_static(
+            "load_pdb",
+            [](const std::string& filename,
+               const AtomParameterProfile& profile,
+               const StructureParseOptions& parseOptions,
+               const AtomCloudBuildOptions& buildOptions) {
+                return StructureCloudLoader::LoadPDB(
+                    filename,
+                    profile,
+                    parseOptions,
+                    buildOptions
+                ).release();
+            },
+            py::arg("filename"),
+            py::arg("profile"),
+            py::arg("parse_options") = StructureParseOptions(),
+            py::arg("build_options") = AtomCloudBuildOptions(),
+            py::return_value_policy::reference
+        );
 
     py::class_<
         DebyeSphereCloud,
