@@ -156,6 +156,11 @@ target_link_libraries(pdb_parser_test PRIVATE
     ${CLN_LIBRARIES}
 )
 
+target_compile_definitions(
+    pdb_parser_test
+    PRIVATE PDB_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/data/"
+)
+
 target_link_libraries(sample_solid_cylinder_test PRIVATE
     ${SEB_LIBRARY}
     ${SEB_SYMBOLIC_LIBRARY}

@@ -129,3 +129,71 @@ TEST(PDBParserTest, ReportsSourceAndLineForMalformedCoordinates)
         );
     }
 }
+
+// Verify the complete on-disk import pipeline using a real PDB fixture:
+// file parsing, parameter mapping, reference creation, cloud construction,
+// World ownership, normalization, and finite scattering at several q values.
+TEST(PDBParserTest, LoadsPDBFileIntoWorldAsDebyeSphereCloud)
+{
+    const std::string filename =
+        std::string(PDB_TEST_DATA_DIR) + "minimal_glycine.pdb";
+
+    AtomParameterProfile profile;
+    profile.SetElement("N", 1.55, 1.0);
+    profile.SetElement("C", 1.70, 0.8);
+    profile.SetElement("O", 1.52, 1.2);
+
+    AtomCloudBuildOptions buildOptions;
+    buildOptions.referenceAtomSerials["n_term"] = 1;
+    buildOptions.referenceAtomSerials["oxygen"] = 4;
+
+    std::unique_ptr<DebyeSphereCloud> cloud =
+        StructureCloudLoader::LoadPDB(
+            filename,
+            profile,
+            StructureParseOptions(),
+            buildOptions
+        );
+
+    ASSERT_EQ(cloud->scattererCount(), 4u);
+    const std::map<refPoint, CartesianPoint3D> references =
+        cloud->getReferenceCoordinates();
+    EXPECT_NE(references.find("n_term"), references.end());
+    EXPECT_NE(references.find("oxygen"), references.end());
+
+    World world;
+    world.Add(cloud.release(), "glycine");
+    const ParameterList parameters;
+    const double totalBeta = 1.0 + 0.8 + 0.8 + 1.2;
+
+    EXPECT_NEAR(
+        world.EvaluateFormFactorUnnormalized(
+            "glycine",
+            parameters,
+            0.0
+        ),
+        totalBeta * totalBeta,
+        1e-12
+    );
+
+    for (const double q : std::vector<double>{0.0, 0.05, 0.2, 0.5}) {
+        EXPECT_TRUE(std::isfinite(
+            world.EvaluateFormFactor("glycine", parameters, q)
+        ));
+        EXPECT_TRUE(std::isfinite(
+            world.EvaluateFormFactorAmplitude(
+                "glycine.n_term",
+                parameters,
+                q
+            )
+        ));
+        EXPECT_TRUE(std::isfinite(
+            world.EvaluatePhaseFactor(
+                "glycine.n_term",
+                "glycine.oxygen",
+                parameters,
+                q
+            )
+        ));
+    }
+}

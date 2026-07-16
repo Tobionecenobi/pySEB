@@ -1,0 +1,8 @@
+HEADER    MINIMAL GLYCINE TEST STRUCTURE
+TITLE     PYSEB PDB IMPORT FIXTURE
+ATOM      1  N   GLY A   1       0.000   0.000   0.000  1.00 10.00           N
+ATOM      2  CA  GLY A   1       1.450   0.000   0.000  1.00 11.00           C
+ATOM      3  C   GLY A   1       2.050   1.400   0.000  1.00 12.00           C
+ATOM      4  O   GLY A   1       1.400   2.400   0.000  1.00 13.00           O
+TER
+END
