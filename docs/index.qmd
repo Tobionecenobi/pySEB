@@ -10,22 +10,21 @@ assembled from analytic, symbolic, and numerical subunits.
 
 ::: {.grid}
 ::: {.g-col-12 .g-col-md-6}
-### Python and numerical modelling
+### First model
 
-Build an analytic diblock, evaluate q-dependent scattering, construct Debye
-clouds, define numerical callbacks, parse PDB coordinates, and combine a
-protein model with a Gaussian polymer.
+Create a Python environment, install pySEB, and build the same Gaussian
+diblock in Python and C++.
 
-[Open the Python tutorial](tutorials/pyseb_tutorial.qmd){.btn .btn-primary}
+[Build a diblock](tutorials/diblock-copolymer.qmd){.btn .btn-primary}
 :::
 
 ::: {.g-col-12 .g-col-md-6}
-### C++ modelling
+### Choose by task
 
-Build and run maintained C++14 programs for diblocks, micelles, nested
-structures, parameter sweeps, and mixed PDB–polymer models.
+Continue with micelles, nested structures, parameter sweeps, or a mixed
+PDB–polymer model. Every page includes executable Python and compiled C++14.
 
-[Open the C++ tutorials](tutorials/cpp_tutorials.qmd){.btn .btn-primary}
+[Browse tutorials](tutorials/index.qmd){.btn .btn-primary}
 :::
 :::
 

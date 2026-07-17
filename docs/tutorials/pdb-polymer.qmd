@@ -1,0 +1,99 @@
+---
+title: "PDB Cloud with an Attached Polymer"
+subtitle: "Combine numerical coordinates with an analytic subunit"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+This tutorial parses a deterministic two-atom PDB fragment, creates a
+finite-sphere Debye cloud, exposes atom 2 as `attachment`, and connects a
+Gaussian polymer. Coordinates and radii use ångström, so q uses inverse
+ångström. It assumes the environment from the
+[diblock tutorial](diblock-copolymer.qmd).
+
+## Pipeline
+
+```text
+PDB text -> atom records -> parameter profile -> DebyeSphereCloud
+         -> named atom reference -> GaussianPolymer -> combined structure
+```
+
+## Python
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+pdb_text = """\
+ATOM      1  N   GLY A   1       0.000   0.000   0.000  1.00 20.00           N
+ATOM      2  C   GLY A   1       4.000   0.000   0.000  1.00 20.00           C
+END
+"""
+
+atoms = pyseb.PDBParser().parse_string(pdb_text)
+profile = pyseb.AtomParameterProfile()
+profile.set_element("N", radius=1.55, beta=7.0)
+profile.set_element("C", radius=1.70, beta=6.0)
+
+options = pyseb.AtomCloudBuildOptions()
+options.reference_atom_serials = {"attachment": 2}
+cloud = pyseb.AtomCloudBuilder.build(atoms, profile, options)
+
+world = pyseb.World("PDBTutorial")
+graph = world.Add(cloud, "fragment")
+world.Link("GaussianPolymer", "polymer.end1", "fragment.attachment")
+world.Add(graph, "conjugate")
+
+parameters = {"beta_polymer": 4.0, "Rg_polymer": 6.0}
+q = np.linspace(0.0, 0.5, 150)
+fragment = np.asarray(world.EvaluateFormFactor("fragment", {}, q.tolist()))
+conjugate = np.asarray(
+    world.EvaluateFormFactor("conjugate", parameters, q.tolist())
+)
+
+print("atom scatterers:", cloud.scattererCount())
+print(f"F_conjugate(0) = {conjugate[0]:.8f}")
+```
+
+```{python}
+#| label: fig-python-pdb-polymer
+#| fig-cap: "Numerical PDB cloud before and after attachment of an analytic polymer."
+
+plt.plot(q, fragment, label="PDB cloud")
+plt.plot(q, conjugate, label="PDB cloud + polymer")
+plt.xlabel(r"$q\;[\mathrm{\AA}^{-1}]$")
+plt.ylabel(r"$F(q)$")
+plt.legend()
+plt.show()
+```
+
+## C++
+
+```cpp
+{{< include cpp/pdb-polymer.cpp >}}
+```
+
+```{python}
+#| echo: false
+from _helpers import run_tutorial
+
+run_tutorial("pdb-polymer")
+```
+
+Both versions use the same PDB records, element radii, excess scattering
+lengths, named atom reference, and polymer parameters.
+
+## Next steps
+
+- [PDB structures reference](https://github.com/Tobionecenobi/pySEB/wiki/PDB-Structures)
+- [Numerical subunits](https://github.com/Tobionecenobi/pySEB/wiki/Numerical-Subunits)
+- [Extended Python and numerical guide](pyseb_tutorial.qmd)

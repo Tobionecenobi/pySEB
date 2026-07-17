@@ -1,0 +1,118 @@
+---
+title: "Diblock Copolymer"
+subtitle: "Your first pySEB model in Python and C++"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+This tutorial joins two Gaussian polymers end to end, names the resulting
+structure `diblock`, and evaluates its normalized form factor.
+
+## Install the Python package
+
+Create a dedicated environment. On Linux and macOS:
+
+```bash
+python3 -m venv .venv-pyseb
+source .venv-pyseb/bin/activate
+python -m pip install --upgrade pip
+python -m pip install pyseb numpy matplotlib
+```
+
+On Windows PowerShell:
+
+```powershell
+py -3 -m venv .venv-pyseb
+.venv-pyseb\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install pyseb numpy matplotlib
+```
+
+Confirm the installation:
+
+```bash
+python -c "import pyseb; print(type(pyseb.World()).__name__)"
+```
+
+The command prints `World`. Keep the environment activated while running the
+Python examples.
+
+## Model
+
+```text
+blockA.end1 ---- blockA.end2 = blockB.end1 ---- blockB.end2
+```
+
+The link identifies `blockB.end1` with `blockA.end2`. The generated parameter
+names contain the subunit names: `beta_blockA`, `Rg_blockA`, and so on.
+
+## Python
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+world = pyseb.World("DiblockTutorial")
+graph = world.Add("GaussianPolymer", "blockA")
+world.Link("GaussianPolymer", "blockB.end1", "blockA.end2")
+world.Add(graph, "diblock")
+
+parameters = {
+    "beta_blockA": 1.0,
+    "beta_blockB": 0.8,
+    "Rg_blockA": 5.0,
+    "Rg_blockB": 8.0,
+}
+q = np.geomspace(1e-3, 0.5, 150)
+form_factor = np.asarray(
+    world.EvaluateFormFactor("diblock", parameters, q.tolist())
+)
+
+print(f"F({q[0]:g}) = {form_factor[0]:.8f}")
+print(f"F({q[-1]:g}) = {form_factor[-1]:.8f}")
+```
+
+```{python}
+#| label: fig-python-diblock
+#| fig-cap: "Normalized form factor of the Gaussian diblock."
+
+plt.loglog(q, form_factor)
+plt.xlabel(r"$q$")
+plt.ylabel(r"$F(q)$")
+plt.show()
+```
+
+The normalized result approaches one at small q and decreases as the polymer
+length scales are resolved.
+
+## C++
+
+The maintained C++14 program performs the same construction and prints CSV.
+Build pySEB using the [C++ platform guide](https://github.com/Tobionecenobi/pySEB/wiki/Build-Guides),
+or build the repository's `doc-tutorials` target.
+
+```cpp
+{{< include cpp/diblock.cpp >}}
+```
+
+```{python}
+#| echo: false
+from _helpers import run_tutorial
+
+run_tutorial("diblock")
+```
+
+## Next steps
+
+- [Attach polymers to a sphere](micelle.qmd)
+- [Naming and linking reference](https://github.com/Tobionecenobi/pySEB/wiki/Naming-and-Linking)
+- [Gaussian polymer subunit](https://github.com/Tobionecenobi/pySEB/wiki/Subunit-Gaussian-Polymer)

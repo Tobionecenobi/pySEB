@@ -4,6 +4,11 @@ project:
   render:
     - index.qmd
     - tutorials/index.qmd
+    - tutorials/diblock-copolymer.qmd
+    - tutorials/micelle.qmd
+    - tutorials/nested-structures.qmd
+    - tutorials/parameter-sweeps.qmd
+    - tutorials/pdb-polymer.qmd
     - tutorials/pyseb_tutorial.qmd
     - tutorials/cpp_tutorials.qmd
 
@@ -28,8 +33,17 @@ website:
       search: true
       contents:
         - tutorials/index.qmd
-        - tutorials/pyseb_tutorial.qmd
-        - tutorials/cpp_tutorials.qmd
+        - section: "Task tutorials"
+          contents:
+            - tutorials/diblock-copolymer.qmd
+            - tutorials/micelle.qmd
+            - tutorials/nested-structures.qmd
+            - tutorials/parameter-sweeps.qmd
+            - tutorials/pdb-polymer.qmd
+        - section: "Extended guides"
+          contents:
+            - tutorials/pyseb_tutorial.qmd
+            - tutorials/cpp_tutorials.qmd
   page-footer:
     left: "pySEB documentation"
     right:
