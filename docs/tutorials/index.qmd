@@ -2,10 +2,24 @@
 title: "Tutorials"
 ---
 
-The tutorials combine explanation, maintained source code, and output produced
-by pySEB during the documentation build.
+The tutorials combine explanation, maintained Python and C++ source code, and
+output produced by pySEB during the documentation build.
 
-## Python and numerical tutorial
+## Choose a tutorial by task
+
+| Tutorial | What you will learn | Level |
+| --- | --- | --- |
+| [Diblock copolymer](diblock-copolymer.qmd) | Create an environment, install pySEB, add and link subunits, evaluate, and plot | Beginner |
+| [Sphere–polymer micelle](micelle.qmd) | Attach tagged chains to distributed sphere-surface references | Intermediate |
+| [Reusable nested structures](nested-structures.qmd) | Build reusable graphs and address nested reference paths | Intermediate |
+| [Parameter sweeps](parameter-sweeps.qmd) | Reuse one graph with several parameter sets | Intermediate |
+| [PDB cloud with an attached polymer](pdb-polymer.qmd) | Combine coordinate-based numerical scattering with an analytic subunit | Advanced |
+
+Each task page presents Python and C++ in parallel. The Python blocks execute
+in the documentation environment, the C++ listing comes from the maintained
+source file, and its output comes from the compiled executable.
+
+## Extended guides
 
 [Symbolic and numerical scattering with Python](pyseb_tutorial.qmd) covers:
 
@@ -15,8 +29,6 @@ by pySEB during the documentation build.
 - callback-defined numerical subunits;
 - PDB parsing and atom parameter profiles;
 - mixed numerical and analytic structures.
-
-## C++ tutorial suite
 
 [C++ modelling tutorials](cpp_tutorials.qmd) compile and run five C++14
 programs:
@@ -33,6 +45,8 @@ the Quarto render.
 
 ## Before you begin
 
-Use the [platform build guides](https://github.com/Tobionecenobi/pySEB/wiki/Build-Guides)
-to prepare a local pySEB installation. For terminology, reference syntax, and
-the available models, see the [wiki](https://github.com/Tobionecenobi/pySEB/wiki).
+The diblock tutorial starts by creating a Python virtual environment and
+installing pySEB with `pip`. To compile C++, use the
+[platform build guides](https://github.com/Tobionecenobi/pySEB/wiki/Build-Guides).
+For terminology, reference syntax, and the available models, see the
+[reference wiki](https://github.com/Tobionecenobi/pySEB/wiki).

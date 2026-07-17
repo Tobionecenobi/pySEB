@@ -1,0 +1,86 @@
+---
+title: "Reusable Nested Structures"
+subtitle: "Build once, instantiate repeatedly, and use nested paths"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+This tutorial builds a diblock, reuses it to make a two-arm star, then reuses
+the star to make `starChain`. It assumes the Python environment from the
+[diblock tutorial](diblock-copolymer.qmd).
+
+## Construction levels
+
+```text
+Level 1: polyA -- polyB                 diblock
+Level 2: (polyA -- polyB) x 2           star
+Level 3: star1 = star2                   starChain
+```
+
+Colons descend into structures. For example,
+`star1:diblock2:polyB.end2` addresses `polyB.end2` inside `diblock2` inside
+`star1`.
+
+## Python
+
+```{python}
+import pyseb
+
+world = pyseb.World("NestedTutorial")
+
+diblock = world.Add("GaussianPolymer", "polyA")
+world.Link("GaussianPolymer", "polyB.end1", "polyA.end2")
+
+star = world.Add(diblock, "diblock1")
+world.Link(diblock, "diblock2:polyA.end1", "diblock1:polyA.end1")
+
+chain = world.Add(star, "star1")
+world.Link(
+    star,
+    "star2:diblock1:polyB.end2",
+    "star1:diblock2:polyB.end2",
+)
+world.Add(chain, "starChain")
+
+parameters = {
+    "beta_polyA": 1.0,
+    "beta_polyB": 0.75,
+    "Rg_polyA": 5.0,
+    "Rg_polyB": 8.0,
+}
+q = [0.01, 0.03, 0.1, 0.3]
+values = world.EvaluateFormFactor("starChain", parameters, q)
+
+for q_value, value in zip(q, values):
+    print(f"q={q_value:g}, F(q)={value:.8f}")
+```
+
+The eight polymer instances reuse four physical parameters because their
+internal subunit names are shared.
+
+## C++
+
+```cpp
+{{< include cpp/nested-structures.cpp >}}
+```
+
+```{python}
+#| echo: false
+from _helpers import run_tutorial
+
+run_tutorial("nested-structures")
+```
+
+## Next steps
+
+- [Sweep model parameters](parameter-sweeps.qmd)
+- [Core concepts](https://github.com/Tobionecenobi/pySEB/wiki/Core-Concepts)
+- [Naming and linking](https://github.com/Tobionecenobi/pySEB/wiki/Naming-and-Linking)

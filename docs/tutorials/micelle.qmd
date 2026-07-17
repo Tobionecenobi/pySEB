@@ -1,0 +1,89 @@
+---
+title: "Sphere–Polymer Micelle"
+subtitle: "Distributed surface references and shared parameters"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+This model attaches six Gaussian-polymer chains to distributed points on a
+solid-sphere surface. Complete the [diblock tutorial](diblock-copolymer.qmd)
+first to install Python and learn the basic `World` workflow.
+
+## References and tags
+
+Every `surface#anchorN` label creates a distinct distributed attachment point.
+The tag `chain` makes all six arms share `beta_chain` and `Rg_chain`.
+
+## Python
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+world = pyseb.World("MicelleTutorial")
+graph = world.Add("SolidSphere", "core")
+
+for index in range(6):
+    world.Link(
+        "GaussianPolymer",
+        f"chain{index}.end1",
+        f"core.surface#anchor{index}",
+        "chain",
+    )
+
+world.Add(graph, "micelle")
+parameters = {
+    "beta_core": 1.0,
+    "R_core": 30.0,
+    "beta_chain": 0.25,
+    "Rg_chain": 12.0,
+}
+q = np.geomspace(1e-3, 0.5, 150)
+form_factor = np.asarray(
+    world.EvaluateFormFactor("micelle", parameters, q.tolist())
+)
+
+print("subunits: 1 core + 6 chains")
+print(f"F({q[0]:g}) = {form_factor[0]:.8f}")
+```
+
+```{python}
+#| label: fig-python-micelle
+#| fig-cap: "Normalized form factor of the sphere–polymer micelle."
+
+plt.loglog(q, form_factor)
+plt.xlabel(r"$q$")
+plt.ylabel(r"$F(q)$")
+plt.show()
+```
+
+## C++
+
+```cpp
+{{< include cpp/micelle.cpp >}}
+```
+
+```{python}
+#| echo: false
+from _helpers import run_tutorial
+
+run_tutorial("micelle")
+```
+
+The output has the same small-q normalization as the Python result. The exact
+sampled q values differ only to keep the terminal table compact.
+
+## Next steps
+
+- [Build reusable nested structures](nested-structures.qmd)
+- [Naming and linking reference](https://github.com/Tobionecenobi/pySEB/wiki/Naming-and-Linking)
+- [Solid sphere subunit](https://github.com/Tobionecenobi/pySEB/wiki/Subunit-Solid-Sphere)

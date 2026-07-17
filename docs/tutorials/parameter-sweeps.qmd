@@ -1,0 +1,101 @@
+---
+title: "Parameter Sweeps"
+subtitle: "Evaluate one structure with several parameter sets"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+This tutorial constructs one diblock and varies only `Rg_blockB`. It assumes
+the Python environment from the [diblock tutorial](diblock-copolymer.qmd).
+
+## Python
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+world = pyseb.World("SweepTutorial")
+graph = world.Add("GaussianPolymer", "blockA")
+world.Link("GaussianPolymer", "blockB.end1", "blockA.end2")
+world.Add(graph, "diblock")
+
+q = np.geomspace(1e-3, 0.5, 180)
+base = {
+    "beta_blockA": 1.0,
+    "beta_blockB": 0.8,
+    "Rg_blockA": 5.0,
+}
+
+python_sweeps = {}
+for rg_b in (4.0, 8.0, 16.0):
+    parameters = {**base, "Rg_blockB": rg_b}
+    python_sweeps[rg_b] = np.asarray(
+        world.EvaluateFormFactor("diblock", parameters, q.tolist())
+    )
+    print(f"Rg_blockB={rg_b:g}: F({q[-1]:g})={python_sweeps[rg_b][-1]:.8f}")
+```
+
+```{python}
+#| label: fig-python-parameter-sweep
+#| fig-cap: "Diblock form factor for three radii of gyration of block B."
+
+for rg_b, values in python_sweeps.items():
+    plt.loglog(q, values, label=fr"$R_{{g,B}}={rg_b:g}$")
+
+plt.xlabel(r"$q$")
+plt.ylabel(r"$F(q)$")
+plt.legend()
+plt.show()
+```
+
+## C++
+
+The C++ program writes CSV, making its output suitable for plotting or further
+analysis.
+
+```cpp
+{{< include cpp/parameter-sweep.cpp >}}
+```
+
+```{python}
+#| label: fig-cpp-parameter-sweep-page
+#| fig-cap: "C++ sweep output captured and plotted during this documentation build."
+#| echo: false
+
+import csv
+import io
+
+from _helpers import run_tutorial
+
+output = run_tutorial("parameter-sweep")
+rows = list(csv.DictReader(io.StringIO(output)))
+
+for rg_b in sorted({float(row["Rg_blockB"]) for row in rows}):
+    selected = [row for row in rows if float(row["Rg_blockB"]) == rg_b]
+    plt.loglog(
+        [float(row["q"]) for row in selected],
+        [float(row["F(q)"]) for row in selected],
+        marker="o",
+        label=fr"$R_{{g,B}}={rg_b:g}$",
+    )
+
+plt.xlabel(r"$q$")
+plt.ylabel(r"$F(q)$")
+plt.legend()
+plt.show()
+```
+
+## Next steps
+
+- [Combine a PDB cloud with a polymer](pdb-polymer.qmd)
+- [Scattering quantities](https://github.com/Tobionecenobi/pySEB/wiki/Scattering-Quantities)
+- [Python user guide](https://github.com/Tobionecenobi/pySEB/wiki/Python-User-Guide)
