@@ -19,14 +19,10 @@ the star to make `starChain`. It assumes the Python environment from the
 
 ## Construction levels
 
-```{mermaid}
-%%| fig-cap: "Three levels of reusable structure construction."
-flowchart TB
-  D["Level 1: diblock<br/>polyA — polyB"]
-  S["Level 2: star<br/>diblock1 + diblock2"]
-  C["Level 3: starChain<br/>star1 + star2"]
-  D -->|"instantiate twice and link"| S
-  S -->|"instantiate twice and link"| C
+```text
+Level 1: polyA -- polyB                 diblock
+Level 2: (polyA -- polyB) x 2           star
+Level 3: star1 = star2                   starChain
 ```
 
 Colons descend into structures. For example,
