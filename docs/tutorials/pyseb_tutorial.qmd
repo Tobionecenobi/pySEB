@@ -298,13 +298,8 @@ subunit to participate in symbolic graph construction.
 The structure-import architecture separates parsing from the scattering
 parameter profile:
 
-```{mermaid}
-%%| fig-cap: "Separation of PDB parsing, scattering parameters, and cloud construction."
-flowchart LR
-  PDB["PDB text"] --> Parser["PDBParser"] --> Atoms["AtomRecord[]"]
-  Atoms --> Builder["AtomCloudBuilder"]
-  Profile["AtomParameterProfile"] --> Builder
-  Builder --> Cloud["DebyeSphereCloud"]
+```text
+PDBParser -> AtomRecord[] -> AtomParameterProfile -> DebyeSphereCloud
 ```
 
 This small glycine structure keeps the tutorial deterministic and independent

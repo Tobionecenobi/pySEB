@@ -21,17 +21,9 @@ Gaussian polymer. Coordinates and radii use ångström, so q uses inverse
 
 ## Pipeline
 
-```{mermaid}
-%%| fig-cap: "Pipeline from PDB text to a mixed numerical–analytic structure."
-flowchart LR
-  PDB["PDB text"] --> Parser["PDBParser"] --> Atoms["Atom records"]
-  Atoms --> Builder["AtomCloudBuilder"]
-  Profile["AtomParameterProfile"] --> Builder
-  Options["Named atom references"] --> Builder
-  Builder --> Cloud["DebyeSphereCloud"]
-  Cloud --> Link["Link at attachment"]
-  Polymer["GaussianPolymer"] --> Link
-  Link --> Combined["Combined structure"]
+```text
+PDB text -> atom records -> parameter profile -> DebyeSphereCloud
+         -> named atom reference -> GaussianPolymer -> combined structure
 ```
 
 ## Python
