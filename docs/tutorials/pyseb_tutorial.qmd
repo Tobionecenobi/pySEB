@@ -15,6 +15,36 @@ execute:
   error: false
 ---
 
+## Install pySEB
+
+Create a dedicated Python environment before installing pySEB. On Linux and
+macOS, run:
+
+```bash
+python3 -m venv .venv-pyseb
+source .venv-pyseb/bin/activate
+python -m pip install --upgrade pip
+python -m pip install pyseb
+```
+
+On Windows PowerShell, run:
+
+```powershell
+py -3 -m venv .venv-pyseb
+.venv-pyseb\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install pyseb
+```
+
+Confirm that the package imports and reports its available symbolic backends:
+
+```bash
+python -c "import pyseb; print(type(pyseb.World()).__name__); print(pyseb.available_backends())"
+```
+
+The output includes `World` followed by a backend list containing `portable`
+and `sympy`. Keep the environment activated while working through the tutorial.
+
 ## What this tutorial covers
 
 PySEB builds scattering expressions from connected subunits. A subunit may be:
