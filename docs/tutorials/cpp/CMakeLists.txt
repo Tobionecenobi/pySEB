@@ -4,6 +4,9 @@ set(PYSEB_DOC_TUTORIAL_NAMES
     nested-structures
     parameter-sweep
     pdb-polymer
+    symbolic-expressions
+    scattering-quantities
+    figure13-star-chain
 )
 
 set(PYSEB_DOC_TUTORIAL_TARGETS)

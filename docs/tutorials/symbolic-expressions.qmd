@@ -1,0 +1,146 @@
+---
+title: "Symbolic Expressions and Export"
+subtitle: "Inspect, convert, simplify, and evaluate pySEB expressions"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+pySEB can retain a scattering expression symbolically before any physical
+parameters are supplied. This tutorial selects a backend, constructs a
+Gaussian-polymer form factor, exports it to several formats, converts it to a
+native SymPy expression, and evaluates it in Python and C++.
+
+Complete the [diblock tutorial](diblock-copolymer.qmd) first if pySEB is not
+installed or the `World` workflow is new to you.
+
+## Python
+
+### 1. Select the symbolic backend
+
+The portable backend is compiled into every standard pySEB build. List the
+available backends, select `portable`, and confirm the active choice.
+
+```{python}
+import numpy as np
+import pyseb
+import sympy
+
+print("available:", pyseb.available_backends())
+pyseb.set_backend("portable")
+print("active:", pyseb.get_backend())
+```
+
+Backend selection affects construction and simplification inside C++. The
+same resulting expression can still be converted to native SymPy in Python.
+
+### 2. Construct a symbolic form factor
+
+Add one Gaussian polymer and request its normalized form factor. No `Rg` value
+is needed yet because `FormFactor` returns an expression rather than a number.
+
+```{python}
+world = pyseb.World("SymbolicTutorial")
+world.Add("GaussianPolymer", "polymer")
+
+form_factor = world.FormFactor("polymer")
+print("parameters:", world.getParams())
+print("expression:", form_factor)
+```
+
+The generated symbol `Rg_polymer` combines the physical parameter name with
+the subunit name.
+
+### 3. Inspect backend-level export
+
+An `Expression` provides Python, LaTeX, and C-form renderer methods. Their
+formatting capabilities depend on the active backend; the portable backend's
+reliable interchange format is its Python-compatible expression string.
+
+```{python}
+print("Python-compatible:", form_factor.to_python())
+print("Backend LaTeX form:", form_factor.to_latex())
+print("Backend C form:", form_factor.to_cform())
+```
+
+These methods do not change `form_factor`. For fully formatted LaTeX and C from
+a portable build, convert to SymPy in the next step.
+
+### 4. Convert to native SymPy
+
+`to_sympy` returns a normal SymPy expression. SymPy can inspect, substitute,
+differentiate, simplify, or generate code from it using its own APIs.
+
+```{python}
+sympy_form_factor = pyseb.to_sympy(form_factor)
+
+print("SymPy type:", type(sympy_form_factor).__name__)
+print("operation count:", sympy.count_ops(sympy_form_factor))
+print("LaTeX:", sympy.latex(sympy_form_factor))
+print("C:", sympy.ccode(sympy_form_factor))
+sympy_form_factor
+```
+
+This conversion is particularly useful when a larger analysis already uses
+SymPy for algebra or code generation.
+
+### 5. Substitute parameters and evaluate
+
+Substitute the polymer radius of gyration and excess scattering length, then
+create a NumPy-aware function of q. Compare it with pySEB's direct evaluator
+at the same q values.
+
+```{python}
+q_symbol = sympy.Symbol("q")
+parameters = {"beta_polymer": 1.0, "Rg_polymer": 5.0}
+numeric_expression = sympy_form_factor.subs(parameters)
+sympy_function = sympy.lambdify(q_symbol, numeric_expression, modules="numpy")
+
+q = np.array([0.01, 0.05, 0.1, 0.2])
+from_sympy = np.asarray(sympy_function(q), dtype=float)
+from_pyseb = np.asarray(
+    world.EvaluateFormFactor(
+        "polymer", parameters, q.tolist()
+    )
+)
+
+for q_value, sympy_value, pyseb_value in zip(q, from_sympy, from_pyseb):
+    print(
+        f"q={q_value:g} "
+        f"SymPy={sympy_value:.8f} "
+        f"pySEB={pyseb_value:.8f}"
+    )
+```
+
+The two columns agree because they evaluate the same symbolic form factor.
+
+## C++
+
+The maintained C++14 program performs the same portable-backend construction,
+prints the backend-level renderers, and evaluates the expression at q = 0.1.
+Use GiNaC when native C++ LaTeX/C formatting is required, or pass the portable
+Python form to SymPy as demonstrated above.
+
+```cpp
+{{< include cpp/symbolic-expressions.cpp >}}
+```
+
+```{python}
+#| echo: false
+from _helpers import run_tutorial
+
+run_tutorial("symbolic-expressions")
+```
+
+## Next steps
+
+- [Compare scattering quantities](scattering-quantities.qmd)
+- [Symbolic backends reference](https://github.com/Tobionecenobi/pySEB/wiki/Symbolic-Backends)
+- [Python API reference](https://github.com/Tobionecenobi/pySEB/wiki/Python-API-Reference)

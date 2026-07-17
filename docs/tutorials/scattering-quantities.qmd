@@ -1,0 +1,175 @@
+---
+title: "Scattering Quantities"
+subtitle: "Form factors, amplitudes, phase factors, and size measures"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+This tutorial uses two equal point scatterers separated by a distance of two
+length units. The simple geometry makes the normalized form factor,
+unnormalized intensity, reference-point amplitude, phase factor, radius of
+gyration, and mean-square distance easy to compare directly.
+
+The same APIs work for analytic subunits and larger composite structures.
+
+## Geometry and expected relationships
+
+```text
+left/scatterer 1  x----------------x  scatterer 2/right
+                 0       d=2       2
+```
+
+For two equal point scatterers,
+
+\[
+F(q)=A_{\mathrm{left}}(q)=\frac{1+\operatorname{sinc}(qd)}{2},
+\qquad
+\Psi_{\mathrm{left,right}}(q)=\operatorname{sinc}(qd).
+\]
+
+The total excess scattering length is two, so the unnormalized intensity is
+\(I(q)=4F(q)\). The geometry also gives \(R_g^2=1\) and
+\(\langle r_{\mathrm{left,right}}^2\rangle=4\).
+
+## Python
+
+### 1. Create the numerical coordinate cloud
+
+Set both sphere radii to zero so the objects behave as point scatterers. Their
+equal `beta` values give them equal scattering weight.
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+scatterers = [
+    pyseb.SphereScatterer(0.0, 0.0, 0.0, 0.0, 1.0),
+    pyseb.SphereScatterer(2.0, 0.0, 0.0, 0.0, 1.0),
+]
+cloud = pyseb.DebyeSphereCloud(scatterers)
+cloud.addReferencePoint("left", 0.0, 0.0, 0.0)
+cloud.addReferencePoint("right", 2.0, 0.0, 0.0)
+
+print("scatterers:", cloud.scattererCount())
+```
+
+The named references are independent coordinates used by amplitudes, phase
+factors, linking, and distance calculations.
+
+### 2. Add the cloud to a world
+
+A numerical subunit is added to `World` in the same way as an analytic
+subunit. Its coordinates and scattering weights are already stored inside the
+cloud, so the later parameter dictionary is empty.
+
+```{python}
+world = pyseb.World("ScatteringQuantitiesTutorial")
+world.Add(cloud, "cloud")
+
+parameters = {}
+q = np.linspace(0.0, 3.0, 180)
+```
+
+### 3. Evaluate the q-dependent quantities
+
+The form factor describes the complete cloud. The amplitude is relative to
+one reference, while the phase factor describes the separation between two
+references.
+
+```{python}
+form_factor = np.asarray(
+    world.EvaluateFormFactor("cloud", parameters, q.tolist())
+)
+unnormalized = np.asarray(
+    world.EvaluateFormFactorUnnormalized(
+        "cloud", parameters, q.tolist()
+    )
+)
+left_amplitude = np.asarray(
+    world.EvaluateFormFactorAmplitude(
+        "cloud.left", parameters, q.tolist()
+    )
+)
+left_right_phase = np.asarray(
+    world.EvaluatePhaseFactor(
+        "cloud.left", "cloud.right", parameters, q.tolist()
+    )
+)
+
+print(f"F(0) = {form_factor[0]:.1f}")
+print(f"I(0) = {unnormalized[0]:.1f}")
+print(f"A_left(0) = {left_amplitude[0]:.1f}")
+print(f"Psi_left,right(0) = {left_right_phase[0]:.1f}")
+```
+
+All normalized quantities equal one at q = 0. The unnormalized value is four,
+the square of the total beta.
+
+### 4. Plot and compare
+
+For this symmetric two-point example, the form factor and left amplitude lie
+on top of one another. The phase factor oscillates twice as far from their
+midpoint value.
+
+```{python}
+#| label: fig-scattering-quantities
+#| fig-cap: "Form factor, reference amplitude, and phase factor for two equal point scatterers."
+
+plt.plot(q, form_factor, label=r"$F(q)$")
+plt.plot(q, left_amplitude, "--", label=r"$A_{left}(q)$")
+plt.plot(q, left_right_phase, label=r"$\Psi_{left,right}(q)$")
+plt.xlabel(r"$q$")
+plt.ylabel("normalized value")
+plt.legend()
+plt.show()
+```
+
+### 5. Evaluate size measures
+
+Size measures do not depend on q. The radius of gyration is measured about the
+cloud's scattering-weighted center; the reference-to-reference result is the
+squared separation of the named points.
+
+```{python}
+rg2 = world.EvaluateRadiusOfGyration2("cloud", parameters)
+left_right_msd = world.EvaluateSMSDRef2Ref(
+    "cloud.left", "cloud.right", parameters
+)
+
+print(f"Rg^2 = {rg2:.1f}")
+print(f"<r_left,right^2> = {left_right_msd:.1f}")
+```
+
+The values reproduce the expected geometry: \(R_g^2=1\) and squared
+reference separation four.
+
+## C++
+
+The compiled program constructs the same cloud and writes all four
+q-dependent quantities as CSV, followed by the two size measures.
+
+```cpp
+{{< include cpp/scattering-quantities.cpp >}}
+```
+
+```{python}
+#| echo: false
+from _helpers import run_tutorial
+
+run_tutorial("scattering-quantities")
+```
+
+## Next steps
+
+- [Build the Figure 13 star chain](figure13-star-chain.qmd)
+- [Scattering quantities reference](https://github.com/Tobionecenobi/pySEB/wiki/Scattering-Quantities)
+- [Numerical subunits](https://github.com/Tobionecenobi/pySEB/wiki/Numerical-Subunits)
