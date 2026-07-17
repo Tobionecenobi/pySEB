@@ -24,17 +24,30 @@ reference paths are unfamiliar. Publication details are collected in the
 
 ## Structure hierarchy
 
-```text
-diblock:       A ---- B
+```{mermaid}
+%%| fig-cap: "Diblock, four-arm star, and five-star chain hierarchy."
+flowchart TB
+  subgraph Diblock["Level 1: reusable diblock"]
+    A["A"] --- B["B"]
+  end
 
-four-arm star:     A--B
-                    |
-                B--A--B
-                    |
-                   A--B
+  subgraph Star["Level 2: four-arm star"]
+    Center(("center"))
+    Arm1["A—B"] --- Center
+    Arm2["A—B"] --- Center
+    Center --- Arm3["A—B"]
+    Center --- Arm4["A—B"]
+  end
 
-star chain:       --*-- = --*-- = --*-- = --*-- = --*--
-                    |       |       |       |       |
+  subgraph Chain["Level 3: five-star chain"]
+    Star1(("star1")) === Star2(("star2"))
+    Star2 === Star3(("star3"))
+    Star3 === Star4(("star4"))
+    Star4 === Star5(("star5"))
+  end
+
+  B -. "instantiate ×4" .-> Center
+  Center -. "instantiate ×5" .-> Star1
 ```
 
 The graphs are defined once and instantiated repeatedly. Internal names are
