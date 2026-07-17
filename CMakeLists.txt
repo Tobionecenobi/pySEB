@@ -14,6 +14,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 # Build options
 option(BUILD_PYTHON "Build Python bindings" OFF)
+option(BUILD_DOC_TUTORIALS "Build C++ programs used by the documentation" OFF)
 option(SEB_ENABLE_PORTABLE_BACKEND "Enable the portable C++ symbolic backend" ON)
 option(SEB_ENABLE_GINAC_BACKEND "Enable the GiNaC C++ symbolic backend" OFF)
 
@@ -119,6 +120,10 @@ set_target_properties(seb PROPERTIES
 )
 
 add_library(SEB::seb ALIAS seb)
+
+if(BUILD_DOC_TUTORIALS)
+    add_subdirectory(docs/tutorials/cpp)
+endif()
 
 if(BUILD_PYTHON)
     message(STATUS "Building Python bindings")

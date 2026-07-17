@@ -1,0 +1,168 @@
+---
+title: "C++ Modelling Tutorials"
+subtitle: "Compiled C++14 examples with captured output"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+The programs on this page are compiled against the portable pySEB libraries
+before Quarto renders the site. Each listing is included directly from its
+maintained `.cpp` file, and each output block runs the corresponding executable.
+
+All examples use C++14. The [build guides](https://github.com/Tobionecenobi/pySEB/wiki/Build-Guides)
+describe how to build the same targets locally.
+
+```{python}
+#| label: cpp-runner
+#| echo: false
+
+import csv
+import io
+import os
+from pathlib import Path
+import subprocess
+
+import matplotlib.pyplot as plt
+
+
+def tutorial_binary(name):
+    configured = os.environ.get("PYSEB_TUTORIAL_BIN_DIR")
+    if configured:
+        directory = Path(configured)
+    else:
+        repository = Path.cwd().parents[1]
+        directory = repository / "build-docs" / "docs-tutorials"
+    return directory / f"tutorial-{name}"
+
+
+def run_tutorial(name):
+    result = subprocess.run(
+        [tutorial_binary(name)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    print(result.stdout, end="")
+    return result.stdout
+```
+
+## Diblock copolymer
+
+Two Gaussian polymers are linked end to end and named `diblock`. The physical
+parameters are supplied through `ParameterList`, while q is supplied as a
+vector to the direct numerical evaluator.
+
+```cpp
+{{< include cpp/diblock.cpp >}}
+```
+
+```{python}
+#| echo: false
+diblock_output = run_tutorial("diblock")
+```
+
+The normalized form factor is close to one at the smallest q and decreases as
+the two polymer length scales are resolved.
+
+## Sphere–polymer micelle
+
+Six Gaussian polymers are attached to independently distributed points on a
+solid-sphere surface. The shared tag `chain` makes all arms use `beta_chain`
+and `Rg_chain`.
+
+```cpp
+{{< include cpp/micelle.cpp >}}
+```
+
+```{python}
+#| echo: false
+micelle_output = run_tutorial("micelle")
+```
+
+Distinct `surface#anchorN` labels represent distinct distributed attachment
+points, while the tag controls parameter sharing.
+
+## Reusable nested structures
+
+A diblock graph is reused to build a two-arm star, and the star graph is reused
+to build a chain. Nested paths identify references inside each instance.
+
+```cpp
+{{< include cpp/nested-structures.cpp >}}
+```
+
+```{python}
+#| echo: false
+nested_output = run_tutorial("nested-structures")
+```
+
+The final graph contains eight Gaussian-polymer subunits but uses only four
+physical parameters because the internal names are shared by each instance.
+
+## Parameter sweep
+
+The graph is constructed once and evaluated for three values of `Rg_blockB`.
+The executable writes CSV so the same data can be inspected or plotted.
+
+```cpp
+{{< include cpp/parameter-sweep.cpp >}}
+```
+
+```{python}
+#| label: fig-cpp-parameter-sweep
+#| fig-cap: "C++ diblock parameter sweep captured and plotted during the documentation build."
+#| echo: false
+
+sweep_output = run_tutorial("parameter-sweep")
+rows = list(csv.DictReader(io.StringIO(sweep_output)))
+
+for rg_value in sorted({float(row["Rg_blockB"]) for row in rows}):
+    selected = [
+        row for row in rows
+        if float(row["Rg_blockB"]) == rg_value
+    ]
+    plt.loglog(
+        [float(row["q"]) for row in selected],
+        [float(row["F(q)"]) for row in selected],
+        marker="o",
+        label=fr"$R_{{g,B}}={rg_value:g}$",
+    )
+
+plt.xlabel(r"$q$")
+plt.ylabel(r"$F(q)$")
+plt.legend()
+plt.show()
+```
+
+## PDB cloud with an attached polymer
+
+The program parses a deterministic two-atom PDB fragment, assigns finite-sphere
+parameters, exposes atom serial 2 as `attachment`, and connects a Gaussian
+polymer to it.
+
+```cpp
+{{< include cpp/pdb-polymer.cpp >}}
+```
+
+```{python}
+#| echo: false
+pdb_output = run_tutorial("pdb-polymer")
+```
+
+The result combines numerical Debye scattering from the coordinate cloud with
+the analytic polymer and their interference term.
+
+## Continue with the reference material
+
+- [C++ user guide](https://github.com/Tobionecenobi/pySEB/wiki/Cpp-User-Guide)
+- [C++ API reference](https://github.com/Tobionecenobi/pySEB/wiki/Cpp-API-Reference)
+- [Naming and linking](https://github.com/Tobionecenobi/pySEB/wiki/Naming-and-Linking)
+- [PDB structures](https://github.com/Tobionecenobi/pySEB/wiki/PDB-Structures)

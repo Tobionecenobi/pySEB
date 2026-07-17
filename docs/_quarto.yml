@@ -1,0 +1,53 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - index.qmd
+    - tutorials/index.qmd
+    - tutorials/pyseb_tutorial.qmd
+    - tutorials/cpp_tutorials.qmd
+
+website:
+  title: "pySEB"
+  site-url: "https://tobionecenobi.github.io/pySEB/"
+  repo-url: "https://github.com/Tobionecenobi/pySEB"
+  repo-subdir: "docs"
+  repo-actions: [edit, source, issue]
+  page-navigation: true
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: tutorials/index.qmd
+        text: Tutorials
+      - href: https://github.com/Tobionecenobi/pySEB/wiki
+        text: Reference Wiki
+  sidebar:
+    - title: "Tutorials"
+      style: docked
+      search: true
+      contents:
+        - tutorials/index.qmd
+        - tutorials/pyseb_tutorial.qmd
+        - tutorials/cpp_tutorials.qmd
+  page-footer:
+    left: "pySEB documentation"
+    right:
+      - text: "Source"
+        href: "https://github.com/Tobionecenobi/pySEB"
+      - text: "Wiki"
+        href: "https://github.com/Tobionecenobi/pySEB/wiki"
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    code-tools: true
+    code-copy: true
+    fig-format: svg
+    link-external-newwindow: true
+
+execute:
+  echo: true
+  warning: false
+  error: false

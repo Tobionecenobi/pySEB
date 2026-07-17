@@ -1,0 +1,38 @@
+---
+title: "Tutorials"
+---
+
+The tutorials combine explanation, maintained source code, and output produced
+by pySEB during the documentation build.
+
+## Python and numerical tutorial
+
+[Symbolic and numerical scattering with Python](pyseb_tutorial.qmd) covers:
+
+- analytic Gaussian-polymer structures;
+- symbolic expressions and vector q evaluation;
+- finite-sphere Debye clouds;
+- callback-defined numerical subunits;
+- PDB parsing and atom parameter profiles;
+- mixed numerical and analytic structures.
+
+## C++ tutorial suite
+
+[C++ modelling tutorials](cpp_tutorials.qmd) compile and run five C++14
+programs:
+
+1. a Gaussian diblock copolymer;
+2. a sphere–polymer micelle;
+3. reusable nested structures;
+4. a parameter sweep written as CSV;
+5. a PDB-derived Debye cloud with an attached polymer.
+
+The displayed C++ is included directly from the compiled source files. The
+terminal output beneath each program is captured from the executable during
+the Quarto render.
+
+## Before you begin
+
+Use the [platform build guides](https://github.com/Tobionecenobi/pySEB/wiki/Build-Guides)
+to prepare a local pySEB installation. For terminology, reference syntax, and
+the available models, see the [wiki](https://github.com/Tobionecenobi/pySEB/wiki).
