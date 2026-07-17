@@ -1,0 +1,7 @@
+/_site/
+/.quarto/
+**/*.quarto_ipynb*
+**/*_files/
+/tutorials/*.html
+
+**/*.quarto_ipynb

@@ -1,0 +1,43 @@
+---
+title: "pySEB Documentation"
+subtitle: "Executable tutorials for the Scattering Equation Builder"
+---
+
+pySEB constructs small-angle-scattering expressions for composite structures
+assembled from analytic, symbolic, and numerical subunits.
+
+## Start learning
+
+::: {.grid}
+::: {.g-col-12 .g-col-md-6}
+### Python and numerical modelling
+
+Build an analytic diblock, evaluate q-dependent scattering, construct Debye
+clouds, define numerical callbacks, parse PDB coordinates, and combine a
+protein model with a Gaussian polymer.
+
+[Open the Python tutorial](tutorials/pyseb_tutorial.qmd){.btn .btn-primary}
+:::
+
+::: {.g-col-12 .g-col-md-6}
+### C++ modelling
+
+Build and run maintained C++14 programs for diblocks, micelles, nested
+structures, parameter sweeps, and mixed PDB–polymer models.
+
+[Open the C++ tutorials](tutorials/cpp_tutorials.qmd){.btn .btn-primary}
+:::
+:::
+
+## Reference documentation
+
+The [pySEB wiki](https://github.com/Tobionecenobi/pySEB/wiki) contains build
+guides, user manuals, public API summaries, the complete subunit catalogue,
+theory, and troubleshooting information.
+
+## Source and examples
+
+- [Source repository](https://github.com/Tobionecenobi/pySEB)
+- [Python examples](https://github.com/Tobionecenobi/pySEB/tree/main/pyseb/examples/python)
+- [C++ examples](https://github.com/Tobionecenobi/pySEB/tree/main/Examples)
+- [Build and installation guides](https://github.com/Tobionecenobi/pySEB/wiki/Build-Guides)
