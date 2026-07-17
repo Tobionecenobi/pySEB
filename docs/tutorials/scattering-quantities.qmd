@@ -22,9 +22,10 @@ The same APIs work for analytic subunits and larger composite structures.
 
 ## Geometry and expected relationships
 
-```text
-left/scatterer 1  x----------------x  scatterer 2/right
-                 0       d=2       2
+```{mermaid}
+%%| fig-cap: "Two equal point scatterers and their named references."
+flowchart LR
+  Left["left / scatterer 1<br/>x = 0"] ---|"d = 2"| Right["scatterer 2 / right<br/>x = 2"]
 ```
 
 For two equal point scatterers,

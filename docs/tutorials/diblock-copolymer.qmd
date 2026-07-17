@@ -47,8 +47,12 @@ Python examples.
 
 ## Model
 
-```text
-blockA.end1 ---- blockA.end2 = blockB.end1 ---- blockB.end2
+```{mermaid}
+%%| fig-cap: "Two Gaussian polymers linked end to end."
+flowchart LR
+  A1["blockA.end1"] ---|"GaussianPolymer: blockA"| A2["blockA.end2"]
+  A2 ===|"Link"| B1["blockB.end1"]
+  B1 ---|"GaussianPolymer: blockB"| B2["blockB.end2"]
 ```
 
 The link identifies `blockB.end1` with `blockA.end2`. The generated parameter
