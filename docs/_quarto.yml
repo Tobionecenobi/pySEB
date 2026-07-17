@@ -9,6 +9,9 @@ project:
     - tutorials/nested-structures.qmd
     - tutorials/parameter-sweeps.qmd
     - tutorials/pdb-polymer.qmd
+    - tutorials/symbolic-expressions.qmd
+    - tutorials/scattering-quantities.qmd
+    - tutorials/figure13-star-chain.qmd
     - tutorials/pyseb_tutorial.qmd
     - tutorials/cpp_tutorials.qmd
 
@@ -40,6 +43,11 @@ website:
             - tutorials/nested-structures.qmd
             - tutorials/parameter-sweeps.qmd
             - tutorials/pdb-polymer.qmd
+        - section: "Advanced tutorials"
+          contents:
+            - tutorials/symbolic-expressions.qmd
+            - tutorials/scattering-quantities.qmd
+            - tutorials/figure13-star-chain.qmd
         - section: "Extended guides"
           contents:
             - tutorials/pyseb_tutorial.qmd

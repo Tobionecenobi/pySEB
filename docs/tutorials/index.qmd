@@ -15,6 +15,14 @@ output produced by pySEB during the documentation build.
 | [Parameter sweeps](parameter-sweeps.qmd) | Reuse one graph with several parameter sets | Intermediate |
 | [PDB cloud with an attached polymer](pdb-polymer.qmd) | Combine coordinate-based numerical scattering with an analytic subunit | Advanced |
 
+## Advanced tutorials
+
+| Tutorial | What you will learn |
+| --- | --- |
+| [Symbolic expressions and export](symbolic-expressions.qmd) | Select a backend, inspect expressions, convert to SymPy, and export Python, LaTeX, and C forms |
+| [Scattering quantities](scattering-quantities.qmd) | Compare normalized and unnormalized form factors, amplitudes, phase factors, and size measures |
+| [Figure 13 star chain](figure13-star-chain.qmd) | Construct and evaluate the published chain of five four-arm diblock stars |
+
 Each task page presents Python and C++ in parallel. The Python blocks execute
 in the documentation environment, the C++ listing comes from the maintained
 source file, and its output comes from the compiled executable.

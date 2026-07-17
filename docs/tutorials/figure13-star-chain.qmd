@@ -1,0 +1,177 @@
+---
+title: "Figure 13 Diblock-Star Chain"
+subtitle: "Reproduce a published hierarchical SEB structure"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+This tutorial constructs the hierarchy used for Figure 13 of the original SEB
+formalism: a diblock copolymer, a four-arm star made from that diblock, and a
+linear chain containing five instances of the star. The final structure has 40
+Gaussian-polymer subunits but only four independent physical parameters.
+
+Read [Reusable Nested Structures](nested-structures.qmd) first if nested
+reference paths are unfamiliar. Publication details are collected in the
+[citation guide](https://github.com/Tobionecenobi/pySEB/wiki/Publications-and-Citation).
+
+## Structure hierarchy
+
+```text
+diblock:       A ---- B
+
+four-arm star:     A--B
+                    |
+                B--A--B
+                    |
+                   A--B
+
+star chain:       --*-- = --*-- = --*-- = --*-- = --*--
+                    |       |       |       |       |
+```
+
+The graphs are defined once and instantiated repeatedly. Internal names are
+therefore shared across every instance.
+
+## Python
+
+### 1. Define the reusable diblock
+
+Create one `A--B` graph by attaching the first end of B to the second end of A.
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+world = pyseb.World("Figure13Tutorial")
+
+diblock = world.Add("GaussianPolymer", "A")
+world.Link("GaussianPolymer", "B.end1", "A.end2")
+```
+
+The graph identifier `diblock` can now be instantiated inside a larger graph.
+
+### 2. Assemble a four-arm star
+
+Create the first diblock instance, then connect three more instances at their
+`A.end1` references. All four A blocks meet at the star center.
+
+```{python}
+star = world.Add(diblock, "diblock1")
+world.Link(diblock, "diblock2:A.end1", "diblock1:A.end1")
+world.Link(diblock, "diblock3:A.end1", "diblock1:A.end1")
+world.Link(diblock, "diblock4:A.end1", "diblock1:A.end1")
+```
+
+Each free `B.end2` reference lies at the outer end of one star arm.
+
+### 3. Link five star instances
+
+Join a free B end on each new star to a free B end on the preceding star. The
+colon-separated paths descend through the star, diblock, and polymer levels.
+
+```{python}
+chain = world.Add(star, "star1")
+world.Link(
+    star,
+    "star2:diblock1:B.end2",
+    "star1:diblock3:B.end2",
+)
+world.Link(
+    star,
+    "star3:diblock1:B.end2",
+    "star2:diblock3:B.end2",
+)
+world.Link(
+    star,
+    "star4:diblock1:B.end2",
+    "star3:diblock3:B.end2",
+)
+world.Link(
+    star,
+    "star5:diblock1:B.end2",
+    "star4:diblock3:B.end2",
+)
+world.Add(chain, "chain")
+```
+
+The named `chain` contains five stars, twenty diblocks, and forty Gaussian
+polymers.
+
+### 4. Reuse the shared parameters
+
+Every diblock instance retains the internal names A and B. Consequently all A
+blocks share one `beta` and `Rg`, and all B blocks share another pair.
+
+```{python}
+parameters = {
+    "beta_A": 1.0,
+    "beta_B": 1.0,
+    "Rg_A": 1.0,
+    "Rg_B": 1.0,
+}
+
+print("physical parameters:", sorted(parameters))
+print("subunits: 5 stars x 4 diblocks x 2 polymers = 40")
+```
+
+Changing these four values updates all twenty diblock instances together.
+
+### 5. Evaluate and plot the form factor
+
+Direct numerical traversal evaluates the hierarchical model over a logarithmic
+q grid without first expanding the full symbolic expression.
+
+```{python}
+q = np.geomspace(1e-2, 50.0, 320)
+form_factor = np.asarray(
+    world.EvaluateFormFactor("chain", parameters, q.tolist())
+)
+
+for index in (0, 80, 160, 240, 319):
+    print(f"q={q[index]:.5g}, F(q)={form_factor[index]:.8g}")
+```
+
+```{python}
+#| label: fig-figure13-star-chain
+#| fig-cap: "Normalized form factor of the five-star diblock chain."
+
+plt.loglog(q, form_factor)
+plt.xlabel(r"$q$")
+plt.ylabel(r"$F(q)$")
+plt.show()
+```
+
+The multiple shoulders and changes of slope reflect the hierarchy of polymer,
+star, and chain length scales.
+
+## C++
+
+The maintained C++14 program follows the same three-level construction and
+evaluates representative q values with the portable backend.
+
+```cpp
+{{< include cpp/figure13-star-chain.cpp >}}
+```
+
+```{python}
+#| echo: false
+from _helpers import run_tutorial
+
+run_tutorial("figure13-star-chain")
+```
+
+## Next steps
+
+- [Review reusable nested structures](nested-structures.qmd)
+- [Theory overview](https://github.com/Tobionecenobi/pySEB/wiki/Theory-Overview)
+- [Complete maintained Python source](https://github.com/Tobionecenobi/pySEB/blob/main/pyseb/examples/python/figure13_star_chain.py)
+- [Original C++ example](https://github.com/Tobionecenobi/pySEB/blob/main/Examples/DiBlockStarChain.cpp)
