@@ -18,6 +18,11 @@ the Python environment from the [diblock tutorial](diblock-copolymer.qmd).
 
 ## Python
 
+### 1. Build the structure once
+
+Import the numerical and plotting packages, then create the same named diblock
+used in the first tutorial. The graph remains unchanged throughout the sweep.
+
 ```{python}
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,14 +32,29 @@ world = pyseb.World("SweepTutorial")
 graph = world.Add("GaussianPolymer", "blockA")
 world.Link("GaussianPolymer", "blockB.end1", "blockA.end2")
 world.Add(graph, "diblock")
+```
 
+### 2. Define fixed and varying values
+
+The logarithmic q grid is shared by every calculation. `base` contains the
+parameters that stay fixed; `Rg_blockB` will be added separately for each
+sweep value.
+
+```{python}
 q = np.geomspace(1e-3, 0.5, 180)
 base = {
     "beta_blockA": 1.0,
     "beta_blockB": 0.8,
     "Rg_blockA": 5.0,
 }
+```
 
+### 3. Evaluate each parameter set
+
+Construct a fresh dictionary on every iteration so the base values are not
+modified. Store each curve under its radius of gyration for later plotting.
+
+```{python}
 python_sweeps = {}
 for rg_b in (4.0, 8.0, 16.0):
     parameters = {**base, "Rg_blockB": rg_b}
@@ -43,6 +63,11 @@ for rg_b in (4.0, 8.0, 16.0):
     )
     print(f"Rg_blockB={rg_b:g}: F({q[-1]:g})={python_sweeps[rg_b][-1]:.8f}")
 ```
+
+Only parameter values change between these evaluations; pySEB reuses the
+already constructed `diblock` graph.
+
+### 4. Compare the curves
 
 ```{python}
 #| label: fig-python-parameter-sweep
@@ -56,6 +81,10 @@ plt.ylabel(r"$F(q)$")
 plt.legend()
 plt.show()
 ```
+
+Larger values of `Rg_blockB` move the structural decay toward smaller q,
+because a larger real-space length corresponds to a smaller reciprocal-space
+scale.
 
 ## C++
 

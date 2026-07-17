@@ -28,6 +28,12 @@ PDB text -> atom records -> parameter profile -> DebyeSphereCloud
 
 ## Python
 
+### 1. Parse PDB atom records
+
+Import the packages and define a small inline PDB fragment. Keeping the input
+inside the tutorial makes the example deterministic and independent of a
+network download.
+
 ```{python}
 import matplotlib.pyplot as plt
 import numpy as np
@@ -40,6 +46,19 @@ END
 """
 
 atoms = pyseb.PDBParser().parse_string(pdb_text)
+print("parsed atoms:", len(atoms))
+```
+
+The parser returns atom records containing serial numbers, elements, and
+Cartesian coordinates.
+
+### 2. Convert atoms to a numerical cloud
+
+The parameter profile maps elements to sphere radii and excess scattering
+lengths. The build options also expose atom serial 2 as a named reference point
+called `attachment`.
+
+```{python}
 profile = pyseb.AtomParameterProfile()
 profile.set_element("N", radius=1.55, beta=7.0)
 profile.set_element("C", radius=1.70, beta=6.0)
@@ -47,12 +66,34 @@ profile.set_element("C", radius=1.70, beta=6.0)
 options = pyseb.AtomCloudBuildOptions()
 options.reference_atom_serials = {"attachment": 2}
 cloud = pyseb.AtomCloudBuilder.build(atoms, profile, options)
+print("atom scatterers:", cloud.scattererCount())
+```
 
+`cloud` is a numerical `DebyeSphereCloud`: its scatterer coordinates and
+finite radii are now ready for direct q-dependent evaluation.
+
+### 3. Attach an analytic polymer
+
+Add the cloud as `fragment`, connect a Gaussian polymer to its named atom
+reference, and name the combined graph `conjugate`.
+
+```{python}
 world = pyseb.World("PDBTutorial")
 graph = world.Add(cloud, "fragment")
 world.Link("GaussianPolymer", "polymer.end1", "fragment.attachment")
 world.Add(graph, "conjugate")
+```
 
+This graph mixes numerical coordinate scattering with an analytic Gaussian
+polymer in one structure.
+
+### 4. Evaluate both structures
+
+The cloud contains its own numerical scattering parameters, so the standalone
+`fragment` takes an empty dictionary. The combined model additionally needs
+the polymer's `beta` and `Rg`.
+
+```{python}
 parameters = {"beta_polymer": 4.0, "Rg_polymer": 6.0}
 q = np.linspace(0.0, 0.5, 150)
 fragment = np.asarray(world.EvaluateFormFactor("fragment", {}, q.tolist()))
@@ -60,9 +101,12 @@ conjugate = np.asarray(
     world.EvaluateFormFactor("conjugate", parameters, q.tolist())
 )
 
-print("atom scatterers:", cloud.scattererCount())
 print(f"F_conjugate(0) = {conjugate[0]:.8f}")
 ```
+
+The combined normalized form factor is exactly one at q = 0.
+
+### 5. Compare the form factors
 
 ```{python}
 #| label: fig-python-pdb-polymer
@@ -75,6 +119,9 @@ plt.ylabel(r"$F(q)$")
 plt.legend()
 plt.show()
 ```
+
+The difference between the curves contains both the polymer contribution and
+its interference with the PDB-derived cloud.
 
 ## C++
 
