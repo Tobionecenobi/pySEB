@@ -56,16 +56,40 @@ names contain the subunit names: `beta_blockA`, `Rg_blockA`, and so on.
 
 ## Python
 
+### 1. Import the packages
+
+`pyseb` provides the structure builder and scattering calculations. NumPy
+creates the q grid, while Matplotlib draws the result.
+
 ```{python}
 import matplotlib.pyplot as plt
 import numpy as np
 import pyseb
+```
 
+### 2. Construct and name the diblock
+
+A `World` stores subunits, links, and named structures. `Add` starts a graph
+with `blockA`; `Link` creates `blockB` and joins its first end to the second end
+of `blockA`. The final `Add` gives the complete graph the name `diblock`.
+
+```{python}
 world = pyseb.World("DiblockTutorial")
 graph = world.Add("GaussianPolymer", "blockA")
 world.Link("GaussianPolymer", "blockB.end1", "blockA.end2")
 world.Add(graph, "diblock")
+```
 
+The graph now describes the connectivity, but it does not yet contain physical
+values for the two polymers.
+
+### 3. Supply parameters and a q grid
+
+Each subunit name becomes the suffix of its generated parameters. `beta` is
+the total excess scattering length and `Rg` is the radius of gyration. The q
+grid is logarithmic so that it resolves both small- and large-scale behavior.
+
+```{python}
 parameters = {
     "beta_blockA": 1.0,
     "beta_blockB": 0.8,
@@ -73,6 +97,18 @@ parameters = {
     "Rg_blockB": 8.0,
 }
 q = np.geomspace(1e-3, 0.5, 150)
+```
+
+Lengths and q must use reciprocal units. For example, radii in ångström imply
+q in inverse ångström.
+
+### 4. Evaluate and inspect the form factor
+
+`EvaluateFormFactor` accepts the structure name, parameter dictionary, and q
+values. Converting q to a list makes the Python-to-C++ boundary explicit;
+NumPy then converts the returned values back to an array for plotting.
+
+```{python}
 form_factor = np.asarray(
     world.EvaluateFormFactor("diblock", parameters, q.tolist())
 )
@@ -80,6 +116,13 @@ form_factor = np.asarray(
 print(f"F({q[0]:g}) = {form_factor[0]:.8f}")
 print(f"F({q[-1]:g}) = {form_factor[-1]:.8f}")
 ```
+
+The first value is close to one because this is a normalized form factor and
+the first q value is close to zero.
+
+### 5. Plot the result
+
+A log–log plot makes the broad q range and the form-factor decay easy to see.
 
 ```{python}
 #| label: fig-python-diblock

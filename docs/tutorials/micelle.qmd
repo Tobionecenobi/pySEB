@@ -24,6 +24,11 @@ The tag `chain` makes all six arms share `beta_chain` and `Rg_chain`.
 
 ## Python
 
+### 1. Create the world and spherical core
+
+Import the required packages, then start a graph with one solid sphere named
+`core`. Its surface will provide the attachment points for the chains.
+
 ```{python}
 import matplotlib.pyplot as plt
 import numpy as np
@@ -31,7 +36,15 @@ import pyseb
 
 world = pyseb.World("MicelleTutorial")
 graph = world.Add("SolidSphere", "core")
+```
 
+### 2. Attach six polymer chains
+
+Each loop iteration creates a Gaussian polymer. `surface#anchorN` requests a
+distinct distributed point on the core surface. The final argument, `chain`,
+is a tag that makes all six polymers share one parameter set.
+
+```{python}
 for index in range(6):
     world.Link(
         "GaussianPolymer",
@@ -39,7 +52,17 @@ for index in range(6):
         f"core.surface#anchor{index}",
         "chain",
     )
+```
 
+The subunits still have unique names such as `chain0` and `chain1`, but their
+physical symbols use the shared suffix `chain`.
+
+### 3. Name and parameterize the micelle
+
+Name the complete graph before evaluating it. The core has a radius `R_core`,
+whereas each Gaussian chain is described by `Rg_chain`.
+
+```{python}
 world.Add(graph, "micelle")
 parameters = {
     "beta_core": 1.0,
@@ -47,6 +70,15 @@ parameters = {
     "beta_chain": 0.25,
     "Rg_chain": 12.0,
 }
+```
+
+### 4. Evaluate the form factor
+
+Evaluate the named structure over a logarithmic q grid. The calculation
+includes the sphere, all six chains, and every interference term implied by
+their connections.
+
+```{python}
 q = np.geomspace(1e-3, 0.5, 150)
 form_factor = np.asarray(
     world.EvaluateFormFactor("micelle", parameters, q.tolist())
@@ -55,6 +87,11 @@ form_factor = np.asarray(
 print("subunits: 1 core + 6 chains")
 print(f"F({q[0]:g}) = {form_factor[0]:.8f}")
 ```
+
+The small-q value is close to one, confirming the expected normalization of
+the complete structure.
+
+### 5. Plot the result
 
 ```{python}
 #| label: fig-python-micelle
@@ -65,6 +102,9 @@ plt.xlabel(r"$q$")
 plt.ylabel(r"$F(q)$")
 plt.show()
 ```
+
+The curve changes as q resolves first the overall micelle and then the core
+and polymer length scales.
 
 ## C++
 

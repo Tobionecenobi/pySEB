@@ -31,17 +31,45 @@ Colons descend into structures. For example,
 
 ## Python
 
+### 1. Create a world
+
+All reusable graphs live in the same `World`. Later steps instantiate these
+graphs without rebuilding their internal links.
+
 ```{python}
 import pyseb
 
 world = pyseb.World("NestedTutorial")
+```
 
+### 2. Build the reusable diblock
+
+Start with `polyA`, then attach `polyB` end to end. Keep the returned graph in
+`diblock`; a graph does not need a public structure name before it can be
+reused.
+
+```{python}
 diblock = world.Add("GaussianPolymer", "polyA")
 world.Link("GaussianPolymer", "polyB.end1", "polyA.end2")
+```
 
+### 3. Reuse the diblock to make a star
+
+`world.Add(diblock, "diblock1")` creates the first instance. `Link` creates a
+second instance and connects the `polyA.end1` reference inside each diblock.
+The colon separates a structure instance from a nested subunit path.
+
+```{python}
 star = world.Add(diblock, "diblock1")
 world.Link(diblock, "diblock2:polyA.end1", "diblock1:polyA.end1")
+```
 
+### 4. Reuse the star to make a chain
+
+Repeat the same pattern at the next level. The longer reference paths descend
+through a star, a diblock, and finally a polymer reference point.
+
+```{python}
 chain = world.Add(star, "star1")
 world.Link(
     star,
@@ -49,7 +77,16 @@ world.Link(
     "star1:diblock2:polyB.end2",
 )
 world.Add(chain, "starChain")
+```
 
+Naming the final graph exposes `starChain` to the scattering queries.
+
+### 5. Parameterize and evaluate
+
+Repeated instances retain the internal names `polyA` and `polyB`. Consequently
+all eight polymers reuse four physical parameters.
+
+```{python}
 parameters = {
     "beta_polyA": 1.0,
     "beta_polyB": 0.75,
@@ -63,8 +100,8 @@ for q_value, value in zip(q, values):
     print(f"q={q_value:g}, F(q)={value:.8f}")
 ```
 
-The eight polymer instances reuse four physical parameters because their
-internal subunit names are shared.
+The decreasing values show the expected loss of coherence as q resolves the
+nested structure's internal length scales.
 
 ## C++
 
