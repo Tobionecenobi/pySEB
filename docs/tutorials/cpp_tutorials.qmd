@@ -107,6 +107,24 @@ nested_output = run_tutorial("nested-structures")
 The final graph contains eight Gaussian-polymer subunits but uses only four
 physical parameters because the internal names are shared by each instance.
 
+## Random-walk rod chain
+
+Twenty identically tagged thin rods are linked end to end. The program
+calculates the radius of gyration of the complete chain and compares its form
+factor with a size-matched Gaussian polymer.
+
+```cpp
+{{< include cpp/random-walk-rods.cpp >}}
+```
+
+```{python}
+#| echo: false
+rod_chain_output = run_tutorial("random-walk-rods")
+```
+
+The dedicated [random-walk rod tutorial](random-walk-rods.qmd) explains the
+construction and plots the Python result.
+
 ## Parameter sweep
 
 The graph is constructed once and evaluated for three values of `Rg_blockB`.
@@ -159,6 +177,24 @@ pdb_output = run_tutorial("pdb-polymer")
 
 The result combines numerical Debye scattering from the coordinate cloud with
 the analytic polymer and their interference term.
+
+## Inspect a nested structure
+
+The C++ interface can report known names, graph IDs, links, and a folder-style
+view of nested structures. These diagnostics are useful before deriving a
+large symbolic expression.
+
+```cpp
+{{< include cpp/inspect-structures.cpp >}}
+```
+
+```{python}
+#| echo: false
+inspection_output = run_tutorial("inspect-structures")
+```
+
+See [Inspecting Structures](https://github.com/Tobionecenobi/pySEB/wiki/Inspecting-Structures)
+for the diagnostic-method reference.
 
 ## Continue with the reference material
 

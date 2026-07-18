@@ -1,0 +1,173 @@
+---
+title: "Random-Walk Rod Chain"
+subtitle: "Link rigid segments and compare the chain with a Gaussian polymer"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+This tutorial recreates the random-walk rod example from the original SEB
+wiki with the current Python and C++ APIs. Twenty identical thin rods are
+linked end to end, their composite radius of gyration is calculated, and their
+form factor is compared with a Gaussian polymer of the same radius of
+gyration.
+
+It assumes the Python environment from the
+[diblock tutorial](diblock-copolymer.qmd).
+
+## Model
+
+```text
+rod1 -- rod2 -- rod3 -- ... -- rod20
+```
+
+Every segment uses the tag `rod`, so all segments share `L_rod` and
+`beta_rod`. The composition graph is a chain even though each link can point in
+a different direction in an orientationally averaged ensemble.
+
+## Python
+
+### 1. Import the packages
+
+NumPy provides the q grid and Matplotlib plots the two form factors.
+
+```{python}
+import math
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+```
+
+### 2. Create the first segment
+
+`chain` is the `GraphID` for the growing connected component. The shared tag
+is passed as the third argument.
+
+```{python}
+world = pyseb.World("RandomWalkRodTutorial")
+segment_count = 20
+
+chain = world.Add("ThinRod", "rod1", "rod")
+```
+
+### 3. Link the remaining rods
+
+Each new rod is attached through `end1` to `end2` of the previous rod. `Link`
+adds a new leaf to the graph, so the structure remains connected and acyclic.
+
+```{python}
+for index in range(2, segment_count + 1):
+    current = f"rod{index}"
+    previous = f"rod{index - 1}"
+    world.Link(
+        "ThinRod",
+        f"{current}.end1",
+        f"{previous}.end2",
+        "rod",
+    )
+
+world.Add(chain, "rodChain")
+```
+
+### 4. Calculate the composite size
+
+For a thin rod, $R_g^2=L^2/12$. Choosing $L=\sqrt{12}$ makes every segment's
+own $R_g^2$ equal to one. pySEB then includes the distances between segments
+when it calculates the radius of gyration of the complete chain.
+
+```{python}
+rod_parameters = {
+    "beta_rod": 1.0,
+    "L_rod": math.sqrt(12.0),
+}
+
+chain_rg2 = world.EvaluateRadiusOfGyration2("rodChain", rod_parameters)
+print(f"segments = {segment_count}")
+print(f"rod-chain Rg^2 = {chain_rg2:.8f}")
+```
+
+### 5. Create a size-matched Gaussian reference
+
+The Gaussian polymer is a separate graph in the same world. Its excess
+scattering length equals the sum for the twenty rods, and its radius of
+gyration is set to the calculated chain value.
+
+```{python}
+world.Add("GaussianPolymer", "gaussian")
+gaussian_parameters = {
+    "beta_gaussian": float(segment_count),
+    "Rg_gaussian": math.sqrt(chain_rg2),
+}
+```
+
+### 6. Evaluate and plot
+
+Both form factors are normalized, so they approach one at small q. Agreement
+in the Guinier region reflects the matched radius of gyration; differences at
+larger q resolve the segmented rod structure.
+
+```{python}
+q = np.logspace(-3, 0, 160)
+rod_form_factor = world.EvaluateFormFactor(
+    "rodChain",
+    rod_parameters,
+    q,
+)
+gaussian_form_factor = world.EvaluateFormFactor(
+    "gaussian",
+    gaussian_parameters,
+    q,
+)
+```
+
+```{python}
+#| label: fig-random-walk-rods
+#| fig-cap: "A chain of thin rods compared with a Gaussian polymer having the same radius of gyration."
+
+plt.loglog(q, rod_form_factor, label="20 linked thin rods")
+plt.loglog(q, gaussian_form_factor, "--", label="size-matched Gaussian polymer")
+plt.xlabel(r"$q$")
+plt.ylabel(r"$F(q)$")
+plt.legend()
+plt.show()
+```
+
+## C++
+
+The maintained C++14 program performs the same construction and prints a
+compact comparison table.
+
+```cpp
+{{< include cpp/random-walk-rods.cpp >}}
+```
+
+```{python}
+#| echo: false
+from _helpers import run_tutorial
+
+run_tutorial("random-walk-rods")
+```
+
+## What this demonstrates
+
+- Tags let many subunits share one physical parameter set.
+- `RadiusOfGyration2` includes both internal segment sizes and separations
+  created by the links.
+- Matching $R_g$ controls the small-q behavior but does not make two different
+  internal structures identical at larger q.
+- The same graph and parameter conventions apply in Python and C++.
+
+## Next steps
+
+- [Scattering quantities](scattering-quantities.qmd)
+- [Parameter sweeps](parameter-sweeps.qmd)
+- [Thin Rod reference](https://github.com/Tobionecenobi/pySEB/wiki/Subunit-Thin-Rod)
+- [Inspecting C++ structures](https://github.com/Tobionecenobi/pySEB/wiki/Inspecting-Structures)
