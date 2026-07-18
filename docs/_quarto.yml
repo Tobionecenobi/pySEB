@@ -7,6 +7,7 @@ project:
     - tutorials/diblock-copolymer.qmd
     - tutorials/micelle.qmd
     - tutorials/nested-structures.qmd
+    - tutorials/random-walk-rods.qmd
     - tutorials/parameter-sweeps.qmd
     - tutorials/pdb-polymer.qmd
     - tutorials/symbolic-expressions.qmd
@@ -41,6 +42,7 @@ website:
             - tutorials/diblock-copolymer.qmd
             - tutorials/micelle.qmd
             - tutorials/nested-structures.qmd
+            - tutorials/random-walk-rods.qmd
             - tutorials/parameter-sweeps.qmd
             - tutorials/pdb-polymer.qmd
         - section: "Advanced tutorials"

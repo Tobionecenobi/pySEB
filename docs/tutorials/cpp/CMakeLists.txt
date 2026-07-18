@@ -2,11 +2,13 @@ set(PYSEB_DOC_TUTORIAL_NAMES
     diblock
     micelle
     nested-structures
+    random-walk-rods
     parameter-sweep
     pdb-polymer
     symbolic-expressions
     scattering-quantities
     figure13-star-chain
+    inspect-structures
 )
 
 set(PYSEB_DOC_TUTORIAL_TARGETS)

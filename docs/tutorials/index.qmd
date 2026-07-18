@@ -12,6 +12,7 @@ output produced by pySEB during the documentation build.
 | [Diblock copolymer](diblock-copolymer.qmd) | Create an environment, install pySEB, add and link subunits, evaluate, and plot | Beginner |
 | [Sphere–polymer micelle](micelle.qmd) | Attach tagged chains to distributed sphere-surface references | Intermediate |
 | [Reusable nested structures](nested-structures.qmd) | Build reusable graphs and address nested reference paths | Intermediate |
+| [Random-walk rod chain](random-walk-rods.qmd) | Link rigid segments, calculate the chain size, and compare with a Gaussian polymer | Intermediate |
 | [Parameter sweeps](parameter-sweeps.qmd) | Reuse one graph with several parameter sets | Intermediate |
 | [PDB cloud with an attached polymer](pdb-polymer.qmd) | Combine coordinate-based numerical scattering with an analytic subunit | Advanced |
 
@@ -38,14 +39,16 @@ source file, and its output comes from the compiled executable.
 - PDB parsing and atom parameter profiles;
 - mixed numerical and analytic structures.
 
-[C++ modelling tutorials](cpp_tutorials.qmd) compile and run five C++14
+[C++ modelling tutorials](cpp_tutorials.qmd) compile and run seven C++14
 programs:
 
 1. a Gaussian diblock copolymer;
 2. a sphere–polymer micelle;
 3. reusable nested structures;
-4. a parameter sweep written as CSV;
-5. a PDB-derived Debye cloud with an attached polymer.
+4. a random-walk chain of thin rods;
+5. a parameter sweep written as CSV;
+6. a PDB-derived Debye cloud with an attached polymer;
+7. structure inspection and hierarchy diagnostics.
 
 The displayed C++ is included directly from the compiled source files. The
 terminal output beneath each program is captured from the executable during
