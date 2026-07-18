@@ -6,6 +6,86 @@ subtitle: "Executable tutorials for the Scattering Equation Builder"
 pySEB constructs small-angle-scattering expressions for composite structures
 assembled from analytic, symbolic, and numerical subunits.
 
+It combines a C++14 scattering core with Python bindings, a portable symbolic
+backend, optional GiNaC support, and native SymPy conversion. Structures are
+built by connecting reusable subunits at named or distributed reference
+points.
+
+## From a model to a scattering expression
+
+![A four-step SEB workflow: choose a target structure, assemble it from subunits, derive the symbolic scattering expression, and evaluate or plot it.](https://github.com/Tobionecenobi/SEB/assets/45657039/59a2129c-ce13-4534-8aef-69e5b7e02600){fig-alt="SEB workflow from a target structure through subunit construction and symbolic derivation to a scattering plot." width="95%"}
+
+The same structure graph supports symbolic output, direct numerical
+evaluation, parameter sweeps, and contrast changes. Python and C++ use the
+same `World`, `Add`, `Link`, names, tags, and reference-point concepts.
+
+## Install pySEB
+
+Create and activate an isolated environment on Linux or macOS:
+
+```bash
+python3 -m venv .venv-pyseb
+source .venv-pyseb/bin/activate
+python -m pip install --upgrade pip
+python -m pip install pyseb
+```
+
+Confirm the installation:
+
+```bash
+python -c "import pyseb; print(type(pyseb.World()).__name__)"
+```
+
+The command prints `World`. Windows PowerShell instructions and source builds
+are covered by the
+[platform build guides](https://github.com/Tobionecenobi/pySEB/wiki/Build-Guides).
+
+## Typical workflow
+
+1. Create a `World`.
+2. Add analytic or numerical subunits.
+3. Link reference points and name the completed structure.
+4. Request symbolic expressions or evaluate scattering quantities for q and a
+   parameter dictionary.
+
+```python
+import pyseb
+
+world = pyseb.World("FirstModel")
+graph = world.Add("GaussianPolymer", "blockA")
+world.Link("GaussianPolymer", "blockB.end1", "blockA.end2")
+world.Add(graph, "diblock")
+
+parameters = {
+    "beta_blockA": 1.0,
+    "beta_blockB": 0.8,
+    "Rg_blockA": 5.0,
+    "Rg_blockB": 8.0,
+}
+print(world.EvaluateFormFactor("diblock", parameters, [0.001, 0.01, 0.1]))
+```
+
+## What pySEB provides
+
+- Analytic models for polymers, rods, circles, disks, spheres, cylinders, and
+  spherical shells.
+- Structures assembled through specific or distributed reference points.
+- Reusable nested graphs for stars, micelles, dendrimers, and published models.
+- Normalized and unnormalized form factors, amplitudes, phase factors, and
+  size measures.
+- Numerical Debye sphere clouds, callback-defined subunits, and PDB-derived
+  atom clouds.
+- Portable and GiNaC C++ backends plus SymPy conversion and code export.
+
+## Supported subunits
+
+![Overview of SEB analytic subunits and their specific or distributed reference points.](https://github.com/Tobionecenobi/SEB/assets/22714271/8ca00de9-60e3-4895-bc50-648d4b9f6d68){fig-alt="Solid cylinder, solid sphere, spherical shells, disk, Gaussian polymer, Gaussian loop, thin circle, thin rod, and point subunits with reference points." width="95%"}
+
+The [Subunit Catalogue](https://github.com/Tobionecenobi/pySEB/wiki/Subunit-Catalogue)
+provides the current class names, parameters, reference points, equations, and
+Python/C++ examples, including numerical and PDB-derived models added after the
+original overview figure.
+
 ## Start learning
 
 ::: {.grid}
@@ -34,9 +114,46 @@ The [pySEB wiki](https://github.com/Tobionecenobi/pySEB/wiki) contains build
 guides, user manuals, public API summaries, the complete subunit catalogue,
 theory, and troubleshooting information.
 
+## Python and C++
+
+Python and C++ receive parallel coverage throughout the documentation:
+
+- [Python user guide](https://github.com/Tobionecenobi/pySEB/wiki/Python-User-Guide)
+- [C++ user guide](https://github.com/Tobionecenobi/pySEB/wiki/Cpp-User-Guide)
+- [Python API reference](https://github.com/Tobionecenobi/pySEB/wiki/Python-API-Reference)
+- [C++ API reference](https://github.com/Tobionecenobi/pySEB/wiki/Cpp-API-Reference)
+- [Symbolic backends](https://github.com/Tobionecenobi/pySEB/wiki/Symbolic-Backends)
+
+## Example structures
+
+::: {.grid}
+::: {.g-col-12 .g-col-md-6}
+![Linear chains assembled from different subunit types.](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/PaperFigs/fig10.png){fig-alt="Figure 10: linear chains assembled from different SEB subunit types."}
+:::
+
+::: {.g-col-12 .g-col-md-6}
+![Dendrimers assembled recursively from reusable structures.](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/PaperFigs/fig11.png){fig-alt="Figure 11: recursively assembled dendrimer structures and form factors."}
+:::
+
+::: {.g-col-12 .g-col-md-6}
+![Rods and polymers attached to geometric surfaces.](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/PaperFigs/fig12.png){fig-alt="Figure 12: rods and polymers attached to surfaces of geometric bodies."}
+:::
+
+::: {.g-col-12 .g-col-md-6}
+![A chain of five diblock-copolymer stars and its contrast-dependent form factor.](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/PaperFigs/fig13.png){fig-alt="Figure 13: chain of five diblock-copolymer stars and scattering curves for several contrasts."}
+:::
+:::
+
+These published models demonstrate linear composition, recursive reuse,
+distributed surface references, hierarchical nesting, and contrast variation.
+The [Figure 13 tutorial](tutorials/figure13-star-chain.qmd) reconstructs the
+star chain step by step in executable Python and C++.
+
 ## Source and examples
 
 - [Source repository](https://github.com/Tobionecenobi/pySEB)
 - [Python examples](https://github.com/Tobionecenobi/pySEB/tree/main/pyseb/examples/python)
 - [C++ examples](https://github.com/Tobionecenobi/pySEB/tree/main/Examples)
 - [Build and installation guides](https://github.com/Tobionecenobi/pySEB/wiki/Build-Guides)
+- [Publications and citation](https://github.com/Tobionecenobi/pySEB/wiki/Publications-and-Citation)
+- [Project status and roadmap](https://github.com/Tobionecenobi/pySEB/wiki/Project-Status-and-Roadmap)
