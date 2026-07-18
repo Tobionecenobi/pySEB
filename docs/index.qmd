@@ -13,7 +13,7 @@ points.
 
 ## From a model to a scattering expression
 
-![A four-step SEB workflow: choose a target structure, assemble it from subunits, derive the symbolic scattering expression, and evaluate or plot it.](https://github.com/Tobionecenobi/SEB/assets/45657039/59a2129c-ce13-4534-8aef-69e5b7e02600){fig-alt="SEB workflow from a target structure through subunit construction and symbolic derivation to a scattering plot." width="95%"}
+![A four-step SEB workflow: choose a target structure, assemble it from subunits, derive the symbolic scattering expression, and evaluate or plot it.](assets/seb-workflow.png){fig-alt="SEB workflow from a target structure through subunit construction and symbolic derivation to a scattering plot." width="95%"}
 
 The same structure graph supports symbolic output, direct numerical
 evaluation, parameter sweeps, and contrast changes. Python and C++ use the
@@ -79,7 +79,7 @@ print(world.EvaluateFormFactor("diblock", parameters, [0.001, 0.01, 0.1]))
 
 ## Supported subunits
 
-![Overview of SEB analytic subunits and their specific or distributed reference points.](https://github.com/Tobionecenobi/SEB/assets/22714271/8ca00de9-60e3-4895-bc50-648d4b9f6d68){fig-alt="Solid cylinder, solid sphere, spherical shells, disk, Gaussian polymer, Gaussian loop, thin circle, thin rod, and point subunits with reference points." width="95%"}
+![Overview of SEB analytic subunits and their specific or distributed reference points.](assets/seb-subunits.png){fig-alt="Solid cylinder, solid sphere, spherical shells, disk, Gaussian polymer, Gaussian loop, thin circle, thin rod, and point subunits with reference points." width="95%"}
 
 The [Subunit Catalogue](https://github.com/Tobionecenobi/pySEB/wiki/Subunit-Catalogue)
 provides the current class names, parameters, reference points, equations, and
