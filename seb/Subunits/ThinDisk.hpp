@@ -3,6 +3,10 @@
 #ifndef INCLUDE_GUARD_THINDISK
 #define INCLUDE_GUARD_THINDISK
 
+#include <cmath>
+#include <gsl/gsl_sf_bessel.h>
+
+#include "Integrated.hpp"
 
 /*===========================================================================
 
@@ -18,11 +22,11 @@
    See SolidSphere.nb / SolidSphere.pdf for derivations.
 ============================================================================= */
 
-class ThinDisk : public SubUnit {
+class ThinDisk : public IntegratedSubunit {
     public:
     /*Constructor*/
     public:
-        ThinDisk() : SubUnit(){
+        ThinDisk() : IntegratedSubunit(){
             type = SUBUNITCHILD;
            stype = THINDISK;
         }
@@ -31,7 +35,7 @@ class ThinDisk : public SubUnit {
     virtual void Init(string name, string tag, SymbolInterface *GEX)
     {
         // Initialize base class
-        SubUnit::Init(name, tag, GEX);
+        IntegratedSubunit::Init(name, tag, GEX);
         string n = getTag();
 
         // ========================================================================================
@@ -103,6 +107,89 @@ class ThinDisk : public SubUnit {
         sigmaMSDref2ref["center"]["rim"]       = R*R;
         sigmaMSDref2ref["rim"]["surface"]      = 3*R*R/2;;
         sigmaMSDref2ref["rim"]["rim"]          = 2*R*R;
+
+        IntegrationOptions integrationOptions;
+        integrationOptions.method = IntegrationMethod::QAG;
+        integrationOptions.absoluteTolerance = 1e-12;
+        integrationOptions.relativeTolerance = 1e-8;
+        integrationOptions.workspaceSize = 1000;
+        setIntegrationOptions(integrationOptions);
+
+        setNumericalFormFactorAmplitudeFunction(
+            "center",
+            [this](double qValue, const ParameterList& values) {
+                return numericalCenterAmplitude(qValue, values);
+            }
+        );
+        setNumericalFormFactorAmplitudeFunction(
+            "rim",
+            [this](double qValue, const ParameterList& values) {
+                return numericalRimAmplitude(qValue, values);
+            }
+        );
+        setNumericalPhaseFactorFunction(
+            "center",
+            "surface",
+            [this](double qValue, const ParameterList& values) {
+                return numericalCenterAmplitude(qValue, values);
+            }
+        );
+        setNumericalPhaseFactorFunction(
+            "rim",
+            "surface",
+            [this](double qValue, const ParameterList& values) {
+                return numericalRimAmplitude(qValue, values);
+            }
+        );
+    }
+
+private:
+    static double jinc(double value)
+    {
+        const double value2 = value * value;
+        if (value2 < 1e-8) {
+            return 1.0 - value2 / 8.0 + value2 * value2 / 192.0;
+        }
+        return 2.0 * gsl_sf_bessel_J1(value) / value;
+    }
+
+    double numericalCenterAmplitude(
+        double qValue,
+        const ParameterList& values)
+    {
+        const double radius = requirePositive(
+            numericParameter("R", values),
+            "R_" + getTag()
+        );
+        const double halfPi = std::acos(-1.0) / 2.0;
+        return integrateNumerically(
+            [qValue, radius](double theta) {
+                const double sinTheta = std::sin(theta);
+                return sinTheta * jinc(qValue * radius * sinTheta);
+            },
+            0.0,
+            halfPi
+        ).value;
+    }
+
+    double numericalRimAmplitude(
+        double qValue,
+        const ParameterList& values)
+    {
+        const double radius = requirePositive(
+            numericParameter("R", values),
+            "R_" + getTag()
+        );
+        const double halfPi = std::acos(-1.0) / 2.0;
+        return integrateNumerically(
+            [qValue, radius](double theta) {
+                const double sinTheta = std::sin(theta);
+                const double z = qValue * radius * sinTheta;
+                return sinTheta * gsl_sf_bessel_J0(z) * jinc(z);
+            },
+            0.0,
+            halfPi
+        ).value;
     }
 
 };

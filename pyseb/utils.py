@@ -109,3 +109,75 @@ def evaluate_expression(world, expression, parameters, q_values=None):
         return float(eval_fn(float(q_array)))
 
     return np.asarray(eval_fn(q_array), dtype=float)
+
+
+def _evaluate_q_input(q, scalar_evaluator, vector_evaluator):
+    """Evaluate scalar or array-like q while preserving the input shape."""
+    q_array = np.asarray(q, dtype=float)
+    if q_array.ndim == 0:
+        return float(scalar_evaluator(float(q_array)))
+
+    flat_q = q_array.reshape(-1).tolist()
+    values = np.asarray(vector_evaluator(flat_q), dtype=float)
+    return values.reshape(q_array.shape)
+
+
+def evaluate_form_factor(world, name, parameters, q, normalized=True):
+    """Evaluate a named subunit or structure form factor over q."""
+    if normalized:
+        scalar = lambda value: world.EvaluateFormFactor(
+            name, parameters, value
+        )
+        vector = lambda values: world.EvaluateFormFactor(
+            name, parameters, values
+        )
+    else:
+        scalar = lambda value: world.EvaluateFormFactorUnnormalized(
+            name, parameters, value
+        )
+        vector = lambda values: world.EvaluateFormFactorUnnormalized(
+            name, parameters, values
+        )
+    return _evaluate_q_input(q, scalar, vector)
+
+
+def evaluate_form_factor_amplitude(
+    world,
+    reference,
+    parameters,
+    q,
+    normalized=True,
+):
+    """Evaluate a form-factor amplitude over scalar or array-like q."""
+    if normalized:
+        scalar = lambda value: world.EvaluateFormFactorAmplitude(
+            reference, parameters, value
+        )
+        vector = lambda values: world.EvaluateFormFactorAmplitude(
+            reference, parameters, values
+        )
+    else:
+        scalar = lambda value: world.EvaluateFormFactorAmplitudeUnnormalized(
+            reference, parameters, value
+        )
+        vector = lambda values: world.EvaluateFormFactorAmplitudeUnnormalized(
+            reference, parameters, values
+        )
+    return _evaluate_q_input(q, scalar, vector)
+
+
+def evaluate_phase_factor(
+    world,
+    reference1,
+    reference2,
+    parameters,
+    q,
+):
+    """Evaluate a phase factor over scalar or array-like q."""
+    scalar = lambda value: world.EvaluatePhaseFactor(
+        reference1, reference2, parameters, value
+    )
+    vector = lambda values: world.EvaluatePhaseFactor(
+        reference1, reference2, parameters, values
+    )
+    return _evaluate_q_input(q, scalar, vector)

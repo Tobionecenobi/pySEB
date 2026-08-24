@@ -211,6 +211,7 @@ target_compile_definitions(sample_solid_sphere_test PRIVATE TESTING)
 target_compile_definitions(sample_solid_spherical_shell_test PRIVATE TESTING)
 target_compile_definitions(sample_thin_disk_test PRIVATE TESTING)
 target_compile_definitions(validation_test PRIVATE VALIDATION_DIR="${CMAKE_SOURCE_DIR}/../Examples/Validation/")
+target_compile_definitions(numerical_subunit_test PRIVATE VALIDATION_DIR="${CMAKE_SOURCE_DIR}/../Examples/Validation/")
 
 # Add tests
 add_test(

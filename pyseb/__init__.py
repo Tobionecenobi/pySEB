@@ -100,7 +100,12 @@ from .symbolic import (
     to_latex,
     to_python
 )
-from .utils import evaluate_expression
+from .utils import (
+    evaluate_expression,
+    evaluate_form_factor,
+    evaluate_form_factor_amplitude,
+    evaluate_phase_factor,
+)
 
 # Set SymPy as the default symbolic engine for Python
 set_factory(SymPyFactory())
@@ -160,5 +165,8 @@ __all__ = [
     'to_latex',
     'to_python',
     'to_sympy',
-    'evaluate_expression'
+    'evaluate_expression',
+    'evaluate_form_factor',
+    'evaluate_form_factor_amplitude',
+    'evaluate_phase_factor'
 ]

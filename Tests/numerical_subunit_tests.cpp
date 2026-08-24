@@ -1,5 +1,9 @@
 #include <cmath>
+#include <fstream>
+#include <functional>
+#include <limits>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -354,6 +358,40 @@ TEST(NumericalSubunitTest, DistributedReferenceCanDefineSelfPhaseFactor)
     unit.setSigmaMSDRef2Ref("surface", "surface", 0.0);
 
     EXPECT_NO_THROW(unit.ValidateNumerically());
+}
+
+TEST(NumericalSubunitTest, MissingAndInvalidCallbacksFailFast)
+{
+    NumericalSubunit missing(NormalizationMode::Normalized);
+    missing.setTotalBeta(1.0);
+    EXPECT_THROW(
+        missing.NumericFormFactorUnnormalized(0.1, ParameterList()),
+        SEBException
+    );
+
+    NumericalSubunit nonFinite(NormalizationMode::Normalized);
+    nonFinite.setTotalBeta(1.0);
+    nonFinite.setFormFactorFunction(
+        [](double, const ParameterList&) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+    );
+    EXPECT_THROW(
+        nonFinite.NumericFormFactorUnnormalized(0.1, ParameterList()),
+        SEBException
+    );
+
+    NumericalSubunit incorrectlyNormalized(NormalizationMode::Normalized);
+    incorrectlyNormalized.setTotalBeta(2.0);
+    incorrectlyNormalized.setFormFactorFunction(
+        [](double, const ParameterList&) { return 0.5; }
+    );
+    incorrectlyNormalized.setRadiusOfGyration2(1.0);
+    EXPECT_THROW(incorrectlyNormalized.ValidateNumerically(), SEBException);
+    EXPECT_THROW(
+        incorrectlyNormalized.ValidateNumerically(ParameterList(), 0.0),
+        SEBException
+    );
 }
 
 // Verify that a deterministic point cloud filling a solid spherical volume
@@ -1082,4 +1120,639 @@ TEST(NumericalWorldTest, MixedAnalyticAndNumericalStructureComposes)
         expected,
         1e-11
     );
+}
+
+#ifndef VALIDATION_DIR
+#define VALIDATION_DIR "Examples/Validation/"
+#endif
+
+namespace {
+
+void expectReferenceData(
+    const std::string& path,
+    const std::function<double(double)>& evaluate,
+    double tolerance,
+    std::size_t stride = 20)
+{
+    std::ifstream input(path);
+    ASSERT_TRUE(input.good()) << path;
+
+    double q = 0.0;
+    double expected = 0.0;
+    std::size_t index = 0;
+    std::size_t checked = 0;
+    while (input >> q >> expected) {
+        if (index % stride == 0) {
+            EXPECT_NEAR(evaluate(q), expected, tolerance)
+                << path << " at q=" << q;
+            ++checked;
+        }
+        ++index;
+    }
+    EXPECT_GT(checked, 0u) << path;
+}
+
+void validateCylinderDataset(
+    double radius,
+    double length,
+    const std::string& directory)
+{
+    World world;
+    world.Add(new SolidCylinder(), "c");
+    const ParameterList parameters{
+        {"beta_c", 1.0},
+        {"R_c", radius},
+        {"L_c", length}
+    };
+
+    expectReferenceData(
+        directory + "F.dat",
+        [&](double q) {
+            return world.EvaluateFormFactor("c", parameters, q);
+        },
+        2e-7
+    );
+
+    const std::vector<std::pair<refPoint, std::string>> amplitudes{
+        {"center", "FFA_center.dat"},
+        {"ends", "FFA_ends.dat"},
+        {"hull", "FFA_hull.dat"},
+        {"surface", "FFA_surface.dat"}
+    };
+    for (const auto& entry : amplitudes) {
+        expectReferenceData(
+            directory + entry.second,
+            [&](double q) {
+                return world.EvaluateFormFactorAmplitude(
+                    "c." + entry.first,
+                    parameters,
+                    q
+                );
+            },
+            2e-7
+        );
+    }
+
+    struct PhaseCase {
+        refPoint first;
+        refPoint second;
+        std::string file;
+    };
+    const std::vector<PhaseCase> phases{
+        {"center", "ends", "PF_center2ends.dat"},
+        {"center", "hull", "PF_center2hull.dat"},
+        {"center", "surface", "PF_center2surface.dat"},
+        {"ends", "ends", "PF_end2end.dat"},
+        {"ends", "hull", "PF_end2hull.dat"},
+        {"ends", "surface", "PF_end2surface.dat"},
+        {"hull", "hull", "PF_hull2hull.dat"},
+        {"hull", "surface", "PF_hull2surface.dat"},
+        {"surface", "surface", "PF_surface2surface.dat"}
+    };
+    for (const PhaseCase& entry : phases) {
+        expectReferenceData(
+            directory + entry.file,
+            [&](double q) {
+                return world.EvaluatePhaseFactor(
+                    "c." + entry.first,
+                    "c." + entry.second,
+                    parameters,
+                    q
+                );
+            },
+            2e-7
+        );
+    }
+}
+
+} // namespace
+
+TEST(NumericalIntegrationTest, QagAndCquadMatchKnownIntegrals)
+{
+    IntegrationOptions options;
+    options.method = IntegrationMethod::QAG;
+    NumericalIntegrator integrator(options);
+    const double pi = std::acos(-1.0);
+
+    EXPECT_NEAR(
+        integrator.integrate(
+            [](double value) { return std::sin(value); },
+            0.0,
+            pi
+        ).value,
+        2.0,
+        1e-11
+    );
+
+    options.method = IntegrationMethod::CQUAD;
+    integrator.setOptions(options);
+    EXPECT_NEAR(
+        integrator.integrate(
+            [](double value) { return value * value; },
+            -1.0,
+            2.0
+        ).value,
+        3.0,
+        1e-11
+    );
+}
+
+TEST(NumericalIntegrationTest, RejectsInvalidConfiguration)
+{
+    IntegrationOptions options;
+    options.absoluteTolerance = 0.0;
+    options.relativeTolerance = 0.0;
+    EXPECT_THROW(NumericalIntegrator integrator(options), SEBException);
+
+    options = IntegrationOptions();
+    options.absoluteTolerance = -1.0;
+    EXPECT_THROW(NumericalIntegrator integrator(options), SEBException);
+
+    options = IntegrationOptions();
+    options.relativeTolerance =
+        std::numeric_limits<double>::quiet_NaN();
+    EXPECT_THROW(NumericalIntegrator integrator(options), SEBException);
+
+    options = IntegrationOptions();
+    options.workspaceSize = 2;
+    EXPECT_THROW(NumericalIntegrator integrator(options), SEBException);
+
+    options = IntegrationOptions();
+    options.qagRule = 0;
+    EXPECT_THROW(NumericalIntegrator integrator(options), SEBException);
+}
+
+TEST(NumericalIntegrationTest, HandlesBoundsAndCallbackFailures)
+{
+    NumericalIntegrator integrator;
+    const double pi = std::acos(-1.0);
+
+    const IntegrationResult reversed = integrator.integrate(
+        [](double value) { return std::sin(value); },
+        pi,
+        0.0
+    );
+    EXPECT_NEAR(reversed.value, -2.0, 1e-11);
+
+    const IntegrationResult emptyInterval = integrator.integrate(
+        [](double value) { return value; },
+        1.0,
+        1.0
+    );
+    EXPECT_DOUBLE_EQ(emptyInterval.value, 0.0);
+    EXPECT_DOUBLE_EQ(emptyInterval.estimatedError, 0.0);
+    EXPECT_EQ(emptyInterval.evaluations, 0u);
+
+    EXPECT_THROW(
+        integrator.integrate(
+            NumericalIntegrator::Function(),
+            0.0,
+            1.0
+        ),
+        SEBException
+    );
+    EXPECT_THROW(
+        integrator.integrate(
+            [](double value) { return value; },
+            0.0,
+            std::numeric_limits<double>::infinity()
+        ),
+        SEBException
+    );
+    EXPECT_THROW(
+        integrator.integrate(
+            [](double) -> double {
+                throw std::runtime_error("callback failure");
+            },
+            0.0,
+            1.0
+        ),
+        SEBException
+    );
+    EXPECT_THROW(
+        integrator.integrate(
+            [](double) {
+                return std::numeric_limits<double>::quiet_NaN();
+            },
+            0.0,
+            1.0
+        ),
+        SEBException
+    );
+}
+
+TEST(NumericalIntegrationTest, MethodsHandleOscillatoryIntegrand)
+{
+    const double pi = std::acos(-1.0);
+    for (const IntegrationMethod method :
+         {IntegrationMethod::QAG, IntegrationMethod::CQUAD}) {
+        IntegrationOptions options;
+        options.method = method;
+        NumericalIntegrator integrator(options);
+        EXPECT_NEAR(
+            integrator.integrate(
+                [](double value) {
+                    const double sine = std::sin(80.0 * value);
+                    return sine * sine;
+                },
+                0.0,
+                pi
+            ).value,
+            pi / 2.0,
+            1e-9
+        );
+    }
+}
+
+TEST(IntegratedSubunitTest, RejectsInvalidInputsAndParameters)
+{
+    World world;
+    world.Add(new SolidCylinder(), "cylinder");
+    const ParameterList valid{
+        {"beta_cylinder", 2.0},
+        {"R_cylinder", 1.0},
+        {"L_cylinder", 1.5}
+    };
+
+    EXPECT_THROW(
+        world.EvaluateFormFactor(
+            "cylinder",
+            valid,
+            std::numeric_limits<double>::quiet_NaN()
+        ),
+        SEBException
+    );
+    DoubleVector nonFiniteQ{
+        0.1,
+        std::numeric_limits<double>::infinity()
+    };
+    EXPECT_THROW(
+        world.EvaluateFormFactor("cylinder", valid, nonFiniteQ),
+        SEBException
+    );
+
+    ParameterList missingRadius{
+        {"beta_cylinder", 2.0},
+        {"L_cylinder", 1.5}
+    };
+    EXPECT_THROW(
+        world.EvaluateFormFactor("cylinder", missingRadius, 0.1),
+        SEBException
+    );
+
+    ParameterList zeroRadius(valid);
+    zeroRadius["R_cylinder"] = 0.0;
+    EXPECT_THROW(
+        world.EvaluateFormFactor("cylinder", zeroRadius, 0.1),
+        SEBException
+    );
+
+    ParameterList negativeLength(valid);
+    negativeLength["L_cylinder"] = -1.0;
+    EXPECT_THROW(
+        world.EvaluateFormFactor("cylinder", negativeLength, 0.1),
+        SEBException
+    );
+
+    ParameterList nonFiniteBeta(valid);
+    nonFiniteBeta["beta_cylinder"] =
+        std::numeric_limits<double>::infinity();
+    EXPECT_THROW(
+        world.EvaluateFormFactor("cylinder", nonFiniteBeta, 0.1),
+        SEBException
+    );
+
+    EXPECT_THROW(
+        world.EvaluateFormFactor("unknown", valid, 0.1),
+        SEBException
+    );
+    EXPECT_THROW(
+        world.EvaluateFormFactorAmplitude(
+            "cylinder.unknown",
+            valid,
+            0.1
+        ),
+        SEBException
+    );
+}
+
+TEST(IntegratedSubunitTest, SolidCylinderMatchesValidationData)
+{
+    validateCylinderDataset(
+        1.0,
+        1.5,
+        std::string(VALIDATION_DIR) + "SolidCylinder_R1_L1.5/"
+    );
+    validateCylinderDataset(
+        2.0,
+        0.5,
+        std::string(VALIDATION_DIR) + "SolidCylinder_R2_L0.5/"
+    );
+}
+
+TEST(IntegratedSubunitTest, ThinDiskMatchesValidationData)
+{
+    World world;
+    world.Add(new ThinDisk(), "disk");
+    const ParameterList parameters{
+        {"beta_disk", 1.0},
+        {"R_disk", 1.0}
+    };
+    const std::string directory =
+        std::string(VALIDATION_DIR) + "ThinDisk_R1/";
+
+    expectReferenceData(
+        directory + "FF.dat",
+        [&](double q) {
+            return world.EvaluateFormFactor("disk", parameters, q);
+        },
+        2e-7
+    );
+    expectReferenceData(
+        directory + "FFA_center.dat",
+        [&](double q) {
+            return world.EvaluateFormFactorAmplitude(
+                "disk.center",
+                parameters,
+                q
+            );
+        },
+        2e-7
+    );
+    expectReferenceData(
+        directory + "FFA_rim.dat",
+        [&](double q) {
+            return world.EvaluateFormFactorAmplitude(
+                "disk.rim",
+                parameters,
+                q
+            );
+        },
+        2e-7
+    );
+    expectReferenceData(
+        directory + "FFA_center.dat",
+        [&](double q) {
+            return world.EvaluatePhaseFactor(
+                "disk.center",
+                "disk.surface",
+                parameters,
+                q
+            );
+        },
+        2e-7
+    );
+    expectReferenceData(
+        directory + "FFA_rim.dat",
+        [&](double q) {
+            return world.EvaluatePhaseFactor(
+                "disk.rim",
+                "disk.surface",
+                parameters,
+                q
+            );
+        },
+        2e-7
+    );
+
+    EXPECT_DOUBLE_EQ(
+        world.EvaluateFormFactor("disk", parameters, 0.0),
+        1.0
+    );
+    EXPECT_DOUBLE_EQ(
+        world.EvaluateFormFactorAmplitude(
+            "disk.center",
+            parameters,
+            0.0
+        ),
+        1.0
+    );
+    EXPECT_DOUBLE_EQ(
+        world.EvaluatePhaseFactor(
+            "disk.rim",
+            "disk.surface",
+            parameters,
+            0.0
+        ),
+        1.0
+    );
+    EXPECT_DOUBLE_EQ(
+        world.EvaluateRadiusOfGyration2("disk", parameters),
+        0.5
+    );
+}
+
+TEST(IntegratedSubunitTest, MixedCloudCylinderAndSphereCompose)
+{
+    DebyeSphereCloud* cloud = new DebyeSphereCloud({
+        SphereScatterer(0.0, 0.0, 0.0, 0.0, 1.0),
+        SphereScatterer(1.0, 0.0, 0.0, 0.0, 1.0)
+    });
+    cloud->addReferencePoint("join", 0.0, 0.0, 0.0);
+
+    World world;
+    const GraphID graph = world.Add(cloud, "cloud");
+    world.Link(
+        new SolidCylinder(),
+        "cylinder.center",
+        "cloud.join"
+    );
+    world.Link(
+        new SolidSphere(),
+        "sphere.center",
+        "cylinder.center"
+    );
+    world.Add(graph, "mixed");
+
+    const ParameterList parameters{
+        {"beta_cylinder", 3.0},
+        {"R_cylinder", 1.0},
+        {"L_cylinder", 2.0},
+        {"beta_sphere", 4.0},
+        {"R_sphere", 1.5}
+    };
+    const double q = 0.3;
+
+    const double cloudI =
+        world.EvaluateFormFactorUnnormalized("cloud", parameters, q);
+    const double cylinderI =
+        world.EvaluateFormFactorUnnormalized("cylinder", parameters, q);
+    const double sphereI =
+        world.EvaluateFormFactorUnnormalized("sphere", parameters, q);
+    const double cloudA =
+        world.EvaluateFormFactorAmplitudeUnnormalized(
+            "cloud.join",
+            parameters,
+            q
+        );
+    const double cylinderA =
+        world.EvaluateFormFactorAmplitudeUnnormalized(
+            "cylinder.center",
+            parameters,
+            q
+        );
+    const double sphereA =
+        world.EvaluateFormFactorAmplitudeUnnormalized(
+            "sphere.center",
+            parameters,
+            q
+        );
+    const double expected =
+        (cloudI + cylinderI + sphereI +
+         2.0 * cloudA * cylinderA +
+         2.0 * cloudA * sphereA +
+         2.0 * cylinderA * sphereA) /
+        (9.0 * 9.0);
+
+    EXPECT_NEAR(
+        world.EvaluateFormFactor("mixed", parameters, q),
+        expected,
+        1e-10
+    );
+    EXPECT_DOUBLE_EQ(
+        world.EvaluateFormFactor("mixed", parameters, 0.0),
+        1.0
+    );
+    EXPECT_TRUE(std::isfinite(
+        world.EvaluateRadiusOfGyration2("mixed", parameters)
+    ));
+}
+
+TEST(IntegratedSubunitTest, MixedCrossChildReferencesComposeAndAreSymmetric)
+{
+    DebyeSphereCloud* cloud = new DebyeSphereCloud({
+        SphereScatterer(0.0, 0.0, 0.0, 0.0, 1.0),
+        SphereScatterer(2.0, 0.0, 0.0, 0.0, 1.0)
+    });
+    cloud->addReferencePoint("left", 0.0, 0.0, 0.0);
+    cloud->addReferencePoint("join", 2.0, 0.0, 0.0);
+
+    World world;
+    const GraphID graph = world.Add(cloud, "cloud");
+    world.Link(
+        new SolidCylinder(),
+        "cylinder.ends#attach",
+        "cloud.join"
+    );
+    world.Link(
+        new SolidSphere(),
+        "sphere.center",
+        "cylinder.hull#probe"
+    );
+    world.Add(graph, "mixed");
+
+    const ParameterList parameters{
+        {"beta_cylinder", 3.0},
+        {"R_cylinder", 1.0},
+        {"L_cylinder", 4.0},
+        {"beta_sphere", 4.0},
+        {"R_sphere", 1.5}
+    };
+    const double q = 0.2;
+
+    const double expectedPhase =
+        world.EvaluatePhaseFactor(
+            "cloud.left",
+            "cloud.join",
+            parameters,
+            q
+        ) *
+        world.EvaluatePhaseFactor(
+            "cylinder.ends#attach",
+            "cylinder.hull#probe",
+            parameters,
+            q
+        );
+    const double forwardPhase = world.EvaluatePhaseFactor(
+        "mixed:cloud.left",
+        "mixed:cylinder.hull#probe",
+        parameters,
+        q
+    );
+    const double reversePhase = world.EvaluatePhaseFactor(
+        "mixed:cylinder.hull#probe",
+        "mixed:cloud.left",
+        parameters,
+        q
+    );
+    EXPECT_NEAR(forwardPhase, expectedPhase, 1e-12);
+    EXPECT_NEAR(reversePhase, expectedPhase, 1e-12);
+
+    const double expectedDistance =
+        world.EvaluateSMSDRef2Ref(
+            "cloud.left",
+            "cloud.join",
+            parameters
+        ) +
+        world.EvaluateSMSDRef2Ref(
+            "cylinder.ends#attach",
+            "cylinder.hull#probe",
+            parameters
+        );
+    const double forwardDistance = world.EvaluateSMSDRef2Ref(
+        "mixed:cloud.left",
+        "mixed:cylinder.hull#probe",
+        parameters
+    );
+    const double reverseDistance = world.EvaluateSMSDRef2Ref(
+        "mixed:cylinder.hull#probe",
+        "mixed:cloud.left",
+        parameters
+    );
+    EXPECT_NEAR(forwardDistance, expectedDistance, 1e-12);
+    EXPECT_NEAR(reverseDistance, expectedDistance, 1e-12);
+}
+
+TEST(IntegratedSubunitTest, MixedNearZeroContrastOnlyAllowsRawScattering)
+{
+    for (const double residualBeta : {0.0, 5e-15, -5e-15}) {
+        DebyeSphereCloud* cloud = new DebyeSphereCloud({
+            SphereScatterer(0.0, 0.0, 0.0, 0.0, 1.0),
+            SphereScatterer(1.0, 0.0, 0.0, 0.0, 1.0)
+        });
+        cloud->addReferencePoint("left", 0.0, 0.0, 0.0);
+        cloud->addReferencePoint("join", 1.0, 0.0, 0.0);
+
+        World world;
+        const GraphID graph = world.Add(cloud, "cloud");
+        world.Link(new SolidSphere(), "sphere.center", "cloud.join");
+        world.Add(graph, "mixed");
+
+        const ParameterList parameters{
+            {"beta_sphere", -2.0 + residualBeta},
+            {"R_sphere", 1.0}
+        };
+        const double q = 0.2;
+
+        EXPECT_TRUE(std::isfinite(
+            world.EvaluateFormFactorUnnormalized(
+                "mixed",
+                parameters,
+                q
+            )
+        ));
+        EXPECT_TRUE(std::isfinite(
+            world.EvaluateFormFactorAmplitudeUnnormalized(
+                "mixed:cloud.left",
+                parameters,
+                q
+            )
+        ));
+        EXPECT_THROW(
+            world.EvaluateFormFactor("mixed", parameters, q),
+            SEBException
+        );
+        EXPECT_THROW(
+            world.EvaluateFormFactorAmplitude(
+                "mixed:cloud.left",
+                parameters,
+                q
+            ),
+            SEBException
+        );
+        EXPECT_THROW(
+            world.EvaluateRadiusOfGyration2("mixed", parameters),
+            SEBException
+        );
+    }
 }

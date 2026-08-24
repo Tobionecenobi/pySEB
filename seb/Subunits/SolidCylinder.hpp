@@ -3,7 +3,14 @@
 #ifndef INCLUDE_GUARD_SOLIDCYLINDER
 #define INCLUDE_GUARD_SOLIDCYLINDER
 
+#include <cmath>
+#include <functional>
+#include <vector>
+
+#include <gsl/gsl_sf_bessel.h>
+
 #include "ExpressionFunctions.hpp"
+#include "Integrated.hpp"
 
 
 /*===========================================================================
@@ -24,11 +31,11 @@
 
 // Use SMALL from ExpressionFunctions.hpp
 
-class SolidCylinder : public SubUnit {
+class SolidCylinder : public IntegratedSubunit {
     public:
     /*Constructor*/
     public:
-        SolidCylinder() : SubUnit(){
+        SolidCylinder() : IntegratedSubunit(){
             type = SUBUNITCHILD;
            stype = SOLIDCYLINDER;
         }
@@ -37,7 +44,7 @@ class SolidCylinder : public SubUnit {
     virtual void Init(string name, string tag, SymbolInterface *GEX)
     {
         // Initialize base class
-        SubUnit::Init(name, tag, GEX);
+        IntegratedSubunit::Init(name, tag, GEX);
         string n = getTag();                  // n could be name but will be overwritten by tag if defined.
 
         // ========================================================================================
@@ -147,6 +154,208 @@ class SolidCylinder : public SubUnit {
         sigmaMSDref2ref["hull"]["surface"]      = (L*L*L+2*L*L*R+12*L*R*R+9*R*R*R)/(6*(L+R));       // sigma=1
 
         sigmaMSDref2ref["surface"]["surface"]   = (L*L*L+3*L*L*R+12*L*R*R+6*R*R*R)/(6*(L+R));       // sigma=2
+
+        IntegrationOptions integrationOptions;
+        integrationOptions.method = IntegrationMethod::CQUAD;
+        integrationOptions.absoluteTolerance = 1e-12;
+        integrationOptions.relativeTolerance = 1e-8;
+        integrationOptions.workspaceSize = 1000;
+        setIntegrationOptions(integrationOptions);
+
+        setNumericalFormFactorFunction(
+            [this](double qValue, const ParameterList& values) {
+                return numericalFormFactor(qValue, values);
+            }
+        );
+
+        const std::vector<refPoint> numericalReferences{
+            "center", "ends", "hull", "surface"
+        };
+        for (const refPoint& reference : numericalReferences) {
+            setNumericalFormFactorAmplitudeFunction(
+                reference,
+                [this, reference](
+                    double qValue,
+                    const ParameterList& values)
+                {
+                    return numericalAmplitude(reference, qValue, values);
+                }
+            );
+        }
+
+        const std::vector<std::pair<refPoint, refPoint>> numericalPairs{
+            {"center", "ends"},
+            {"center", "hull"},
+            {"center", "surface"},
+            {"ends", "ends"},
+            {"ends", "hull"},
+            {"ends", "surface"},
+            {"hull", "hull"},
+            {"hull", "surface"},
+            {"surface", "surface"}
+        };
+        for (const auto& references : numericalPairs) {
+            setNumericalPhaseFactorFunction(
+                references.first,
+                references.second,
+                [this, references](
+                    double qValue,
+                    const ParameterList& values)
+                {
+                    return numericalPhase(
+                        references.first,
+                        references.second,
+                        qValue,
+                        values
+                    );
+                }
+            );
+        }
+    }
+
+private:
+    struct NumericComponents {
+        double sinTheta;
+        double amplitude;
+        double ends;
+        double hull;
+        double surface;
+    };
+
+    static double sinc(double value)
+    {
+        const double value2 = value * value;
+        if (value2 < 1e-8) {
+            return 1.0 - value2 / 6.0 + value2 * value2 / 120.0;
+        }
+        return std::sin(value) / value;
+    }
+
+    static double jinc(double value)
+    {
+        const double value2 = value * value;
+        if (value2 < 1e-8) {
+            return 1.0 - value2 / 8.0 + value2 * value2 / 192.0;
+        }
+        return 2.0 * gsl_sf_bessel_J1(value) / value;
+    }
+
+    static NumericComponents components(
+        double theta,
+        double qValue,
+        double radius,
+        double length)
+    {
+        const double sinTheta = std::sin(theta);
+        const double cosTheta = std::cos(theta);
+        const double radialArgument = qValue * radius * sinTheta;
+        const double axialHalfArgument =
+            0.5 * qValue * length * cosTheta;
+
+        NumericComponents result;
+        result.sinTheta = sinTheta;
+        result.amplitude =
+            jinc(radialArgument) * sinc(axialHalfArgument);
+        result.hull =
+            gsl_sf_bessel_J0(radialArgument) *
+            sinc(axialHalfArgument);
+        result.ends =
+            std::cos(axialHalfArgument) * jinc(radialArgument);
+        result.surface =
+            (length * result.hull + radius * result.ends) /
+            (length + radius);
+        return result;
+    }
+
+    static double referenceFactor(
+        const refPoint& reference,
+        const NumericComponents& values)
+    {
+        if (reference == "center") {
+            return 1.0;
+        }
+        if (reference == "ends") {
+            return values.ends;
+        }
+        if (reference == "hull") {
+            return values.hull;
+        }
+        if (reference == "surface") {
+            return values.surface;
+        }
+        throw SEBException(
+            "Unknown solid-cylinder reference point " + reference,
+            "SolidCylinder numerical evaluation"
+        );
+    }
+
+    double orientationAverage(
+        double qValue,
+        const ParameterList& values,
+        const std::function<double(const NumericComponents&)>& integrand)
+    {
+        const double radius = requirePositive(
+            numericParameter("R", values),
+            "R_" + getTag()
+        );
+        const double length = requirePositive(
+            numericParameter("L", values),
+            "L_" + getTag()
+        );
+        const double halfPi = std::acos(-1.0) / 2.0;
+        return integrateNumerically(
+            [qValue, radius, length, &integrand](double theta) {
+                const NumericComponents current =
+                    components(theta, qValue, radius, length);
+                return current.sinTheta * integrand(current);
+            },
+            0.0,
+            halfPi
+        ).value;
+    }
+
+    double numericalFormFactor(
+        double qValue,
+        const ParameterList& values)
+    {
+        return orientationAverage(
+            qValue,
+            values,
+            [](const NumericComponents& current) {
+                return current.amplitude * current.amplitude;
+            }
+        );
+    }
+
+    double numericalAmplitude(
+        const refPoint& reference,
+        double qValue,
+        const ParameterList& values)
+    {
+        return orientationAverage(
+            qValue,
+            values,
+            [&reference](const NumericComponents& current) {
+                return current.amplitude *
+                    referenceFactor(reference, current);
+            }
+        );
+    }
+
+    double numericalPhase(
+        const refPoint& reference1,
+        const refPoint& reference2,
+        double qValue,
+        const ParameterList& values)
+    {
+        return orientationAverage(
+            qValue,
+            values,
+            [&reference1, &reference2](const NumericComponents& current) {
+                return referenceFactor(reference1, current) *
+                    referenceFactor(reference2, current);
+            }
+        );
     }
 
 };
