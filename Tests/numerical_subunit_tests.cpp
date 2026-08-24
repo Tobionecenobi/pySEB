@@ -1,5 +1,8 @@
 #include <cmath>
+#include <fstream>
+#include <functional>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -1082,4 +1085,329 @@ TEST(NumericalWorldTest, MixedAnalyticAndNumericalStructureComposes)
         expected,
         1e-11
     );
+}
+
+#ifndef VALIDATION_DIR
+#define VALIDATION_DIR "Examples/Validation/"
+#endif
+
+namespace {
+
+void expectReferenceData(
+    const std::string& path,
+    const std::function<double(double)>& evaluate,
+    double tolerance,
+    std::size_t stride = 20)
+{
+    std::ifstream input(path);
+    ASSERT_TRUE(input.good()) << path;
+
+    double q = 0.0;
+    double expected = 0.0;
+    std::size_t index = 0;
+    std::size_t checked = 0;
+    while (input >> q >> expected) {
+        if (index % stride == 0) {
+            EXPECT_NEAR(evaluate(q), expected, tolerance)
+                << path << " at q=" << q;
+            ++checked;
+        }
+        ++index;
+    }
+    EXPECT_GT(checked, 0u) << path;
+}
+
+void validateCylinderDataset(
+    double radius,
+    double length,
+    const std::string& directory)
+{
+    World world;
+    world.Add(new SolidCylinder(), "c");
+    const ParameterList parameters{
+        {"beta_c", 1.0},
+        {"R_c", radius},
+        {"L_c", length}
+    };
+
+    expectReferenceData(
+        directory + "F.dat",
+        [&](double q) {
+            return world.EvaluateFormFactor("c", parameters, q);
+        },
+        2e-7
+    );
+
+    const std::vector<std::pair<refPoint, std::string>> amplitudes{
+        {"center", "FFA_center.dat"},
+        {"ends", "FFA_ends.dat"},
+        {"hull", "FFA_hull.dat"},
+        {"surface", "FFA_surface.dat"}
+    };
+    for (const auto& entry : amplitudes) {
+        expectReferenceData(
+            directory + entry.second,
+            [&](double q) {
+                return world.EvaluateFormFactorAmplitude(
+                    "c." + entry.first,
+                    parameters,
+                    q
+                );
+            },
+            2e-7
+        );
+    }
+
+    struct PhaseCase {
+        refPoint first;
+        refPoint second;
+        std::string file;
+    };
+    const std::vector<PhaseCase> phases{
+        {"center", "ends", "PF_center2ends.dat"},
+        {"center", "hull", "PF_center2hull.dat"},
+        {"center", "surface", "PF_center2surface.dat"},
+        {"ends", "ends", "PF_end2end.dat"},
+        {"ends", "hull", "PF_end2hull.dat"},
+        {"ends", "surface", "PF_end2surface.dat"},
+        {"hull", "hull", "PF_hull2hull.dat"},
+        {"hull", "surface", "PF_hull2surface.dat"},
+        {"surface", "surface", "PF_surface2surface.dat"}
+    };
+    for (const PhaseCase& entry : phases) {
+        expectReferenceData(
+            directory + entry.file,
+            [&](double q) {
+                return world.EvaluatePhaseFactor(
+                    "c." + entry.first,
+                    "c." + entry.second,
+                    parameters,
+                    q
+                );
+            },
+            2e-7
+        );
+    }
+}
+
+} // namespace
+
+TEST(NumericalIntegrationTest, QagAndCquadMatchKnownIntegrals)
+{
+    IntegrationOptions options;
+    options.method = IntegrationMethod::QAG;
+    NumericalIntegrator integrator(options);
+    const double pi = std::acos(-1.0);
+
+    EXPECT_NEAR(
+        integrator.integrate(
+            [](double value) { return std::sin(value); },
+            0.0,
+            pi
+        ).value,
+        2.0,
+        1e-11
+    );
+
+    options.method = IntegrationMethod::CQUAD;
+    integrator.setOptions(options);
+    EXPECT_NEAR(
+        integrator.integrate(
+            [](double value) { return value * value; },
+            -1.0,
+            2.0
+        ).value,
+        3.0,
+        1e-11
+    );
+}
+
+TEST(NumericalIntegrationTest, RejectsInvalidConfiguration)
+{
+    IntegrationOptions options;
+    options.absoluteTolerance = 0.0;
+    options.relativeTolerance = 0.0;
+    EXPECT_THROW(NumericalIntegrator integrator(options), SEBException);
+}
+
+TEST(IntegratedSubunitTest, SolidCylinderMatchesValidationData)
+{
+    validateCylinderDataset(
+        1.0,
+        1.5,
+        std::string(VALIDATION_DIR) + "SolidCylinder_R1_L1.5/"
+    );
+    validateCylinderDataset(
+        2.0,
+        0.5,
+        std::string(VALIDATION_DIR) + "SolidCylinder_R2_L0.5/"
+    );
+}
+
+TEST(IntegratedSubunitTest, ThinDiskMatchesValidationData)
+{
+    World world;
+    world.Add(new ThinDisk(), "disk");
+    const ParameterList parameters{
+        {"beta_disk", 1.0},
+        {"R_disk", 1.0}
+    };
+    const std::string directory =
+        std::string(VALIDATION_DIR) + "ThinDisk_R1/";
+
+    expectReferenceData(
+        directory + "FF.dat",
+        [&](double q) {
+            return world.EvaluateFormFactor("disk", parameters, q);
+        },
+        2e-7
+    );
+    expectReferenceData(
+        directory + "FFA_center.dat",
+        [&](double q) {
+            return world.EvaluateFormFactorAmplitude(
+                "disk.center",
+                parameters,
+                q
+            );
+        },
+        2e-7
+    );
+    expectReferenceData(
+        directory + "FFA_rim.dat",
+        [&](double q) {
+            return world.EvaluateFormFactorAmplitude(
+                "disk.rim",
+                parameters,
+                q
+            );
+        },
+        2e-7
+    );
+    expectReferenceData(
+        directory + "FFA_center.dat",
+        [&](double q) {
+            return world.EvaluatePhaseFactor(
+                "disk.center",
+                "disk.surface",
+                parameters,
+                q
+            );
+        },
+        2e-7
+    );
+    expectReferenceData(
+        directory + "FFA_rim.dat",
+        [&](double q) {
+            return world.EvaluatePhaseFactor(
+                "disk.rim",
+                "disk.surface",
+                parameters,
+                q
+            );
+        },
+        2e-7
+    );
+
+    EXPECT_DOUBLE_EQ(
+        world.EvaluateFormFactor("disk", parameters, 0.0),
+        1.0
+    );
+    EXPECT_DOUBLE_EQ(
+        world.EvaluateFormFactorAmplitude(
+            "disk.center",
+            parameters,
+            0.0
+        ),
+        1.0
+    );
+    EXPECT_DOUBLE_EQ(
+        world.EvaluatePhaseFactor(
+            "disk.rim",
+            "disk.surface",
+            parameters,
+            0.0
+        ),
+        1.0
+    );
+    EXPECT_DOUBLE_EQ(
+        world.EvaluateRadiusOfGyration2("disk", parameters),
+        0.5
+    );
+}
+
+TEST(IntegratedSubunitTest, MixedCloudCylinderAndSphereCompose)
+{
+    DebyeSphereCloud* cloud = new DebyeSphereCloud({
+        SphereScatterer(0.0, 0.0, 0.0, 0.0, 1.0),
+        SphereScatterer(1.0, 0.0, 0.0, 0.0, 1.0)
+    });
+    cloud->addReferencePoint("join", 0.0, 0.0, 0.0);
+
+    World world;
+    const GraphID graph = world.Add(cloud, "cloud");
+    world.Link(
+        new SolidCylinder(),
+        "cylinder.center",
+        "cloud.join"
+    );
+    world.Link(
+        new SolidSphere(),
+        "sphere.center",
+        "cylinder.center"
+    );
+    world.Add(graph, "mixed");
+
+    const ParameterList parameters{
+        {"beta_cylinder", 3.0},
+        {"R_cylinder", 1.0},
+        {"L_cylinder", 2.0},
+        {"beta_sphere", 4.0},
+        {"R_sphere", 1.5}
+    };
+    const double q = 0.3;
+
+    const double cloudI =
+        world.EvaluateFormFactorUnnormalized("cloud", parameters, q);
+    const double cylinderI =
+        world.EvaluateFormFactorUnnormalized("cylinder", parameters, q);
+    const double sphereI =
+        world.EvaluateFormFactorUnnormalized("sphere", parameters, q);
+    const double cloudA =
+        world.EvaluateFormFactorAmplitudeUnnormalized(
+            "cloud.join",
+            parameters,
+            q
+        );
+    const double cylinderA =
+        world.EvaluateFormFactorAmplitudeUnnormalized(
+            "cylinder.center",
+            parameters,
+            q
+        );
+    const double sphereA =
+        world.EvaluateFormFactorAmplitudeUnnormalized(
+            "sphere.center",
+            parameters,
+            q
+        );
+    const double expected =
+        (cloudI + cylinderI + sphereI +
+         2.0 * cloudA * cylinderA +
+         2.0 * cloudA * sphereA +
+         2.0 * cylinderA * sphereA) /
+        (9.0 * 9.0);
+
+    EXPECT_NEAR(
+        world.EvaluateFormFactor("mixed", parameters, q),
+        expected,
+        1e-10
+    );
+    EXPECT_DOUBLE_EQ(
+        world.EvaluateFormFactor("mixed", parameters, 0.0),
+        1.0
+    );
+    EXPECT_TRUE(std::isfinite(
+        world.EvaluateRadiusOfGyration2("mixed", parameters)
+    ));
 }

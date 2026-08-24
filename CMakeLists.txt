@@ -71,6 +71,7 @@ add_library(SEB::symbolic ALIAS seb-symbolic)
 
 # Add the SEB library
 add_library(seb STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/NumericalIntegration.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SpecialFunctions.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SpecialFunctionsWrapper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/Subunit.cpp

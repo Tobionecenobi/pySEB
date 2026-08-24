@@ -8,6 +8,7 @@
 #include "Constants.hpp"
 #include "Symbolic.hpp"
 #include "Numerical.hpp"
+#include "Integrated.hpp"
 #include "DebyeSphereCloud.hpp"
 #include "Point.hpp"
 #include "GaussianPolymer.hpp"

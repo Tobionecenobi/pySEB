@@ -117,6 +117,46 @@ This supports geometries whose scattering functions require numerical
 integration while preserving the usual symbolic placeholders in symbolic
 expressions.
 
+`SolidCylinder` and the integral-backed terms of `ThinDisk` are evaluated
+through the same `World` API. Their symbolic equations still contain explicit
+integrals, while numerical evaluation uses the GSL method selected by each
+subunit. NumPy-friendly helpers accept scalar or array-like `q` values:
+
+~~~python
+import numpy as np
+import pyseb
+
+world = pyseb.World()
+world.Add("SolidCylinder", "cylinder")
+parameters = {
+    "beta_cylinder": 1.0,
+    "R_cylinder": 30.0,
+    "L_cylinder": 100.0,
+}
+q = np.logspace(-3, -1, 100)
+
+form_factor = pyseb.evaluate_form_factor(
+    world, "cylinder", parameters, q
+)
+amplitude = pyseb.evaluate_form_factor_amplitude(
+    world, "cylinder.center", parameters, q
+)
+phase = pyseb.evaluate_phase_factor(
+    world,
+    "cylinder.hull",
+    "cylinder.ends",
+    parameters,
+    q,
+)
+~~~
+
+C++ subunits that combine symbolic equations with numerical terms should
+derive from `IntegratedSubunit` and register normalized numerical callbacks
+for only the unresolved form factors, amplitudes, or phase factors. Missing
+callbacks automatically fall back to the analytical `SubUnit` implementation.
+`World` therefore requires no subunit-type checks when new integrated
+subunits are added.
+
 ## PDB Atom Clouds
 
 The built-in PDB pipeline is separated into parser, parameter profile, and

@@ -538,5 +538,118 @@ class TestPySEBSmoke(unittest.TestCase):
         self.assertEqual(sympy.simplify(from_method - from_string), 0)
 
 
+    def test_numpy_helpers_evaluate_integrated_subunits(self):
+        world = pyseb.World()
+        world.Add("SolidCylinder", "cylinder")
+        params = {
+            "beta_cylinder": 2.0,
+            "R_cylinder": 1.0,
+            "L_cylinder": 1.5,
+        }
+        q_values = np.array([[0.0, 0.1], [0.3, 0.8]])
+
+        form_factor = pyseb.evaluate_form_factor(
+            world, "cylinder", params, q_values
+        )
+        amplitude = pyseb.evaluate_form_factor_amplitude(
+            world, "cylinder.center", params, q_values
+        )
+        phase = pyseb.evaluate_phase_factor(
+            world,
+            "cylinder.hull",
+            "cylinder.ends",
+            params,
+            q_values,
+        )
+
+        self.assertIsInstance(form_factor, np.ndarray)
+        self.assertEqual(form_factor.shape, q_values.shape)
+        self.assertEqual(amplitude.shape, q_values.shape)
+        self.assertEqual(phase.shape, q_values.shape)
+
+        expected = np.array(
+            world.EvaluateFormFactor(
+                "cylinder", params, q_values.reshape(-1).tolist()
+            )
+        ).reshape(q_values.shape)
+        np.testing.assert_allclose(form_factor, expected, rtol=1e-12, atol=1e-12)
+        self.assertEqual(
+            pyseb.evaluate_form_factor(world, "cylinder", params, 0.0),
+            1.0,
+        )
+
+        unnormalized = pyseb.evaluate_form_factor(
+            world,
+            "cylinder",
+            params,
+            q_values,
+            normalized=False,
+        )
+        np.testing.assert_allclose(
+            unnormalized,
+            4.0 * form_factor,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+
+    def test_numpy_helpers_preserve_empty_shape(self):
+        world = pyseb.World()
+        world.Add("ThinDisk", "disk")
+        params = {"beta_disk": 1.0, "R_disk": 1.0}
+        q_values = np.empty((2, 0, 3))
+
+        result = pyseb.evaluate_form_factor(
+            world, "disk", params, q_values
+        )
+        self.assertIsInstance(result, np.ndarray)
+        self.assertEqual(result.shape, q_values.shape)
+
+    def test_python_mixed_cloud_integrated_and_analytic_structure(self):
+        cloud = pyseb.DebyeSphereCloud(
+            [
+                pyseb.SphereScatterer(0.0, 0.0, 0.0, 0.0, 1.0),
+                pyseb.SphereScatterer(1.0, 0.0, 0.0, 0.0, 1.0),
+            ]
+        )
+        cloud.addReferencePoint("join", 0.0, 0.0, 0.0)
+
+        world = pyseb.World()
+        graph = world.Add(cloud, "cloud")
+        world.Link(
+            "SolidCylinder",
+            "cylinder.center",
+            "cloud.join",
+        )
+        world.Link(
+            "SolidSphere",
+            "sphere.center",
+            "cylinder.center",
+        )
+        world.Add(graph, "mixed")
+
+        params = {
+            "beta_cylinder": 3.0,
+            "R_cylinder": 1.0,
+            "L_cylinder": 2.0,
+            "beta_sphere": 4.0,
+            "R_sphere": 1.5,
+        }
+        values = pyseb.evaluate_form_factor(
+            world,
+            "mixed",
+            params,
+            np.array([0.0, 0.1, 0.3]),
+        )
+
+        self.assertEqual(values[0], 1.0)
+        self.assertTrue(np.all(np.isfinite(values)))
+        self.assertTrue(
+            math.isfinite(
+                world.EvaluateRadiusOfGyration2("mixed", params)
+            )
+        )
+
+
+
 if __name__ == "__main__":
     unittest.main()
