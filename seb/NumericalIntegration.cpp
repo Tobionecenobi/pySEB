@@ -60,7 +60,7 @@ NumericalIntegrator::NumericalIntegrator(const IntegrationOptions& options)
 {
     disableGslAbortHandler();
     validateOptions(options_);
-    allocateWorkspaces();
+    allocateWorkspace();
 }
 
 NumericalIntegrator::~NumericalIntegrator()
@@ -106,16 +106,20 @@ void NumericalIntegrator::validateOptions(const IntegrationOptions& options)
     }
 }
 
-void NumericalIntegrator::allocateWorkspaces()
+void NumericalIntegrator::allocateWorkspace()
 {
-    qagWorkspace_ = gsl_integration_workspace_alloc(options_.workspaceSize);
-    cquadWorkspace_ =
-        gsl_integration_cquad_workspace_alloc(options_.workspaceSize);
-    if (!qagWorkspace_ || !cquadWorkspace_) {
-        freeWorkspaces();
+    if (options_.method == IntegrationMethod::QAG) {
+        qagWorkspace_ =
+            gsl_integration_workspace_alloc(options_.workspaceSize);
+    } else {
+        cquadWorkspace_ =
+            gsl_integration_cquad_workspace_alloc(options_.workspaceSize);
+    }
+
+    if (!qagWorkspace_ && !cquadWorkspace_) {
         throw SEBException(
             "Unable to allocate GSL integration workspace",
-            "NumericalIntegrator::allocateWorkspaces()"
+            "NumericalIntegrator::allocateWorkspace()"
         );
     }
 }
@@ -135,11 +139,15 @@ void NumericalIntegrator::freeWorkspaces()
 void NumericalIntegrator::setOptions(const IntegrationOptions& options)
 {
     validateOptions(options);
-    const bool resize = options.workspaceSize != options_.workspaceSize;
-    options_ = options;
-    if (resize) {
+    const bool reallocate =
+        options.method != options_.method ||
+        options.workspaceSize != options_.workspaceSize;
+    if (reallocate) {
         freeWorkspaces();
-        allocateWorkspaces();
+    }
+    options_ = options;
+    if (reallocate) {
+        allocateWorkspace();
     }
 }
 

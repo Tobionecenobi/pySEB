@@ -47,7 +47,7 @@ private:
     gsl_integration_workspace* qagWorkspace_ = nullptr;
     gsl_integration_cquad_workspace* cquadWorkspace_ = nullptr;
 
-    void allocateWorkspaces();
+    void allocateWorkspace();
     void freeWorkspaces();
     static void validateOptions(const IntegrationOptions& options);
 };
