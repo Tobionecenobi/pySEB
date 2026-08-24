@@ -1,0 +1,329 @@
+---
+title: "Evaluate Mixed Models"
+subtitle: "Use one numerical API for analytic, integrated, and numerical subunits"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+pySEB can evaluate a structure even when its children calculate scattering in
+different ways. This tutorial builds one model from:
+
+- a coordinate-based `DebyeSphereCloud`, evaluated numerically;
+- a `SolidCylinder`, whose orientational averages use numerical integration;
+- a `SolidSphere`, evaluated from analytic equations.
+
+The `World.Evaluate*` methods traverse the graph and ask each child for the
+quantity it provides. You do not have to split the model into numerical and
+analytic parts.
+
+This tutorial assumes the Python environment from the
+[diblock tutorial](diblock-copolymer.qmd).
+
+## The evaluation API
+
+| Quantity | Normalized | Unnormalized |
+| --- | --- | --- |
+| Whole-model form factor | `EvaluateFormFactor` | `EvaluateFormFactorUnnormalized` |
+| Amplitude from a reference | `EvaluateFormFactorAmplitude` | `EvaluateFormFactorAmplitudeUnnormalized` |
+| Phase factor between references | `EvaluatePhaseFactor` | — |
+| Squared radius of gyration | `EvaluateRadiusOfGyration2` | — |
+| Reference-to-scatterer mean-square distance | `EvaluateSMSDRef2Scat` | — |
+| Reference-to-reference mean-square distance | `EvaluateSMSDRef2Ref` | — |
+
+The q-dependent methods accept either one q value or a one-dimensional Python
+sequence. The NumPy-friendly helpers used below additionally preserve the
+shape of an array.
+
+::: {.callout-important}
+The parameter dictionary still contains numerical values. "Mixed" describes
+how the subunits calculate their scattering, not a mixture of numbers and
+symbolic expressions in the dictionary.
+:::
+
+## 1. Create a numerical coordinate cloud
+
+Start with two point scatterers separated by two length units. The cloud owns
+their coordinates and excess scattering lengths, so it will not need entries
+in the later parameter dictionary. The named `join` point gives the graph a
+place to attach another subunit.
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+cloud = pyseb.DebyeSphereCloud([
+    pyseb.SphereScatterer(0.0, 0.0, 0.0, 0.0, 1.0),
+    pyseb.SphereScatterer(2.0, 0.0, 0.0, 0.0, 1.0),
+])
+cloud.addReferencePoint("join", 0.0, 0.0, 0.0)
+
+print("cloud scatterers:", cloud.scattererCount())
+```
+
+Zero radius makes each sphere a point scatterer. Finite radii can be used when
+the individual sphere form factors should also contribute.
+
+## 2. Build a mixed structure
+
+Add the cloud, link an integrated cylinder to it, and attach an analytic
+sphere at the same junction. Finally, name the complete graph `mixed`.
+
+```text
+numerical cloud ---- integrated cylinder
+         |
+         +----------- analytic sphere
+```
+
+```{python}
+world = pyseb.World("MixedEvaluationTutorial")
+graph = world.Add(cloud, "cloud")
+
+world.Link(
+    "SolidCylinder",
+    "cylinder.center",
+    "cloud.join",
+)
+world.Link(
+    "SolidSphere",
+    "sphere.center",
+    "cylinder.center",
+)
+world.Add(graph, "mixed")
+```
+
+The cloud already stores its two beta values. The cylinder and sphere are
+parameterized analytic/integrated subunits, so their tagged parameter names
+must be supplied at evaluation time.
+
+```{python}
+parameters = {
+    "beta_cylinder": 3.0,
+    "R_cylinder": 1.0,
+    "L_cylinder": 4.0,
+    "beta_sphere": 4.0,
+    "R_sphere": 1.5,
+}
+```
+
+The total excess scattering length is
+
+\[
+\beta_{\mathrm{total}}=1+1+3+4=9.
+\]
+
+## 3. Evaluate a scalar or a q grid
+
+For one q value, call the method on `World` directly:
+
+```{python}
+at_q = world.EvaluateFormFactor(
+    "mixed",
+    parameters,
+    0.1,
+)
+print(f"F(0.1) = {at_q:.8f}")
+```
+
+For NumPy input, `evaluate_form_factor` accepts an array of any shape and
+returns an array with that shape. Internally it uses the same `World`
+evaluator.
+
+```{python}
+q = np.linspace(0.0, 1.2, 200)
+form_factor = pyseb.evaluate_form_factor(
+    world,
+    "mixed",
+    parameters,
+    q,
+)
+
+print("input shape:", q.shape)
+print("output shape:", form_factor.shape)
+print(f"F(0) = {form_factor[0]:.1f}")
+```
+
+Every normalized form factor is one at q = 0. This is a useful first check for
+a newly assembled model.
+
+## 4. Compare normalized and unnormalized results
+
+Normalized quantities remove powers of the total beta. Unnormalized results
+retain the absolute scattering scale.
+
+```{python}
+intensity = pyseb.evaluate_form_factor(
+    world,
+    "mixed",
+    parameters,
+    q,
+    normalized=False,
+)
+
+print(f"F(0) = {form_factor[0]:.1f}")
+print(f"I(0) = {intensity[0]:.1f}")
+
+assert np.isclose(form_factor[0], 1.0)
+assert np.isclose(intensity[0], 9.0**2)
+```
+
+At q = 0, the unnormalized form factor is
+\(\beta_{\mathrm{total}}^2=81\).
+
+## 5. Evaluate an amplitude and a phase factor
+
+An amplitude starts at one named reference and sums scattering over the model.
+Because `join` belongs to a child inside `mixed`, its full path is
+`mixed:cloud.join`.
+
+```{python}
+amplitude = pyseb.evaluate_form_factor_amplitude(
+    world,
+    "mixed:cloud.join",
+    parameters,
+    q,
+)
+
+unnormalized_amplitude = pyseb.evaluate_form_factor_amplitude(
+    world,
+    "mixed:cloud.join",
+    parameters,
+    q,
+    normalized=False,
+)
+
+print(f"A_join(0) = {amplitude[0]:.1f}")
+print(f"B_join(0) = {unnormalized_amplitude[0]:.1f}")
+
+assert np.isclose(amplitude[0], 1.0)
+assert np.isclose(unnormalized_amplitude[0], 9.0)
+```
+
+A phase factor relates two references. `ends` and `hull` are distributed
+cylinder reference types; the `#one` and `#two` suffixes identify particular
+instances for this calculation.
+
+```{python}
+phase = pyseb.evaluate_phase_factor(
+    world,
+    "mixed:cylinder.hull#one",
+    "mixed:cylinder.ends#two",
+    parameters,
+    q,
+)
+
+print(f"Psi_hull,ends(0) = {phase[0]:.1f}")
+assert np.isclose(phase[0], 1.0)
+```
+
+All three calculations crossed the same public API even though their terms
+come from coordinate sums, numerical integration, and analytic equations.
+
+## 6. Plot the q-dependent quantities
+
+```{python}
+#| label: fig-mixed-evaluation
+#| fig-cap: "Quantities evaluated from a model containing numerical, integrated, and analytic subunits."
+
+plt.plot(q, form_factor, label=r"$F_{mixed}(q)$")
+plt.plot(q, amplitude, "--", label=r"$A_{join}(q)$")
+plt.plot(q, phase, label=r"$\Psi_{hull,ends}(q)$")
+plt.xlabel(r"$q$")
+plt.ylabel("normalized value")
+plt.legend()
+plt.show()
+```
+
+## 7. Evaluate size measures
+
+Size measures do not take q. They use the same mixed traversal in the Guinier
+limit.
+
+```{python}
+rg2 = world.EvaluateRadiusOfGyration2(
+    "mixed",
+    parameters,
+)
+join_to_scatterers = world.EvaluateSMSDRef2Scat(
+    "mixed:cloud.join",
+    parameters,
+)
+cylinder_ref_distance = world.EvaluateSMSDRef2Ref(
+    "mixed:cylinder.hull",
+    "mixed:cylinder.ends",
+    parameters,
+)
+
+print(f"Rg^2(mixed) = {rg2:.6f}")
+print(f"<r_join,scatterers^2> = {join_to_scatterers:.6f}")
+print(f"<r_hull,ends^2> = {cylinder_ref_distance:.6f}")
+```
+
+## Direct methods or NumPy helpers?
+
+Use the direct `World` methods when q is a scalar or an ordinary Python list:
+
+```{python}
+q_list = [0.0, 0.1, 0.2]
+direct = world.EvaluateFormFactor(
+    "mixed",
+    parameters,
+    q_list,
+)
+print(direct)
+```
+
+Use the lowercase helpers for NumPy workflows. They flatten the input for the
+C++ vector evaluator and restore its original shape:
+
+```{python}
+q_grid = np.array([
+    [0.0, 0.1, 0.2],
+    [0.3, 0.4, 0.5],
+])
+grid_values = pyseb.evaluate_form_factor(
+    world,
+    "mixed",
+    parameters,
+    q_grid,
+)
+
+print(grid_values.shape)
+```
+
+## Why not evaluate a symbolic expression?
+
+`world.FormFactor("mixed")` constructs a symbolic representation. A numerical
+subunit may appear there as a placeholder, while an integrated subunit may
+contain an unevaluated integral. `evaluate_expression` only substitutes values
+into that expression; it does not call the numerical subunit callbacks.
+
+For a mixed model, use `World.Evaluate*` or the lowercase helpers. Use
+`FormFactor`, `to_sympy`, and `evaluate_expression` when the complete model is
+symbolically evaluable and you specifically need its expression.
+
+## Common mistakes
+
+- Parameter keys include the subunit tag: use `R_cylinder`, not just `R`.
+- Nested references include their structure path, such as
+  `mixed:cloud.join`.
+- Normalized form factors and amplitudes require a nonzero total beta. Use the
+  unnormalized method for a contrast-matched model whose total beta is zero.
+- q and all parameter values must be finite numerical values.
+- Include q = 0 during development; the expected normalization catches many
+  parameter and callback errors immediately.
+
+## Next steps
+
+- [Scattering quantities](scattering-quantities.qmd)
+- [PDB cloud with an attached polymer](pdb-polymer.qmd)
+- [Numerical subunits reference](https://github.com/Tobionecenobi/pySEB/wiki/Numerical-Subunits)
+- [Symbolic expressions and export](symbolic-expressions.qmd)

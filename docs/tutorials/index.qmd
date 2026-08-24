@@ -20,6 +20,7 @@ output produced by pySEB during the documentation build.
 
 | Tutorial | What you will learn |
 | --- | --- |
+| [Evaluate mixed models](mixed-model-evaluation.qmd) | Evaluate structures containing numerical, integrated, and analytic subunits with one API |
 | [Symbolic expressions and export](symbolic-expressions.qmd) | Select a backend, inspect expressions, convert to SymPy, and export Python, LaTeX, and C forms |
 | [Scattering quantities](scattering-quantities.qmd) | Compare normalized and unnormalized form factors, amplitudes, phase factors, and size measures |
 | [Figure 13 star chain](figure13-star-chain.qmd) | Construct and evaluate the published chain of five four-arm diblock stars |
