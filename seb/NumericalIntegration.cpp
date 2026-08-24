@@ -18,13 +18,18 @@ namespace {
 struct FunctionPayload {
     const NumericalIntegrator::Function* function;
     std::exception_ptr exception;
+    bool producedNonFiniteValue = false;
 };
 
 double gslFunctionAdapter(double x, void* rawPayload) noexcept
 {
     FunctionPayload* payload = static_cast<FunctionPayload*>(rawPayload);
     try {
-        return (*payload->function)(x);
+        const double value = (*payload->function)(x);
+        if (!std::isfinite(value)) {
+            payload->producedNonFiniteValue = true;
+        }
+        return value;
     } catch (...) {
         payload->exception = std::current_exception();
         return std::numeric_limits<double>::quiet_NaN();
@@ -165,7 +170,7 @@ IntegrationResult NumericalIntegrator::integrate(
         sign = -1.0;
     }
 
-    FunctionPayload payload{&function, nullptr};
+    FunctionPayload payload{&function, nullptr, false};
     gsl_function gslFunction;
     gslFunction.function = &gslFunctionAdapter;
     gslFunction.params = &payload;
@@ -215,6 +220,13 @@ IntegrationResult NumericalIntegrator::integrate(
                 "NumericalIntegrator::integrate()"
             );
         }
+    }
+
+    if (payload.producedNonFiniteValue) {
+        throw SEBException(
+            "Integration callback produced a non-finite value",
+            "NumericalIntegrator::integrate()"
+        );
     }
 
     result.value *= sign;

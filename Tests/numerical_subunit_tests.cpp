@@ -1,6 +1,7 @@
 #include <cmath>
 #include <fstream>
 #include <functional>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -357,6 +358,40 @@ TEST(NumericalSubunitTest, DistributedReferenceCanDefineSelfPhaseFactor)
     unit.setSigmaMSDRef2Ref("surface", "surface", 0.0);
 
     EXPECT_NO_THROW(unit.ValidateNumerically());
+}
+
+TEST(NumericalSubunitTest, MissingAndInvalidCallbacksFailFast)
+{
+    NumericalSubunit missing(NormalizationMode::Normalized);
+    missing.setTotalBeta(1.0);
+    EXPECT_THROW(
+        missing.NumericFormFactorUnnormalized(0.1, ParameterList()),
+        SEBException
+    );
+
+    NumericalSubunit nonFinite(NormalizationMode::Normalized);
+    nonFinite.setTotalBeta(1.0);
+    nonFinite.setFormFactorFunction(
+        [](double, const ParameterList&) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+    );
+    EXPECT_THROW(
+        nonFinite.NumericFormFactorUnnormalized(0.1, ParameterList()),
+        SEBException
+    );
+
+    NumericalSubunit incorrectlyNormalized(NormalizationMode::Normalized);
+    incorrectlyNormalized.setTotalBeta(2.0);
+    incorrectlyNormalized.setFormFactorFunction(
+        [](double, const ParameterList&) { return 0.5; }
+    );
+    incorrectlyNormalized.setRadiusOfGyration2(1.0);
+    EXPECT_THROW(incorrectlyNormalized.ValidateNumerically(), SEBException);
+    EXPECT_THROW(
+        incorrectlyNormalized.ValidateNumerically(ParameterList(), 0.0),
+        SEBException
+    );
 }
 
 // Verify that a deterministic point cloud filling a solid spherical volume
@@ -1228,6 +1263,177 @@ TEST(NumericalIntegrationTest, RejectsInvalidConfiguration)
     options.absoluteTolerance = 0.0;
     options.relativeTolerance = 0.0;
     EXPECT_THROW(NumericalIntegrator integrator(options), SEBException);
+
+    options = IntegrationOptions();
+    options.absoluteTolerance = -1.0;
+    EXPECT_THROW(NumericalIntegrator integrator(options), SEBException);
+
+    options = IntegrationOptions();
+    options.relativeTolerance =
+        std::numeric_limits<double>::quiet_NaN();
+    EXPECT_THROW(NumericalIntegrator integrator(options), SEBException);
+
+    options = IntegrationOptions();
+    options.workspaceSize = 2;
+    EXPECT_THROW(NumericalIntegrator integrator(options), SEBException);
+
+    options = IntegrationOptions();
+    options.qagRule = 0;
+    EXPECT_THROW(NumericalIntegrator integrator(options), SEBException);
+}
+
+TEST(NumericalIntegrationTest, HandlesBoundsAndCallbackFailures)
+{
+    NumericalIntegrator integrator;
+    const double pi = std::acos(-1.0);
+
+    const IntegrationResult reversed = integrator.integrate(
+        [](double value) { return std::sin(value); },
+        pi,
+        0.0
+    );
+    EXPECT_NEAR(reversed.value, -2.0, 1e-11);
+
+    const IntegrationResult emptyInterval = integrator.integrate(
+        [](double value) { return value; },
+        1.0,
+        1.0
+    );
+    EXPECT_DOUBLE_EQ(emptyInterval.value, 0.0);
+    EXPECT_DOUBLE_EQ(emptyInterval.estimatedError, 0.0);
+    EXPECT_EQ(emptyInterval.evaluations, 0u);
+
+    EXPECT_THROW(
+        integrator.integrate(
+            NumericalIntegrator::Function(),
+            0.0,
+            1.0
+        ),
+        SEBException
+    );
+    EXPECT_THROW(
+        integrator.integrate(
+            [](double value) { return value; },
+            0.0,
+            std::numeric_limits<double>::infinity()
+        ),
+        SEBException
+    );
+    EXPECT_THROW(
+        integrator.integrate(
+            [](double) -> double {
+                throw std::runtime_error("callback failure");
+            },
+            0.0,
+            1.0
+        ),
+        SEBException
+    );
+    EXPECT_THROW(
+        integrator.integrate(
+            [](double) {
+                return std::numeric_limits<double>::quiet_NaN();
+            },
+            0.0,
+            1.0
+        ),
+        SEBException
+    );
+}
+
+TEST(NumericalIntegrationTest, MethodsHandleOscillatoryIntegrand)
+{
+    const double pi = std::acos(-1.0);
+    for (const IntegrationMethod method :
+         {IntegrationMethod::QAG, IntegrationMethod::CQUAD}) {
+        IntegrationOptions options;
+        options.method = method;
+        NumericalIntegrator integrator(options);
+        EXPECT_NEAR(
+            integrator.integrate(
+                [](double value) {
+                    const double sine = std::sin(80.0 * value);
+                    return sine * sine;
+                },
+                0.0,
+                pi
+            ).value,
+            pi / 2.0,
+            1e-9
+        );
+    }
+}
+
+TEST(IntegratedSubunitTest, RejectsInvalidInputsAndParameters)
+{
+    World world;
+    world.Add(new SolidCylinder(), "cylinder");
+    const ParameterList valid{
+        {"beta_cylinder", 2.0},
+        {"R_cylinder", 1.0},
+        {"L_cylinder", 1.5}
+    };
+
+    EXPECT_THROW(
+        world.EvaluateFormFactor(
+            "cylinder",
+            valid,
+            std::numeric_limits<double>::quiet_NaN()
+        ),
+        SEBException
+    );
+    DoubleVector nonFiniteQ{
+        0.1,
+        std::numeric_limits<double>::infinity()
+    };
+    EXPECT_THROW(
+        world.EvaluateFormFactor("cylinder", valid, nonFiniteQ),
+        SEBException
+    );
+
+    ParameterList missingRadius{
+        {"beta_cylinder", 2.0},
+        {"L_cylinder", 1.5}
+    };
+    EXPECT_THROW(
+        world.EvaluateFormFactor("cylinder", missingRadius, 0.1),
+        SEBException
+    );
+
+    ParameterList zeroRadius(valid);
+    zeroRadius["R_cylinder"] = 0.0;
+    EXPECT_THROW(
+        world.EvaluateFormFactor("cylinder", zeroRadius, 0.1),
+        SEBException
+    );
+
+    ParameterList negativeLength(valid);
+    negativeLength["L_cylinder"] = -1.0;
+    EXPECT_THROW(
+        world.EvaluateFormFactor("cylinder", negativeLength, 0.1),
+        SEBException
+    );
+
+    ParameterList nonFiniteBeta(valid);
+    nonFiniteBeta["beta_cylinder"] =
+        std::numeric_limits<double>::infinity();
+    EXPECT_THROW(
+        world.EvaluateFormFactor("cylinder", nonFiniteBeta, 0.1),
+        SEBException
+    );
+
+    EXPECT_THROW(
+        world.EvaluateFormFactor("unknown", valid, 0.1),
+        SEBException
+    );
+    EXPECT_THROW(
+        world.EvaluateFormFactorAmplitude(
+            "cylinder.unknown",
+            valid,
+            0.1
+        ),
+        SEBException
+    );
 }
 
 TEST(IntegratedSubunitTest, SolidCylinderMatchesValidationData)
@@ -1410,4 +1616,143 @@ TEST(IntegratedSubunitTest, MixedCloudCylinderAndSphereCompose)
     EXPECT_TRUE(std::isfinite(
         world.EvaluateRadiusOfGyration2("mixed", parameters)
     ));
+}
+
+TEST(IntegratedSubunitTest, MixedCrossChildReferencesComposeAndAreSymmetric)
+{
+    DebyeSphereCloud* cloud = new DebyeSphereCloud({
+        SphereScatterer(0.0, 0.0, 0.0, 0.0, 1.0),
+        SphereScatterer(2.0, 0.0, 0.0, 0.0, 1.0)
+    });
+    cloud->addReferencePoint("left", 0.0, 0.0, 0.0);
+    cloud->addReferencePoint("join", 2.0, 0.0, 0.0);
+
+    World world;
+    const GraphID graph = world.Add(cloud, "cloud");
+    world.Link(
+        new SolidCylinder(),
+        "cylinder.ends#attach",
+        "cloud.join"
+    );
+    world.Link(
+        new SolidSphere(),
+        "sphere.center",
+        "cylinder.hull#probe"
+    );
+    world.Add(graph, "mixed");
+
+    const ParameterList parameters{
+        {"beta_cylinder", 3.0},
+        {"R_cylinder", 1.0},
+        {"L_cylinder", 4.0},
+        {"beta_sphere", 4.0},
+        {"R_sphere", 1.5}
+    };
+    const double q = 0.2;
+
+    const double expectedPhase =
+        world.EvaluatePhaseFactor(
+            "cloud.left",
+            "cloud.join",
+            parameters,
+            q
+        ) *
+        world.EvaluatePhaseFactor(
+            "cylinder.ends#attach",
+            "cylinder.hull#probe",
+            parameters,
+            q
+        );
+    const double forwardPhase = world.EvaluatePhaseFactor(
+        "mixed:cloud.left",
+        "mixed:cylinder.hull#probe",
+        parameters,
+        q
+    );
+    const double reversePhase = world.EvaluatePhaseFactor(
+        "mixed:cylinder.hull#probe",
+        "mixed:cloud.left",
+        parameters,
+        q
+    );
+    EXPECT_NEAR(forwardPhase, expectedPhase, 1e-12);
+    EXPECT_NEAR(reversePhase, expectedPhase, 1e-12);
+
+    const double expectedDistance =
+        world.EvaluateSMSDRef2Ref(
+            "cloud.left",
+            "cloud.join",
+            parameters
+        ) +
+        world.EvaluateSMSDRef2Ref(
+            "cylinder.ends#attach",
+            "cylinder.hull#probe",
+            parameters
+        );
+    const double forwardDistance = world.EvaluateSMSDRef2Ref(
+        "mixed:cloud.left",
+        "mixed:cylinder.hull#probe",
+        parameters
+    );
+    const double reverseDistance = world.EvaluateSMSDRef2Ref(
+        "mixed:cylinder.hull#probe",
+        "mixed:cloud.left",
+        parameters
+    );
+    EXPECT_NEAR(forwardDistance, expectedDistance, 1e-12);
+    EXPECT_NEAR(reverseDistance, expectedDistance, 1e-12);
+}
+
+TEST(IntegratedSubunitTest, MixedNearZeroContrastOnlyAllowsRawScattering)
+{
+    for (const double residualBeta : {0.0, 5e-15, -5e-15}) {
+        DebyeSphereCloud* cloud = new DebyeSphereCloud({
+            SphereScatterer(0.0, 0.0, 0.0, 0.0, 1.0),
+            SphereScatterer(1.0, 0.0, 0.0, 0.0, 1.0)
+        });
+        cloud->addReferencePoint("left", 0.0, 0.0, 0.0);
+        cloud->addReferencePoint("join", 1.0, 0.0, 0.0);
+
+        World world;
+        const GraphID graph = world.Add(cloud, "cloud");
+        world.Link(new SolidSphere(), "sphere.center", "cloud.join");
+        world.Add(graph, "mixed");
+
+        const ParameterList parameters{
+            {"beta_sphere", -2.0 + residualBeta},
+            {"R_sphere", 1.0}
+        };
+        const double q = 0.2;
+
+        EXPECT_TRUE(std::isfinite(
+            world.EvaluateFormFactorUnnormalized(
+                "mixed",
+                parameters,
+                q
+            )
+        ));
+        EXPECT_TRUE(std::isfinite(
+            world.EvaluateFormFactorAmplitudeUnnormalized(
+                "mixed:cloud.left",
+                parameters,
+                q
+            )
+        ));
+        EXPECT_THROW(
+            world.EvaluateFormFactor("mixed", parameters, q),
+            SEBException
+        );
+        EXPECT_THROW(
+            world.EvaluateFormFactorAmplitude(
+                "mixed:cloud.left",
+                parameters,
+                q
+            ),
+            SEBException
+        );
+        EXPECT_THROW(
+            world.EvaluateRadiusOfGyration2("mixed", parameters),
+            SEBException
+        );
+    }
 }
