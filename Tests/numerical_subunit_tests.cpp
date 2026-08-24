@@ -1255,6 +1255,19 @@ TEST(NumericalIntegrationTest, QagAndCquadMatchKnownIntegrals)
         3.0,
         1e-11
     );
+
+    options.method = IntegrationMethod::QAG;
+    options.workspaceSize = 64;
+    integrator.setOptions(options);
+    EXPECT_NEAR(
+        integrator.integrate(
+            [](double value) { return value; },
+            0.0,
+            1.0
+        ).value,
+        0.5,
+        1e-12
+    );
 }
 
 TEST(NumericalIntegrationTest, RejectsInvalidConfiguration)
