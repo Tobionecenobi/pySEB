@@ -32,29 +32,33 @@ world.AddFile("MyModel.pyseb.yaml", "particle");
 
 ## Register a model by ID
 
-Registration is local to a `World`. Directories are opt-in, non-recursive, and
-only immediate `*.pyseb.yaml` files are considered. The entire directory is
-validated before any model is registered.
+Registration is local to a `World`. Each model is registered under both its
+canonical `id` and its short `api_name`. Directories are opt-in, non-recursive,
+and only immediate `*.pyseb.yaml` files are considered. The entire directory
+is validated before any model is registered.
 
 ```python
 world = pyseb.World()
 world.register_subunit_directory("lab-models")
 world.Add("my-lab/BranchedPolymer", "polymer")
+world.Add("BranchedPolymer", "secondpolymer")
 
 for model in world.list_subunit_models():
-    print(model.id, model.model_version)
+    print(model.id, model.api_name, model.model_version)
 ```
 
-An ID can occur only once in a World. Built-in canonical IDs include
-`pyseb/Point` and `pyseb/GaussianPolymer`; the existing short names remain
-available.
+A canonical ID or API name can occur only once in a World. Neither may collide
+with a bundled YAML model, an executable built-in model, or another model in a
+pending directory registration. Built-in canonical IDs include `pyseb/Point`
+and `pyseb/GaussianPolymer`; their API names are `Point` and
+`GaussianPolymer`.
 
 ## Required schema
 
 Every file declares:
 
-- `format: pyseb-subunit`, `schema_version: 1`, a namespaced `id`, and a
-  non-empty `model_version`;
+- `format: pyseb-subunit`, `schema_version: 1`, a namespaced `id`, an
+  `api_name`, and a non-empty `model_version`;
 - structural `parameters` and optional dimensionless `variables`;
 - specific and distributed `references`;
 - one form factor and one amplitude per reference;
@@ -92,6 +96,33 @@ exp log pow sin sinh six sqrt tan tanh
 Names start with a letter and contain only letters and digits. Unknown names,
 cycles, wrong function arity, Python syntax, imports, integrals, and arbitrary
 function calls are rejected.
+
+`api_name` follows the same identifier rule. For example:
+
+```yaml
+id: my-lab/BranchedPolymer
+api_name: BranchedPolymer
+```
+
+## Contribute a bundled analytic model
+
+Add one validated `models/MyModel.pyseb.yaml` file. CMake discovers immediate
+`*.pyseb.yaml` files in sorted order and uses that same collection for the
+embedded C++ catalogue, Python package, and C++ data installation. No C++
+header, enum entry, factory branch, binding, manifest entry, or CMake filename
+list is needed.
+
+Bundled YAML models are constructed through the World registry:
+
+```python
+world.Add("MyModel", "particle")
+world.Add("my-lab/MyModel", "secondparticle")
+```
+
+The former direct `pyseb.Point()`, `pyseb.GaussianPolymer()`, `new Point()`,
+and `new GaussianPolymer()` constructors are intentionally unavailable. Use
+`World.Add()` or `World.Link()` instead. Executable, callback, integrated, and
+coordinate-cloud subunits retain their existing class APIs.
 
 `behavior.scattering: invisible` defines a connector such as Point. Its form
 factor and amplitudes must be literal zero expressions.
