@@ -82,6 +82,7 @@ add_executable(validation_test validation_tests.cpp)
 add_executable(seb_symbolic_test seb_symbolic_test.cpp)
 add_executable(numerical_subunit_test numerical_subunit_tests.cpp)
 add_executable(pdb_parser_test pdb_parser_tests.cpp)
+add_executable(file_defined_subunit_test file_defined_subunit_tests.cpp)
 
 # Add sample test executables
 add_executable(sample_solid_cylinder_test Sample_SolidCylinder_test.cpp)
@@ -154,6 +155,22 @@ target_link_libraries(pdb_parser_test PRIVATE
     GTest::Main
     ${GINAC_LIBRARIES}
     ${CLN_LIBRARIES}
+)
+
+target_link_libraries(file_defined_subunit_test PRIVATE
+    ${SEB_LIBRARY}
+    ${SEB_SYMBOLIC_LIBRARY}
+    GSL::gsl
+    GSL::gslcblas
+    GTest::GTest
+    GTest::Main
+    ${GINAC_LIBRARIES}
+    ${CLN_LIBRARIES}
+)
+
+target_compile_definitions(
+    file_defined_subunit_test
+    PRIVATE PYSEB_MODEL_DIR="${CMAKE_SOURCE_DIR}/../models"
 )
 
 target_compile_definitions(
@@ -244,6 +261,11 @@ add_test(
     COMMAND pdb_parser_test
 )
 
+add_test(
+    NAME FileDefinedSubunitTest
+    COMMAND file_defined_subunit_test
+)
+
 # Add sample tests
 add_test(
     NAME SampleSolidCylinderTest
@@ -272,6 +294,7 @@ set_tests_properties(ValidationTest PROPERTIES TIMEOUT 600)
 set_tests_properties(SebSymbolicTest PROPERTIES TIMEOUT 30)
 set_tests_properties(NumericalSubunitTest PROPERTIES TIMEOUT 30)
 set_tests_properties(PDBParserTest PROPERTIES TIMEOUT 30)
+set_tests_properties(FileDefinedSubunitTest PROPERTIES TIMEOUT 30)
 set_tests_properties(SampleSolidCylinderTest PROPERTIES TIMEOUT 90)
 set_tests_properties(SampleSolidSphereTest PROPERTIES TIMEOUT 30)
 set_tests_properties(SampleSolidSphericalShellTest PROPERTIES TIMEOUT 90)
