@@ -105,4 +105,4 @@ test, validation, release, and contribution procedures live in the wiki:
 
 Use the copyable BibTeX and DOI links in
 [Publications and Citation](https://github.com/Tobionecenobi/pySEB/wiki/Publications-and-Citation).
-pySEB is distributed under the [GPL-3.0 license](LICENSE).
+pySEB is distributed under the [BSD 3-Clause License](LICENSE).
