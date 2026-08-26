@@ -228,6 +228,8 @@ sebsym::Expression materialize(
             if (node->text == "bessel_j1") return BesselJ1(arg);
             if (node->text == "dawson") return DawsonF(arg);
             if (node->text == "six") return Six(arg);
+            if (node->text == "struve_h0") return StruveH0(arg);
+            if (node->text == "struve_h1") return StruveH1(arg);
             break;
         }
     }
@@ -256,7 +258,7 @@ bool IsSubunitExpressionFunction(const std::string& name) {
     static const std::set<std::string> functions = {
         "abs", "acos", "asin", "atan", "bessel_j0", "bessel_j1", "cos", "cosh",
         "dawson", "erf", "erfc", "exp", "log", "pow", "sin", "sinh", "six", "sqrt",
-        "tan", "tanh"
+        "struve_h0", "struve_h1", "tan", "tanh"
     };
     return functions.find(name) != functions.end();
 }

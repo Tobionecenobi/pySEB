@@ -90,7 +90,7 @@ Expressions accept decimal/scientific numbers, `q`, declared identifiers,
 
 ```text
 abs acos asin atan bessel_j0 bessel_j1 cos cosh dawson erf erfc
-exp log pow sin sinh six sqrt tan tanh
+exp log pow sin sinh six sqrt struve_h0 struve_h1 tan tanh
 ```
 
 Names start with a letter and contain only letters and digits. Unknown names,
