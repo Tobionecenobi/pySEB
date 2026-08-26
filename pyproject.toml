@@ -28,6 +28,9 @@ dependencies = [
     "sympy>=1.12",
 ]
 
+[project.scripts]
+pyseb-subunit = "pyseb.cli:subunit_main"
+
 [tool.scikit-build]
 cmake.version = ">=3.18"
 cmake.source-dir = "."

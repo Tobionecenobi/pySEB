@@ -55,6 +55,53 @@ PYBIND11_MODULE(_pyseb, m) {
         .value("Normalized", NormalizationMode::Normalized)
         .value("Unnormalized", NormalizationMode::Unnormalized);
 
+    py::class_<pyseb::ParameterDefinition>(m, "SubunitParameterDefinition")
+        .def_readonly("name", &pyseb::ParameterDefinition::name)
+        .def_readonly("unit", &pyseb::ParameterDefinition::unit)
+        .def_readonly("description", &pyseb::ParameterDefinition::description);
+
+    py::class_<pyseb::SubunitMetadata>(m, "SubunitMetadata")
+        .def_readonly("title", &pyseb::SubunitMetadata::title)
+        .def_readonly("description", &pyseb::SubunitMetadata::description)
+        .def_readonly("authors", &pyseb::SubunitMetadata::authors)
+        .def_readonly("citations", &pyseb::SubunitMetadata::citations)
+        .def_readonly("license", &pyseb::SubunitMetadata::license);
+
+    py::class_<pyseb::SubunitDefinition>(m, "SubunitDefinition")
+        .def_readonly("schema_version", &pyseb::SubunitDefinition::schemaVersion)
+        .def_readonly("id", &pyseb::SubunitDefinition::id)
+        .def_readonly("model_version", &pyseb::SubunitDefinition::modelVersion)
+        .def_readonly("source", &pyseb::SubunitDefinition::source)
+        .def_readonly("metadata", &pyseb::SubunitDefinition::metadata)
+        .def_readonly("invisible", &pyseb::SubunitDefinition::invisible)
+        .def_readonly("parameters", &pyseb::SubunitDefinition::parameters)
+        .def_readonly("specific_references", &pyseb::SubunitDefinition::specificReferences)
+        .def_readonly("distributed_references", &pyseb::SubunitDefinition::distributedReferences)
+        .def_property_readonly("validation_case_count", [](const pyseb::SubunitDefinition& definition) {
+            return definition.validationCases.size();
+        });
+
+    py::class_<pyseb::SubunitModelInfo>(m, "SubunitModelInfo")
+        .def_readonly("id", &pyseb::SubunitModelInfo::id)
+        .def_readonly("model_version", &pyseb::SubunitModelInfo::modelVersion)
+        .def_readonly("title", &pyseb::SubunitModelInfo::title)
+        .def_readonly("source", &pyseb::SubunitModelInfo::source)
+        .def_readonly("bundled", &pyseb::SubunitModelInfo::bundled);
+
+    py::class_<pyseb::SubunitValidationFailure>(m, "SubunitValidationFailure")
+        .def_readonly("case_name", &pyseb::SubunitValidationFailure::caseName)
+        .def_readonly("message", &pyseb::SubunitValidationFailure::message);
+
+    py::class_<pyseb::SubunitValidationReport>(m, "SubunitValidationReport")
+        .def_readonly("model_id", &pyseb::SubunitValidationReport::modelId)
+        .def_readonly("case_count", &pyseb::SubunitValidationReport::caseCount)
+        .def_readonly("failures", &pyseb::SubunitValidationReport::failures)
+        .def_readonly("warnings", &pyseb::SubunitValidationReport::warnings)
+        .def_property_readonly("ok", &pyseb::SubunitValidationReport::ok);
+
+    m.def("load_subunit_definition", &pyseb::LoadSubunitDefinitionFile, py::arg("path"));
+    m.def("validate_subunit_file", &pyseb::ValidateSubunitFile, py::arg("path"));
+
     py::class_<
         SymbolicSubunit,
         SubUnit,
@@ -63,6 +110,13 @@ PYBIND11_MODULE(_pyseb, m) {
         .def(py::init<>())
         .def("addReferencePoint", &SymbolicSubunit::setReferencePointName,
              py::arg("reference"));
+
+    py::class_<
+        FileDefinedSubunit,
+        SubUnit,
+        std::unique_ptr<FileDefinedSubunit, py::nodelete>
+    >(m, "FileDefinedSubunit")
+        .def(py::init<const pyseb::SubunitDefinition&>());
 
     py::class_<
         NumericalSubunit,
@@ -326,6 +380,17 @@ PYBIND11_MODULE(_pyseb, m) {
     // Expose World class - basic structure only, symbolic methods are registered in backend-specific files
     py::class_<World> world(m, "World");
     world.def(py::init<std::string>(), py::arg("id") = "World")
+        .def("register_subunit_file", &World::RegisterSubunitFile, py::arg("path"))
+        .def("register_subunit_directory", &World::RegisterSubunitDirectory, py::arg("path"))
+        .def("list_subunit_models", &World::ListSubunitModels)
+        .def("add_subunit_file", &World::AddFile,
+             py::arg("path"), py::arg("name"), py::arg("tag") = "")
+        .def("add_file", &World::AddFile,
+             py::arg("path"), py::arg("name"), py::arg("tag") = "")
+        .def("link_subunit_file", &World::LinkFile,
+             py::arg("path"), py::arg("new_reference"), py::arg("old_reference"), py::arg("tag") = "")
+        .def("link_file", &World::LinkFile,
+             py::arg("path"), py::arg("new_reference"), py::arg("old_reference"), py::arg("tag") = "")
         .def("Add", [](World& self, const std::string& subunit_type) {
             return self.Add(subunit_type, subunit_type);
         }, py::arg("subunit_type"))

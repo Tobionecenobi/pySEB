@@ -1,6 +1,9 @@
 """Minimal smoke test for an installed pyseb wheel."""
 
 import math
+from importlib import resources
+from pathlib import Path
+import tempfile
 
 import pyseb
 
@@ -12,8 +15,21 @@ def main():
 
     pyseb.set_backend("portable")
 
+    models = resources.files("pyseb").joinpath("models")
+    point_model = models.joinpath("Point.pyseb.yaml")
+    gaussian_model = models.joinpath("GaussianPolymer.pyseb.yaml")
+    if not point_model.is_file() or not gaussian_model.is_file():
+        raise AssertionError("bundled .pyseb.yaml model files are missing")
+
+    definition = pyseb.load_subunit_definition(str(gaussian_model))
+    if definition.id != "pyseb/GaussianPolymer":
+        raise AssertionError(f"unexpected bundled model ID: {definition.id!r}")
+    report = pyseb.validate_subunit_file(str(gaussian_model))
+    if not report.ok:
+        raise AssertionError(f"bundled model validation failed: {report.failures!r}")
+
     world = pyseb.World()
-    graph_id = world.Add("GaussianPolymer", "poly1")
+    graph_id = world.add_subunit_file(str(gaussian_model), "poly1")
     world.Link("GaussianPolymer", "poly2.end1", "poly1.end2")
     world.Add(graph_id, "diblockcopolymer")
 
@@ -35,6 +51,16 @@ def main():
 
     if not math.isclose(sympy_value, math.sin(11.0), rel_tol=1e-12, abs_tol=1e-12):
         raise AssertionError(f"unexpected SymPy conversion value: {sympy_value!r}")
+
+    with tempfile.TemporaryDirectory() as directory:
+        invalid = Path(directory, "invalid.pyseb.yaml")
+        invalid.write_text("format: wrong\n", encoding="utf-8")
+        try:
+            pyseb.load_subunit_definition(str(invalid))
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("invalid subunit definition was accepted")
 
     print("pyseb installed wheel smoke test passed")
 

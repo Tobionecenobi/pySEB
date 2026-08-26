@@ -265,6 +265,10 @@ include Tests/utility_test.cpp
 include Tests/validation_tests.cpp
 include makefile
 include pyproject.toml
+recursive-include models *.pyseb.yaml
+include third_party/fkYAML/node.hpp
+include third_party/fkYAML/LICENSE.txt
+include THIRD_PARTY_NOTICES.md
 include pyseb/__init__.py
 include pyseb/subunits.py
 include pyseb/symbolic.py

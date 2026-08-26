@@ -91,6 +91,14 @@ AtomParameterProfile = _pyseb.AtomParameterProfile
 AtomCloudBuildOptions = _pyseb.AtomCloudBuildOptions
 AtomCloudBuilder = _pyseb.AtomCloudBuilder
 StructureCloudLoader = _pyseb.StructureCloudLoader
+SubunitDefinition = _pyseb.SubunitDefinition
+SubunitMetadata = _pyseb.SubunitMetadata
+SubunitModelInfo = _pyseb.SubunitModelInfo
+SubunitValidationFailure = _pyseb.SubunitValidationFailure
+SubunitValidationReport = _pyseb.SubunitValidationReport
+FileDefinedSubunit = _pyseb.FileDefinedSubunit
+load_subunit_definition = _pyseb.load_subunit_definition
+validate_subunit_file = _pyseb.validate_subunit_file
 
 from .symbolic import (
     SymPyExpression,
@@ -158,6 +166,14 @@ __all__ = [
     'AtomCloudBuildOptions',
     'AtomCloudBuilder',
     'StructureCloudLoader',
+    'SubunitDefinition',
+    'SubunitMetadata',
+    'SubunitModelInfo',
+    'SubunitValidationFailure',
+    'SubunitValidationReport',
+    'FileDefinedSubunit',
+    'load_subunit_definition',
+    'validate_subunit_file',
     'SymPyExpression',
     'SymPyFactory',
     'get_factory',

@@ -18,6 +18,7 @@ _SolidCylinder = _extension.SolidCylinder
 _Point = _extension.Point
 _SymbolicSubunit = _extension.SymbolicSubunit
 _NumericalSubunit = _extension.NumericalSubunit
+_FileDefinedSubunit = _extension.FileDefinedSubunit
 _DebyeSphereCloud = _extension.DebyeSphereCloud
 SphereScatterer = _extension.SphereScatterer
 CartesianPoint3D = _extension.CartesianPoint3D
@@ -124,6 +125,11 @@ class NumericalSubunit(_NumericalSubunit):
     pass
 
 
+class FileDefinedSubunit(_FileDefinedSubunit):
+    """An analytic subunit created from a validated .pyseb.yaml definition."""
+    pass
+
+
 class DebyeSphereCloud(_DebyeSphereCloud):
     """A Debye sphere cloud with finite-radius sphere scatterers."""
     pass
@@ -142,6 +148,7 @@ __all__ = [
     "Point",
     "SymbolicSubunit",
     "NumericalSubunit",
+    "FileDefinedSubunit",
     "DebyeSphereCloud",
     "SphereScatterer",
     "CartesianPoint3D",
