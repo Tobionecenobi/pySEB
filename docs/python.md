@@ -89,6 +89,20 @@ q_values = np.logspace(-3, 0, 100)
 intensity = pyseb.evaluate_expression(world, form_factor, params, q_values)
 ```
 
+## File-defined analytic subunits
+
+Create and use a custom analytic model without rebuilding the extension:
+
+```python
+world = pyseb.World("custom")
+world.add_subunit_file("MyModel.pyseb.yaml", name="particle")
+```
+
+Models can instead be registered explicitly by file or directory and then
+constructed through their namespaced ID. See the
+[file-defined subunit guide](file-defined-subunits.qmd) for the schema,
+expression grammar, validation cases, C++ API, and registry rules.
+
 ## Numerical Subunits
 
 `World` can evaluate structures containing both analytic subunits and numerical

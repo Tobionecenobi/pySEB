@@ -57,6 +57,20 @@ print(world.EvaluateFormFactor("diblock", parameters, q))
 The complete, executable Python and C++ walkthrough is the
 [diblock tutorial](https://tobionecenobi.github.io/pySEB/tutorials/diblock-copolymer.html).
 
+## File-defined models
+
+Custom analytic subunits can be created as a single safe `.pyseb.yaml` file and
+used without rebuilding pySEB:
+
+```python
+world = pyseb.World()
+world.add_subunit_file("MyModel.pyseb.yaml", name="particle")
+```
+
+Validate a model with `pyseb-subunit validate MyModel.pyseb.yaml`. See the
+[file-defined subunit guide](https://tobionecenobi.github.io/pySEB/file-defined-subunits.html)
+for the schema, expression language, C++ API, and registration workflow.
+
 ## Documentation map
 
 | Need | Documentation |

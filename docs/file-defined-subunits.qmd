@@ -1,0 +1,143 @@
+---
+title: "File-defined subunits"
+---
+
+Analytic subunits can be authored as a single `.pyseb.yaml` file. The file is
+validated and converted to pySEB's native symbolic expressions; it never
+executes Python, C++, or shell code.
+
+The complete bundled examples are
+[`Point.pyseb.yaml`](../models/Point.pyseb.yaml) and
+[`GaussianPolymer.pyseb.yaml`](../models/GaussianPolymer.pyseb.yaml).
+
+## Use a model directly
+
+```python
+import pyseb
+
+world = pyseb.World("custom")
+world.add_subunit_file("MyModel.pyseb.yaml", name="particle")
+```
+
+The C++ equivalent is:
+
+```cpp
+#include "SEB.hpp"
+
+World world("custom");
+world.AddFile("MyModel.pyseb.yaml", "particle");
+```
+
+`link_subunit_file`/`LinkFile` load and attach a new instance in one call.
+
+## Register a model by ID
+
+Registration is local to a `World`. Directories are opt-in, non-recursive, and
+only immediate `*.pyseb.yaml` files are considered. The entire directory is
+validated before any model is registered.
+
+```python
+world = pyseb.World()
+world.register_subunit_directory("lab-models")
+world.Add("my-lab/BranchedPolymer", "polymer")
+
+for model in world.list_subunit_models():
+    print(model.id, model.model_version)
+```
+
+An ID can occur only once in a World. Built-in canonical IDs include
+`pyseb/Point` and `pyseb/GaussianPolymer`; the existing short names remain
+available.
+
+## Required schema
+
+Every file declares:
+
+- `format: pyseb-subunit`, `schema_version: 1`, a namespaced `id`, and a
+  non-empty `model_version`;
+- structural `parameters` and optional dimensionless `variables`;
+- specific and distributed `references`;
+- one form factor and one amplitude per reference;
+- every nontrivial unordered phase-factor pair;
+- radius-of-gyration, reference-to-scatterer, and reference-pair size terms.
+
+Reusable expressions live under `definitions`. Variable and definition
+dependencies may appear in any YAML order, but must form an acyclic graph.
+Size expressions may not depend on `q`, directly or indirectly.
+
+Reference pairs use two-element arrays:
+
+```yaml
+expressions:
+  phases:
+    - references: [end1, end2]
+      expression: "exp(-x)"
+```
+
+For a specific reference paired with itself, the phase is one and the distance
+is zero by definition, so those entries are omitted. A distributed reference
+paired with itself must be supplied.
+
+## Expression language
+
+Expressions accept decimal/scientific numbers, `q`, declared identifiers,
+`pi`, `e`, parentheses, unary signs, `+`, `-`, `*`, `/`, and right-associative
+`^`. Supported functions are:
+
+```text
+abs acos asin atan bessel_j0 bessel_j1 cos cosh dawson erf erfc
+exp log pow sin sinh six sqrt tan tanh
+```
+
+Names start with a letter and contain only letters and digits. Unknown names,
+cycles, wrong function arity, Python syntax, imports, integrals, and arbitrary
+function calls are rejected.
+
+`behavior.scattering: invisible` defines a connector such as Point. Its form
+factor and amplitudes must be literal zero expressions.
+
+## Reference validation
+
+Validation cases are optional and run only when requested:
+
+```yaml
+validation:
+  absolute_tolerance: 1.0e-10
+  relative_tolerance: 1.0e-8
+  cases:
+    - name: end-to-end phase
+      quantity: phase
+      parameters: {Rg: 2.0}
+      references: [end1, end2]
+      q: 0.5
+      expected: 0.36787944117144233
+```
+
+Supported quantities are `form_factor`, `form_factor_unnormalized`,
+`amplitude`, `amplitude_unnormalized`, `phase`,
+`radius_of_gyration_squared`, `reference_to_scatterer`, and
+`reference_to_reference`. Cases use the untagged parameter names from the
+model file.
+
+Validate from Python or the command line:
+
+```python
+report = pyseb.validate_subunit_file("MyModel.pyseb.yaml")
+assert report.ok, report.failures
+```
+
+```bash
+pyseb-subunit validate MyModel.pyseb.yaml
+```
+
+The command exits with status 0 on success, 1 for failed reference cases, and
+2 for load/schema/expression errors. A valid file without cases succeeds with
+a warning.
+
+## Scope and safety
+
+The v1 format is analytic and declarative. It has no includes, filesystem
+access, environment expansion, callbacks, coordinate arrays, or executable
+plugins. Use `NumericalSubunit`, `IntegratedSubunit`, or `DebyeSphereCloud` for
+those use cases. YAML tags, anchors, aliases, multiple YAML documents, unknown
+schema fields, and files larger than 1 MiB are rejected.
