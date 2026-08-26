@@ -1,0 +1,112 @@
+format: pyseb-subunit
+schema_version: 1
+id: pyseb/ThinRod
+api_name: ThinRod
+model_version: "1.0.0"
+
+metadata:
+  title: Thin rod
+  description: A straight, infinitesimally thin rod of length L.
+  authors: []
+  citations:
+    - T. Neugebauer, Ann. Phys. (Leipzig) 42, 509 (1943).
+    - P. I. Teixeira, D. J. Read, and T. C. B. McLeish, J. Chem. Phys. 126, 074901 (2007).
+  license: BSD-3-Clause
+
+parameters:
+  L:
+    unit: length
+    description: Rod length
+
+variables:
+  x: "q * L"
+
+definitions:
+  Fend: "six(x)"
+  Fmiddle: "six(x / 2)"
+  F: "2 * (cos(x) - 1) / x^2 + 2 * six(x)"
+
+references:
+  specific: [end1, end2, middle]
+  distributed: [contour]
+
+expressions:
+  form_factor: F
+  amplitudes:
+    end1: Fend
+    end2: Fend
+    middle: Fmiddle
+    contour: F
+  phases:
+    - references: [end1, end2]
+      expression: "sin(x) / x"
+    - references: [end1, middle]
+      expression: "2 * sin(x / 2) / x"
+    - references: [end2, middle]
+      expression: "2 * sin(x / 2) / x"
+    - references: [contour, end1]
+      expression: Fend
+    - references: [contour, end2]
+      expression: Fend
+    - references: [contour, middle]
+      expression: Fmiddle
+    - references: [contour, contour]
+      expression: F
+
+sizes:
+  radius_of_gyration_squared: "L^2 / 12"
+  reference_to_scatterer:
+    end1: "L^2 / 3"
+    end2: "L^2 / 3"
+    middle: "L^2 / 12"
+    contour: "L^2 / 6"
+  reference_to_reference:
+    - references: [end1, end2]
+      expression: "L^2"
+    - references: [end1, middle]
+      expression: "L^2 / 4"
+    - references: [end2, middle]
+      expression: "L^2 / 4"
+    - references: [contour, end1]
+      expression: "L^2 / 3"
+    - references: [contour, end2]
+      expression: "L^2 / 3"
+    - references: [contour, middle]
+      expression: "L^2 / 12"
+    - references: [contour, contour]
+      expression: "L^2 / 6"
+
+validation:
+  absolute_tolerance: 1.0e-10
+  relative_tolerance: 1.0e-8
+  cases:
+    - name: normalized zero-angle form factor
+      quantity: form_factor
+      parameters: {L: 10.0}
+      q: 0.0
+      expected: 1.0
+    - name: radius of gyration
+      quantity: radius_of_gyration_squared
+      parameters: {L: 10.0}
+      expected: 8.333333333333334
+    - name: end-to-scatterer distance
+      quantity: reference_to_scatterer
+      parameters: {L: 10.0}
+      references: [end1]
+      expected: 33.333333333333336
+    - name: end-to-end phase at zero angle
+      quantity: phase
+      parameters: {L: 10.0}
+      references: [end1, end2]
+      q: 0.0
+      expected: 1.0
+    - name: end-to-end distance
+      quantity: reference_to_reference
+      parameters: {L: 10.0}
+      references: [end1, end2]
+      expected: 100.0
+    - name: end-to-middle distance
+      quantity: reference_to_reference
+      parameters: {L: 10.0}
+      references: [end1, middle]
+      expected: 25.0

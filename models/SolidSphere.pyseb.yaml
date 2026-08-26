@@ -1,0 +1,81 @@
+format: pyseb-subunit
+schema_version: 1
+id: pyseb/SolidSphere
+api_name: SolidSphere
+model_version: "1.0.0"
+
+metadata:
+  title: Solid sphere
+  description: A homogeneous solid sphere of radius R.
+  authors:
+    - Lord Rayleigh
+  citations:
+    - Lord Rayleigh, Proc. Roy. Soc. London, Ser. A, 84 (1911) 25-38.
+  license: BSD-3-Clause
+
+parameters:
+  R:
+    unit: length
+    description: Sphere radius
+
+variables:
+  x: "q * R"
+
+definitions:
+  A: "3 * (sin(x) - x * cos(x)) / x^3"
+
+references:
+  specific: [center]
+  distributed: [surface]
+
+expressions:
+  form_factor: "A * A"
+  amplitudes:
+    center: A
+    surface: "A * sin(x) / x"
+  phases:
+    - references: [center, surface]
+      expression: "sin(x) / x"
+    - references: [surface, surface]
+      expression: "(sin(x) / x)^2"
+
+sizes:
+  radius_of_gyration_squared: "3 * R^2 / 5"
+  reference_to_scatterer:
+    center: "3 * R^2 / 5"
+    surface: "8 * R^2 / 5"
+  reference_to_reference:
+    - references: [center, surface]
+      expression: "R^2"
+    - references: [surface, surface]
+      expression: "2 * R^2"
+
+validation:
+  absolute_tolerance: 1.0e-10
+  relative_tolerance: 1.0e-8
+  cases:
+    - name: normalized zero-angle form factor
+      quantity: form_factor
+      parameters: {R: 5.0}
+      q: 0.0
+      expected: 1.0
+    - name: radius of gyration
+      quantity: radius_of_gyration_squared
+      parameters: {R: 5.0}
+      expected: 15.0
+    - name: surface-to-scatterer distance
+      quantity: reference_to_scatterer
+      parameters: {R: 5.0}
+      references: [surface]
+      expected: 40.0
+    - name: center-to-surface phase at zero angle
+      quantity: phase
+      parameters: {R: 5.0}
+      references: [center, surface]
+      q: 0.0
+      expected: 1.0
+    - name: center-to-surface distance
+      quantity: reference_to_reference
+      parameters: {R: 5.0}
+      references: [center, surface]
+      expected: 25.0

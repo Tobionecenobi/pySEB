@@ -1,0 +1,145 @@
+format: pyseb-subunit
+schema_version: 1
+id: pyseb/SolidSphericalShell
+api_name: SolidSphericalShell
+model_version: "1.0.0"
+
+metadata:
+  title: Solid spherical shell
+  description: A homogeneous spherical shell with inner radius Ri and outer radius Ro.
+  authors: []
+  citations: []
+  license: BSD-3-Clause
+
+parameters:
+  Ri:
+    unit: length
+    description: Inner radius
+  Ro:
+    unit: length
+    description: Outer radius
+
+variables:
+  xi: "q * Ri"
+  xo: "q * Ro"
+
+definitions:
+  Ac: "(3 * (xi * cos(xi) - xo * cos(xo) - sin(xi) + sin(xo))) / (xo^3 - xi^3)"
+  Areaout: "4 * pi * Ro^2"
+  Areain: "4 * pi * Ri^2"
+  PsiSurf: "(Areaout * sin(xo) / xo + Areain * sin(xi) / xi) / (Areaout + Areain)"
+
+references:
+  specific: [center]
+  distributed: [surface, surfaceo, surfacei]
+
+expressions:
+  form_factor: "Ac * Ac"
+  amplitudes:
+    center: Ac
+    surfacei: "Ac * sin(xi) / xi"
+    surfaceo: "Ac * sin(xo) / xo"
+    surface: "Ac * PsiSurf"
+  phases:
+    - references: [center, surface]
+      expression: PsiSurf
+    - references: [center, surfacei]
+      expression: "sin(xi) / xi"
+    - references: [center, surfaceo]
+      expression: "sin(xo) / xo"
+    - references: [surfacei, surfacei]
+      expression: "(sin(xi) / xi)^2"
+    - references: [surfaceo, surfaceo]
+      expression: "(sin(xo) / xo)^2"
+    - references: [surface, surfacei]
+      expression: "PsiSurf * sin(xi) / xi"
+    - references: [surface, surfaceo]
+      expression: "PsiSurf * sin(xo) / xo"
+    - references: [surface, surface]
+      expression: "PsiSurf^2"
+    - references: [surfacei, surfaceo]
+      expression: "sin(xi) * sin(xo) / xi / xo"
+
+sizes:
+  radius_of_gyration_squared: >-
+    (3 * (Ro * Ri^3 + Ri^4 + Ri^2 * Ro^2 + Ri * Ro^3 + Ro^4)) /
+    (5 * (Ri * Ro + Ri^2 + Ro^2))
+  reference_to_scatterer:
+    center: >-
+      (3 * (Ro * Ri^3 + Ri^4 + Ri^2 * Ro^2 + Ri * Ro^3 + Ro^4)) /
+      (5 * (Ri * Ro + Ri^2 + Ro^2))
+    surfacei: >-
+      (8 * Ri^4 + 8 * Ri^3 * Ro + 8 * Ri^2 * Ro^2 + 3 * Ri * Ro^3 + 3 * Ro^4) /
+      (5 * (Ri^2 + Ri * Ro + Ro^2))
+    surfaceo: >-
+      (3 * Ri^4 + 3 * Ri^3 * Ro + 8 * Ri^2 * Ro^2 + 8 * Ri * Ro^3 + 8 * Ro^4) /
+      (5 * (Ri^2 + Ri * Ro + Ro^2))
+    surface: >-
+      (8 * Ro * Ri^5 + 8 * Ri^6 + 11 * Ri^4 * Ro^2 + 6 * (Ri * Ro)^3 +
+      11 * Ri^2 * Ro^4 + 8 * Ri * Ro^5 + 8 * Ro^6) /
+      (5 * (Ro * Ri^3 + Ri^4 + 2 * Ri^2 * Ro^2 + Ri * Ro^3 + Ro^4))
+  reference_to_reference:
+    - references: [center, surface]
+      expression: >-
+        (4 * Ro^2 * Ro^2 + 4 * Ri^2 * Ri^2) / (4 * Ro^2 + 4 * Ri^2)
+    - references: [center, surfacei]
+      expression: "Ri^2"
+    - references: [center, surfaceo]
+      expression: "Ro^2"
+    - references: [surfacei, surfacei]
+      expression: "2 * Ri^2"
+    - references: [surfaceo, surfaceo]
+      expression: "2 * Ro^2"
+    - references: [surface, surfacei]
+      expression: "(2 * Ri^4 + Ri^2 * Ro^2 + Ro^4) / (Ri^2 + Ro^2)"
+    - references: [surface, surfaceo]
+      expression: "(Ri^4 + Ri^2 * Ro^2 + 2 * Ro^4) / (Ri^2 + Ro^2)"
+    - references: [surface, surface]
+      expression: "2 * (Ri^4 + Ro^4) / (Ri^2 + Ro^2)"
+    - references: [surfacei, surfaceo]
+      expression: "Ri^2 + Ro^2"
+
+validation:
+  absolute_tolerance: 1.0e-9
+  relative_tolerance: 1.0e-8
+  cases:
+    - name: normalized zero-angle form factor
+      quantity: form_factor
+      parameters: {Ri: 3.0, Ro: 5.0}
+      q: 0.0
+      expected: 1.0
+    - name: radius of gyration
+      quantity: radius_of_gyration_squared
+      parameters: {Ri: 3.0, Ro: 5.0}
+      expected: 17.644897959183673
+    - name: outer-surface-to-scatterer distance
+      quantity: reference_to_scatterer
+      parameters: {Ri: 3.0, Ro: 5.0}
+      references: [surfaceo]
+      expected: 42.64489795918367
+    - name: inner-surface-to-scatterer distance
+      quantity: reference_to_scatterer
+      parameters: {Ri: 3.0, Ro: 5.0}
+      references: [surfacei]
+      expected: 26.644897959183673
+    - name: any-surface-to-scatterer distance
+      quantity: reference_to_scatterer
+      parameters: {Ri: 3.0, Ro: 5.0}
+      references: [surface]
+      expected: 38.409603841536615
+    - name: center-to-inner-surface phase at zero angle
+      quantity: phase
+      parameters: {Ri: 3.0, Ro: 5.0}
+      references: [center, surfacei]
+      q: 0.0
+      expected: 1.0
+    - name: center-to-inner-surface distance
+      quantity: reference_to_reference
+      parameters: {Ri: 3.0, Ro: 5.0}
+      references: [center, surfacei]
+      expected: 9.0
+    - name: inner-surface-to-outer-surface distance
+      quantity: reference_to_reference
+      parameters: {Ri: 3.0, Ro: 5.0}
+      references: [surfacei, surfaceo]
+      expected: 34.0
