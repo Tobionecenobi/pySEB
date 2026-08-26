@@ -70,7 +70,7 @@ std::vector<std::string> modelFiles(const std::string& directory) {
 
 const std::vector<std::string>& builtinNames() {
     static const std::vector<std::string> names = {
-        "Point", "GaussianLoop", "GaussianPolymer", "ThinRod", "ThinCircle", "ThinDisk",
+        "GaussianLoop", "ThinRod", "ThinCircle", "ThinDisk",
         "ThinSphericalShell", "SolidSphere", "SolidSphericalShell", "SolidCylinder", "SymbolicSubunit"
     };
     return names;
@@ -80,13 +80,17 @@ const std::vector<std::string>& builtinNames() {
 
 SubunitRegistry::SubunitRegistry() {
     for (const auto& model : BundledSubunitModels()) {
-        definitions_.emplace(model.id, BundledSubunitDefinition(model.id));
+        const SubunitDefinition& definition = BundledSubunitDefinition(model.id);
+        CheckDefinitionNames(definition, {}, "SubunitRegistry()");
+        definitions_.emplace(definition.id, definition);
+        aliases_.emplace(definition.apiName, definition.id);
     }
 }
 
 SubunitModelInfo SubunitRegistry::Info(const SubunitDefinition& definition, bool bundled) {
     SubunitModelInfo info;
     info.id = definition.id;
+    info.apiName = definition.apiName;
     info.modelVersion = definition.modelVersion;
     info.title = definition.metadata.title;
     info.source = definition.source;
@@ -99,26 +103,40 @@ bool SubunitRegistry::IsBuiltinName(const std::string& id) {
     return std::find(names.begin(), names.end(), id) != names.end();
 }
 
+bool SubunitRegistry::HasRegisteredName(const std::string& name) const {
+    return definitions_.count(name) != 0 || aliases_.count(name) != 0 || IsBuiltinName(name);
+}
+
+void SubunitRegistry::CheckDefinitionNames(
+    const SubunitDefinition& definition,
+    const std::set<std::string>& pendingNames,
+    const std::string& operation) const {
+    for (const auto& name : {definition.id, definition.apiName}) {
+        if (HasRegisteredName(name) || pendingNames.count(name)) {
+            throw SEBException(
+                "Subunit model name '" + name + "' is already registered",
+                operation);
+        }
+    }
+}
+
 SubunitModelInfo SubunitRegistry::RegisterFile(const std::string& path) {
     SubunitDefinition definition = LoadSubunitDefinitionFile(path);
-    if (definitions_.count(definition.id) || IsBuiltinName(definition.id)) {
-        throw SEBException("Subunit model ID '" + definition.id + "' is already registered", "SubunitRegistry::RegisterFile()");
-    }
+    CheckDefinitionNames(definition, {}, "SubunitRegistry::RegisterFile()");
     const SubunitModelInfo info = Info(definition, false);
+    aliases_.emplace(definition.apiName, definition.id);
     definitions_.emplace(definition.id, std::move(definition));
     return info;
 }
 
 std::vector<SubunitModelInfo> SubunitRegistry::RegisterDirectory(const std::string& path) {
     std::vector<SubunitDefinition> pending;
-    std::set<std::string> pendingIds;
+    std::set<std::string> pendingNames;
     for (const auto& file : modelFiles(path)) {
         SubunitDefinition definition = LoadSubunitDefinitionFile(file);
-        if (definitions_.count(definition.id) || IsBuiltinName(definition.id) || !pendingIds.insert(definition.id).second) {
-            throw SEBException(
-                "Subunit model ID '" + definition.id + "' is already registered",
-                "SubunitRegistry::RegisterDirectory()");
-        }
+        CheckDefinitionNames(definition, pendingNames, "SubunitRegistry::RegisterDirectory()");
+        pendingNames.insert(definition.id);
+        pendingNames.insert(definition.apiName);
         pending.push_back(std::move(definition));
     }
 
@@ -126,19 +144,22 @@ std::vector<SubunitModelInfo> SubunitRegistry::RegisterDirectory(const std::stri
     result.reserve(pending.size());
     for (auto& definition : pending) {
         result.push_back(Info(definition, false));
+        aliases_.emplace(definition.apiName, definition.id);
         definitions_.emplace(definition.id, std::move(definition));
     }
     return result;
 }
 
 SubUnit* SubunitRegistry::Create(const std::string& id) const {
-    const auto definition = definitions_.find(id);
+    const auto alias = aliases_.find(id);
+    const std::string& canonicalId = alias == aliases_.end() ? id : alias->second;
+    const auto definition = definitions_.find(canonicalId);
     if (definition != definitions_.end()) return new FileDefinedSubunit(definition->second);
     return CreateSubunit(id);
 }
 
 bool SubunitRegistry::Has(const std::string& id) const {
-    return definitions_.count(id) != 0 || IsBuiltinName(id);
+    return HasRegisteredName(id);
 }
 
 std::vector<SubunitModelInfo> SubunitRegistry::List() const {
@@ -146,6 +167,7 @@ std::vector<SubunitModelInfo> SubunitRegistry::List() const {
     for (const auto& name : builtinNames()) {
         SubunitModelInfo info;
         info.id = name;
+        info.apiName = name;
         info.modelVersion = "builtin";
         info.title = name;
         info.source = "<builtin>";

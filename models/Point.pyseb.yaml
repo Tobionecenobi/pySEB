@@ -1,6 +1,7 @@
 format: pyseb-subunit
 schema_version: 1
 id: pyseb/Point
+api_name: Point
 model_version: "1.0.0"
 
 metadata:

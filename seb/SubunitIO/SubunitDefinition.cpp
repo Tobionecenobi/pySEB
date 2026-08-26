@@ -470,7 +470,7 @@ SubunitDefinition LoadSubunitDefinitionYaml(const std::string& yaml, const std::
     validateNodeRestrictions(root, source, "$");
     rejectUnknownKeys(
         root,
-        {"format", "schema_version", "id", "model_version", "metadata", "behavior", "parameters",
+        {"format", "schema_version", "id", "api_name", "model_version", "metadata", "behavior", "parameters",
          "variables", "definitions", "references", "expressions", "sizes", "validation"},
         source,
         "$");
@@ -485,8 +485,12 @@ SubunitDefinition LoadSubunitDefinitionYaml(const std::string& yaml, const std::
     SubunitDefinition definition;
     definition.source = source;
     definition.id = scalarString(requiredNode(root, "id", source, "$"), source, "id");
+    definition.apiName = scalarString(requiredNode(root, "api_name", source, "$"), source, "api_name");
     definition.modelVersion = scalarString(requiredNode(root, "model_version", source, "$"), source, "model_version");
     if (!validModelId(definition.id)) schemaError(source, "id", "expected a namespaced ID such as 'my-lab/MyModel'");
+    if (!validSymbolName(definition.apiName)) {
+        schemaError(source, "api_name", "must start with a letter and contain only letters and digits");
+    }
     if (definition.modelVersion.empty()) schemaError(source, "model_version", "must not be empty");
 
     if (root.contains("metadata")) {

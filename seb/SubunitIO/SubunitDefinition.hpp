@@ -42,6 +42,7 @@ struct SubunitValidationCase {
 struct SubunitDefinition {
     int schemaVersion = 1;
     std::string id;
+    std::string apiName;
     std::string modelVersion;
     std::string source;
     SubunitMetadata metadata;
@@ -67,6 +68,7 @@ struct SubunitDefinition {
 
 struct SubunitModelInfo {
     std::string id;
+    std::string apiName;
     std::string modelVersion;
     std::string title;
     std::string source;

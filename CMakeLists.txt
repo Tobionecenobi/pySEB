@@ -37,14 +37,34 @@ endif()
 # Find required libraries
 find_package(GSL REQUIRED)
 
-# Bundle the canonical file-defined models into the core library so installed
-# C++ consumers do not depend on runtime data-file locations.
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/models/Point.pyseb.yaml
-    ${CMAKE_CURRENT_SOURCE_DIR}/models/GaussianPolymer.pyseb.yaml
+# Bundle every immediate model file into the core library so adding a catalogue
+# model requires only adding its YAML definition. CONFIGURE_DEPENDS makes CMake
+# regenerate the catalogue when files are added or removed.
+file(GLOB PYSEB_BUNDLED_MODEL_FILES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/models/*.pyseb.yaml"
 )
-file(READ ${CMAKE_CURRENT_SOURCE_DIR}/models/Point.pyseb.yaml PYSEB_POINT_MODEL_YAML)
-file(READ ${CMAKE_CURRENT_SOURCE_DIR}/models/GaussianPolymer.pyseb.yaml PYSEB_GAUSSIAN_POLYMER_MODEL_YAML)
+list(SORT PYSEB_BUNDLED_MODEL_FILES)
+if(NOT PYSEB_BUNDLED_MODEL_FILES)
+    message(FATAL_ERROR "No bundled models found in ${CMAKE_CURRENT_SOURCE_DIR}/models")
+endif()
+
+set(PYSEB_BUNDLED_MODEL_ENTRIES "")
+foreach(PYSEB_MODEL_FILE IN LISTS PYSEB_BUNDLED_MODEL_FILES)
+    get_filename_component(PYSEB_MODEL_FILENAME "${PYSEB_MODEL_FILE}" NAME)
+    if(NOT PYSEB_MODEL_FILENAME MATCHES "^[A-Za-z0-9_.-]+$")
+        message(FATAL_ERROR "Bundled model filename contains unsupported characters: ${PYSEB_MODEL_FILENAME}")
+    endif()
+    file(READ "${PYSEB_MODEL_FILE}" PYSEB_MODEL_YAML)
+    string(MD5 PYSEB_MODEL_HASH "${PYSEB_MODEL_FILENAME};${PYSEB_MODEL_YAML}")
+    string(SUBSTRING "${PYSEB_MODEL_HASH}" 0 10 PYSEB_MODEL_HASH_SHORT)
+    set(PYSEB_MODEL_DELIMITER "PY${PYSEB_MODEL_HASH_SHORT}")
+    string(FIND "${PYSEB_MODEL_YAML}" ")${PYSEB_MODEL_DELIMITER}\"" PYSEB_DELIMITER_COLLISION)
+    if(NOT PYSEB_DELIMITER_COLLISION EQUAL -1)
+        message(FATAL_ERROR "Unable to embed ${PYSEB_MODEL_FILENAME}: raw-string delimiter collision")
+    endif()
+    string(APPEND PYSEB_BUNDLED_MODEL_ENTRIES
+        "    {\"${PYSEB_MODEL_FILENAME}\", R\"${PYSEB_MODEL_DELIMITER}(${PYSEB_MODEL_YAML})${PYSEB_MODEL_DELIMITER}\"},\n")
+endforeach()
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/BundledModels.cpp.in
     ${CMAKE_CURRENT_BINARY_DIR}/generated/BundledModels.cpp
@@ -212,8 +232,7 @@ if(BUILD_PYTHON)
             FILES_MATCHING PATTERN "*.py")
 
     install(FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/models/Point.pyseb.yaml
-        ${CMAKE_CURRENT_SOURCE_DIR}/models/GaussianPolymer.pyseb.yaml
+        ${PYSEB_BUNDLED_MODEL_FILES}
         DESTINATION ${PYSEB_PYTHON_MODEL_DESTINATION})
 endif()
 
@@ -245,8 +264,7 @@ if(SEB_ENABLE_GINAC_BACKEND)
 endif()
 
 install(FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/models/Point.pyseb.yaml
-    ${CMAKE_CURRENT_SOURCE_DIR}/models/GaussianPolymer.pyseb.yaml
+    ${PYSEB_BUNDLED_MODEL_FILES}
     DESTINATION ${CMAKE_INSTALL_DATADIR}/pyseb/models)
 
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fkYAML/LICENSE.txt
