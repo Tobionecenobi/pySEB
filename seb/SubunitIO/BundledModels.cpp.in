@@ -1,0 +1,50 @@
+#include "SubunitIO/BundledModels.hpp"
+
+#include "Exceptions.hpp"
+
+namespace pyseb {
+namespace {
+
+const char kPointYaml[] = R"PYSEB_MODEL(
+@PYSEB_POINT_MODEL_YAML@
+)PYSEB_MODEL";
+
+const char kGaussianPolymerYaml[] = R"PYSEB_MODEL(
+@PYSEB_GAUSSIAN_POLYMER_MODEL_YAML@
+)PYSEB_MODEL";
+
+const SubunitDefinition& pointDefinition() {
+    static const SubunitDefinition definition =
+        LoadSubunitDefinitionYaml(kPointYaml, "<bundled:pyseb/Point>");
+    return definition;
+}
+
+const SubunitDefinition& gaussianPolymerDefinition() {
+    static const SubunitDefinition definition =
+        LoadSubunitDefinitionYaml(kGaussianPolymerYaml, "<bundled:pyseb/GaussianPolymer>");
+    return definition;
+}
+
+SubunitModelInfo info(const SubunitDefinition& definition) {
+    SubunitModelInfo result;
+    result.id = definition.id;
+    result.modelVersion = definition.modelVersion;
+    result.title = definition.metadata.title;
+    result.source = definition.source;
+    result.bundled = true;
+    return result;
+}
+
+} // namespace
+
+const SubunitDefinition& BundledSubunitDefinition(const std::string& id) {
+    if (id == "pyseb/Point") return pointDefinition();
+    if (id == "pyseb/GaussianPolymer") return gaussianPolymerDefinition();
+    throw SEBException("Unknown bundled subunit model " + id, "BundledSubunitDefinition()");
+}
+
+std::vector<SubunitModelInfo> BundledSubunitModels() {
+    return {info(pointDefinition()), info(gaussianPolymerDefinition())};
+}
+
+} // namespace pyseb

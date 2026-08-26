@@ -37,6 +37,20 @@ endif()
 # Find required libraries
 find_package(GSL REQUIRED)
 
+# Bundle the canonical file-defined models into the core library so installed
+# C++ consumers do not depend on runtime data-file locations.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/models/Point.pyseb.yaml
+    ${CMAKE_CURRENT_SOURCE_DIR}/models/GaussianPolymer.pyseb.yaml
+)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/models/Point.pyseb.yaml PYSEB_POINT_MODEL_YAML)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/models/GaussianPolymer.pyseb.yaml PYSEB_GAUSSIAN_POLYMER_MODEL_YAML)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/BundledModels.cpp.in
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/BundledModels.cpp
+    @ONLY
+)
+
 if(SEB_ENABLE_GINAC_BACKEND)
     message(STATUS "Building with GiNaC symbolic backend")
     find_package(GiNaC REQUIRED)
@@ -75,6 +89,12 @@ add_library(seb STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SpecialFunctions.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SpecialFunctionsWrapper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/Subunit.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/ExpressionParser.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/SubunitDefinition.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/SubunitRegistry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/SubunitValidator.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/Subunits/FileDefined.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/BundledModels.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SymbolInterface.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/World.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/StructureIO/PDBParser.cpp
@@ -107,6 +127,10 @@ target_include_directories(seb PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/seb>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/seb-symbolic>
+)
+
+target_include_directories(seb PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party
 )
 
 # Link libraries to SEB
@@ -169,12 +193,28 @@ if(BUILD_PYTHON)
         INSTALL_RPATH "$ORIGIN"
     )
 
-    install(TARGETS _pyseb DESTINATION pyseb)
+    # scikit-build already installs into the Python package directory selected
+    # by setup.py's cmake_install_dir. A second "pyseb" component here would
+    # produce pyseb/pyseb/_pyseb in wheels.
+    if(SKBUILD)
+        set(PYSEB_PYTHON_PACKAGE_DESTINATION ".")
+        set(PYSEB_PYTHON_MODEL_DESTINATION "models")
+    else()
+        set(PYSEB_PYTHON_PACKAGE_DESTINATION "pyseb")
+        set(PYSEB_PYTHON_MODEL_DESTINATION "pyseb/models")
+    endif()
+
+    install(TARGETS _pyseb DESTINATION ${PYSEB_PYTHON_PACKAGE_DESTINATION})
 
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pyseb/examples/python)
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pyseb/examples/python/
             DESTINATION examples/python
             FILES_MATCHING PATTERN "*.py")
+
+    install(FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/models/Point.pyseb.yaml
+        ${CMAKE_CURRENT_SOURCE_DIR}/models/GaussianPolymer.pyseb.yaml
+        DESTINATION ${PYSEB_PYTHON_MODEL_DESTINATION})
 endif()
 
 install(TARGETS seb seb-symbolic
@@ -203,6 +243,17 @@ if(SEB_ENABLE_GINAC_BACKEND)
                 PATTERN "build" EXCLUDE
                 PATTERN "__pycache__" EXCLUDE)
 endif()
+
+install(FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/models/Point.pyseb.yaml
+    ${CMAKE_CURRENT_SOURCE_DIR}/models/GaussianPolymer.pyseb.yaml
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/pyseb/models)
+
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fkYAML/LICENSE.txt
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/pyseb
+        RENAME fkYAML-LICENSE.txt)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/pyseb)
 
 install(EXPORT SEBSymbolicTargets
         FILE SEBSymbolicTargets.cmake

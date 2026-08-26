@@ -7,7 +7,7 @@
 #ifndef INCLUDE_GUARD_CREATESUBUNIT
 #define INCLUDE_GUARD_CREATESUBUNIT
 
-SubUnit*  CreateSubunit(string subtype)
+inline SubUnit* CreateSubunit(string subtype)
 {
         if (subtype == "Point")               return new Point();
    else if (subtype == "GaussianLoop")        return new GaussianLoop();

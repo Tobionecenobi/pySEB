@@ -17,6 +17,7 @@
 #include "Structure.hpp"
 #include "Subunit.hpp"
 #include "Subunits/Subunits.hpp"
+#include "SubunitIO/SubunitRegistry.hpp"
 
 
 //===========================================================================
@@ -65,6 +66,9 @@ private:
 
     // Parameter lists
     ParameterList betas, params;
+
+    // Per-world catalogue for built-in and explicitly registered file models.
+    pyseb::SubunitRegistry subunitRegistry;
 
 public:
     /*World Constructer with a given id as a string*/
@@ -128,10 +132,16 @@ public:
     /*Adds a new sub unit to the world by creating a new graph for it */
     GraphID Add(SubUnit *sub, subName name, string tag = "");
     GraphID Add(string, subName name, string tag = "");
+    GraphID AddFile(string path, subName name, string tag = "");
 
     /* Adds a new sub-unit and links it with an existing sub-unit by a the specified reference point. This grows the graph */
     GraphID Link(SubUnit *sub2, refPoint r2, refPoint r1, string tag = "");
     GraphID Link(string, refPoint r2, refPoint r1, string tag = "");
+    GraphID LinkFile(string path, refPoint r2, refPoint r1, string tag = "");
+
+    pyseb::SubunitModelInfo RegisterSubunitFile(string path);
+    vector<pyseb::SubunitModelInfo> RegisterSubunitDirectory(string path);
+    vector<pyseb::SubunitModelInfo> ListSubunitModels() const;
 
     /* Wraps a given graph in a structure name. The graph now is a node that we can build with. */
     GraphID Add(GraphID gid, structName name);

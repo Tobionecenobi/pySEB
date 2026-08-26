@@ -10,6 +10,7 @@
 #include "Numerical.hpp"
 #include "Integrated.hpp"
 #include "DebyeSphereCloud.hpp"
+#include "FileDefined.hpp"
 #include "Point.hpp"
 #include "GaussianPolymer.hpp"
 #include "GaussianLoop.hpp"
