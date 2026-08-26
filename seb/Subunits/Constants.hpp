@@ -9,8 +9,8 @@
 enum subunittypes{
     UNKNOWN,
     SYMBOLICSUBUNIT,
-    POINT,
-    GAUSSIANPOLYMER,
+    POINT,               // Reserved legacy slot; Point is now FILEDEFINEDSUBUNIT.
+    GAUSSIANPOLYMER,     // Reserved legacy slot; GaussianPolymer is now FILEDEFINEDSUBUNIT.
     GAUSSIANLOOP,
     THINCIRCLE,
     THINROD,

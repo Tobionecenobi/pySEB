@@ -223,8 +223,6 @@ include seb/Subunit.hpp
 include seb/Subunits/Constants.hpp
 include seb/Subunits/CreateSubunit.hpp
 include seb/Subunits/GaussianLoop.hpp
-include seb/Subunits/GaussianPolymer.hpp
-include seb/Subunits/Point.hpp
 include seb/Subunits/README
 include seb/Subunits/SolidCylinder.hpp
 include seb/Subunits/SolidSphere.hpp

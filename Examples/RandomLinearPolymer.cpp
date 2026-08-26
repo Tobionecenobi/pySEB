@@ -18,7 +18,7 @@ int main()
     World w("World");
 
     // Define first polymer in the chain
-    GraphID diblock = w.Add(new GaussianPolymer(), "poly0","poly");
+    GraphID diblock = w.Add("GaussianPolymer", "poly0","poly");
 
     // Link N polymers contour to contour.
     int N=3;
@@ -27,7 +27,7 @@ int main()
           string now  = "poly"+to_string(i)+".contour#r";
           string last = "poly"+to_string(i-1)+".contour#r";
           
-          w.Link(new GaussianPolymer(),  now, last, "poly");
+          w.Link("GaussianPolymer",  now, last, "poly");
       }
     
     // Name the structure

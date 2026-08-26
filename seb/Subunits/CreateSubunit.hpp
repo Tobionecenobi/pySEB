@@ -9,9 +9,7 @@
 
 inline SubUnit* CreateSubunit(string subtype)
 {
-        if (subtype == "Point")               return new Point();
-   else if (subtype == "GaussianLoop")        return new GaussianLoop();
-   else if (subtype == "GaussianPolymer")     return new GaussianPolymer();
+        if (subtype == "GaussianLoop")        return new GaussianLoop();
    else if (subtype == "ThinRod")             return new ThinRod();
    else if (subtype == "ThinCircle")          return new ThinCircle();
    else if (subtype == "ThinDisk")            return new ThinDisk();

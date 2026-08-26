@@ -40,7 +40,7 @@ void AddBranches(int g, int f, string name, World& w)
    for (int i=1;i<f;i++)
        {
           string newname = name+to_string(i);
-          w.Link(new GaussianPolymer(), newname+".end1", name+".end2", "poly");
+          w.Link("GaussianPolymer", newname+".end1", name+".end2", "poly");
           AddBranches( g-1, f, newname, w);
        }
 }
@@ -54,11 +54,11 @@ int main()
     int g= 3;   // 3 generations         
         
     // Make initial f-functional star (gen0)
-    GraphID dendrimer = w.Add(new GaussianPolymer(), "poly0", "poly");
+    GraphID dendrimer = w.Add("GaussianPolymer", "poly0", "poly");
     for (int i=1;i<f;i++)
        {
           string myname = "poly"+to_string(i);
-          w.Link(new GaussianPolymer(), myname+".end1", "poly0.end1", "poly");
+          w.Link("GaussianPolymer", myname+".end1", "poly0.end1", "poly");
        }
 
     // Add branches to each of the f branches

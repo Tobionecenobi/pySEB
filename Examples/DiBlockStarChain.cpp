@@ -67,8 +67,8 @@ int main()
     World w = World("w");
 
     // Define diblock copolymer
-    GraphID diblock = w.Add(new GaussianPolymer(), "polyA");
-    w.Link(new GaussianPolymer(),  "polyB.end1", "polyA.end2");
+    GraphID diblock = w.Add("GaussianPolymer", "polyA");
+    w.Link("GaussianPolymer",  "polyB.end1", "polyA.end2");
 
     // Define star
     GraphID star = w.Add(diblock, "diblock1");

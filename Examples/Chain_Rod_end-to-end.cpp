@@ -42,7 +42,7 @@ int main()
     w.Evaluate( F, params, qvec, "formfactor_rwrods.q", "Form factor of 100 end-to-end linked rods. L=0.1");
 
     // Define polymer chain
-    GraphID poly = w.Add(new GaussianPolymer(), "Polymer");
+    GraphID poly = w.Add("GaussianPolymer", "Polymer");
     ex Fpoly=w.FormFactor("Polymer");
 
     ex Rg2expression=w.RadiusOfGyration2("RandomWalkRods");

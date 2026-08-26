@@ -38,8 +38,8 @@ protected:
     std::string dir;
 
     void SetUp() override {
-        s = new GaussianPolymer();
-        w.Add(s, "poly");
+        w.Add("GaussianPolymer", "poly");
+        s = w.getSubunit("poly");
         dir = VALIDATION_DATA_DIR + "GaussianPolymer/";
         w.setParameter(pl, "Rg_poly", 1.0);
     }

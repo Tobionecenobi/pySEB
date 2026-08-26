@@ -37,7 +37,7 @@ int main()
              string name = string("poly")+to_string(i)+string(".end1");
              string ref  = string("sphere.surface#r")+to_string(i);
 
-             w.Link(new GaussianPolymer(), name, ref, "poly");
+             w.Link("GaussianPolymer", name, ref, "poly");
           }
 
     // Define micelle structure

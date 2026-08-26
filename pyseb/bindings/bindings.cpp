@@ -70,6 +70,7 @@ PYBIND11_MODULE(_pyseb, m) {
     py::class_<pyseb::SubunitDefinition>(m, "SubunitDefinition")
         .def_readonly("schema_version", &pyseb::SubunitDefinition::schemaVersion)
         .def_readonly("id", &pyseb::SubunitDefinition::id)
+        .def_readonly("api_name", &pyseb::SubunitDefinition::apiName)
         .def_readonly("model_version", &pyseb::SubunitDefinition::modelVersion)
         .def_readonly("source", &pyseb::SubunitDefinition::source)
         .def_readonly("metadata", &pyseb::SubunitDefinition::metadata)
@@ -83,6 +84,7 @@ PYBIND11_MODULE(_pyseb, m) {
 
     py::class_<pyseb::SubunitModelInfo>(m, "SubunitModelInfo")
         .def_readonly("id", &pyseb::SubunitModelInfo::id)
+        .def_readonly("api_name", &pyseb::SubunitModelInfo::apiName)
         .def_readonly("model_version", &pyseb::SubunitModelInfo::modelVersion)
         .def_readonly("title", &pyseb::SubunitModelInfo::title)
         .def_readonly("source", &pyseb::SubunitModelInfo::source)
@@ -342,9 +344,6 @@ PYBIND11_MODULE(_pyseb, m) {
         .def_static("sinc", &DebyeSphereCloud::sinc)
         .def_static("sphereAmplitude", &DebyeSphereCloud::sphereAmplitude);
 
-    py::class_<GaussianPolymer, SubUnit, std::unique_ptr<GaussianPolymer, py::nodelete>>(
-        m, "GaussianPolymer"
-    ).def(py::init<>());
     py::class_<GaussianLoop, SubUnit, std::unique_ptr<GaussianLoop, py::nodelete>>(
         m, "GaussianLoop"
     ).def(py::init<>());
@@ -373,10 +372,6 @@ PYBIND11_MODULE(_pyseb, m) {
     py::class_<SolidCylinder, SubUnit, std::unique_ptr<SolidCylinder, py::nodelete>>(
         m, "SolidCylinder"
     ).def(py::init<>());
-    py::class_<Point, SubUnit, std::unique_ptr<Point, py::nodelete>>(
-        m, "Point"
-    ).def(py::init<>());
-
     // Expose World class - basic structure only, symbolic methods are registered in backend-specific files
     py::class_<World> world(m, "World");
     world.def(py::init<std::string>(), py::arg("id") = "World")
