@@ -14,16 +14,25 @@ MODELS = ROOT / "models"
 
 class TestFileDefinedSubunits(unittest.TestCase):
     def test_bundled_files_load_and_validate(self):
-        for name, model_id in (
-            ("Point.pyseb.yaml", "pyseb/Point"),
-            ("GaussianPolymer.pyseb.yaml", "pyseb/GaussianPolymer"),
-        ):
-            path = MODELS / name
+        paths = sorted(MODELS.glob("*.pyseb.yaml"))
+        self.assertTrue(paths)
+        world = pyseb.World("catalogue")
+        catalogue = {
+            model.id: model
+            for model in world.list_subunit_models()
+            if model.source.startswith("<bundled:")
+        }
+        self.assertEqual(len(catalogue), len(paths))
+        for index, path in enumerate(paths):
             definition = pyseb.load_subunit_definition(str(path))
             report = pyseb.validate_subunit_file(str(path))
-            self.assertEqual(definition.id, model_id)
+            self.assertTrue(definition.api_name[0].isalpha())
+            self.assertTrue(definition.api_name.isalnum())
             self.assertTrue(report.ok, [failure.message for failure in report.failures])
-            self.assertGreater(report.case_count, 0)
+            self.assertIn(definition.id, catalogue)
+            self.assertEqual(catalogue[definition.id].api_name, definition.api_name)
+            world.Add(definition.id, f"canonical{index}")
+            world.Add(definition.api_name, f"alias{index}")
 
     def test_direct_registered_and_legacy_models_are_equivalent(self):
         path = str(MODELS / "GaussianPolymer.pyseb.yaml")
@@ -44,10 +53,14 @@ class TestFileDefinedSubunits(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             directory = Path(directory)
             (directory / "a.pyseb.yaml").write_text(
-                source.replace("pyseb/GaussianPolymer", "lab/First"), encoding="utf-8"
+                source.replace("pyseb/GaussianPolymer", "lab/First").replace(
+                    "api_name: GaussianPolymer", "api_name: First"
+                ), encoding="utf-8"
             )
             (directory / "b.pyseb.yaml").write_text(
                 source.replace("pyseb/GaussianPolymer", "lab/Second").replace(
+                    "api_name: GaussianPolymer", "api_name: Second"
+                ).replace(
                     "form_factor: F", "form_factor: system(1)"
                 ),
                 encoding="utf-8",
@@ -63,10 +76,14 @@ class TestFileDefinedSubunits(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             directory = Path(directory)
             (directory / "z.pyseb.yaml").write_text(
-                source.replace("pyseb/Point", "lab/Last"), encoding="utf-8"
+                source.replace("pyseb/Point", "lab/Last").replace(
+                    "api_name: Point", "api_name: Last"
+                ), encoding="utf-8"
             )
             (directory / "a.pyseb.yaml").write_text(
-                source.replace("pyseb/Point", "lab/First"), encoding="utf-8"
+                source.replace("pyseb/Point", "lab/First").replace(
+                    "api_name: Point", "api_name: First"
+                ), encoding="utf-8"
             )
             registered = pyseb.World("ordered").register_subunit_directory(str(directory))
             self.assertEqual([model.id for model in registered], ["lab/First", "lab/Last"])
@@ -75,13 +92,66 @@ class TestFileDefinedSubunits(unittest.TestCase):
         source = (MODELS / "GaussianPolymer.pyseb.yaml").read_text(encoding="utf-8")
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "custom.pyseb.yaml"
-            path.write_text(source.replace("pyseb/GaussianPolymer", "lab/Polymer"), encoding="utf-8")
+            path.write_text(
+                source.replace("pyseb/GaussianPolymer", "lab/Polymer").replace(
+                    "api_name: GaussianPolymer", "api_name: LabPolymer"
+                ),
+                encoding="utf-8",
+            )
             world = pyseb.World("registry")
             info = world.register_subunit_file(str(path))
             self.assertEqual(info.id, "lab/Polymer")
+            self.assertEqual(info.api_name, "LabPolymer")
             world.Add("lab/Polymer", "poly")
+            world.Add("LabPolymer", "polyalias")
             with self.assertRaises(RuntimeError):
                 world.register_subunit_file(str(path))
+
+    def test_registration_rejects_api_name_collisions_atomically(self):
+        source = (MODELS / "Point.pyseb.yaml").read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            (directory / "a.pyseb.yaml").write_text(
+                source.replace("pyseb/Point", "lab/First").replace(
+                    "api_name: Point", "api_name: SharedName"
+                ),
+                encoding="utf-8",
+            )
+            (directory / "b.pyseb.yaml").write_text(
+                source.replace("pyseb/Point", "lab/Second").replace(
+                    "api_name: Point", "api_name: SharedName"
+                ),
+                encoding="utf-8",
+            )
+            world = pyseb.World("collision")
+            with self.assertRaises(RuntimeError):
+                world.register_subunit_directory(str(directory))
+            with self.assertRaises(RuntimeError):
+                world.Add("lab/First", "first")
+
+            bundled_collision = directory / "bundled.pyseb.yaml"
+            bundled_collision.write_text(
+                source.replace("pyseb/Point", "lab/BundledCollision"),
+                encoding="utf-8",
+            )
+            with self.assertRaises(RuntimeError):
+                world.register_subunit_file(str(bundled_collision))
+
+            builtin_collision = directory / "builtin.pyseb.yaml"
+            builtin_collision.write_text(
+                source.replace("pyseb/Point", "lab/BuiltinCollision").replace(
+                    "api_name: Point", "api_name: ThinRod"
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaises(RuntimeError):
+                world.register_subunit_file(str(builtin_collision))
+
+    def test_removed_model_classes_use_registry_construction(self):
+        import pyseb.subunits as subunits
+
+        self.assertFalse(hasattr(subunits, "Point"))
+        self.assertFalse(hasattr(subunits, "GaussianPolymer"))
 
     def test_schema_and_expression_errors_include_context(self):
         source = (MODELS / "Point.pyseb.yaml").read_text(encoding="utf-8")

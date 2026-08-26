@@ -16,17 +16,45 @@ def main():
     pyseb.set_backend("portable")
 
     models = resources.files("pyseb").joinpath("models")
-    point_model = models.joinpath("Point.pyseb.yaml")
-    gaussian_model = models.joinpath("GaussianPolymer.pyseb.yaml")
-    if not point_model.is_file() or not gaussian_model.is_file():
+    model_files = sorted(
+        (path for path in models.iterdir() if path.name.endswith(".pyseb.yaml")),
+        key=lambda path: path.name,
+    )
+    if not model_files:
         raise AssertionError("bundled .pyseb.yaml model files are missing")
 
-    definition = pyseb.load_subunit_definition(str(gaussian_model))
-    if definition.id != "pyseb/GaussianPolymer":
-        raise AssertionError(f"unexpected bundled model ID: {definition.id!r}")
-    report = pyseb.validate_subunit_file(str(gaussian_model))
-    if not report.ok:
-        raise AssertionError(f"bundled model validation failed: {report.failures!r}")
+    catalogue_world = pyseb.World("catalogue")
+    catalogue = {
+        model.id: model
+        for model in catalogue_world.list_subunit_models()
+        if model.source.startswith("<bundled:")
+    }
+    if len(catalogue) != len(model_files):
+        raise AssertionError(
+            f"packaged/embedded model count differs: {len(model_files)} != {len(catalogue)}"
+        )
+    definitions = []
+    for index, model_file in enumerate(model_files):
+        definition = pyseb.load_subunit_definition(str(model_file))
+        definitions.append(definition)
+        report = pyseb.validate_subunit_file(str(model_file))
+        if not report.ok:
+            raise AssertionError(
+                f"bundled model validation failed for {model_file.name}: {report.failures!r}"
+            )
+        if definition.id not in catalogue:
+            raise AssertionError(f"bundled model is not registered: {definition.id!r}")
+        if catalogue[definition.id].api_name != definition.api_name:
+            raise AssertionError(f"wrong API name for {definition.id!r}")
+        catalogue_world.Add(definition.id, f"canonical{index}")
+        catalogue_world.Add(definition.api_name, f"alias{index}")
+
+    definitions_by_id = {definition.id: definition for definition in definitions}
+    required_models = {"pyseb/Point", "pyseb/GaussianPolymer"}
+    missing_models = required_models.difference(definitions_by_id)
+    if missing_models:
+        raise AssertionError(f"required bundled models are missing: {sorted(missing_models)!r}")
+    gaussian_model = models.joinpath("GaussianPolymer.pyseb.yaml")
 
     world = pyseb.World()
     graph_id = world.add_subunit_file(str(gaussian_model), "poly1")

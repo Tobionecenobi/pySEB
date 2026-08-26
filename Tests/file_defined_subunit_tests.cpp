@@ -15,6 +15,7 @@ const char kMinimalModel[] = R"YAML(
 format: pyseb-subunit
 schema_version: 1
 id: test/Minimal
+api_name: Minimal
 model_version: "1"
 parameters: {}
 references:
@@ -61,6 +62,7 @@ TEST(FileDefinedSchema, LoadsAndValidatesBundledModels) {
     const auto polymer = pyseb::LoadSubunitDefinitionFile(
         std::string(PYSEB_MODEL_DIR) + "/GaussianPolymer.pyseb.yaml");
     EXPECT_EQ(point.id, "pyseb/Point");
+    EXPECT_EQ(point.apiName, "Point");
     EXPECT_TRUE(point.invisible);
     EXPECT_EQ(polymer.amplitudes.size(), 4u);
     EXPECT_TRUE(pyseb::ValidateSubunitDefinition(point).ok());
@@ -77,6 +79,26 @@ TEST(FileDefinedSchema, RejectsUnknownFieldsAndDependencyCycles) {
     cyclic.replace(cyclic.find(marker), marker.size(),
         "parameters: {}\nvariables: {x: \"y\", y: \"x\"}");
     EXPECT_THROW(pyseb::LoadSubunitDefinitionYaml(cyclic, "cycle.yaml"), SEBException);
+
+    std::string missingApiName = kMinimalModel;
+    missingApiName.erase(
+        missingApiName.find("api_name: Minimal\n"),
+        std::string("api_name: Minimal\n").size());
+    EXPECT_THROW(pyseb::LoadSubunitDefinitionYaml(missingApiName, "missing-api.yaml"), SEBException);
+
+    std::string invalidApiName = kMinimalModel;
+    invalidApiName.replace(
+        invalidApiName.find("api_name: Minimal"),
+        std::string("api_name: Minimal").size(),
+        "api_name: invalid_name");
+    EXPECT_THROW(pyseb::LoadSubunitDefinitionYaml(invalidApiName, "invalid-api.yaml"), SEBException);
+
+    std::string duplicateApiName = kMinimalModel;
+    duplicateApiName.replace(
+        duplicateApiName.find("api_name: Minimal"),
+        std::string("api_name: Minimal").size(),
+        "api_name: Minimal\napi_name: Duplicate");
+    EXPECT_THROW(pyseb::LoadSubunitDefinitionYaml(duplicateApiName, "duplicate-api.yaml"), SEBException);
 }
 
 TEST(FileDefinedSchema, RejectsUnsupportedYamlFeatures) {
@@ -114,6 +136,25 @@ TEST(FileDefinedWorld, DirectAndBundledModelsMatchLegacyName) {
     EXPECT_NEAR(direct.EvaluateRadiusOfGyration2("poly", values), 4.0, 1e-12);
 }
 
+TEST(FileDefinedWorld, BundledCatalogueContainsEveryConfiguredModel) {
+    const auto models = pyseb::BundledSubunitModels();
+    ASSERT_EQ(models.size(), static_cast<std::size_t>(PYSEB_BUNDLED_MODEL_COUNT));
+    World world("catalogue");
+    std::size_t index = 0;
+    for (const auto& info : models) {
+        EXPECT_FALSE(info.id.empty());
+        EXPECT_FALSE(info.apiName.empty());
+        EXPECT_TRUE(info.bundled);
+        EXPECT_TRUE(pyseb::ValidateSubunitDefinition(
+            pyseb::BundledSubunitDefinition(info.id)).ok());
+        const std::string suffix = std::to_string(index++);
+        world.Add(info.id, "canonical" + suffix);
+        world.Add(info.apiName, "alias" + suffix);
+        EXPECT_EQ(world.getSubunit("canonical" + suffix)->getSubunitType(), FILEDEFINEDSUBUNIT);
+        EXPECT_EQ(world.getSubunit("alias" + suffix)->getSubunitType(), FILEDEFINEDSUBUNIT);
+    }
+}
+
 TEST(FileDefinedWorld, InvisiblePointPreservesCountingAndPhaseBehavior) {
     World world("points");
     world.Add("Point", "legacy");
@@ -130,5 +171,8 @@ TEST(FileDefinedWorld, RegistrationRejectsConflictingIds) {
     const auto models = world.ListSubunitModels();
     EXPECT_FALSE(models.empty());
 }
+
+static_assert(POINT == 2, "POINT must retain its legacy enum slot");
+static_assert(GAUSSIANPOLYMER == 3, "GAUSSIANPOLYMER must retain its legacy enum slot");
 
 } // namespace

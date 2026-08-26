@@ -168,9 +168,14 @@ target_link_libraries(file_defined_subunit_test PRIVATE
     ${CLN_LIBRARIES}
 )
 
+file(GLOB PYSEB_TEST_MODEL_FILES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/../models/*.pyseb.yaml")
+list(LENGTH PYSEB_TEST_MODEL_FILES PYSEB_TEST_MODEL_COUNT)
 target_compile_definitions(
     file_defined_subunit_test
-    PRIVATE PYSEB_MODEL_DIR="${CMAKE_SOURCE_DIR}/../models"
+    PRIVATE
+        PYSEB_MODEL_DIR="${CMAKE_SOURCE_DIR}/../models"
+        PYSEB_BUNDLED_MODEL_COUNT=${PYSEB_TEST_MODEL_COUNT}
 )
 
 target_compile_definitions(
