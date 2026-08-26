@@ -30,8 +30,8 @@ int main()
     World w("World");
 
     // Define symbolic sub-unit s1 and give it two reference points a,b
-    SubUnit* s = new ThinRod();
-    w.Add(s,"rod");
+    w.Add("ThinRod","rod");
+    SubUnit* s = w.getSubunit("rod");
     
     // Sub-unit is now initialized and we can call Validate to check if all terms are defined,
     // and if all SMSD terms match their Guinier expansions of the corresponding scattering terms.

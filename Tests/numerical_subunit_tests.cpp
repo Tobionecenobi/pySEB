@@ -157,7 +157,7 @@ void buildBinaryRodDendrimer(
             currentRoot,
             "rod"
         )
-        : world.Add(new ThinRod(), currentRoot, "rod");
+        : world.Add("ThinRod", currentRoot, "rod");
 
     for (int level = 1; level < levels; ++level) {
         const string newRoot = "level" + std::to_string(level) + "Rod";
@@ -167,7 +167,7 @@ void buildBinaryRodDendrimer(
                 newRoot,
                 "rod"
             )
-            : world.Add(new ThinRod(), newRoot, "rod");
+            : world.Add("ThinRod", newRoot, "rod");
 
         const string leftBranch = "level" + std::to_string(level) + "Left";
         const string rightBranch = "level" + std::to_string(level) + "Right";
@@ -197,9 +197,9 @@ void expectRodSphereStructureMatchesAnalytic(
     double rg2Tolerance)
 {
     World analytic;
-    const GraphID graph = analytic.Add(new ThinRod(), "rod");
+    const GraphID graph = analytic.Add("ThinRod", "rod");
     analytic.Link(
-        new SolidSphere(),
+        "SolidSphere",
         "sphere.surface#join",
         "rod.end1"
     );
@@ -241,9 +241,9 @@ void expectRodRodStructureMatchesAnalytic(
     double rg2Tolerance)
 {
     World analytic;
-    const GraphID graph = analytic.Add(new ThinRod(), "rod1");
+    const GraphID graph = analytic.Add("ThinRod", "rod1");
     analytic.Link(
-        new ThinRod(),
+        "ThinRod",
         "rod2.end1",
         "rod1.end2"
     );
@@ -406,7 +406,7 @@ TEST(DebyeSphereCloudTest, SampledSolidSphereCloudApproximatesRayleighSphere)
 
     World world;
     world.Add(new DebyeSphereCloud(scatterers), "cloud");
-    world.Add(new SolidSphere(), "sphere");
+    world.Add("SolidSphere", "sphere");
 
     ParameterList parameters{
         {"beta_sphere", beta},
@@ -443,7 +443,7 @@ TEST(DebyeSphereCloudTest, SampledThinRodCloudApproximatesAnalyticThinRod)
 
     World world;
     world.Add(sampledRodCloud(length, beta), "cloud");
-    world.Add(new ThinRod(), "rod");
+    world.Add("ThinRod", "rod");
 
     const ParameterList parameters{
         {"beta_rod", beta},
@@ -591,9 +591,9 @@ TEST(NumericalWorldTest, TwoConnectedSphereCloudsApproximateTwoAnalyticSpheres)
 
     World analyticWorld;
     const GraphID analyticGraph =
-        analyticWorld.Add(new SolidSphere(), "sphere1");
+        analyticWorld.Add("SolidSphere", "sphere1");
     analyticWorld.Link(
-        new SolidSphere(),
+        "SolidSphere",
         "sphere2.surface#join",
         "sphere1.surface#join"
     );
@@ -649,7 +649,7 @@ TEST(NumericalWorldTest, ConnectedCloudAndAnalyticSphereApproximateTwoAnalyticSp
     World mixedWorld;
     const GraphID mixedGraph = mixedWorld.Add(cloud, "cloud");
     mixedWorld.Link(
-        new SolidSphere(),
+        "SolidSphere",
         "sphere2.surface#join",
         "cloud.surface"
     );
@@ -657,9 +657,9 @@ TEST(NumericalWorldTest, ConnectedCloudAndAnalyticSphereApproximateTwoAnalyticSp
 
     World analyticWorld;
     const GraphID analyticGraph =
-        analyticWorld.Add(new SolidSphere(), "sphere1");
+        analyticWorld.Add("SolidSphere", "sphere1");
     analyticWorld.Link(
-        new SolidSphere(),
+        "SolidSphere",
         "sphere2.surface#join",
         "sphere1.surface#join"
     );
@@ -753,7 +753,7 @@ TEST(NumericalWorldTest, ConnectedRodCloudAndAnalyticSphereApproximateAnalyticPa
         "rod"
     );
     candidate.Link(
-        new SolidSphere(),
+        "SolidSphere",
         "sphere.surface#join",
         "rod.end1"
     );
@@ -785,7 +785,7 @@ TEST(NumericalWorldTest, ConnectedAnalyticRodAndSphereCloudApproximateAnalyticPa
     const double sphereBeta = 3.0;
 
     World candidate;
-    const GraphID graph = candidate.Add(new ThinRod(), "rod");
+    const GraphID graph = candidate.Add("ThinRod", "rod");
     candidate.Link(
         sampledSphereCloud(sphereRadius, sphereBeta),
         "sphere.surface",
@@ -861,7 +861,7 @@ TEST(NumericalWorldTest, ConnectedRodCloudAndAnalyticRodApproximateAnalyticRods)
         "rod1"
     );
     candidate.Link(
-        new ThinRod(),
+        "ThinRod",
         "rod2.end1",
         "rod1.end2"
     );
@@ -893,7 +893,7 @@ TEST(NumericalWorldTest, ConnectedAnalyticRodAndRodCloudApproximateAnalyticRods)
     const double rod2Beta = 1.5;
 
     World candidate;
-    const GraphID graph = candidate.Add(new ThinRod(), "rod1");
+    const GraphID graph = candidate.Add("ThinRod", "rod1");
     candidate.Link(
         sampledRodCloud(rod2Length, rod2Beta),
         "rod2.end1",
@@ -1096,7 +1096,7 @@ TEST(NumericalWorldTest, MixedAnalyticAndNumericalStructureComposes)
 
     World world;
     const GraphID graph = world.Add(cloud, "cloud");
-    world.Link(new SolidSphere(), "sphere.center", "cloud.left");
+    world.Link("SolidSphere", "sphere.center", "cloud.left");
     world.Add(graph, "mixed");
 
     const ParameterList parameters{
@@ -1571,7 +1571,7 @@ TEST(IntegratedSubunitTest, MixedCloudCylinderAndSphereCompose)
         "cloud.join"
     );
     world.Link(
-        new SolidSphere(),
+        "SolidSphere",
         "sphere.center",
         "cylinder.center"
     );
@@ -1648,7 +1648,7 @@ TEST(IntegratedSubunitTest, MixedCrossChildReferencesComposeAndAreSymmetric)
         "cloud.join"
     );
     world.Link(
-        new SolidSphere(),
+        "SolidSphere",
         "sphere.center",
         "cylinder.hull#probe"
     );
@@ -1728,7 +1728,7 @@ TEST(IntegratedSubunitTest, MixedNearZeroContrastOnlyAllowsRawScattering)
 
         World world;
         const GraphID graph = world.Add(cloud, "cloud");
-        world.Link(new SolidSphere(), "sphere.center", "cloud.join");
+        world.Link("SolidSphere", "sphere.center", "cloud.join");
         world.Add(graph, "mixed");
 
         const ParameterList parameters{

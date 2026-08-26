@@ -13,7 +13,7 @@ int main()
     World w;
 
     // Define first rod in the chain
-    GraphID rw = w.Add(new ThinRod(), "R1","rod");
+    GraphID rw = w.Add("ThinRod", "R1","rod");
 
     // Add 100 more rods end-to-end
     int N=100;
@@ -21,7 +21,7 @@ int main()
       {
           string now  = "R"+to_string(i);
           string last = "R"+to_string(i-1);       
-          w.Link(new ThinRod(),  now+".end1", last+".end2", "rod");
+          w.Link("ThinRod",  now+".end1", last+".end2", "rod");
       }
     
     // Name the structure formed by the rods

@@ -12,8 +12,8 @@ int main()
     World w("World");
 
     // Define symbolic sub-unit s1 and give it two reference points a,b
-    SubUnit* s = new ThinSphericalShell();
-    w.Add(s,"shell");
+    w.Add("ThinSphericalShell","shell");
+    SubUnit* s = w.getSubunit("shell");
     
     // Sub-unit is now initialized and we can call Validate to check if all terms are defined,
     // and if all SMSD terms match their Guinier expansions of the corresponding scattering terms.

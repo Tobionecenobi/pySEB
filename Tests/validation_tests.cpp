@@ -112,8 +112,8 @@ protected:
     std::string dir;
 
     void SetUp() override {
-        s = new GaussianLoop();
-        w.Add(s, "loop");
+        w.Add("GaussianLoop", "loop");
+        s = w.getSubunit("loop");
         dir = VALIDATION_DATA_DIR + "GaussianLoop/";
         w.setParameter(pl, "Rg_loop", 1.0);
     }
@@ -146,8 +146,8 @@ protected:
     std::string dir;
 
     void SetUp() override {
-        s = new ThinRod();
-        w.Add(s, "rod");
+        w.Add("ThinRod", "rod");
+        s = w.getSubunit("rod");
         dir = VALIDATION_DATA_DIR + "ThinRod/";
         w.setParameter(pl, "L_rod", 1.0);
     }
@@ -265,8 +265,8 @@ protected:
     ParameterList pl;
 
     void SetUp() override {
-        s = new SolidSphere();
-        w.Add(s, "sph");
+        w.Add("SolidSphere", "sph");
+        s = w.getSubunit("sph");
         pl = w.getParams();
     }
 };
@@ -444,8 +444,8 @@ protected:
     std::string dir;
 
     void SetUp() override {
-        s = new SolidSphericalShell();
-        w.Add(s, "shell");
+        w.Add("SolidSphericalShell", "shell");
+        s = w.getSubunit("shell");
         dir = VALIDATION_DATA_DIR + "SolidSphericalShell_Ri2.33_Ro3.44/";
         w.setParameter(pl, "Ri_shell", 2.33);
         w.setParameter(pl, "Ro_shell", 3.44);
@@ -514,8 +514,8 @@ protected:
     ParameterList pl;
 
     void SetUp() override {
-        s = new ThinSphericalShell();
-        w.Add(s, "shell");
+        w.Add("ThinSphericalShell", "shell");
+        s = w.getSubunit("shell");
         pl = w.getParams();
     }
 };

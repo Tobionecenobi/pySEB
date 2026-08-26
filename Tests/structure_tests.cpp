@@ -17,7 +17,7 @@ TEST(StructureTest, CrossTermStructure) {
     World world;
     
     // Test different combinations of subunits
-    GraphID g1 = world.Add(new SolidSphere(), "sphere");
+    GraphID g1 = world.Add("SolidSphere", "sphere");
     world.Link("GaussianPolymer", "poly.end1", "sphere.surface#p1", "poly");
     world.Link(new ThinDisk(), "disk.center", "sphere.surface#p2");
     world.Add(g1, "structure");
@@ -30,9 +30,9 @@ TEST(StructureTest, ShellComplexStructure) {
     World world;
     
     // Create a structure with shells and other shapes
-    GraphID g1 = world.Add(new SolidSphericalShell(), "solidShell");
-    world.Link(new ThinRod(), "rod.end1", "solidShell.surfaceo#p1", "rod");
-    world.Link(new ThinSphericalShell(), "thinShell.center", "solidShell.surfaceo#p2");
+    GraphID g1 = world.Add("SolidSphericalShell", "solidShell");
+    world.Link("ThinRod", "rod.end1", "solidShell.surfaceo#p1", "rod");
+    world.Link("ThinSphericalShell", "thinShell.center", "solidShell.surfaceo#p2");
     world.Add(g1, "structure");
     
     EXPECT_TRUE(world.hasName("structure"));
@@ -57,7 +57,7 @@ TEST(StructureTest, DistributedPointStructure) {
     }
     {
         World w;
-        GraphID g = w.Add(new SolidSphere(), "sphere");
+        GraphID g = w.Add("SolidSphere", "sphere");
         w.Add(g, "sphereStruct");
         EXPECT_TRUE(w.hasName("sphereStruct"));
         ASSERT_NO_THROW(w.FormFactor("sphereStruct"));
@@ -66,10 +66,10 @@ TEST(StructureTest, DistributedPointStructure) {
 
 TEST(StructureTest, ChainOfRodsStructure) {
     World world;
-    GraphID chain = world.Add(new ThinRod(), "rod1");
+    GraphID chain = world.Add("ThinRod", "rod1");
     
     for(int i = 2; i <= 5; i++) {
-        world.Link(new ThinRod(), "rod" + std::to_string(i) + ".end1", 
+        world.Link("ThinRod", "rod" + std::to_string(i) + ".end1", 
                   "rod" + std::to_string(i-1) + ".end2");
     }
     world.Add(chain, "rodChain");
@@ -136,7 +136,7 @@ TEST(StructureTest, MicelleStructure) {
     
     // Create micelle with N polymers attached to spherical core
     const int N = 8;
-    GraphID micelle = world.Add(new SolidSphere(), "core");
+    GraphID micelle = world.Add("SolidSphere", "core");
     
     for(int i = 1; i <= N; i++) {
         world.Link("GaussianPolymer", "poly" + std::to_string(i) + ".end1",
@@ -183,9 +183,9 @@ TEST(StructureTest, BadReferencePointListsValidOnes) {
     // Using an unknown reference point should throw and name all valid ones.
     {
         World w;
-        w.Add(new ThinRod(), "rod1");
+        w.Add("ThinRod", "rod1");
         try {
-            w.Link(new ThinRod(), "rod2.badref", "rod1.end2");
+            w.Link("ThinRod", "rod2.badref", "rod1.end2");
             FAIL() << "Expected SEBException for unknown reference point on new subunit";
         } catch (const SEBException& e) {
             std::string msg = e.what();
@@ -198,9 +198,9 @@ TEST(StructureTest, BadReferencePointListsValidOnes) {
     {
         // Same check for the *existing* subunit (second throw site)
         World w;
-        w.Add(new ThinRod(), "rod1");
+        w.Add("ThinRod", "rod1");
         try {
-            w.Link(new ThinRod(), "rod2.end1", "rod1.badref");
+            w.Link("ThinRod", "rod2.end1", "rod1.badref");
             FAIL() << "Expected SEBException for unknown reference point on existing subunit";
         } catch (const SEBException& e) {
             std::string msg = e.what();
@@ -213,7 +213,7 @@ TEST(StructureTest, BadReferencePointListsValidOnes) {
     {
         // Third throw site: testPathSyntax called via PhaseFactor on a structure path
         World w;
-        GraphID g = w.Add(new ThinRod(), "rod1");
+        GraphID g = w.Add("ThinRod", "rod1");
         w.Add(g, "chain");
         try {
             w.PhaseFactor("chain:rod1.badref", "chain:rod1.end2");

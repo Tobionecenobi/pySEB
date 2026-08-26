@@ -29,7 +29,7 @@ int main()
     World w("world");
 
     // Spherical core
-    GraphID g = w.Add(new SolidSphere(), "sphere");
+    GraphID g = w.Add("SolidSphere", "sphere");
 
     int N=100;
     for (int i=0; i<N; i++)
