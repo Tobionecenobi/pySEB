@@ -172,6 +172,23 @@ TEST(FileDefinedWorld, RegistrationRejectsConflictingIds) {
     EXPECT_FALSE(models.empty());
 }
 
+// SubUnit::NumericSigmaMSDRef2Ref must only short-circuit self-pairs of a
+// *specific* reference to zero; a distributed reference paired with itself
+// (e.g. GaussianLoop's "contour") has a genuine, nonzero sigma<R^2> that the
+// bundled model supplies and must be evaluated, not skipped.
+TEST(FileDefinedWorld, DistributedSelfReferenceSigmaIsEvaluatedNotZeroed) {
+    World world("loop");
+    world.Add("GaussianLoop", "loop");
+    const ParameterList values{{"Rg_loop", 2.0}};
+    SubUnit* loop = world.getSubunit("loop");
+    EXPECT_NEAR(loop->NumericSigmaMSDRef2Ref("contour", "contour", values), 8.0, 1e-12);
+
+    world.Add("ThinRod", "rod");
+    const ParameterList rodValues{{"L_rod", 10.0}};
+    SubUnit* rod = world.getSubunit("rod");
+    EXPECT_DOUBLE_EQ(rod->NumericSigmaMSDRef2Ref("end1", "end1", rodValues), 0.0);
+}
+
 static_assert(POINT == 2, "POINT must retain its legacy enum slot");
 static_assert(GAUSSIANPOLYMER == 3, "GAUSSIANPOLYMER must retain its legacy enum slot");
 

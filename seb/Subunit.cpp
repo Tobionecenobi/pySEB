@@ -362,7 +362,7 @@ double SubUnit::NumericSigmaMSDRef2Ref(
     refPoint r2,
     const ParameterList& values)
 {
-    if (r1 == r2) {
+    if (r1 == r2 && hasSpecificReference(r1)) {
         return 0.0;
     }
 
