@@ -344,31 +344,9 @@ PYBIND11_MODULE(_pyseb, m) {
         .def_static("sinc", &DebyeSphereCloud::sinc)
         .def_static("sphereAmplitude", &DebyeSphereCloud::sphereAmplitude);
 
-    py::class_<GaussianLoop, SubUnit, std::unique_ptr<GaussianLoop, py::nodelete>>(
-        m, "GaussianLoop"
-    ).def(py::init<>());
-    py::class_<ThinCircle, SubUnit, std::unique_ptr<ThinCircle, py::nodelete>>(
-        m, "ThinCircle"
-    ).def(py::init<>());
-    py::class_<ThinRod, SubUnit, std::unique_ptr<ThinRod, py::nodelete>>(
-        m, "ThinRod"
-    ).def(py::init<>());
     py::class_<ThinDisk, SubUnit, std::unique_ptr<ThinDisk, py::nodelete>>(
         m, "ThinDisk"
     ).def(py::init<>());
-    py::class_<
-        ThinSphericalShell,
-        SubUnit,
-        std::unique_ptr<ThinSphericalShell, py::nodelete>
-    >(m, "ThinSphericalShell").def(py::init<>());
-    py::class_<SolidSphere, SubUnit, std::unique_ptr<SolidSphere, py::nodelete>>(
-        m, "SolidSphere"
-    ).def(py::init<>());
-    py::class_<
-        SolidSphericalShell,
-        SubUnit,
-        std::unique_ptr<SolidSphericalShell, py::nodelete>
-    >(m, "SolidSphericalShell").def(py::init<>());
     py::class_<SolidCylinder, SubUnit, std::unique_ptr<SolidCylinder, py::nodelete>>(
         m, "SolidCylinder"
     ).def(py::init<>());

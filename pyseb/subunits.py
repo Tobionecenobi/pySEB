@@ -6,13 +6,7 @@ This module provides Python wrappers for the SEB subunits.
 
 from . import _pyseb as _extension
 
-_GaussianLoop = _extension.GaussianLoop
-_ThinCircle = _extension.ThinCircle
-_ThinRod = _extension.ThinRod
 _ThinDisk = _extension.ThinDisk
-_ThinSphericalShell = _extension.ThinSphericalShell
-_SolidSphere = _extension.SolidSphere
-_SolidSphericalShell = _extension.SolidSphericalShell
 _SolidCylinder = _extension.SolidCylinder
 _SymbolicSubunit = _extension.SymbolicSubunit
 _NumericalSubunit = _extension.NumericalSubunit
@@ -23,65 +17,11 @@ CartesianPoint3D = _extension.CartesianPoint3D
 NormalizationMode = _extension.NormalizationMode
 
 
-class GaussianLoop(_GaussianLoop):
-    """
-    A Gaussian loop subunit.
-    
-    This represents a closed loop polymer with Gaussian statistics.
-    """
-    pass
-
-
-class ThinCircle(_ThinCircle):
-    """
-    A thin circle subunit.
-    
-    This represents a thin circular ring.
-    """
-    pass
-
-
-class ThinRod(_ThinRod):
-    """
-    A thin rod subunit.
-    
-    This represents a thin rod with uniform scattering density.
-    """
-    pass
-
-
 class ThinDisk(_ThinDisk):
     """
     A thin disk subunit.
     
     This represents a thin disk with uniform scattering density.
-    """
-    pass
-
-
-class ThinSphericalShell(_ThinSphericalShell):
-    """
-    A thin spherical shell subunit.
-    
-    This represents a thin spherical shell with uniform scattering density.
-    """
-    pass
-
-
-class SolidSphere(_SolidSphere):
-    """
-    A solid sphere subunit.
-    
-    This represents a solid sphere with uniform scattering density.
-    """
-    pass
-
-
-class SolidSphericalShell(_SolidSphericalShell):
-    """
-    A solid spherical shell subunit.
-    
-    This represents a solid spherical shell with uniform scattering density.
     """
     pass
 
@@ -116,13 +56,7 @@ class DebyeSphereCloud(_DebyeSphereCloud):
 
 
 __all__ = [
-    "GaussianLoop",
-    "ThinCircle",
-    "ThinRod",
     "ThinDisk",
-    "ThinSphericalShell",
-    "SolidSphere",
-    "SolidSphericalShell",
     "SolidCylinder",
     "SymbolicSubunit",
     "NumericalSubunit",
@@ -132,3 +66,4 @@ __all__ = [
     "CartesianPoint3D",
     "NormalizationMode",
 ]
+

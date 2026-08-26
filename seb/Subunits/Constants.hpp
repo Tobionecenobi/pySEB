@@ -11,13 +11,13 @@ enum subunittypes{
     SYMBOLICSUBUNIT,
     POINT,               // Reserved legacy slot; Point is now FILEDEFINEDSUBUNIT.
     GAUSSIANPOLYMER,     // Reserved legacy slot; GaussianPolymer is now FILEDEFINEDSUBUNIT.
-    GAUSSIANLOOP,
-    THINCIRCLE,
-    THINROD,
-    THINSPHERICALSHELL,
+    GAUSSIANLOOP,        // Reserved legacy slot; GaussianLoop is now FILEDEFINEDSUBUNIT.
+    THINCIRCLE,          // Reserved legacy slot; ThinCircle is now FILEDEFINEDSUBUNIT.
+    THINROD,             // Reserved legacy slot; ThinRod is now FILEDEFINEDSUBUNIT.
+    THINSPHERICALSHELL,  // Reserved legacy slot; ThinSphericalShell is now FILEDEFINEDSUBUNIT.
     THINDISK,
-    SOLIDSPHERE,
-    SOLIDSPHERICALSHELL,
+    SOLIDSPHERE,         // Reserved legacy slot; SolidSphere is now FILEDEFINEDSUBUNIT.
+    SOLIDSPHERICALSHELL, // Reserved legacy slot; SolidSphericalShell is now FILEDEFINEDSUBUNIT.
     SOLIDCYLINDER,
     NUMERICALSUBUNIT,
     DEBYESPHERECLOUD,

@@ -6,6 +6,7 @@
 #include <cmath>
 #include <gsl/gsl_sf_bessel.h>
 
+#include "ExpressionFunctions.hpp"
 #include "Integrated.hpp"
 
 /*===========================================================================
