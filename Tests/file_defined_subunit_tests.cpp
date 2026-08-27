@@ -70,6 +70,33 @@ TEST(FileDefinedExpression, EvaluatesParsedAstNumerically) {
         1e-12);
 }
 
+TEST(FileDefinedExpression, SincAndJincHaveStableZeroLimits) {
+    const auto sinc = pyseb::ParseSubunitExpression("sinc(x)");
+    const auto jinc = pyseb::ParseSubunitExpression("jinc(x)");
+    const auto at = [](const pyseb::ParsedExpression& expression, double x) {
+        return pyseb::EvaluateSubunitExpression(
+            expression,
+            [x](const std::string& name) {
+                if (name == "x") return x;
+                throw SEBException("unexpected identifier " + name);
+            });
+    };
+
+    EXPECT_DOUBLE_EQ(at(sinc, 0.0), 1.0);
+    EXPECT_DOUBLE_EQ(at(jinc, 0.0), 1.0);
+    EXPECT_NEAR(at(sinc, 1e-6), 1.0 - 1e-12 / 6.0, 1e-15);
+    EXPECT_NEAR(at(jinc, 1e-6), 1.0 - 1e-12 / 8.0, 1e-15);
+    EXPECT_NEAR(at(sinc, 1.0), std::sin(1.0), 1e-14);
+    EXPECT_NEAR(at(jinc, 1.0), 2.0 * gsl_sf_bessel_J1(1.0), 1e-14);
+
+    const auto symbolic = pyseb::MaterializeSubunitExpression(
+        pyseb::ParseSubunitExpression("sinc(x) + jinc(x)"),
+        [](const std::string& name) {
+            return symbol(name);
+        });
+    EXPECT_NE(symbolic.to_string().find("inc"), std::string::npos);
+}
+
 TEST(FileDefinedIntegral, LoadsSettingsAndEvaluatesNamedIntegral) {
     const char yaml[] = R"YAML(
 format: pyseb-subunit

@@ -102,6 +102,28 @@ Expression Six(const Expression& x) {
     return si / x;
 }
 
+Expression Sinc(const Expression& x) {
+#ifdef USE_GINAC_IMPL
+    if (SymbolicFactory::activeBackendName() == "ginac") {
+        auto g_x = as_ginac_expression(x, "Sinc");
+        return ginac_expression(::Sinc(g_x->get_ginac_expr()));
+    }
+#endif
+
+    return portable_function("sinc", std::vector<SymExprPtr>{x.get()});
+}
+
+Expression Jinc(const Expression& x) {
+#ifdef USE_GINAC_IMPL
+    if (SymbolicFactory::activeBackendName() == "ginac") {
+        auto g_x = as_ginac_expression(x, "Jinc");
+        return ginac_expression(::Jinc(g_x->get_ginac_expr()));
+    }
+#endif
+
+    return portable_function("jinc", std::vector<SymExprPtr>{x.get()});
+}
+
 Expression Erf_wrapper(const Expression& x) {
     if (SymbolicFactory::activeBackendName() != "portable" && x.is_numeric()) {
         return Expression(SymbolicExpression::constant(gsl_sf_erf(x.eval())));

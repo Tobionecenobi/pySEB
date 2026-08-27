@@ -215,6 +215,20 @@ double PortableExpression::eval() const
         if (_op == "bessel_j1") return gsl_sf_bessel_J1(value);
         if (_op == "dawson") return gsl_sf_dawson(value);
         if (_op == "Si") return gsl_sf_Si(value);
+        if (_op == "sinc") {
+            const double squared = value * value;
+            if (squared < 1e-8) {
+                return 1.0 - squared / 6.0 + squared * squared / 120.0;
+            }
+            return std::sin(value) / value;
+        }
+        if (_op == "jinc") {
+            const double squared = value * value;
+            if (squared < 1e-8) {
+                return 1.0 - squared / 8.0 + squared * squared / 192.0;
+            }
+            return 2.0 * gsl_sf_bessel_J1(value) / value;
+        }
         if (_op == "erf") return std::erf(value);
         if (_op == "erfc") return std::erfc(value);
 
@@ -306,6 +320,8 @@ std::string PortableExpression::render_python() const
             return "struve(1, " + as_portable(_args[0])->render_python() + ")";
         }
         std::string arg = as_portable(_args[0])->render_python();
+        if (_op == "sinc") return "sinc(" + arg + ")";
+        if (_op == "jinc") return "jinc(" + arg + ")";
         if (_op == "bessel_j0") return "besselj(0, " + arg + ")";
         if (_op == "bessel_j1") return "besselj(1, " + arg + ")";
         return sympy_function_name(_op) + "(" + arg + ")";

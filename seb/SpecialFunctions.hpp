@@ -26,6 +26,8 @@ Expression BesselJ1(const Expression& x);
 Expression BesselJ2(const Expression& x);
 Expression DawsonF(const Expression& x);
 Expression Six(const Expression& x);
+Expression Sinc(const Expression& x);
+Expression Jinc(const Expression& x);
 Expression Erf(const Expression& x);
 Expression Erfc(const Expression& x);
 Expression Hypergeometric0F1Regularized(const Expression& a, const Expression& x);
@@ -45,6 +47,8 @@ DECLARE_FUNCTION_1P(BesselJ2)
 DECLARE_FUNCTION_1P(DawsonF)
 DECLARE_FUNCTION_1P(Si)
 DECLARE_FUNCTION_1P(Six)
+DECLARE_FUNCTION_1P(Sinc)
+DECLARE_FUNCTION_1P(Jinc)
 DECLARE_FUNCTION_1P(Erf)
 DECLARE_FUNCTION_1P(Erfc)
 DECLARE_FUNCTION_2P(Hypergeometric0F1Regularized)

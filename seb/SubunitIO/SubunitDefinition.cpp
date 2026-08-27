@@ -345,8 +345,8 @@ void validateUniqueNames(SubunitDefinition& definition) {
     const std::string& source = definition.source;
     const std::set<std::string> reserved = {
         "q", "pi", "e", "abs", "acos", "asin", "atan", "bessel_j0", "bessel_j1",
-        "cos", "cosh", "dawson", "erf", "erfc", "exp", "log", "pow", "sin", "sinh",
-        "six", "sqrt", "struve_h0", "struve_h1", "tan", "tanh"
+        "cos", "cosh", "dawson", "erf", "erfc", "exp", "jinc", "log", "pow", "sin",
+        "sinc", "sinh", "six", "sqrt", "struve_h0", "struve_h1", "tan", "tanh"
     };
     std::set<std::string> names = reserved;
     const auto insertName = [&](const std::string& name, const std::string& path) {

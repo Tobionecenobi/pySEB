@@ -233,6 +233,8 @@ sebsym::Expression materialize(
             if (node->text == "bessel_j1") return BesselJ1(arg);
             if (node->text == "dawson") return DawsonF(arg);
             if (node->text == "six") return Six(arg);
+            if (node->text == "sinc") return Sinc(arg);
+            if (node->text == "jinc") return Jinc(arg);
             if (node->text == "struve_h0") return StruveH0(arg);
             if (node->text == "struve_h1") return StruveH1(arg);
             break;
@@ -295,6 +297,20 @@ double evaluate(
                 }
                 return gsl_sf_Si(arg) / arg;
             }
+            if (node->text == "sinc") {
+                const double squared = arg * arg;
+                if (squared < 1e-8) {
+                    return 1.0 - squared / 6.0 + squared * squared / 120.0;
+                }
+                return std::sin(arg) / arg;
+            }
+            if (node->text == "jinc") {
+                const double squared = arg * arg;
+                if (squared < 1e-8) {
+                    return 1.0 - squared / 8.0 + squared * squared / 192.0;
+                }
+                return 2.0 * gsl_sf_bessel_J1(arg) / arg;
+            }
             break;
         }
     }
@@ -330,7 +346,7 @@ double EvaluateSubunitExpression(
 bool IsSubunitExpressionFunction(const std::string& name) {
     static const std::set<std::string> functions = {
         "abs", "acos", "asin", "atan", "bessel_j0", "bessel_j1", "cos", "cosh",
-        "dawson", "erf", "erfc", "exp", "log", "pow", "sin", "sinh", "six", "sqrt",
+        "dawson", "erf", "erfc", "exp", "jinc", "log", "pow", "sin", "sinc", "sinh", "six", "sqrt",
         "struve_h0", "struve_h1", "tan", "tanh"
     };
     return functions.find(name) != functions.end();
