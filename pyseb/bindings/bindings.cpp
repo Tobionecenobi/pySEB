@@ -59,6 +59,23 @@ PYBIND11_MODULE(_pyseb, m) {
         .value("QAG", IntegrationMethod::QAG)
         .value("CQUAD", IntegrationMethod::CQUAD);
 
+    py::enum_<LengthUnit>(m, "LengthUnit")
+        .value("Meter", LengthUnit::Meter).value("Millimeter", LengthUnit::Millimeter)
+        .value("Micrometer", LengthUnit::Micrometer).value("Nanometer", LengthUnit::Nanometer)
+        .value("Angstrom", LengthUnit::Angstrom);
+    py::class_<USDExportOptions>(m, "USDExportOptions")
+        .def(py::init<LengthUnit>())
+        .def(py::init<double>())
+        .def_readwrite("seed", &USDExportOptions::seed)
+        .def_readwrite("curve_samples", &USDExportOptions::curveSamples)
+        .def_readwrite("surface_samples", &USDExportOptions::surfaceSamples)
+        .def_readwrite("reference_markers", &USDExportOptions::referenceMarkers)
+        .def_readwrite("zero_radius_marker_size", &USDExportOptions::zeroRadiusMarkerSize)
+        .def_readwrite("meters_per_unit", &USDExportOptions::metersPerUnit)
+        .def_readwrite("custom_unit", &USDExportOptions::customUnit)
+        .def_readwrite("color_overrides", &USDExportOptions::colorOverrides)
+        .def_readwrite("opacity_overrides", &USDExportOptions::opacityOverrides);
+
     py::class_<IntegrationOptions>(m, "SubunitIntegrationOptions")
         .def_readonly("method", &IntegrationOptions::method)
         .def_readonly("absolute_tolerance", &IntegrationOptions::absoluteTolerance)
@@ -106,6 +123,29 @@ PYBIND11_MODULE(_pyseb, m) {
         .def_readonly("citations", &pyseb::SubunitMetadata::citations)
         .def_readonly("license", &pyseb::SubunitMetadata::license);
 
+    py::enum_<pyseb::VisualizationGeometryKind>(m, "VisualizationGeometryKind")
+        .value("Curve", pyseb::VisualizationGeometryKind::Curve)
+        .value("Surface", pyseb::VisualizationGeometryKind::Surface)
+        .value("RandomWalk", pyseb::VisualizationGeometryKind::RandomWalk);
+    py::class_<pyseb::VisualizationGeometry>(m, "VisualizationGeometry")
+        .def_readonly("name", &pyseb::VisualizationGeometry::name)
+        .def_readonly("kind", &pyseb::VisualizationGeometry::kind)
+        .def_readonly("samples", &pyseb::VisualizationGeometry::samples)
+        .def_readonly("distribution", &pyseb::VisualizationGeometry::distribution)
+        .def_readonly("closure", &pyseb::VisualizationGeometry::closure);
+    py::class_<pyseb::VisualizationReference>(m, "VisualizationReference")
+        .def_readonly("name", &pyseb::VisualizationReference::name)
+        .def_readonly("kind", &pyseb::VisualizationReference::kind)
+        .def_readonly("geometry", &pyseb::VisualizationReference::geometry)
+        .def_readonly("sampling", &pyseb::VisualizationReference::sampling);
+    py::class_<pyseb::VisualizationDefinition>(m, "VisualizationDefinition")
+        .def_readonly("present", &pyseb::VisualizationDefinition::present)
+        .def_readonly("geometry", &pyseb::VisualizationDefinition::geometry)
+        .def_readonly("references", &pyseb::VisualizationDefinition::references)
+        .def_readonly("opacity", &pyseb::VisualizationDefinition::opacity)
+        .def_readonly("double_sided", &pyseb::VisualizationDefinition::doubleSided)
+        .def_readonly("curve_width", &pyseb::VisualizationDefinition::curveWidth);
+
     py::class_<pyseb::SubunitDefinition>(m, "SubunitDefinition")
         .def_readonly("schema_version", &pyseb::SubunitDefinition::schemaVersion)
         .def_readonly("id", &pyseb::SubunitDefinition::id)
@@ -119,6 +159,7 @@ PYBIND11_MODULE(_pyseb, m) {
         .def_readonly("integrals", &pyseb::SubunitDefinition::integrals)
         .def_readonly("specific_references", &pyseb::SubunitDefinition::specificReferences)
         .def_readonly("distributed_references", &pyseb::SubunitDefinition::distributedReferences)
+        .def_readonly("visualization", &pyseb::SubunitDefinition::visualization)
         .def_property_readonly("validation_case_count", [](const pyseb::SubunitDefinition& definition) {
             return definition.validationCases.size();
         });
@@ -471,7 +512,9 @@ PYBIND11_MODULE(_pyseb, m) {
              py::arg("reference"), py::arg("parameters"))
         .def("EvaluateSMSDRef2Ref", &World::EvaluateSMSDRef2Ref,
              py::arg("reference1"), py::arg("reference2"),
-             py::arg("parameters"));
+             py::arg("parameters"))
+        .def("export_usd", &World::ExportUSD,
+             py::arg("structure"), py::arg("path"), py::arg("parameters"), py::arg("options"));
 
     register_symbolic_world_bindings(world);
 }
