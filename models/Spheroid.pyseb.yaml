@@ -144,3 +144,15 @@ validation:
       parameters: {a: 2.0, c: 3.0}
       references: [center, pole]
       expected: 9.0
+
+visualization:
+  geometry:
+    surface:
+      kind: surface
+      u: {lower: "0", upper: "pi"}
+      v: {lower: "0", upper: "2 * pi"}
+      coordinates: ["a * sin(u) * cos(v)", "a * sin(u) * sin(v)", "c * cos(u)"]
+  references:
+    center: {kind: fixed, position: [0, 0, 0]}
+    pole: {kind: fixed, position: [0, 0, c]}
+    surface: {kind: distributed, geometry: surface, sampling: surface_area}

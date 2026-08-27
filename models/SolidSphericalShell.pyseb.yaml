@@ -143,3 +143,21 @@ validation:
       parameters: {Ri: 3.0, Ro: 5.0}
       references: [surfacei, surfaceo]
       expected: 34.0
+
+visualization:
+  geometry:
+    outer:
+      kind: surface
+      u: {lower: "0", upper: "pi"}
+      v: {lower: "0", upper: "2 * pi"}
+      coordinates: ["Ro * sin(u) * cos(v)", "Ro * sin(u) * sin(v)", "Ro * cos(u)"]
+    inner:
+      kind: surface
+      u: {lower: "0", upper: "pi"}
+      v: {lower: "0", upper: "2 * pi"}
+      coordinates: ["Ri * sin(u) * cos(v)", "Ri * sin(u) * sin(v)", "Ri * cos(u)"]
+  references:
+    center: {kind: fixed, position: [0, 0, 0]}
+    surface: {kind: distributed, geometry: outer, sampling: surface_area}
+    surfaceo: {kind: distributed, geometry: outer, sampling: surface_area}
+    surfacei: {kind: distributed, geometry: inner, sampling: surface_area}

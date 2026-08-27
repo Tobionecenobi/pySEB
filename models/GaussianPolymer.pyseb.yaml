@@ -101,3 +101,16 @@ validation:
       references: [end1]
       q: 0.5
       expected: 0.6321205588285577
+
+visualization:
+  geometry:
+    contour:
+      kind: random_walk
+      samples: 96
+      closure: open
+      target_rg: Rg
+  references:
+    end1: {kind: curve_fraction, geometry: contour, fraction: 0}
+    middle: {kind: curve_fraction, geometry: contour, fraction: 0.5}
+    end2: {kind: curve_fraction, geometry: contour, fraction: 1}
+    contour: {kind: distributed, geometry: contour, sampling: arc_length}

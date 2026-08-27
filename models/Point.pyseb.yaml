@@ -39,6 +39,7 @@ validation:
       quantity: form_factor_unnormalized
       q: 0.0
       expected: 0.0
+
     - name: point phase
       quantity: phase
       references: [point, point]
@@ -47,3 +48,8 @@ validation:
     - name: zero size
       quantity: radius_of_gyration_squared
       expected: 0.0
+
+visualization:
+  geometry: {}
+  references:
+    point: {kind: fixed, position: [0, 0, 0]}

@@ -110,3 +110,15 @@ validation:
       parameters: {L: 10.0}
       references: [end1, middle]
       expected: 25.0
+
+visualization:
+  geometry:
+    contour:
+      kind: curve
+      u: {lower: "-L / 2", upper: "L / 2"}
+      coordinates: ["0", "0", "u"]
+  references:
+    end1: {kind: curve_fraction, geometry: contour, fraction: 0}
+    middle: {kind: curve_fraction, geometry: contour, fraction: 0.5}
+    end2: {kind: curve_fraction, geometry: contour, fraction: 1}
+    contour: {kind: distributed, geometry: contour, sampling: uniform_parameter}
