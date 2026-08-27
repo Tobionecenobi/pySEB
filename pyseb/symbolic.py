@@ -15,6 +15,11 @@ _SYMPY_LOCALS = {
     'hyper': sympy.hyper,
     'gamma': sympy.gamma,
     'struve': sympy.Function('struve'),
+    'sinc': sympy.sinc,
+    'jinc': lambda x: sympy.Piecewise(
+        (sympy.Integer(1), sympy.Eq(x, 0)),
+        (2 * sympy.besselj(1, x) / x, True),
+    ),
     'erf': sympy.erf,
     'erfc': sympy.erfc,
     'erfi': sympy.erfi,

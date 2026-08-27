@@ -1,0 +1,79 @@
+format: pyseb-subunit
+schema_version: 1
+id: pyseb/ThinSphericalShell
+api_name: ThinSphericalShell
+model_version: "1.0.0"
+
+metadata:
+  title: Thin spherical shell
+  description: An infinitesimally thin spherical shell of radius R.
+  authors: []
+  citations: []
+  license: BSD-3-Clause
+
+parameters:
+  R:
+    unit: length
+    description: Shell radius
+
+variables:
+  x: "q * R"
+
+definitions:
+  Ac: "sin(x) / x"
+
+references:
+  specific: [center]
+  distributed: [surface]
+
+expressions:
+  form_factor: "Ac * Ac"
+  amplitudes:
+    center: Ac
+    surface: "Ac * Ac"
+  phases:
+    - references: [center, surface]
+      expression: Ac
+    - references: [surface, surface]
+      expression: "Ac * Ac"
+
+sizes:
+  radius_of_gyration_squared: "R^2"
+  reference_to_scatterer:
+    center: "R^2"
+    surface: "2 * R^2"
+  reference_to_reference:
+    - references: [center, surface]
+      expression: "R^2"
+    - references: [surface, surface]
+      expression: "2 * R^2"
+
+validation:
+  absolute_tolerance: 1.0e-10
+  relative_tolerance: 1.0e-8
+  cases:
+    - name: normalized zero-angle form factor
+      quantity: form_factor
+      parameters: {R: 4.0}
+      q: 0.0
+      expected: 1.0
+    - name: radius of gyration
+      quantity: radius_of_gyration_squared
+      parameters: {R: 4.0}
+      expected: 16.0
+    - name: surface-to-scatterer distance
+      quantity: reference_to_scatterer
+      parameters: {R: 4.0}
+      references: [surface]
+      expected: 32.0
+    - name: center-to-surface phase at zero angle
+      quantity: phase
+      parameters: {R: 4.0}
+      references: [center, surface]
+      q: 0.0
+      expected: 1.0
+    - name: center-to-surface distance
+      quantity: reference_to_reference
+      parameters: {R: 4.0}
+      references: [center, surface]
+      expected: 16.0

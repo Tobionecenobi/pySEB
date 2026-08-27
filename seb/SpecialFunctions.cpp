@@ -506,6 +506,19 @@ e25:       T=4.0/X;
         }
 }
 
+double StruveH0Value(double x)
+{
+    double value = 0.0;
+    STVH0(std::fabs(x), &value);
+    return x < 0.0 ? -value : value;
+}
+
+double StruveH1Value(double x)
+{
+    double value = 0.0;
+    STVH1(std::fabs(x), &value);
+    return value;
+}
 
 
 

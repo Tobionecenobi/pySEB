@@ -222,19 +222,9 @@ include seb/Subunit.cpp
 include seb/Subunit.hpp
 include seb/Subunits/Constants.hpp
 include seb/Subunits/CreateSubunit.hpp
-include seb/Subunits/GaussianLoop.hpp
-include seb/Subunits/GaussianPolymer.hpp
-include seb/Subunits/Point.hpp
 include seb/Subunits/README
-include seb/Subunits/SolidCylinder.hpp
-include seb/Subunits/SolidSphere.hpp
-include seb/Subunits/SolidSphericalShell.hpp
 include seb/Subunits/Subunits.hpp
 include seb/Subunits/Symbolic.hpp
-include seb/Subunits/ThinCircle.hpp
-include seb/Subunits/ThinDisk.hpp
-include seb/Subunits/ThinRod.hpp
-include seb/Subunits/ThinSphericalShell.hpp
 include seb/SymbolInterface.cpp
 include seb/SymbolInterface.hpp
 include seb/Types.hpp
@@ -265,6 +255,10 @@ include Tests/utility_test.cpp
 include Tests/validation_tests.cpp
 include makefile
 include pyproject.toml
+recursive-include models *.pyseb.yaml
+include third_party/fkYAML/node.hpp
+include third_party/fkYAML/LICENSE.txt
+include THIRD_PARTY_NOTICES.md
 include pyseb/__init__.py
 include pyseb/subunits.py
 include pyseb/symbolic.py

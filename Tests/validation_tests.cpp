@@ -38,8 +38,8 @@ protected:
     std::string dir;
 
     void SetUp() override {
-        s = new GaussianPolymer();
-        w.Add(s, "poly");
+        w.Add("GaussianPolymer", "poly");
+        s = w.getSubunit("poly");
         dir = VALIDATION_DATA_DIR + "GaussianPolymer/";
         w.setParameter(pl, "Rg_poly", 1.0);
     }
@@ -112,8 +112,8 @@ protected:
     std::string dir;
 
     void SetUp() override {
-        s = new GaussianLoop();
-        w.Add(s, "loop");
+        w.Add("GaussianLoop", "loop");
+        s = w.getSubunit("loop");
         dir = VALIDATION_DATA_DIR + "GaussianLoop/";
         w.setParameter(pl, "Rg_loop", 1.0);
     }
@@ -146,8 +146,8 @@ protected:
     std::string dir;
 
     void SetUp() override {
-        s = new ThinRod();
-        w.Add(s, "rod");
+        w.Add("ThinRod", "rod");
+        s = w.getSubunit("rod");
         dir = VALIDATION_DATA_DIR + "ThinRod/";
         w.setParameter(pl, "L_rod", 1.0);
     }
@@ -212,8 +212,8 @@ protected:
     std::string dir;
 
     void SetUp() override {
-        s = new ThinDisk();
-        w.Add(s, "disk");
+        w.Add("ThinDisk", "disk");
+        s = w.getSubunit("disk");
         dir = VALIDATION_DATA_DIR + "ThinDisk_R1/";
         w.setParameter(pl, "R_disk", 1.0);
     }
@@ -265,8 +265,8 @@ protected:
     ParameterList pl;
 
     void SetUp() override {
-        s = new SolidSphere();
-        w.Add(s, "sph");
+        w.Add("SolidSphere", "sph");
+        s = w.getSubunit("sph");
         pl = w.getParams();
     }
 };
@@ -292,8 +292,8 @@ protected:
     std::string dir;
 
     void SetUp() override {
-        s = new SolidCylinder();
-        w.Add(s, "c");
+        w.Add("SolidCylinder", "c");
+        s = w.getSubunit("c");
         dir = VALIDATION_DATA_DIR + "SolidCylinder_R1_L1.5/";
         w.setParameter(pl, "R_c", 1.0);
         w.setParameter(pl, "L_c", 1.5);
@@ -369,8 +369,8 @@ protected:
     std::string dir;
 
     void SetUp() override {
-        s = new SolidCylinder();
-        w.Add(s, "c");
+        w.Add("SolidCylinder", "c");
+        s = w.getSubunit("c");
         dir = VALIDATION_DATA_DIR + "SolidCylinder_R2_L0.5/";
         w.setParameter(pl, "R_c", 2.0);
         w.setParameter(pl, "L_c", 0.5);
@@ -444,8 +444,8 @@ protected:
     std::string dir;
 
     void SetUp() override {
-        s = new SolidSphericalShell();
-        w.Add(s, "shell");
+        w.Add("SolidSphericalShell", "shell");
+        s = w.getSubunit("shell");
         dir = VALIDATION_DATA_DIR + "SolidSphericalShell_Ri2.33_Ro3.44/";
         w.setParameter(pl, "Ri_shell", 2.33);
         w.setParameter(pl, "Ro_shell", 3.44);
@@ -514,8 +514,8 @@ protected:
     ParameterList pl;
 
     void SetUp() override {
-        s = new ThinSphericalShell();
-        w.Add(s, "shell");
+        w.Add("ThinSphericalShell", "shell");
+        s = w.getSubunit("shell");
         pl = w.getParams();
     }
 };

@@ -20,9 +20,9 @@ int main()
     World w("World");
 
     // Define Triblock copolymer
-    GraphID triblock = w.Add(new GaussianPolymer(), "A");
-    w.Link(new GaussianPolymer(),  "B.end1", "A.end2");
-    w.Link(new GaussianPolymer(),  "C.end1", "B.end2");
+    GraphID triblock = w.Add("GaussianPolymer", "A");
+    w.Link("GaussianPolymer",  "B.end1", "A.end2");
+    w.Link("GaussianPolymer",  "C.end1", "B.end2");
     
     // Name triblock structure
     w.Add(triblock, "triblock");

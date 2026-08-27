@@ -31,11 +31,11 @@ int main()
     int N=3;
 
     // Point core.
-    GraphID g1 = w.Add(new Point(), "p");
+    GraphID g1 = w.Add("Point", "p");
     for (int i=0; i<N; i++)
           {
              string name = string("p")+to_string(i)+".end1";             
-             w.Link(new GaussianPolymer(), name, "p.point", "poly" );
+             w.Link("GaussianPolymer", name, "p.point", "poly" );
           }
     w.Add(g1, "star");
 

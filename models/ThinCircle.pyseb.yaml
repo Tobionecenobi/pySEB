@@ -1,0 +1,79 @@
+format: pyseb-subunit
+schema_version: 1
+id: pyseb/ThinCircle
+api_name: ThinCircle
+model_version: "1.0.0"
+
+metadata:
+  title: Thin circle
+  description: An infinitesimally thin circular ring of radius R.
+  authors: []
+  citations: []
+  license: BSD-3-Clause
+
+parameters:
+  R:
+    unit: length
+    description: Circle radius
+
+variables:
+  x: "q * R"
+
+definitions:
+  F: "bessel_j0(2 * x) + pi / 2 * (bessel_j1(2 * x) * struve_h0(2 * x) - bessel_j0(2 * x) * struve_h1(2 * x))"
+
+references:
+  specific: [center]
+  distributed: [contour]
+
+expressions:
+  form_factor: F
+  amplitudes:
+    center: "sin(x) / x"
+    contour: F
+  phases:
+    - references: [center, contour]
+      expression: "sin(x) / x"
+    - references: [contour, contour]
+      expression: F
+
+sizes:
+  radius_of_gyration_squared: "R^2 / 2"
+  reference_to_scatterer:
+    center: "R^2"
+    contour: "2 * R^2"
+  reference_to_reference:
+    - references: [center, contour]
+      expression: "R^2"
+    - references: [contour, contour]
+      expression: "2 * R^2"
+
+validation:
+  absolute_tolerance: 1.0e-10
+  relative_tolerance: 1.0e-8
+  cases:
+    - name: normalized zero-angle form factor
+      quantity: form_factor
+      parameters: {R: 3.0}
+      q: 0.0
+      expected: 1.0
+    - name: radius of gyration
+      quantity: radius_of_gyration_squared
+      parameters: {R: 3.0}
+      expected: 4.5
+    - name: center-to-scatterer distance
+      quantity: reference_to_scatterer
+      parameters: {R: 3.0}
+      references: [center]
+      expected: 9.0
+    - name: center-to-contour phase at zero angle
+      quantity: phase
+      parameters: {R: 3.0}
+      references: [center, contour]
+      q: 0.0
+      expected: 1.0
+    - name: center-to-contour distance
+      quantity: reference_to_reference
+      parameters: {R: 3.0}
+      references: [center, contour]
+      expected: 9.0

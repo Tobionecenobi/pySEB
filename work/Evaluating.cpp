@@ -20,8 +20,8 @@ int main()
     World w("World");
 
     // Define diblock copolymer
-    GraphID diblock = w.Add(new GaussianPolymer(), "A");
-    w.Link(new GaussianPolymer(),  "B.end1", "A.end2");
+    GraphID diblock = w.Add("GaussianPolymer", "A");
+    w.Link("GaussianPolymer",  "B.end1", "A.end2");
     
     // Name diblock structure
     w.Add(diblock, "diblock");

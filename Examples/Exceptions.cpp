@@ -22,11 +22,11 @@ try
 //     ex fail = GLEX->getSymbol("$%&");    // throws an exception since non-alpha numeric characters not allowed in string.
    
 //   World w("World");
-//   w.Add(new GaussianPolymer(), "polyA"); 
-//   w.Link(new GaussianPolymer(), "polyB.end2", "polyA.noend"); 
+//   w.Add("GaussianPolymer", "polyA");
+//   w.Link("GaussianPolymer", "polyB.end2", "polyA.noend");
    
      World w("World");
-     GraphID g = w.Add(new GaussianPolymer(), "polyA"); 
+     GraphID g = w.Add("GaussianPolymer", "polyA");
      w.Add(2, "structure");
    
 }

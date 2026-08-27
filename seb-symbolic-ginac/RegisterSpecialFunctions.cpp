@@ -18,6 +18,8 @@ DECLARE_FUNCTION_1P(BesselJ2)
 DECLARE_FUNCTION_1P(DawsonF)
 DECLARE_FUNCTION_1P(Si)
 DECLARE_FUNCTION_1P(Six)
+DECLARE_FUNCTION_1P(Sinc)
+DECLARE_FUNCTION_1P(Jinc)
 DECLARE_FUNCTION_1P(Erf)
 DECLARE_FUNCTION_1P(Erfc)
 DECLARE_FUNCTION_2P(Hypergeometric0F1Regularized)
@@ -140,6 +142,30 @@ static ex Six_eval(const ex& x) {
     return Six(x).hold();
 }
 
+static ex Sinc_eval(const ex& x) {
+    if (is_a<numeric>(x)) {
+        const double value = ex_to<numeric>(x).to_double();
+        const double squared = value * value;
+        if (squared < 1e-8) {
+            return numeric(1.0 - squared / 6.0 + squared * squared / 120.0);
+        }
+        return numeric(std::sin(value) / value);
+    }
+    return Sinc(x).hold();
+}
+
+static ex Jinc_eval(const ex& x) {
+    if (is_a<numeric>(x)) {
+        const double value = ex_to<numeric>(x).to_double();
+        const double squared = value * value;
+        if (squared < 1e-8) {
+            return numeric(1.0 - squared / 8.0 + squared * squared / 192.0);
+        }
+        return numeric(2.0 * gsl_sf_bessel_J1(value) / value);
+    }
+    return Jinc(x).hold();
+}
+
 static ex Erf_eval(const ex& x) {
     if (is_a<numeric>(x)) {
         return numeric(gsl_sf_erf(ex_to<numeric>(x).to_double()));
@@ -205,6 +231,14 @@ REGISTER_FUNCTION(Si, eval_func(Si_eval).
 REGISTER_FUNCTION(Six, eval_func(Six_eval).
                  evalf_func(Six_eval).
                  latex_name("\\operatorname{Six}"));
+
+REGISTER_FUNCTION(Sinc, eval_func(Sinc_eval).
+                 evalf_func(Sinc_eval).
+                 latex_name("\\operatorname{sinc}"));
+
+REGISTER_FUNCTION(Jinc, eval_func(Jinc_eval).
+                 evalf_func(Jinc_eval).
+                 latex_name("\\operatorname{jinc}"));
 
 REGISTER_FUNCTION(Erf, eval_func(Erf_eval).
                  evalf_func(Erf_eval).

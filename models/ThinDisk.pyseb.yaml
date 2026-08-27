@@ -1,0 +1,114 @@
+format: pyseb-subunit
+schema_version: 1
+id: pyseb/ThinDisk
+api_name: ThinDisk
+model_version: "1.0.0"
+
+metadata:
+  title: Thin disk
+  description: An infinitesimally thin circular disk of radius R.
+  authors: []
+  citations: []
+  license: BSD-3-Clause
+
+parameters:
+  R:
+    unit: length
+    description: Disk radius
+
+variables:
+  x: "q * R"
+
+definitions:
+  F: "2 * (x - bessel_j1(2 * x)) / x^3"
+  rimRim: "bessel_j0(2 * x) + pi / 2 * (bessel_j1(2 * x) * struve_h0(2 * x) - bessel_j0(2 * x) * struve_h1(2 * x))"
+
+integration:
+  method: qag
+  absolute_tolerance: 1.0e-12
+  relative_tolerance: 1.0e-8
+  workspace_size: 1000
+  qag_rule: 61
+
+integrals:
+  centerAmplitude:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * jinc(x * sin(theta))"
+  rimAmplitude:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * bessel_j0(x * sin(theta)) * jinc(x * sin(theta))"
+
+references:
+  specific: [center]
+  distributed: [surface, rim]
+
+expressions:
+  form_factor: F
+  amplitudes:
+    center: centerAmplitude
+    surface: F
+    rim: rimAmplitude
+  phases:
+    - references: [center, surface]
+      expression: centerAmplitude
+    - references: [surface, surface]
+      expression: F
+    - references: [center, rim]
+      expression: "sinc(x)"
+    - references: [rim, surface]
+      expression: rimAmplitude
+    - references: [rim, rim]
+      expression: rimRim
+
+sizes:
+  radius_of_gyration_squared: "R^2 / 2"
+  reference_to_scatterer:
+    center: "R^2 / 2"
+    surface: "R^2"
+    rim: "3 * R^2 / 2"
+  reference_to_reference:
+    - references: [center, surface]
+      expression: "R^2 / 2"
+    - references: [surface, surface]
+      expression: "R^2"
+    - references: [center, rim]
+      expression: "R^2"
+    - references: [rim, surface]
+      expression: "3 * R^2 / 2"
+    - references: [rim, rim]
+      expression: "2 * R^2"
+
+validation:
+  absolute_tolerance: 1.0e-10
+  relative_tolerance: 1.0e-8
+  cases:
+    - name: normalized zero-angle form factor
+      quantity: form_factor
+      parameters: {R: 1.0}
+      q: 0.0
+      expected: 1.0
+    - name: center amplitude at small q
+      quantity: amplitude
+      parameters: {R: 1.0}
+      references: [center]
+      q: 0.01
+      expected: 0.9999916666944455
+    - name: rim amplitude at small q
+      quantity: amplitude
+      parameters: {R: 1.0}
+      references: [rim]
+      q: 0.01
+      expected: 0.9999750002777771
+    - name: radius of gyration
+      quantity: radius_of_gyration_squared
+      parameters: {R: 1.0}
+      expected: 0.5
+    - name: rim-to-rim distance
+      quantity: reference_to_reference
+      parameters: {R: 1.0}
+      references: [rim, rim]
+      expected: 2.0

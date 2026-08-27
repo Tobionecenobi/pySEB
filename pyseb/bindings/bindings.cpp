@@ -55,6 +55,96 @@ PYBIND11_MODULE(_pyseb, m) {
         .value("Normalized", NormalizationMode::Normalized)
         .value("Unnormalized", NormalizationMode::Unnormalized);
 
+    py::enum_<IntegrationMethod>(m, "IntegrationMethod")
+        .value("QAG", IntegrationMethod::QAG)
+        .value("CQUAD", IntegrationMethod::CQUAD);
+
+    py::class_<IntegrationOptions>(m, "SubunitIntegrationOptions")
+        .def_readonly("method", &IntegrationOptions::method)
+        .def_readonly("absolute_tolerance", &IntegrationOptions::absoluteTolerance)
+        .def_readonly("relative_tolerance", &IntegrationOptions::relativeTolerance)
+        .def_readonly("workspace_size", &IntegrationOptions::workspaceSize)
+        .def_property_readonly("qag_rule", [](const IntegrationOptions& options) {
+            static const int points[] = {0, 15, 21, 31, 41, 51, 61};
+            return options.qagRule >= 1 && options.qagRule <= 6
+                ? points[options.qagRule] : options.qagRule;
+        });
+
+    py::class_<pyseb::IntegralDefinition::Dimension>(m, "SubunitIntegralDimension")
+        .def_readonly("variable", &pyseb::IntegralDefinition::Dimension::variable)
+        .def_property_readonly("lower", [](const pyseb::IntegralDefinition::Dimension& dimension) {
+            return dimension.lower.source();
+        })
+        .def_property_readonly("upper", [](const pyseb::IntegralDefinition::Dimension& dimension) {
+            return dimension.upper.source();
+        });
+
+    py::class_<pyseb::IntegralDefinition>(m, "SubunitIntegralDefinition")
+        .def_readonly("name", &pyseb::IntegralDefinition::name)
+        .def_readonly("variable", &pyseb::IntegralDefinition::variable)
+        .def_property_readonly("lower", [](const pyseb::IntegralDefinition& integral) {
+            return integral.lower.source();
+        })
+        .def_property_readonly("upper", [](const pyseb::IntegralDefinition& integral) {
+            return integral.upper.source();
+        })
+        .def_property_readonly("integrand", [](const pyseb::IntegralDefinition& integral) {
+            return integral.integrand.source();
+        })
+        .def_readonly("dimensions", &pyseb::IntegralDefinition::dimensions)
+        .def_readonly("integration", &pyseb::IntegralDefinition::integration);
+
+    py::class_<pyseb::ParameterDefinition>(m, "SubunitParameterDefinition")
+        .def_readonly("name", &pyseb::ParameterDefinition::name)
+        .def_readonly("unit", &pyseb::ParameterDefinition::unit)
+        .def_readonly("description", &pyseb::ParameterDefinition::description);
+
+    py::class_<pyseb::SubunitMetadata>(m, "SubunitMetadata")
+        .def_readonly("title", &pyseb::SubunitMetadata::title)
+        .def_readonly("description", &pyseb::SubunitMetadata::description)
+        .def_readonly("authors", &pyseb::SubunitMetadata::authors)
+        .def_readonly("citations", &pyseb::SubunitMetadata::citations)
+        .def_readonly("license", &pyseb::SubunitMetadata::license);
+
+    py::class_<pyseb::SubunitDefinition>(m, "SubunitDefinition")
+        .def_readonly("schema_version", &pyseb::SubunitDefinition::schemaVersion)
+        .def_readonly("id", &pyseb::SubunitDefinition::id)
+        .def_readonly("api_name", &pyseb::SubunitDefinition::apiName)
+        .def_readonly("model_version", &pyseb::SubunitDefinition::modelVersion)
+        .def_readonly("source", &pyseb::SubunitDefinition::source)
+        .def_readonly("metadata", &pyseb::SubunitDefinition::metadata)
+        .def_readonly("invisible", &pyseb::SubunitDefinition::invisible)
+        .def_readonly("parameters", &pyseb::SubunitDefinition::parameters)
+        .def_readonly("integration", &pyseb::SubunitDefinition::integration)
+        .def_readonly("integrals", &pyseb::SubunitDefinition::integrals)
+        .def_readonly("specific_references", &pyseb::SubunitDefinition::specificReferences)
+        .def_readonly("distributed_references", &pyseb::SubunitDefinition::distributedReferences)
+        .def_property_readonly("validation_case_count", [](const pyseb::SubunitDefinition& definition) {
+            return definition.validationCases.size();
+        });
+
+    py::class_<pyseb::SubunitModelInfo>(m, "SubunitModelInfo")
+        .def_readonly("id", &pyseb::SubunitModelInfo::id)
+        .def_readonly("api_name", &pyseb::SubunitModelInfo::apiName)
+        .def_readonly("model_version", &pyseb::SubunitModelInfo::modelVersion)
+        .def_readonly("title", &pyseb::SubunitModelInfo::title)
+        .def_readonly("source", &pyseb::SubunitModelInfo::source)
+        .def_readonly("bundled", &pyseb::SubunitModelInfo::bundled);
+
+    py::class_<pyseb::SubunitValidationFailure>(m, "SubunitValidationFailure")
+        .def_readonly("case_name", &pyseb::SubunitValidationFailure::caseName)
+        .def_readonly("message", &pyseb::SubunitValidationFailure::message);
+
+    py::class_<pyseb::SubunitValidationReport>(m, "SubunitValidationReport")
+        .def_readonly("model_id", &pyseb::SubunitValidationReport::modelId)
+        .def_readonly("case_count", &pyseb::SubunitValidationReport::caseCount)
+        .def_readonly("failures", &pyseb::SubunitValidationReport::failures)
+        .def_readonly("warnings", &pyseb::SubunitValidationReport::warnings)
+        .def_property_readonly("ok", &pyseb::SubunitValidationReport::ok);
+
+    m.def("load_subunit_definition", &pyseb::LoadSubunitDefinitionFile, py::arg("path"));
+    m.def("validate_subunit_file", &pyseb::ValidateSubunitFile, py::arg("path"));
+
     py::class_<
         SymbolicSubunit,
         SubUnit,
@@ -63,6 +153,13 @@ PYBIND11_MODULE(_pyseb, m) {
         .def(py::init<>())
         .def("addReferencePoint", &SymbolicSubunit::setReferencePointName,
              py::arg("reference"));
+
+    py::class_<
+        FileDefinedSubunit,
+        SubUnit,
+        std::unique_ptr<FileDefinedSubunit, py::nodelete>
+    >(m, "FileDefinedSubunit")
+        .def(py::init<const pyseb::SubunitDefinition&>());
 
     py::class_<
         NumericalSubunit,
@@ -288,44 +385,20 @@ PYBIND11_MODULE(_pyseb, m) {
         .def_static("sinc", &DebyeSphereCloud::sinc)
         .def_static("sphereAmplitude", &DebyeSphereCloud::sphereAmplitude);
 
-    py::class_<GaussianPolymer, SubUnit, std::unique_ptr<GaussianPolymer, py::nodelete>>(
-        m, "GaussianPolymer"
-    ).def(py::init<>());
-    py::class_<GaussianLoop, SubUnit, std::unique_ptr<GaussianLoop, py::nodelete>>(
-        m, "GaussianLoop"
-    ).def(py::init<>());
-    py::class_<ThinCircle, SubUnit, std::unique_ptr<ThinCircle, py::nodelete>>(
-        m, "ThinCircle"
-    ).def(py::init<>());
-    py::class_<ThinRod, SubUnit, std::unique_ptr<ThinRod, py::nodelete>>(
-        m, "ThinRod"
-    ).def(py::init<>());
-    py::class_<ThinDisk, SubUnit, std::unique_ptr<ThinDisk, py::nodelete>>(
-        m, "ThinDisk"
-    ).def(py::init<>());
-    py::class_<
-        ThinSphericalShell,
-        SubUnit,
-        std::unique_ptr<ThinSphericalShell, py::nodelete>
-    >(m, "ThinSphericalShell").def(py::init<>());
-    py::class_<SolidSphere, SubUnit, std::unique_ptr<SolidSphere, py::nodelete>>(
-        m, "SolidSphere"
-    ).def(py::init<>());
-    py::class_<
-        SolidSphericalShell,
-        SubUnit,
-        std::unique_ptr<SolidSphericalShell, py::nodelete>
-    >(m, "SolidSphericalShell").def(py::init<>());
-    py::class_<SolidCylinder, SubUnit, std::unique_ptr<SolidCylinder, py::nodelete>>(
-        m, "SolidCylinder"
-    ).def(py::init<>());
-    py::class_<Point, SubUnit, std::unique_ptr<Point, py::nodelete>>(
-        m, "Point"
-    ).def(py::init<>());
-
     // Expose World class - basic structure only, symbolic methods are registered in backend-specific files
     py::class_<World> world(m, "World");
     world.def(py::init<std::string>(), py::arg("id") = "World")
+        .def("register_subunit_file", &World::RegisterSubunitFile, py::arg("path"))
+        .def("register_subunit_directory", &World::RegisterSubunitDirectory, py::arg("path"))
+        .def("list_subunit_models", &World::ListSubunitModels)
+        .def("add_subunit_file", &World::AddFile,
+             py::arg("path"), py::arg("name"), py::arg("tag") = "")
+        .def("add_file", &World::AddFile,
+             py::arg("path"), py::arg("name"), py::arg("tag") = "")
+        .def("link_subunit_file", &World::LinkFile,
+             py::arg("path"), py::arg("new_reference"), py::arg("old_reference"), py::arg("tag") = "")
+        .def("link_file", &World::LinkFile,
+             py::arg("path"), py::arg("new_reference"), py::arg("old_reference"), py::arg("tag") = "")
         .def("Add", [](World& self, const std::string& subunit_type) {
             return self.Add(subunit_type, subunit_type);
         }, py::arg("subunit_type"))

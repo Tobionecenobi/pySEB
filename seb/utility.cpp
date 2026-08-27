@@ -5,13 +5,13 @@
 // Utility function to create a random walk polymer
 void createRandomWalkPolymer(World& world, int numRods, const std::string& baseName) {
     // Define the first rod in the chain
-    GraphID firstRod = world.Add(new ThinRod(), baseName + "1", "rod");
+    GraphID firstRod = world.Add("ThinRod", baseName + "1", "rod");
 
     // Add and link the remaining rods
     for (int i = 2; i <= numRods; ++i) {
         std::string currentRod = baseName + std::to_string(i);
         std::string previousRod = baseName + std::to_string(i - 1);
-        world.Link(new ThinRod(), currentRod + ".end1", previousRod + ".end2", "rod");
+        world.Link("ThinRod", currentRod + ".end1", previousRod + ".end2", "rod");
     }
 
     // Name the structure formed by the rods

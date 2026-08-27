@@ -377,7 +377,7 @@ private:
         double tolerance,
         const string& what)
     {
-        const double scale = std::max(1.0, std::abs(expected));
+        const double scale = (std::max)(1.0, std::abs(expected));
         if (std::abs(actual - expected) > tolerance * scale) {
             throw SEBException(
                 "Numerical validation failed for " + what +

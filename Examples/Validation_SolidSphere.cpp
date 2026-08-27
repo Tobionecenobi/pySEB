@@ -13,8 +13,8 @@ int main()
     World w("World");
 
     // Define symbolic sub-unit s1 and give it two reference points a,b
-    SubUnit* s = new SolidSphere();
-    w.Add(s,"sph");
+    w.Add("SolidSphere","sph");
+    SubUnit* s = w.getSubunit("sph");
     
     
     

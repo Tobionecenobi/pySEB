@@ -1,0 +1,103 @@
+format: pyseb-subunit
+schema_version: 1
+id: pyseb/GaussianPolymer
+api_name: GaussianPolymer
+model_version: "1.0.0"
+
+metadata:
+  title: Gaussian polymer
+  description: Gaussian-chain model parameterized by its radius of gyration.
+  authors: []
+  citations:
+    - P. Debye, J. Phys. Colloid Chem. 51 (1947) 18-32.
+    - B. Hammouda, J. Polym. Sci. B 30 (1992) 1387.
+  license: BSD-3-Clause
+
+parameters:
+  Rg:
+    unit: length
+    description: Radius of gyration
+
+variables:
+  x: "(q * Rg)^2"
+
+definitions:
+  F: "2 * (exp(-x) - 1 + x) / x^2"
+  Aend: "(1 - exp(-x)) / x"
+  Amiddle: "2 * (1 - exp(-x / 2)) / x"
+
+references:
+  specific: [end1, middle, end2]
+  distributed: [contour]
+
+expressions:
+  form_factor: F
+  amplitudes:
+    end1: Aend
+    end2: Aend
+    middle: Amiddle
+    contour: F
+  phases:
+    - references: [end1, end2]
+      expression: "exp(-x)"
+    - references: [end1, middle]
+      expression: "exp(-x / 2)"
+    - references: [end2, middle]
+      expression: "exp(-x / 2)"
+    - references: [contour, end1]
+      expression: Aend
+    - references: [contour, end2]
+      expression: Aend
+    - references: [contour, middle]
+      expression: Amiddle
+    - references: [contour, contour]
+      expression: F
+
+sizes:
+  radius_of_gyration_squared: "Rg^2"
+  reference_to_scatterer:
+    end1: "3 * Rg^2"
+    end2: "3 * Rg^2"
+    middle: "3 * Rg^2 / 2"
+    contour: "2 * Rg^2"
+  reference_to_reference:
+    - references: [end1, end2]
+      expression: "6 * Rg^2"
+    - references: [end1, middle]
+      expression: "3 * Rg^2"
+    - references: [end2, middle]
+      expression: "3 * Rg^2"
+    - references: [contour, end1]
+      expression: "3 * Rg^2"
+    - references: [contour, end2]
+      expression: "3 * Rg^2"
+    - references: [contour, middle]
+      expression: "3 * Rg^2 / 2"
+    - references: [contour, contour]
+      expression: "2 * Rg^2"
+
+validation:
+  absolute_tolerance: 1.0e-10
+  relative_tolerance: 1.0e-8
+  cases:
+    - name: normalized zero-angle form factor
+      quantity: form_factor
+      parameters: {Rg: 2.0}
+      q: 0.0
+      expected: 1.0
+    - name: radius of gyration
+      quantity: radius_of_gyration_squared
+      parameters: {Rg: 2.0}
+      expected: 4.0
+    - name: end-to-end phase
+      quantity: phase
+      parameters: {Rg: 2.0}
+      references: [end1, end2]
+      q: 0.5
+      expected: 0.36787944117144233
+    - name: end amplitude
+      quantity: amplitude
+      parameters: {Rg: 2.0}
+      references: [end1]
+      q: 0.5
+      expected: 0.6321205588285577

@@ -37,6 +37,40 @@ endif()
 # Find required libraries
 find_package(GSL REQUIRED)
 
+# Bundle every immediate model file into the core library so adding a catalogue
+# model requires only adding its YAML definition. CONFIGURE_DEPENDS makes CMake
+# regenerate the catalogue when files are added or removed.
+file(GLOB PYSEB_BUNDLED_MODEL_FILES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/models/*.pyseb.yaml"
+)
+list(SORT PYSEB_BUNDLED_MODEL_FILES)
+if(NOT PYSEB_BUNDLED_MODEL_FILES)
+    message(FATAL_ERROR "No bundled models found in ${CMAKE_CURRENT_SOURCE_DIR}/models")
+endif()
+
+set(PYSEB_BUNDLED_MODEL_ENTRIES "")
+foreach(PYSEB_MODEL_FILE IN LISTS PYSEB_BUNDLED_MODEL_FILES)
+    get_filename_component(PYSEB_MODEL_FILENAME "${PYSEB_MODEL_FILE}" NAME)
+    if(NOT PYSEB_MODEL_FILENAME MATCHES "^[A-Za-z0-9_.-]+$")
+        message(FATAL_ERROR "Bundled model filename contains unsupported characters: ${PYSEB_MODEL_FILENAME}")
+    endif()
+    file(READ "${PYSEB_MODEL_FILE}" PYSEB_MODEL_YAML)
+    string(MD5 PYSEB_MODEL_HASH "${PYSEB_MODEL_FILENAME};${PYSEB_MODEL_YAML}")
+    string(SUBSTRING "${PYSEB_MODEL_HASH}" 0 10 PYSEB_MODEL_HASH_SHORT)
+    set(PYSEB_MODEL_DELIMITER "PY${PYSEB_MODEL_HASH_SHORT}")
+    string(FIND "${PYSEB_MODEL_YAML}" ")${PYSEB_MODEL_DELIMITER}\"" PYSEB_DELIMITER_COLLISION)
+    if(NOT PYSEB_DELIMITER_COLLISION EQUAL -1)
+        message(FATAL_ERROR "Unable to embed ${PYSEB_MODEL_FILENAME}: raw-string delimiter collision")
+    endif()
+    string(APPEND PYSEB_BUNDLED_MODEL_ENTRIES
+        "    {\"${PYSEB_MODEL_FILENAME}\", R\"${PYSEB_MODEL_DELIMITER}(${PYSEB_MODEL_YAML})${PYSEB_MODEL_DELIMITER}\"},\n")
+endforeach()
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/BundledModels.cpp.in
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/BundledModels.cpp
+    @ONLY
+)
+
 if(SEB_ENABLE_GINAC_BACKEND)
     message(STATUS "Building with GiNaC symbolic backend")
     find_package(GiNaC REQUIRED)
@@ -75,6 +109,12 @@ add_library(seb STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SpecialFunctions.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SpecialFunctionsWrapper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/Subunit.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/ExpressionParser.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/SubunitDefinition.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/SubunitRegistry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/SubunitValidator.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/Subunits/FileDefined.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/BundledModels.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SymbolInterface.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/World.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/StructureIO/PDBParser.cpp
@@ -107,6 +147,10 @@ target_include_directories(seb PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/seb>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/seb-symbolic>
+)
+
+target_include_directories(seb PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party
 )
 
 # Link libraries to SEB
@@ -169,12 +213,27 @@ if(BUILD_PYTHON)
         INSTALL_RPATH "$ORIGIN"
     )
 
-    install(TARGETS _pyseb DESTINATION pyseb)
+    # scikit-build already installs into the Python package directory selected
+    # by setup.py's cmake_install_dir. A second "pyseb" component here would
+    # produce pyseb/pyseb/_pyseb in wheels.
+    if(SKBUILD)
+        set(PYSEB_PYTHON_PACKAGE_DESTINATION ".")
+        set(PYSEB_PYTHON_MODEL_DESTINATION "models")
+    else()
+        set(PYSEB_PYTHON_PACKAGE_DESTINATION "pyseb")
+        set(PYSEB_PYTHON_MODEL_DESTINATION "pyseb/models")
+    endif()
+
+    install(TARGETS _pyseb DESTINATION ${PYSEB_PYTHON_PACKAGE_DESTINATION})
 
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pyseb/examples/python)
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pyseb/examples/python/
             DESTINATION examples/python
             FILES_MATCHING PATTERN "*.py")
+
+    install(FILES
+        ${PYSEB_BUNDLED_MODEL_FILES}
+        DESTINATION ${PYSEB_PYTHON_MODEL_DESTINATION})
 endif()
 
 install(TARGETS seb seb-symbolic
@@ -203,6 +262,16 @@ if(SEB_ENABLE_GINAC_BACKEND)
                 PATTERN "build" EXCLUDE
                 PATTERN "__pycache__" EXCLUDE)
 endif()
+
+install(FILES
+    ${PYSEB_BUNDLED_MODEL_FILES}
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/pyseb/models)
+
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fkYAML/LICENSE.txt
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/pyseb
+        RENAME fkYAML-LICENSE.txt)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/pyseb)
 
 install(EXPORT SEBSymbolicTargets
         FILE SEBSymbolicTargets.cmake

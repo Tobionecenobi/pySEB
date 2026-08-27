@@ -1,0 +1,253 @@
+---
+title: "File-defined subunits"
+---
+
+Analytic subunits can be authored as a single `.pyseb.yaml` file. The file is
+validated and converted to pySEB's native symbolic expressions; it never
+executes Python, C++, or shell code.
+
+Useful bundled examples are [`Point.pyseb.yaml`](../models/Point.pyseb.yaml),
+[`GaussianPolymer.pyseb.yaml`](../models/GaussianPolymer.pyseb.yaml), and the
+integral-backed [`SolidCylinder.pyseb.yaml`](../models/SolidCylinder.pyseb.yaml).
+
+## Use a model directly
+
+```python
+import pyseb
+
+world = pyseb.World("custom")
+world.add_subunit_file("MyModel.pyseb.yaml", name="particle")
+```
+
+The C++ equivalent is:
+
+```cpp
+#include "SEB.hpp"
+
+World world("custom");
+world.AddFile("MyModel.pyseb.yaml", "particle");
+```
+
+`link_subunit_file`/`LinkFile` load and attach a new instance in one call.
+
+## Register a model by ID
+
+Registration is local to a `World`. Each model is registered under both its
+canonical `id` and its short `api_name`. Directories are opt-in, non-recursive,
+and only immediate `*.pyseb.yaml` files are considered. The entire directory
+is validated before any model is registered.
+
+```python
+world = pyseb.World()
+world.register_subunit_directory("lab-models")
+world.Add("my-lab/BranchedPolymer", "polymer")
+world.Add("BranchedPolymer", "secondpolymer")
+
+for model in world.list_subunit_models():
+    print(model.id, model.api_name, model.model_version)
+```
+
+A canonical ID or API name can occur only once in a World. Neither may collide
+with a bundled YAML model, an executable built-in model, or another model in a
+pending directory registration. Built-in canonical IDs include `pyseb/Point`
+and `pyseb/GaussianPolymer`; their API names are `Point` and
+`GaussianPolymer`.
+
+## Required schema
+
+Every file declares:
+
+- `format: pyseb-subunit`, `schema_version: 1`, a namespaced `id`, an
+  `api_name`, and a non-empty `model_version`;
+- structural `parameters` and optional dimensionless `variables`;
+- specific and distributed `references`;
+- one form factor and one amplitude per reference;
+- every nontrivial unordered phase-factor pair;
+- radius-of-gyration, reference-to-scatterer, and reference-pair size terms.
+
+Reusable expressions live under `definitions`. Variable and definition
+dependencies may appear in any YAML order, but must form an acyclic graph.
+Size expressions may not depend on `q`, directly or indirectly.
+
+Reference pairs use two-element arrays:
+
+```yaml
+expressions:
+  phases:
+    - references: [end1, end2]
+      expression: "exp(-x)"
+```
+
+For a specific reference paired with itself, the phase is one and the distance
+is zero by definition, so those entries are omitted. A distributed reference
+paired with itself must be supplied.
+
+## Expression language
+
+Expressions accept decimal/scientific numbers, `q`, declared identifiers,
+`pi`, `e`, parentheses, unary signs, `+`, `-`, `*`, `/`, and right-associative
+`^`. Supported functions are:
+
+```text
+abs acos asin atan bessel_j0 bessel_j1 cos cosh dawson erf erfc
+exp jinc log pow sin sinc sinh six sqrt struve_h0 struve_h1 tan tanh
+```
+
+Names start with a letter and contain only letters and digits. Unknown names,
+cycles, wrong function arity, Python syntax, imports, and arbitrary function
+calls are rejected. `sinc(z)` means `sin(z)/z`, and `jinc(z)` means
+`2*bessel_j1(z)/z`; both have the analytic value one at zero and stable
+small-argument evaluation.
+
+`api_name` follows the same identifier rule. For example:
+
+```yaml
+id: my-lab/BranchedPolymer
+api_name: BranchedPolymer
+```
+
+## Finite iterated integrals
+
+Named integrals can be reused from ordinary definitions, form factors,
+amplitudes, and phase factors. Put shared numerical settings in `integration`;
+an integral may override only the fields it needs:
+
+```yaml
+variables:
+  x: "q * R"
+
+integration:
+  method: cquad
+  absolute_tolerance: 1.0e-12
+  relative_tolerance: 1.0e-8
+  workspace_size: 1000
+  qag_rule: 61
+
+integrals:
+  centerAmplitude:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * jinc(x * sin(theta))"
+    integration:
+      method: qag
+
+expressions:
+  form_factor: "centerAmplitude^2"
+```
+
+The scalar `variable`, `lower`, and `upper` fields are shorthand for one
+dimension. For two or more dimensions, use an ordered `variables` sequence;
+the first item is the outermost integration and each later item is integrated
+inside it:
+
+```yaml
+integrals:
+  rectangle:
+    variables:
+      - {variable: x, lower: "0", upper: "1"}
+      - {variable: y, lower: "x", upper: "x + 1"}
+    integrand: "x + y"
+```
+
+Each dimension name is local to its integral. A bound may use structural
+parameters, reusable q-independent definitions, and variables declared by
+earlier dimensions, but not q, a later dimension, or an integral result.
+Dimension names must be unique and cannot collide with model names.
+
+Methods are `cquad` and `qag`; QAG rules are 15, 21, 31, 41, 51, or 61.
+Defaults are CQUAD, absolute tolerance `1e-12`, relative tolerance `1e-8`,
+workspace size 1000, and QAG rule 61. At least one tolerance must be positive.
+
+Each dimension name is local to its integral and cannot collide with a
+parameter, variable, definition, integral, constant, or function name. Bounds
+must remain finite and q-independent; they may use structural parameters,
+q-independent reusable definitions, and variables declared by earlier
+dimensions. Integrands may additionally use q, dimensionless variables, and
+all declared local dimensions.
+
+Integration is finite iterated scalar quadrature: the implementation
+recursively applies QAG or CQUAD from the innermost dimension outward. It is
+not a general cubature method. Named integral results cannot be used inside
+another integral or in size expressions in this version; this keeps local
+scoping and caching unambiguous. Reversed finite bounds are valid and reverse
+the corresponding sign. High-dimensional integrals can become expensive
+quickly, so keep the number of dimensions and tolerances appropriate to the
+model.
+
+Symbolic queries retain an unevaluated integral in portable, GiNaC, and SymPy
+output. Use `World.Evaluate*` for numerical quadrature. The exact q=0
+normalization is handled before quadrature; stable primitives such as `sinc`
+and `jinc` should still be used where an integrand has removable endpoint
+singularities. Numerical errors identify the source file, integral, bounds,
+method, and GSL failure.
+
+## Contribute a bundled analytic model
+
+Add one validated `models/MyModel.pyseb.yaml` file. CMake discovers immediate
+`*.pyseb.yaml` files in sorted order and uses that same collection for the
+embedded C++ catalogue, Python package, and C++ data installation. No C++
+header, enum entry, factory branch, binding, manifest entry, or CMake filename
+list is needed.
+
+Bundled YAML models are constructed through the World registry:
+
+```python
+world.Add("MyModel", "particle")
+world.Add("my-lab/MyModel", "secondparticle")
+```
+
+Direct constructors for YAML catalogue models are intentionally unavailable.
+This includes `Point`, `GaussianPolymer`, `ThinDisk`, and `SolidCylinder`.
+Use `World.Add()` or `World.Link()` instead. Executable, callback, and
+coordinate-cloud subunits retain their existing class APIs.
+
+`behavior.scattering: invisible` defines a connector such as Point. Its form
+factor and amplitudes must be literal zero expressions.
+
+## Reference validation
+
+Validation cases are optional and run only when requested:
+
+```yaml
+validation:
+  absolute_tolerance: 1.0e-10
+  relative_tolerance: 1.0e-8
+  cases:
+    - name: end-to-end phase
+      quantity: phase
+      parameters: {Rg: 2.0}
+      references: [end1, end2]
+      q: 0.5
+      expected: 0.36787944117144233
+```
+
+Supported quantities are `form_factor`, `form_factor_unnormalized`,
+`amplitude`, `amplitude_unnormalized`, `phase`,
+`radius_of_gyration_squared`, `reference_to_scatterer`, and
+`reference_to_reference`. Cases use the untagged parameter names from the
+model file.
+
+Validate from Python or the command line:
+
+```python
+report = pyseb.validate_subunit_file("MyModel.pyseb.yaml")
+assert report.ok, report.failures
+```
+
+```bash
+pyseb-subunit validate MyModel.pyseb.yaml
+```
+
+The command exits with status 0 on success, 1 for failed reference cases, and
+2 for load/schema/expression errors. A valid file without cases succeeds with
+a warning.
+
+## Scope and safety
+
+The v1 format is analytic and declarative. It has no includes, filesystem
+access, environment expansion, callbacks, coordinate arrays, or executable
+plugins. Use the callback APIs or `DebyeSphereCloud` for improper, data-driven,
+specialized integration, or true multidimensional cubature. YAML tags, anchors,
+aliases, multiple YAML documents, unknown schema fields, and files larger than
+1 MiB are rejected.

@@ -4,6 +4,8 @@
 // Include creation function for sub-units.
 #include "Subunits/CreateSubunit.hpp"
 
+#include <memory>
+
 using sebsym::Expression;
 
 /* Adds a new sub unit that is not connected to anything. Thus it receives its own graphID.
@@ -45,7 +47,19 @@ catch (SEBException& e)
 // Helper
 GraphID World::Add(string subtype, subName name, string tag)
 {
-   return Add(CreateSubunit(subtype), name, tag);
+   std::unique_ptr<SubUnit> subunit(subunitRegistry.Create(subtype));
+   GraphID result = Add(subunit.get(), name, tag);
+   subunit.release();
+   return result;
+}
+
+GraphID World::AddFile(string path, subName name, string tag)
+{
+   pyseb::SubunitDefinition definition = pyseb::LoadSubunitDefinitionFile(path);
+   std::unique_ptr<SubUnit> subunit(new FileDefinedSubunit(definition));
+   GraphID result = Add(subunit.get(), name, tag);
+   subunit.release();
+   return result;
 }
 
 
@@ -180,7 +194,34 @@ catch (SEBException& e)
 // helper
 GraphID World::Link(string subtype, refPoint newr, refPoint oldr, string tag)
 {
-   return Link(CreateSubunit(subtype), newr, oldr, tag);
+   std::unique_ptr<SubUnit> subunit(subunitRegistry.Create(subtype));
+   GraphID result = Link(subunit.get(), newr, oldr, tag);
+   subunit.release();
+   return result;
+}
+
+GraphID World::LinkFile(string path, refPoint newr, refPoint oldr, string tag)
+{
+   pyseb::SubunitDefinition definition = pyseb::LoadSubunitDefinitionFile(path);
+   std::unique_ptr<SubUnit> subunit(new FileDefinedSubunit(definition));
+   GraphID result = Link(subunit.get(), newr, oldr, tag);
+   subunit.release();
+   return result;
+}
+
+pyseb::SubunitModelInfo World::RegisterSubunitFile(string path)
+{
+   return subunitRegistry.RegisterFile(path);
+}
+
+vector<pyseb::SubunitModelInfo> World::RegisterSubunitDirectory(string path)
+{
+   return subunitRegistry.RegisterDirectory(path);
+}
+
+vector<pyseb::SubunitModelInfo> World::ListSubunitModels() const
+{
+   return subunitRegistry.List();
 }
 
 /*
@@ -2293,7 +2334,6 @@ Expression World::getFF(string myself, int varform)
                                       return beta * beta * F;
                                    }
 }
-
 
 
 

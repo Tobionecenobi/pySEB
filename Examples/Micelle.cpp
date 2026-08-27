@@ -29,7 +29,7 @@ int main()
     World w("world");
 
     // Spherical core
-    GraphID g = w.Add(new SolidSphere(), "sphere");
+    GraphID g = w.Add("SolidSphere", "sphere");
 
     int N=100;
     for (int i=0; i<N; i++)
@@ -37,7 +37,7 @@ int main()
              string name = string("poly")+to_string(i)+string(".end1");
              string ref  = string("sphere.surface#r")+to_string(i);
 
-             w.Link(new GaussianPolymer(), name, ref, "poly");
+             w.Link("GaussianPolymer", name, ref, "poly");
           }
 
     // Define micelle structure

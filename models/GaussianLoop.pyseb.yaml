@@ -1,0 +1,70 @@
+format: pyseb-subunit
+schema_version: 1
+id: pyseb/GaussianLoop
+api_name: GaussianLoop
+model_version: "1.0.0"
+
+metadata:
+  title: Gaussian loop
+  description: >
+    A closed random-walk loop with Gaussian internal chain statistics,
+    parameterized by its radius of gyration.
+  authors: []
+  citations: []
+  license: BSD-3-Clause
+
+parameters:
+  Rg:
+    unit: length
+    description: Radius of gyration
+
+variables:
+  x: "q * Rg / sqrt(2)"
+
+definitions:
+  F: "dawson(x) / x"
+
+references:
+  specific: []
+  distributed: [contour]
+
+expressions:
+  form_factor: F
+  amplitudes:
+    contour: F
+  phases:
+    - references: [contour, contour]
+      expression: F
+
+sizes:
+  radius_of_gyration_squared: "Rg^2"
+  reference_to_scatterer:
+    contour: "2 * Rg^2"
+  reference_to_reference:
+    - references: [contour, contour]
+      expression: "2 * Rg^2"
+
+validation:
+  absolute_tolerance: 1.0e-10
+  relative_tolerance: 1.0e-8
+  cases:
+    - name: normalized zero-angle form factor
+      quantity: form_factor
+      parameters: {Rg: 2.0}
+      q: 0.0
+      expected: 1.0
+    - name: radius of gyration
+      quantity: radius_of_gyration_squared
+      parameters: {Rg: 2.0}
+      expected: 4.0
+    - name: contour-to-scatterer distance
+      quantity: reference_to_scatterer
+      parameters: {Rg: 2.0}
+      references: [contour]
+      expected: 8.0
+    - name: contour self phase at zero angle
+      quantity: phase
+      parameters: {Rg: 2.0}
+      references: [contour, contour]
+      q: 0.0
+      expected: 1.0

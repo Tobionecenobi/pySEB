@@ -1,0 +1,192 @@
+format: pyseb-subunit
+schema_version: 1
+id: pyseb/SolidCylinder
+api_name: SolidCylinder
+model_version: "1.0.0"
+
+metadata:
+  title: Solid cylinder
+  description: A homogeneous solid cylinder with radius R and length L.
+  authors: []
+  citations: []
+  license: BSD-3-Clause
+
+parameters:
+  R:
+    unit: length
+    description: Cylinder radius
+  L:
+    unit: length
+    description: Cylinder length
+
+variables:
+  x: "q * R"
+  y: "q * L"
+
+integration:
+  method: cquad
+  absolute_tolerance: 1.0e-12
+  relative_tolerance: 1.0e-8
+  workspace_size: 1000
+  qag_rule: 61
+
+integrals:
+  formFactor:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * (jinc(x * sin(theta)) * sinc(y * cos(theta) / 2))^2"
+  centerAmplitude:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * jinc(x * sin(theta)) * sinc(y * cos(theta) / 2)"
+  endsAmplitude:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * jinc(x * sin(theta)) * sinc(y * cos(theta) / 2) * cos(y * cos(theta) / 2) * jinc(x * sin(theta))"
+  hullAmplitude:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * jinc(x * sin(theta)) * sinc(y * cos(theta) / 2) * bessel_j0(x * sin(theta)) * sinc(y * cos(theta) / 2)"
+  surfaceAmplitude:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * jinc(x * sin(theta)) * sinc(y * cos(theta) / 2) * (L * bessel_j0(x * sin(theta)) * sinc(y * cos(theta) / 2) + R * cos(y * cos(theta) / 2) * jinc(x * sin(theta))) / (L + R)"
+  centerEndsPhase:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * cos(y * cos(theta) / 2) * jinc(x * sin(theta))"
+  centerHullPhase:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * bessel_j0(x * sin(theta)) * sinc(y * cos(theta) / 2)"
+  centerSurfacePhase:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * (L * bessel_j0(x * sin(theta)) * sinc(y * cos(theta) / 2) + R * cos(y * cos(theta) / 2) * jinc(x * sin(theta))) / (L + R)"
+  endsEndsPhase:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * (cos(y * cos(theta) / 2) * jinc(x * sin(theta)))^2"
+  endsHullPhase:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * cos(y * cos(theta) / 2) * jinc(x * sin(theta)) * bessel_j0(x * sin(theta)) * sinc(y * cos(theta) / 2)"
+  endsSurfacePhase:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * cos(y * cos(theta) / 2) * jinc(x * sin(theta)) * (L * bessel_j0(x * sin(theta)) * sinc(y * cos(theta) / 2) + R * cos(y * cos(theta) / 2) * jinc(x * sin(theta))) / (L + R)"
+  hullHullPhase:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * (bessel_j0(x * sin(theta)) * sinc(y * cos(theta) / 2))^2"
+  hullSurfacePhase:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * bessel_j0(x * sin(theta)) * sinc(y * cos(theta) / 2) * (L * bessel_j0(x * sin(theta)) * sinc(y * cos(theta) / 2) + R * cos(y * cos(theta) / 2) * jinc(x * sin(theta))) / (L + R)"
+  surfaceSurfacePhase:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * ((L * bessel_j0(x * sin(theta)) * sinc(y * cos(theta) / 2) + R * cos(y * cos(theta) / 2) * jinc(x * sin(theta))) / (L + R))^2"
+
+references:
+  specific: [center]
+  distributed: [hull, ends, surface]
+
+expressions:
+  form_factor: formFactor
+  amplitudes:
+    center: centerAmplitude
+    ends: endsAmplitude
+    hull: hullAmplitude
+    surface: surfaceAmplitude
+  phases:
+    - references: [center, ends]
+      expression: centerEndsPhase
+    - references: [center, hull]
+      expression: centerHullPhase
+    - references: [center, surface]
+      expression: centerSurfacePhase
+    - references: [ends, ends]
+      expression: endsEndsPhase
+    - references: [ends, hull]
+      expression: endsHullPhase
+    - references: [ends, surface]
+      expression: endsSurfacePhase
+    - references: [hull, hull]
+      expression: hullHullPhase
+    - references: [hull, surface]
+      expression: hullSurfacePhase
+    - references: [surface, surface]
+      expression: surfaceSurfacePhase
+
+sizes:
+  radius_of_gyration_squared: "(L^2 + 6 * R^2) / 12"
+  reference_to_scatterer:
+    center: "(L^2 + 6 * R^2) / 12"
+    ends: "(L^2 + 3 * R^2) / 3"
+    hull: "(L^2 + 9 * R^2) / 6"
+    surface: "(L^3 + 2 * L^2 * R + 9 * L * R^2 + 6 * R^3) / (6 * (L + R))"
+  reference_to_reference:
+    - references: [center, ends]
+      expression: "(L^2 + 2 * R^2) / 4"
+    - references: [center, hull]
+      expression: "L^2 / 12 + R^2"
+    - references: [center, surface]
+      expression: "(L^3 + 3 * L^2 * R + 12 * L * R^2 + 6 * R^3) / (12 * (L + R))"
+    - references: [ends, ends]
+      expression: "L^2 / 2 + R^2"
+    - references: [ends, hull]
+      expression: "(2 * L^2 + 9 * R^2) / 6"
+    - references: [ends, surface]
+      expression: "(2 * L^3 + 3 * L^2 * R + 9 * L * R^2 + 6 * R^3) / (6 * (L + R))"
+    - references: [hull, hull]
+      expression: "L^2 / 6 + 2 * R^2"
+    - references: [hull, surface]
+      expression: "(L^3 + 2 * L^2 * R + 12 * L * R^2 + 9 * R^3) / (6 * (L + R))"
+    - references: [surface, surface]
+      expression: "(L^3 + 3 * L^2 * R + 12 * L * R^2 + 6 * R^3) / (6 * (L + R))"
+
+validation:
+  absolute_tolerance: 1.0e-10
+  relative_tolerance: 1.0e-8
+  cases:
+    - name: normalized zero-angle form factor
+      quantity: form_factor
+      parameters: {R: 1.0, L: 1.5}
+      q: 0.0
+      expected: 1.0
+    - name: form factor at small q
+      quantity: form_factor
+      parameters: {R: 1.0, L: 1.5}
+      q: 0.01
+      expected: 0.9999770835628468
+    - name: center amplitude at small q
+      quantity: amplitude
+      parameters: {R: 1.0, L: 1.5}
+      references: [center]
+      q: 0.01
+      expected: 0.9999885417153439
+    - name: ends-to-hull phase at small q
+      quantity: phase
+      parameters: {R: 1.0, L: 1.5}
+      references: [ends, hull]
+      q: 0.01
+      expected: 0.9999625005496493
+    - name: radius of gyration
+      quantity: radius_of_gyration_squared
+      parameters: {R: 1.0, L: 1.5}
+      expected: 0.6875

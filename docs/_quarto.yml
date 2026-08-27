@@ -16,6 +16,7 @@ project:
     - tutorials/figure13-star-chain.qmd
     - tutorials/pyseb_tutorial.qmd
     - tutorials/cpp_tutorials.qmd
+    - file-defined-subunits.qmd
 
 website:
   title: "pySEB"
@@ -30,6 +31,8 @@ website:
         text: Home
       - href: tutorials/index.qmd
         text: Tutorials
+      - href: file-defined-subunits.qmd
+        text: Model files
       - href: https://github.com/Tobionecenobi/pySEB/wiki
         text: Reference Wiki
   sidebar:

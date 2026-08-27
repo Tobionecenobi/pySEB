@@ -76,6 +76,7 @@ log = _pyseb.log
 sqrt = _pyseb.sqrt
 abs = _pyseb.abs
 NormalizationMode = _pyseb.NormalizationMode
+IntegrationMethod = _pyseb.IntegrationMethod
 SymbolicSubunit = _pyseb.SymbolicSubunit
 NumericalSubunit = _pyseb.NumericalSubunit
 CartesianPoint3D = _pyseb.CartesianPoint3D
@@ -91,6 +92,16 @@ AtomParameterProfile = _pyseb.AtomParameterProfile
 AtomCloudBuildOptions = _pyseb.AtomCloudBuildOptions
 AtomCloudBuilder = _pyseb.AtomCloudBuilder
 StructureCloudLoader = _pyseb.StructureCloudLoader
+SubunitDefinition = _pyseb.SubunitDefinition
+SubunitIntegralDefinition = _pyseb.SubunitIntegralDefinition
+SubunitIntegrationOptions = _pyseb.SubunitIntegrationOptions
+SubunitMetadata = _pyseb.SubunitMetadata
+SubunitModelInfo = _pyseb.SubunitModelInfo
+SubunitValidationFailure = _pyseb.SubunitValidationFailure
+SubunitValidationReport = _pyseb.SubunitValidationReport
+FileDefinedSubunit = _pyseb.FileDefinedSubunit
+load_subunit_definition = _pyseb.load_subunit_definition
+validate_subunit_file = _pyseb.validate_subunit_file
 
 from .symbolic import (
     SymPyExpression,
@@ -143,6 +154,7 @@ __all__ = [
     'sqrt',
     'abs',
     'NormalizationMode',
+    'IntegrationMethod',
     'SymbolicSubunit',
     'NumericalSubunit',
     'CartesianPoint3D',
@@ -158,6 +170,16 @@ __all__ = [
     'AtomCloudBuildOptions',
     'AtomCloudBuilder',
     'StructureCloudLoader',
+    'SubunitDefinition',
+    'SubunitIntegralDefinition',
+    'SubunitIntegrationOptions',
+    'SubunitMetadata',
+    'SubunitModelInfo',
+    'SubunitValidationFailure',
+    'SubunitValidationReport',
+    'FileDefinedSubunit',
+    'load_subunit_definition',
+    'validate_subunit_file',
     'SymPyExpression',
     'SymPyFactory',
     'get_factory',

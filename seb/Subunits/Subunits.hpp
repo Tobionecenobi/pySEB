@@ -10,16 +10,7 @@
 #include "Numerical.hpp"
 #include "Integrated.hpp"
 #include "DebyeSphereCloud.hpp"
-#include "Point.hpp"
-#include "GaussianPolymer.hpp"
-#include "GaussianLoop.hpp"
-#include "ThinCircle.hpp"
-#include "ThinRod.hpp"
-#include "ThinDisk.hpp"
-#include "ThinSphericalShell.hpp"
-#include "SolidSphere.hpp"
-#include "SolidSphericalShell.hpp"
-#include "SolidCylinder.hpp"
+#include "FileDefined.hpp"
 
 /*
 Prolate spheres..

@@ -1,0 +1,49 @@
+format: pyseb-subunit
+schema_version: 1
+id: pyseb/Point
+api_name: Point
+model_version: "1.0.0"
+
+metadata:
+  title: Invisible point connector
+  description: A zero-scattering point used to connect subunits.
+  authors: []
+  citations: []
+  license: BSD-3-Clause
+
+behavior:
+  scattering: invisible
+
+parameters: {}
+references:
+  specific: [point]
+  distributed: []
+
+expressions:
+  form_factor: "0"
+  amplitudes:
+    point: "0"
+  phases: []
+
+sizes:
+  radius_of_gyration_squared: "0"
+  reference_to_scatterer:
+    point: "0"
+  reference_to_reference: []
+
+validation:
+  absolute_tolerance: 1.0e-12
+  relative_tolerance: 1.0e-10
+  cases:
+    - name: zero scattering
+      quantity: form_factor_unnormalized
+      q: 0.0
+      expected: 0.0
+    - name: point phase
+      quantity: phase
+      references: [point, point]
+      q: 0.25
+      expected: 1.0
+    - name: zero size
+      quantity: radius_of_gyration_squared
+      expected: 0.0

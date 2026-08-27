@@ -1,0 +1,89 @@
+#include "SubunitIO/BundledModels.hpp"
+
+#include <map>
+#include <sstream>
+
+#include "Exceptions.hpp"
+
+namespace pyseb {
+namespace {
+
+struct EmbeddedModel {
+    const char* filename;
+    const char* yaml;
+};
+
+const EmbeddedModel kEmbeddedModels[] = {
+@PYSEB_BUNDLED_MODEL_ENTRIES@};
+
+struct BundledCatalogue {
+    std::vector<SubunitDefinition> definitions;
+    std::map<std::string, std::size_t> ids;
+    std::map<std::string, std::size_t> apiNames;
+};
+
+const BundledCatalogue& catalogue() {
+    static const BundledCatalogue result = [] {
+        BundledCatalogue loaded;
+        for (const auto& model : kEmbeddedModels) {
+            SubunitDefinition definition = LoadSubunitDefinitionYaml(
+                model.yaml, "<bundled:" + std::string(model.filename) + ">");
+            if (loaded.ids.count(definition.id)) {
+                throw SEBException(
+                    "Duplicate bundled model ID '" + definition.id + "'",
+                    "BundledSubunitModels()");
+            }
+            if (loaded.apiNames.count(definition.apiName)) {
+                throw SEBException(
+                    "Duplicate bundled model api_name '" + definition.apiName + "'",
+                    "BundledSubunitModels()");
+            }
+            const SubunitValidationReport report = ValidateSubunitDefinition(definition);
+            if (!report.ok()) {
+                std::ostringstream message;
+                message << "Bundled model '" << definition.id << "' failed reference validation";
+                for (const auto& failure : report.failures) {
+                    message << "; " << failure.caseName << ": " << failure.message;
+                }
+                throw SEBException(message.str(), "BundledSubunitModels()");
+            }
+            const std::size_t index = loaded.definitions.size();
+            loaded.ids.emplace(definition.id, index);
+            loaded.apiNames.emplace(definition.apiName, index);
+            loaded.definitions.push_back(std::move(definition));
+        }
+        return loaded;
+    }();
+    return result;
+}
+
+SubunitModelInfo info(const SubunitDefinition& definition) {
+    SubunitModelInfo result;
+    result.id = definition.id;
+    result.apiName = definition.apiName;
+    result.modelVersion = definition.modelVersion;
+    result.title = definition.metadata.title;
+    result.source = definition.source;
+    result.bundled = true;
+    return result;
+}
+
+} // namespace
+
+const SubunitDefinition& BundledSubunitDefinition(const std::string& id) {
+    const BundledCatalogue& models = catalogue();
+    const auto canonical = models.ids.find(id);
+    if (canonical != models.ids.end()) return models.definitions.at(canonical->second);
+    const auto alias = models.apiNames.find(id);
+    if (alias != models.apiNames.end()) return models.definitions.at(alias->second);
+    throw SEBException("Unknown bundled subunit model " + id, "BundledSubunitDefinition()");
+}
+
+std::vector<SubunitModelInfo> BundledSubunitModels() {
+    std::vector<SubunitModelInfo> result;
+    result.reserve(catalogue().definitions.size());
+    for (const auto& definition : catalogue().definitions) result.push_back(info(definition));
+    return result;
+}
+
+} // namespace pyseb

@@ -17,9 +17,9 @@ TEST(StructureTest, CrossTermStructure) {
     World world;
     
     // Test different combinations of subunits
-    GraphID g1 = world.Add(new SolidSphere(), "sphere");
-    world.Link(new GaussianPolymer(), "poly.end1", "sphere.surface#p1", "poly");
-    world.Link(new ThinDisk(), "disk.center", "sphere.surface#p2");
+    GraphID g1 = world.Add("SolidSphere", "sphere");
+    world.Link("GaussianPolymer", "poly.end1", "sphere.surface#p1", "poly");
+    world.Link("ThinDisk", "disk.center", "sphere.surface#p2");
     world.Add(g1, "structure");
     
     EXPECT_TRUE(world.hasName("structure"));
@@ -30,9 +30,9 @@ TEST(StructureTest, ShellComplexStructure) {
     World world;
     
     // Create a structure with shells and other shapes
-    GraphID g1 = world.Add(new SolidSphericalShell(), "solidShell");
-    world.Link(new ThinRod(), "rod.end1", "solidShell.surfaceo#p1", "rod");
-    world.Link(new ThinSphericalShell(), "thinShell.center", "solidShell.surfaceo#p2");
+    GraphID g1 = world.Add("SolidSphericalShell", "solidShell");
+    world.Link("ThinRod", "rod.end1", "solidShell.surfaceo#p1", "rod");
+    world.Link("ThinSphericalShell", "thinShell.center", "solidShell.surfaceo#p2");
     world.Add(g1, "structure");
     
     EXPECT_TRUE(world.hasName("structure"));
@@ -43,21 +43,21 @@ TEST(StructureTest, DistributedPointStructure) {
     // Each shape tested independently in its own world (names like "contour" would clash if shared)
     {
         World w;
-        GraphID g = w.Add(new GaussianPolymer(), "polymer");
+        GraphID g = w.Add("GaussianPolymer", "polymer");
         w.Add(g, "polymerStruct");
         EXPECT_TRUE(w.hasName("polymerStruct"));
         ASSERT_NO_THROW(w.FormFactor("polymerStruct"));
     }
     {
         World w;
-        GraphID g = w.Add(new ThinDisk(), "disk");
+        GraphID g = w.Add("ThinDisk", "disk");
         w.Add(g, "diskStruct");
         EXPECT_TRUE(w.hasName("diskStruct"));
         ASSERT_NO_THROW(w.FormFactor("diskStruct"));
     }
     {
         World w;
-        GraphID g = w.Add(new SolidSphere(), "sphere");
+        GraphID g = w.Add("SolidSphere", "sphere");
         w.Add(g, "sphereStruct");
         EXPECT_TRUE(w.hasName("sphereStruct"));
         ASSERT_NO_THROW(w.FormFactor("sphereStruct"));
@@ -66,10 +66,10 @@ TEST(StructureTest, DistributedPointStructure) {
 
 TEST(StructureTest, ChainOfRodsStructure) {
     World world;
-    GraphID chain = world.Add(new ThinRod(), "rod1");
+    GraphID chain = world.Add("ThinRod", "rod1");
     
     for(int i = 2; i <= 5; i++) {
-        world.Link(new ThinRod(), "rod" + std::to_string(i) + ".end1", 
+        world.Link("ThinRod", "rod" + std::to_string(i) + ".end1", 
                   "rod" + std::to_string(i-1) + ".end2");
     }
     world.Add(chain, "rodChain");
@@ -87,15 +87,15 @@ TEST(StructureTest, DendrimerCreation) {
     const int g = 2;
     
     // Create core
-    GraphID dendrimer = world.Add(new Point(), "core");
+    GraphID dendrimer = world.Add("Point", "core");
     
     // First generation
     for(int i = 1; i <= f; i++) {
-        world.Link(new GaussianPolymer(), "poly1" + std::to_string(i) + ".end1", "core.point");
+        world.Link("GaussianPolymer", "poly1" + std::to_string(i) + ".end1", "core.point");
         
         // Second generation
         for(int j = 1; j <= f-1; j++) {
-            world.Link(new GaussianPolymer(), 
+            world.Link("GaussianPolymer",
                       "poly2" + std::to_string(i) + std::to_string(j) + ".end1",
                       "poly1" + std::to_string(i) + ".end2");
         }
@@ -110,8 +110,8 @@ TEST(StructureTest, DiBlockStarChainStructure) {
     World world;
 
     // Define diblock copolymer
-    GraphID diblock = world.Add(new GaussianPolymer(), "polyA");
-    world.Link(new GaussianPolymer(), "polyB.end1", "polyA.end2");
+    GraphID diblock = world.Add("GaussianPolymer", "polyA");
+    world.Link("GaussianPolymer", "polyB.end1", "polyA.end2");
 
     // Define star
     GraphID star = world.Add(diblock, "diblock1");
@@ -136,10 +136,10 @@ TEST(StructureTest, MicelleStructure) {
     
     // Create micelle with N polymers attached to spherical core
     const int N = 8;
-    GraphID micelle = world.Add(new SolidSphere(), "core");
+    GraphID micelle = world.Add("SolidSphere", "core");
     
     for(int i = 1; i <= N; i++) {
-        world.Link(new GaussianPolymer(), "poly" + std::to_string(i) + ".end1", 
+        world.Link("GaussianPolymer", "poly" + std::to_string(i) + ".end1",
                   "core.surface#p" + std::to_string(i));
     }
     world.Add(micelle, "micelle");
@@ -153,10 +153,10 @@ TEST(StructureTest, StarPolymerStructure) {
     
     // Create star with f arms
     const int f = 6;
-    GraphID star = world.Add(new Point(), "center");
+    GraphID star = world.Add("Point", "center");
     
     for(int i = 1; i <= f; i++) {
-        world.Link(new GaussianPolymer(), "arm" + std::to_string(i) + ".end1", "center.point");
+        world.Link("GaussianPolymer", "arm" + std::to_string(i) + ".end1", "center.point");
     }
     world.Add(star, "star");
     
@@ -168,9 +168,9 @@ TEST(StructureTest, TriBlockCopolymerStructure) {
     World world;
     
     // Create ABC triblock copolymer
-    GraphID chain = world.Add(new GaussianPolymer(), "blockA");
-    world.Link(new GaussianPolymer(), "blockB.end1", "blockA.end2");
-    world.Link(new GaussianPolymer(), "blockC.end1", "blockB.end2");
+    GraphID chain = world.Add("GaussianPolymer", "blockA");
+    world.Link("GaussianPolymer", "blockB.end1", "blockA.end2");
+    world.Link("GaussianPolymer", "blockC.end1", "blockB.end2");
     world.Add(chain, "triblock");
     
     EXPECT_TRUE(world.hasName("triblock"));
@@ -183,9 +183,9 @@ TEST(StructureTest, BadReferencePointListsValidOnes) {
     // Using an unknown reference point should throw and name all valid ones.
     {
         World w;
-        w.Add(new ThinRod(), "rod1");
+        w.Add("ThinRod", "rod1");
         try {
-            w.Link(new ThinRod(), "rod2.badref", "rod1.end2");
+            w.Link("ThinRod", "rod2.badref", "rod1.end2");
             FAIL() << "Expected SEBException for unknown reference point on new subunit";
         } catch (const SEBException& e) {
             std::string msg = e.what();
@@ -198,9 +198,9 @@ TEST(StructureTest, BadReferencePointListsValidOnes) {
     {
         // Same check for the *existing* subunit (second throw site)
         World w;
-        w.Add(new ThinRod(), "rod1");
+        w.Add("ThinRod", "rod1");
         try {
-            w.Link(new ThinRod(), "rod2.end1", "rod1.badref");
+            w.Link("ThinRod", "rod2.end1", "rod1.badref");
             FAIL() << "Expected SEBException for unknown reference point on existing subunit";
         } catch (const SEBException& e) {
             std::string msg = e.what();
@@ -213,7 +213,7 @@ TEST(StructureTest, BadReferencePointListsValidOnes) {
     {
         // Third throw site: testPathSyntax called via PhaseFactor on a structure path
         World w;
-        GraphID g = w.Add(new ThinRod(), "rod1");
+        GraphID g = w.Add("ThinRod", "rod1");
         w.Add(g, "chain");
         try {
             w.PhaseFactor("chain:rod1.badref", "chain:rod1.end2");
@@ -230,7 +230,7 @@ TEST(StructureTest, BadReferencePointListsValidOnes) {
 
 TEST(StructureTest, ExceptionExampleThrowsForInvalidGraphID) {
     World w("World");
-    w.Add(new GaussianPolymer(), "polyA");
+    w.Add("GaussianPolymer", "polyA");
 
     try {
         w.Add(2, "structure");
