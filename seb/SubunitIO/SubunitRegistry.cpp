@@ -4,7 +4,9 @@
 #include <set>
 
 #ifdef _WIN32
+#define POINT PYSEB_WIN32_POINT
 #include <windows.h>
+#undef POINT
 #else
 #include <dirent.h>
 #endif
