@@ -212,8 +212,8 @@ protected:
     std::string dir;
 
     void SetUp() override {
-        s = new ThinDisk();
-        w.Add(s, "disk");
+        w.Add("ThinDisk", "disk");
+        s = w.getSubunit("disk");
         dir = VALIDATION_DATA_DIR + "ThinDisk_R1/";
         w.setParameter(pl, "R_disk", 1.0);
     }
@@ -292,8 +292,8 @@ protected:
     std::string dir;
 
     void SetUp() override {
-        s = new SolidCylinder();
-        w.Add(s, "c");
+        w.Add("SolidCylinder", "c");
+        s = w.getSubunit("c");
         dir = VALIDATION_DATA_DIR + "SolidCylinder_R1_L1.5/";
         w.setParameter(pl, "R_c", 1.0);
         w.setParameter(pl, "L_c", 1.5);
@@ -369,8 +369,8 @@ protected:
     std::string dir;
 
     void SetUp() override {
-        s = new SolidCylinder();
-        w.Add(s, "c");
+        w.Add("SolidCylinder", "c");
+        s = w.getSubunit("c");
         dir = VALIDATION_DATA_DIR + "SolidCylinder_R2_L0.5/";
         w.setParameter(pl, "R_c", 2.0);
         w.setParameter(pl, "L_c", 0.5);

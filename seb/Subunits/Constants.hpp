@@ -15,10 +15,10 @@ enum subunittypes{
     THINCIRCLE,          // Reserved legacy slot; ThinCircle is now FILEDEFINEDSUBUNIT.
     THINROD,             // Reserved legacy slot; ThinRod is now FILEDEFINEDSUBUNIT.
     THINSPHERICALSHELL,  // Reserved legacy slot; ThinSphericalShell is now FILEDEFINEDSUBUNIT.
-    THINDISK,
+    THINDISK,            // Reserved legacy slot; ThinDisk is now FILEDEFINEDSUBUNIT.
     SOLIDSPHERE,         // Reserved legacy slot; SolidSphere is now FILEDEFINEDSUBUNIT.
     SOLIDSPHERICALSHELL, // Reserved legacy slot; SolidSphericalShell is now FILEDEFINEDSUBUNIT.
-    SOLIDCYLINDER,
+    SOLIDCYLINDER,       // Reserved legacy slot; SolidCylinder is now FILEDEFINEDSUBUNIT.
     NUMERICALSUBUNIT,
     DEBYESPHERECLOUD,
     FILEDEFINEDSUBUNIT

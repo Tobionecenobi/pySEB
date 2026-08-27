@@ -223,10 +223,8 @@ include seb/Subunit.hpp
 include seb/Subunits/Constants.hpp
 include seb/Subunits/CreateSubunit.hpp
 include seb/Subunits/README
-include seb/Subunits/SolidCylinder.hpp
 include seb/Subunits/Subunits.hpp
 include seb/Subunits/Symbolic.hpp
-include seb/Subunits/ThinDisk.hpp
 include seb/SymbolInterface.cpp
 include seb/SymbolInterface.hpp
 include seb/Types.hpp

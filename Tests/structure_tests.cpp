@@ -19,7 +19,7 @@ TEST(StructureTest, CrossTermStructure) {
     // Test different combinations of subunits
     GraphID g1 = world.Add("SolidSphere", "sphere");
     world.Link("GaussianPolymer", "poly.end1", "sphere.surface#p1", "poly");
-    world.Link(new ThinDisk(), "disk.center", "sphere.surface#p2");
+    world.Link("ThinDisk", "disk.center", "sphere.surface#p2");
     world.Add(g1, "structure");
     
     EXPECT_TRUE(world.hasName("structure"));
@@ -50,7 +50,7 @@ TEST(StructureTest, DistributedPointStructure) {
     }
     {
         World w;
-        GraphID g = w.Add(new ThinDisk(), "disk");
+        GraphID g = w.Add("ThinDisk", "disk");
         w.Add(g, "diskStruct");
         EXPECT_TRUE(w.hasName("diskStruct"));
         ASSERT_NO_THROW(w.FormFactor("diskStruct"));

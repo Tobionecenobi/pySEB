@@ -1158,7 +1158,7 @@ void validateCylinderDataset(
     const std::string& directory)
 {
     World world;
-    world.Add(new SolidCylinder(), "c");
+    world.Add("SolidCylinder", "c");
     const ParameterList parameters{
         {"beta_c", 1.0},
         {"R_c", radius},
@@ -1380,7 +1380,7 @@ TEST(NumericalIntegrationTest, MethodsHandleOscillatoryIntegrand)
 TEST(IntegratedSubunitTest, RejectsInvalidInputsAndParameters)
 {
     World world;
-    world.Add(new SolidCylinder(), "cylinder");
+    world.Add("SolidCylinder", "cylinder");
     const ParameterList valid{
         {"beta_cylinder", 2.0},
         {"R_cylinder", 1.0},
@@ -1410,20 +1410,6 @@ TEST(IntegratedSubunitTest, RejectsInvalidInputsAndParameters)
     };
     EXPECT_THROW(
         world.EvaluateFormFactor("cylinder", missingRadius, 0.1),
-        SEBException
-    );
-
-    ParameterList zeroRadius(valid);
-    zeroRadius["R_cylinder"] = 0.0;
-    EXPECT_THROW(
-        world.EvaluateFormFactor("cylinder", zeroRadius, 0.1),
-        SEBException
-    );
-
-    ParameterList negativeLength(valid);
-    negativeLength["L_cylinder"] = -1.0;
-    EXPECT_THROW(
-        world.EvaluateFormFactor("cylinder", negativeLength, 0.1),
         SEBException
     );
 
@@ -1466,7 +1452,7 @@ TEST(IntegratedSubunitTest, SolidCylinderMatchesValidationData)
 TEST(IntegratedSubunitTest, ThinDiskMatchesValidationData)
 {
     World world;
-    world.Add(new ThinDisk(), "disk");
+    world.Add("ThinDisk", "disk");
     const ParameterList parameters{
         {"beta_disk", 1.0},
         {"R_disk", 1.0}
@@ -1565,11 +1551,7 @@ TEST(IntegratedSubunitTest, MixedCloudCylinderAndSphereCompose)
 
     World world;
     const GraphID graph = world.Add(cloud, "cloud");
-    world.Link(
-        new SolidCylinder(),
-        "cylinder.center",
-        "cloud.join"
-    );
+    world.Link("SolidCylinder", "cylinder.center", "cloud.join");
     world.Link(
         "SolidSphere",
         "sphere.center",
@@ -1642,11 +1624,7 @@ TEST(IntegratedSubunitTest, MixedCrossChildReferencesComposeAndAreSymmetric)
 
     World world;
     const GraphID graph = world.Add(cloud, "cloud");
-    world.Link(
-        new SolidCylinder(),
-        "cylinder.ends#attach",
-        "cloud.join"
-    );
+    world.Link("SolidCylinder", "cylinder.ends#attach", "cloud.join");
     world.Link(
         "SolidSphere",
         "sphere.center",

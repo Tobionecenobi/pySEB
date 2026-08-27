@@ -6,8 +6,6 @@ This module provides Python wrappers for the SEB subunits.
 
 from . import _pyseb as _extension
 
-_ThinDisk = _extension.ThinDisk
-_SolidCylinder = _extension.SolidCylinder
 _SymbolicSubunit = _extension.SymbolicSubunit
 _NumericalSubunit = _extension.NumericalSubunit
 _FileDefinedSubunit = _extension.FileDefinedSubunit
@@ -15,24 +13,6 @@ _DebyeSphereCloud = _extension.DebyeSphereCloud
 SphereScatterer = _extension.SphereScatterer
 CartesianPoint3D = _extension.CartesianPoint3D
 NormalizationMode = _extension.NormalizationMode
-
-
-class ThinDisk(_ThinDisk):
-    """
-    A thin disk subunit.
-    
-    This represents a thin disk with uniform scattering density.
-    """
-    pass
-
-
-class SolidCylinder(_SolidCylinder):
-    """
-    A solid cylinder subunit.
-    
-    This represents a solid cylinder with uniform scattering density.
-    """
-    pass
 
 
 class SymbolicSubunit(_SymbolicSubunit):
@@ -56,8 +36,6 @@ class DebyeSphereCloud(_DebyeSphereCloud):
 
 
 __all__ = [
-    "ThinDisk",
-    "SolidCylinder",
     "SymbolicSubunit",
     "NumericalSubunit",
     "FileDefinedSubunit",
@@ -66,4 +44,3 @@ __all__ = [
     "CartesianPoint3D",
     "NormalizationMode",
 ]
-

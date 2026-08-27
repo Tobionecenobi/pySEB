@@ -69,10 +69,9 @@ std::vector<std::string> modelFiles(const std::string& directory) {
 }
 
 const std::vector<std::string>& builtinNames() {
-    // GaussianLoop, ThinRod, ThinCircle, ThinSphericalShell, SolidSphere, and
-    // SolidSphericalShell are now bundled FileDefinedSubunit YAML models.
+    // Every bundled analytic model is now a FileDefinedSubunit YAML model.
     static const std::vector<std::string> names = {
-        "ThinDisk", "SolidCylinder", "SymbolicSubunit"
+        "SymbolicSubunit"
     };
     return names;
 }

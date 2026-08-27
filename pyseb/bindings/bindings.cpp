@@ -375,12 +375,6 @@ PYBIND11_MODULE(_pyseb, m) {
         .def_static("sinc", &DebyeSphereCloud::sinc)
         .def_static("sphereAmplitude", &DebyeSphereCloud::sphereAmplitude);
 
-    py::class_<ThinDisk, SubUnit, std::unique_ptr<ThinDisk, py::nodelete>>(
-        m, "ThinDisk"
-    ).def(py::init<>());
-    py::class_<SolidCylinder, SubUnit, std::unique_ptr<SolidCylinder, py::nodelete>>(
-        m, "SolidCylinder"
-    ).def(py::init<>());
     // Expose World class - basic structure only, symbolic methods are registered in backend-specific files
     py::class_<World> world(m, "World");
     world.def(py::init<std::string>(), py::arg("id") = "World")

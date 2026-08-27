@@ -326,5 +326,7 @@ TEST(FileDefinedWorld, DistributedSelfReferenceSigmaIsEvaluatedNotZeroed) {
 
 static_assert(POINT == 2, "POINT must retain its legacy enum slot");
 static_assert(GAUSSIANPOLYMER == 3, "GAUSSIANPOLYMER must retain its legacy enum slot");
+static_assert(THINDISK == 8, "THINDISK must retain its legacy enum slot");
+static_assert(SOLIDCYLINDER == 11, "SOLIDCYLINDER must retain its legacy enum slot");
 
 } // namespace

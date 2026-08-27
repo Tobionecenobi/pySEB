@@ -11,8 +11,6 @@
 #include "Integrated.hpp"
 #include "DebyeSphereCloud.hpp"
 #include "FileDefined.hpp"
-#include "ThinDisk.hpp"
-#include "SolidCylinder.hpp"
 
 /*
 Prolate spheres..
