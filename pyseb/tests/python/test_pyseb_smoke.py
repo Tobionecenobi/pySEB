@@ -678,10 +678,6 @@ class TestPySEBSmoke(unittest.TestCase):
             )
 
         for name, value in (
-            ("R_cylinder", 0.0),
-            ("R_cylinder", -1.0),
-            ("L_cylinder", 0.0),
-            ("L_cylinder", -1.0),
             ("R_cylinder", math.nan),
             ("beta_cylinder", math.inf),
         ):

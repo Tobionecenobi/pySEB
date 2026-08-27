@@ -131,10 +131,10 @@ This supports geometries whose scattering functions require numerical
 integration while preserving the usual symbolic placeholders in symbolic
 expressions.
 
-`SolidCylinder` and the integral-backed terms of `ThinDisk` are evaluated
-through the same `World` API. Their symbolic equations still contain explicit
-integrals, while numerical evaluation uses the GSL method selected by each
-subunit. NumPy-friendly helpers accept scalar or array-like `q` values:
+`SolidCylinder` and the integral-backed terms of `ThinDisk` are YAML catalogue
+models evaluated through the same `World` API. Their symbolic equations retain
+explicit integrals, while numerical evaluation uses the GSL method declared in
+the model file. NumPy-friendly helpers accept scalar or array-like `q` values:
 
 ~~~python
 import numpy as np
@@ -164,12 +164,12 @@ phase = pyseb.evaluate_phase_factor(
 )
 ~~~
 
-C++ subunits that combine symbolic equations with numerical terms should
-derive from `IntegratedSubunit` and register normalized numerical callbacks
-for only the unresolved form factors, amplitudes, or phase factors. Missing
-callbacks automatically fall back to the analytical `SubUnit` implementation.
-`World` therefore requires no subunit-type checks when new integrated
-subunits are added.
+Contributors can express finite one-dimensional integrals with named YAML
+`integrals` blocks. Multidimensional, nested, improper, data-driven, or
+specialized integration remains available through `IntegratedSubunit` and
+normalized numerical callbacks. Missing callbacks automatically fall back to
+the analytical `SubUnit` implementation, so `World` requires no subunit-type
+checks.
 
 ## PDB Atom Clouds
 

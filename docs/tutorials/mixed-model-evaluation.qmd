@@ -1,6 +1,6 @@
 ---
 title: "Evaluate Mixed Models"
-subtitle: "Use one numerical API for analytic, integrated, and numerical subunits"
+subtitle: "Use one numerical API for YAML analytic and numerical subunits"
 jupyter: python3
 format:
   html:
@@ -17,7 +17,8 @@ pySEB can evaluate a structure even when its children calculate scattering in
 different ways. This tutorial builds one model from:
 
 - a coordinate-based `DebyeSphereCloud`, evaluated numerically;
-- a `SolidCylinder`, whose orientational averages use numerical integration;
+- a YAML-defined `SolidCylinder`, whose orientational averages use numerical
+  integration;
 - a `SolidSphere`, evaluated from analytic equations.
 
 The `World.Evaluate*` methods traverse the graph and ask each child for the
@@ -74,11 +75,11 @@ the individual sphere form factors should also contribute.
 
 ## 2. Build a mixed structure
 
-Add the cloud, link an integrated cylinder to it, and attach an analytic
+Add the cloud, link an integral-backed analytic cylinder to it, and attach an analytic
 sphere at the same junction. Finally, name the complete graph `mixed`.
 
 ```text
-numerical cloud ---- integrated cylinder
+numerical cloud ---- YAML integral cylinder
          |
          +----------- analytic sphere
 ```
@@ -101,7 +102,7 @@ world.Add(graph, "mixed")
 ```
 
 The cloud already stores its two beta values. The cylinder and sphere are
-parameterized analytic/integrated subunits, so their tagged parameter names
+parameterized analytic subunits, so their tagged parameter names
 must be supplied at evaluation time.
 
 ```{python}
@@ -231,7 +232,7 @@ come from coordinate sums, numerical integration, and analytic equations.
 
 ```{python}
 #| label: fig-mixed-evaluation
-#| fig-cap: "Quantities evaluated from a model containing numerical, integrated, and analytic subunits."
+#| fig-cap: "Quantities evaluated from a model containing numerical and YAML-defined analytic subunits."
 
 plt.plot(q, form_factor, label=r"$F_{mixed}(q)$")
 plt.plot(q, amplitude, "--", label=r"$A_{join}(q)$")
@@ -302,7 +303,7 @@ print(grid_values.shape)
 ## Why not evaluate a symbolic expression?
 
 `world.FormFactor("mixed")` constructs a symbolic representation. A numerical
-subunit may appear there as a placeholder, while an integrated subunit may
+subunit may appear there as a placeholder, while a YAML-defined subunit may
 contain an unevaluated integral. `evaluate_expression` only substitutes values
 into that expression; it does not call the numerical subunit callbacks.
 

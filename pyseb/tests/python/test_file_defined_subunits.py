@@ -152,6 +152,26 @@ class TestFileDefinedSubunits(unittest.TestCase):
 
         self.assertFalse(hasattr(subunits, "Point"))
         self.assertFalse(hasattr(subunits, "GaussianPolymer"))
+        self.assertFalse(hasattr(subunits, "ThinDisk"))
+        self.assertFalse(hasattr(subunits, "SolidCylinder"))
+
+    def test_integral_metadata_is_read_only_and_discoverable(self):
+        definition = pyseb.load_subunit_definition(
+            str(MODELS / "SolidCylinder.pyseb.yaml")
+        )
+        self.assertEqual(
+            definition.integration.method,
+            pyseb.IntegrationMethod.CQUAD,
+        )
+        self.assertEqual(definition.integration.workspace_size, 1000)
+        self.assertEqual(definition.integration.qag_rule, 61)
+        self.assertEqual(len(definition.integrals), 14)
+        form_factor = definition.integrals["formFactor"]
+        self.assertEqual(form_factor.variable, "theta")
+        self.assertEqual(form_factor.lower, "0")
+        self.assertEqual(form_factor.upper, "pi / 2")
+        with self.assertRaises(AttributeError):
+            form_factor.variable = "other"
 
     def test_schema_and_expression_errors_include_context(self):
         source = (MODELS / "Point.pyseb.yaml").read_text(encoding="utf-8")
