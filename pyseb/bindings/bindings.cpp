@@ -70,6 +70,15 @@ PYBIND11_MODULE(_pyseb, m) {
                 ? points[options.qagRule] : options.qagRule;
         });
 
+    py::class_<pyseb::IntegralDefinition::Dimension>(m, "SubunitIntegralDimension")
+        .def_readonly("variable", &pyseb::IntegralDefinition::Dimension::variable)
+        .def_property_readonly("lower", [](const pyseb::IntegralDefinition::Dimension& dimension) {
+            return dimension.lower.source();
+        })
+        .def_property_readonly("upper", [](const pyseb::IntegralDefinition::Dimension& dimension) {
+            return dimension.upper.source();
+        });
+
     py::class_<pyseb::IntegralDefinition>(m, "SubunitIntegralDefinition")
         .def_readonly("name", &pyseb::IntegralDefinition::name)
         .def_readonly("variable", &pyseb::IntegralDefinition::variable)
@@ -82,6 +91,7 @@ PYBIND11_MODULE(_pyseb, m) {
         .def_property_readonly("integrand", [](const pyseb::IntegralDefinition& integral) {
             return integral.integrand.source();
         })
+        .def_readonly("dimensions", &pyseb::IntegralDefinition::dimensions)
         .def_readonly("integration", &pyseb::IntegralDefinition::integration);
 
     py::class_<pyseb::ParameterDefinition>(m, "SubunitParameterDefinition")

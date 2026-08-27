@@ -280,24 +280,66 @@ std::map<std::string, IntegralDefinition> integralMap(
         }
         rejectUnknownKeys(
             item.value(),
-            {"variable", "lower", "upper", "integrand", "integration"},
+            {"variable", "lower", "upper", "variables", "integrand", "integration"},
             source,
             itemPath);
-        integral.variable = scalarString(
-            requiredNode(item.value(), "variable", source, itemPath),
-            source,
-            itemPath + ".variable");
-        if (!validSymbolName(integral.variable)) {
-            schemaError(source, itemPath + ".variable", "invalid identifier");
+        const bool hasLegacyDimension = item.value().contains("variable") ||
+            item.value().contains("lower") || item.value().contains("upper");
+        const bool hasDimensions = item.value().contains("variables");
+        if (hasLegacyDimension && hasDimensions) {
+            schemaError(source, itemPath, "use either the scalar integral fields or variables, not both");
         }
-        integral.lower = parsedExpression(
-            requiredNode(item.value(), "lower", source, itemPath),
-            source,
-            itemPath + ".lower");
-        integral.upper = parsedExpression(
-            requiredNode(item.value(), "upper", source, itemPath),
-            source,
-            itemPath + ".upper");
+        if (hasLegacyDimension) {
+            if (!item.value().contains("variable") || !item.value().contains("lower") ||
+                !item.value().contains("upper")) {
+                schemaError(source, itemPath, "variable, lower, and upper are required together");
+            }
+            IntegralDefinition::Dimension dimension;
+            dimension.variable = scalarString(
+                item.value().at("variable"), source, itemPath + ".variable");
+            if (!validSymbolName(dimension.variable)) {
+                schemaError(source, itemPath + ".variable", "invalid identifier");
+            }
+            dimension.lower = parsedExpression(
+                item.value().at("lower"), source, itemPath + ".lower");
+            dimension.upper = parsedExpression(
+                item.value().at("upper"), source, itemPath + ".upper");
+            integral.dimensions.push_back(std::move(dimension));
+            integral.variable = integral.dimensions.front().variable;
+            integral.lower = integral.dimensions.front().lower;
+            integral.upper = integral.dimensions.front().upper;
+        } else if (hasDimensions) {
+            const Node& dimensions = item.value().at("variables");
+            requireSequence(dimensions, source, itemPath + ".variables");
+            std::size_t index = 0;
+            for (const auto& value : dimensions) {
+                const std::string dimensionPath =
+                    itemPath + ".variables[" + std::to_string(index++) + "]";
+                rejectUnknownKeys(value, {"variable", "lower", "upper"}, source, dimensionPath);
+                IntegralDefinition::Dimension dimension;
+                dimension.variable = scalarString(
+                    requiredNode(value, "variable", source, dimensionPath),
+                    source,
+                    dimensionPath + ".variable");
+                if (!validSymbolName(dimension.variable)) {
+                    schemaError(source, dimensionPath + ".variable", "invalid identifier");
+                }
+                dimension.lower = parsedExpression(
+                    requiredNode(value, "lower", source, dimensionPath),
+                    source,
+                    dimensionPath + ".lower");
+                dimension.upper = parsedExpression(
+                    requiredNode(value, "upper", source, dimensionPath),
+                    source,
+                    dimensionPath + ".upper");
+                integral.dimensions.push_back(std::move(dimension));
+            }
+            if (integral.dimensions.empty()) {
+                schemaError(source, itemPath + ".variables", "expected at least one dimension");
+            }
+        } else {
+            schemaError(source, itemPath, "variable/lower/upper or variables is required");
+        }
         integral.integrand = parsedExpression(
             requiredNode(item.value(), "integrand", source, itemPath),
             source,
@@ -359,12 +401,20 @@ void validateUniqueNames(SubunitDefinition& definition) {
     for (const auto& named : definition.definitions) insertName(named.first, "definitions." + named.first);
     for (const auto& integral : definition.integrals) insertName(integral.first, "integrals." + integral.first);
     for (const auto& integral : definition.integrals) {
-        const std::string path = "integrals." + integral.first + ".variable";
-        if (!validSymbolName(integral.second.variable)) {
-            schemaError(source, path, "names must start with a letter and contain only letters and digits");
-        }
-        if (names.count(integral.second.variable)) {
-            schemaError(source, path, "bound variable collides with a model-level or reserved name");
+        std::set<std::string> dimensionNames;
+        std::size_t index = 0;
+        for (const auto& dimension : integral.second.dimensions) {
+            const std::string path = "integrals." + integral.first + ".variables[" +
+                std::to_string(index++) + "].variable";
+            if (!validSymbolName(dimension.variable)) {
+                schemaError(source, path, "names must start with a letter and contain only letters and digits");
+            }
+            if (names.count(dimension.variable)) {
+                schemaError(source, path, "bound variable collides with a model-level or reserved name");
+            }
+            if (!dimensionNames.insert(dimension.variable).second) {
+                schemaError(source, path, "bound variable is duplicated");
+            }
         }
     }
 
@@ -420,29 +470,39 @@ void validateExpressionDependencies(const SubunitDefinition& definition) {
     for (const auto& item : definition.referenceToReference) checkKnown(item.second, "sizes.reference_to_reference");
 
     const auto checkIntegralExpression = [&](const ParsedExpression& expression,
-                                             const IntegralDefinition& integral,
+                                             const std::set<std::string>& localNames,
                                              const std::string& path) {
         for (const auto& id : expression.identifiers()) {
-            if (id == integral.variable) continue;
+            if (localNames.count(id)) continue;
             if (!knownBase(id)) schemaError(source, path, "unknown identifier '" + id + "'");
         }
     };
     for (const auto& item : definition.integrals) {
         const IntegralDefinition& integral = item.second;
         const std::string path = "integrals." + item.first;
-        checkIntegralExpression(integral.lower, integral, path + ".lower");
-        checkIntegralExpression(integral.upper, integral, path + ".upper");
-        checkIntegralExpression(integral.integrand, integral, path + ".integrand");
-        for (const auto& id : integral.lower.identifiers()) {
-            if (id == "q") schemaError(source, path + ".lower", "integration bounds cannot depend on q");
-            if (id == integral.variable) schemaError(source, path + ".lower", "integration bounds cannot depend on the bound variable");
-            if (integrals.count(id)) schemaError(source, path + ".lower", "integration bounds cannot depend on another integral");
+        std::set<std::string> localNames;
+        std::size_t index = 0;
+        for (const auto& dimension : integral.dimensions) {
+            const std::string dimensionPath = path + ".variables[" +
+                std::to_string(index++) + "]";
+            checkIntegralExpression(dimension.lower, localNames, dimensionPath + ".lower");
+            checkIntegralExpression(dimension.upper, localNames, dimensionPath + ".upper");
+            for (const auto& bound : {std::cref(dimension.lower), std::cref(dimension.upper)}) {
+                for (const auto& id : bound.get().identifiers()) {
+                    if (id == "q") {
+                        schemaError(source, dimensionPath, "integration bounds cannot depend on q");
+                    }
+                    if (id == dimension.variable) {
+                        schemaError(source, dimensionPath, "integration bounds cannot depend on the bound variable");
+                    }
+                    if (integrals.count(id)) {
+                        schemaError(source, dimensionPath, "integration bounds cannot depend on another integral");
+                    }
+                }
+            }
+            localNames.insert(dimension.variable);
         }
-        for (const auto& id : integral.upper.identifiers()) {
-            if (id == "q") schemaError(source, path + ".upper", "integration bounds cannot depend on q");
-            if (id == integral.variable) schemaError(source, path + ".upper", "integration bounds cannot depend on the bound variable");
-            if (integrals.count(id)) schemaError(source, path + ".upper", "integration bounds cannot depend on another integral");
-        }
+        checkIntegralExpression(integral.integrand, localNames, path + ".integrand");
         for (const auto& id : integral.integrand.identifiers()) {
             if (integrals.count(id)) {
                 schemaError(source, path + ".integrand", "nested integrals are not supported");
@@ -497,8 +557,13 @@ void validateExpressionDependencies(const SubunitDefinition& definition) {
                 }
             }
         };
-        requireIntegralFree(integral.lower, "integrals." + item.first + ".lower");
-        requireIntegralFree(integral.upper, "integrals." + item.first + ".upper");
+        for (std::size_t index = 0; index < integral.dimensions.size(); ++index) {
+            const auto& dimension = integral.dimensions[index];
+            const std::string path = "integrals." + item.first + ".variables[" +
+                std::to_string(index) + "]";
+            requireIntegralFree(dimension.lower, path + ".lower");
+            requireIntegralFree(dimension.upper, path + ".upper");
+        }
         requireIntegralFree(integral.integrand, "integrals." + item.first + ".integrand");
     }
 
@@ -525,8 +590,13 @@ void validateExpressionDependencies(const SubunitDefinition& definition) {
                 }
             }
         };
-        requireBoundIndependent(item.second.lower, "integrals." + item.first + ".lower");
-        requireBoundIndependent(item.second.upper, "integrals." + item.first + ".upper");
+        for (std::size_t index = 0; index < item.second.dimensions.size(); ++index) {
+            const auto& dimension = item.second.dimensions[index];
+            const std::string path = "integrals." + item.first + ".variables[" +
+                std::to_string(index) + "]";
+            requireBoundIndependent(dimension.lower, path + ".lower");
+            requireBoundIndependent(dimension.upper, path + ".upper");
+        }
     }
     const auto requireSizeIndependent = [&](const ParsedExpression& expression, const std::string& path) {
         if (expression.identifiers().count("q")) schemaError(source, path, "size expressions cannot depend on q");

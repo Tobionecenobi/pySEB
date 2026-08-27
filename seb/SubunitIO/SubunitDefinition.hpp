@@ -42,6 +42,12 @@ struct SubunitValidationCase {
 
 struct IntegralDefinition {
     std::string name;
+    struct Dimension {
+        std::string variable;
+        ParsedExpression lower;
+        ParsedExpression upper;
+    };
+    std::vector<Dimension> dimensions;
     std::string variable;
     ParsedExpression lower;
     ParsedExpression upper;
