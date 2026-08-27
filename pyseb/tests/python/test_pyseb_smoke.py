@@ -424,6 +424,78 @@ class TestPySEBSmoke(unittest.TestCase):
         self.assertEqual(float(sympy_expr.subs("x", 4.0).evalf()), math.sin(11.0))
         self.assertAlmostEqual(expr.subs("x", 4.0).eval(), math.sin(11.0))
 
+    def test_portable_symbolic_output_is_stable(self):
+        pyseb.set_backend("portable")
+        x = pyseb.symbol("portable_x")
+        y = pyseb.symbol("portable_y")
+
+        self.assertEqual(str(x + y), "(portable_x + portable_y)")
+        self.assertEqual(str(-x), "(-portable_x)")
+        self.assertEqual(str(x**pyseb.constant(2.0)), "(portable_x ** 2)")
+        self.assertEqual(x.abs().to_python(), "Abs(portable_x)")
+        self.assertEqual(x.bessel_j0().to_python(), "besselj(0, portable_x)")
+        self.assertEqual(x.bessel_j1().to_python(), "besselj(1, portable_x)")
+        self.assertEqual(x.dawson().to_python(), "dawson(portable_x)")
+
+        combined = x.sin() + y.cos()
+        expected = "(sin(portable_x) + cos(portable_y))"
+        self.assertEqual(str(combined), expected)
+        self.assertEqual(combined.to_latex(), expected)
+        self.assertEqual(combined.to_cform(), expected)
+
+    def test_portable_symbolic_output_preserves_parentheses(self):
+        pyseb.set_backend("portable")
+        x = pyseb.symbol("precedence_x")
+        y = pyseb.symbol("precedence_y")
+        z = pyseb.symbol("precedence_z")
+
+        self.assertEqual(
+            ((x + y) * z).to_python(),
+            "((precedence_x + precedence_y) * precedence_z)",
+        )
+        self.assertEqual(
+            (x + y * z).to_python(),
+            "(precedence_x + (precedence_y * precedence_z))",
+        )
+        self.assertEqual(
+            (x - (y - z)).to_python(),
+            "(precedence_x - (precedence_y - precedence_z))",
+        )
+        self.assertEqual(
+            pyseb.pow(x + y, pyseb.constant(2.0)).to_python(),
+            "((precedence_x + precedence_y) ** 2)",
+        )
+
+    def test_portable_symbolic_output_round_trips_through_sympy(self):
+        pyseb.set_backend("portable")
+        x = pyseb.symbol("roundtrip_x")
+        y = pyseb.symbol("roundtrip_y")
+        expr = (x.sin() + y.sqrt()) / (x + 2.0)
+
+        parsed = sympy.sympify(expr.to_python())
+        expected = (
+            sympy.sin(sympy.Symbol("roundtrip_x"))
+            + sympy.sqrt(sympy.Symbol("roundtrip_y"))
+        ) / (sympy.Symbol("roundtrip_x") + 2)
+
+        self.assertEqual(sympy.simplify(parsed - expected), 0)
+
+    def test_portable_special_function_output_round_trips_through_sympy(self):
+        pyseb.set_backend("portable")
+        x = pyseb.symbol("special_x")
+        expr = (
+            x.abs()
+            + x.bessel_j0()
+            + x.bessel_j1()
+            + x.dawson()
+            + x.erf()
+            + x.erfc()
+        )
+
+        parsed = pyseb.SymPyExpression(expr.to_python()).expr
+        self.assertIsInstance(parsed, sympy.Expr)
+        self.assertIn("special_x", str(parsed))
+
     def test_symbolic_backend_exports_to_sympy_for_numeric_evaluation(self):
         results = {}
 
