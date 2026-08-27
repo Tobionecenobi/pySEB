@@ -106,7 +106,7 @@ id: my-lab/BranchedPolymer
 api_name: BranchedPolymer
 ```
 
-## Finite one-dimensional integrals
+## Finite iterated integrals
 
 Named integrals can be reused from ordinary definitions, form factors,
 amplitudes, and phase factors. Put shared numerical settings in `integration`;
@@ -136,20 +136,44 @@ expressions:
   form_factor: "centerAmplitude^2"
 ```
 
+The scalar `variable`, `lower`, and `upper` fields are shorthand for one
+dimension. For two or more dimensions, use an ordered `variables` sequence;
+the first item is the outermost integration and each later item is integrated
+inside it:
+
+```yaml
+integrals:
+  rectangle:
+    variables:
+      - {variable: x, lower: "0", upper: "1"}
+      - {variable: y, lower: "x", upper: "x + 1"}
+    integrand: "x + y"
+```
+
+Each dimension name is local to its integral. A bound may use structural
+parameters, reusable q-independent definitions, and variables declared by
+earlier dimensions, but not q, a later dimension, or an integral result.
+Dimension names must be unique and cannot collide with model names.
+
 Methods are `cquad` and `qag`; QAG rules are 15, 21, 31, 41, 51, or 61.
 Defaults are CQUAD, absolute tolerance `1e-12`, relative tolerance `1e-8`,
 workspace size 1000, and QAG rule 61. At least one tolerance must be positive.
 
-The integration variable exists only inside its integrand. It cannot collide
-with a parameter, variable, definition, integral, constant, or function name.
-Bounds must remain finite and q-independent; they may use structural
-parameters and q-independent reusable definitions. Integrands may additionally
-use q, dimensionless variables, and their local integration variable.
+Each dimension name is local to its integral and cannot collide with a
+parameter, variable, definition, integral, constant, or function name. Bounds
+must remain finite and q-independent; they may use structural parameters,
+q-independent reusable definitions, and variables declared by earlier
+dimensions. Integrands may additionally use q, dimensionless variables, and
+all declared local dimensions.
 
-Only finite one-dimensional integrals are supported in schema v1. Nested and
-improper integrals, integral-dependent bounds, and integral-dependent size
-expressions are rejected, including dependencies hidden behind a reusable
-definition. Reversed finite bounds are valid and reverse the sign.
+Integration is finite iterated scalar quadrature: the implementation
+recursively applies QAG or CQUAD from the innermost dimension outward. It is
+not a general cubature method. Named integral results cannot be used inside
+another integral or in size expressions in this version; this keeps local
+scoping and caching unambiguous. Reversed finite bounds are valid and reverse
+the corresponding sign. High-dimensional integrals can become expensive
+quickly, so keep the number of dimensions and tolerances appropriate to the
+model.
 
 Symbolic queries retain an unevaluated integral in portable, GiNaC, and SymPy
 output. Use `World.Evaluate*` for numerical quadrature. The exact q=0
@@ -223,7 +247,7 @@ a warning.
 
 The v1 format is analytic and declarative. It has no includes, filesystem
 access, environment expansion, callbacks, coordinate arrays, or executable
-plugins. Use the callback APIs or `DebyeSphereCloud` for multidimensional,
-nested, improper, data-driven, or specialized integration. YAML tags, anchors,
+plugins. Use the callback APIs or `DebyeSphereCloud` for improper, data-driven,
+specialized integration, or true multidimensional cubature. YAML tags, anchors,
 aliases, multiple YAML documents, unknown schema fields, and files larger than
 1 MiB are rejected.
