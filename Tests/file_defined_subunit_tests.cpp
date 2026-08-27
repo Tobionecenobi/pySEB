@@ -189,6 +189,75 @@ TEST(FileDefinedIntegral, RejectsInvalidSettingsScopeAndNesting) {
     EXPECT_THROW(
         pyseb::LoadSubunitDefinitionYaml(collision, "collision.pyseb.yaml"),
         SEBException);
+
+    std::string zeroTolerances = kMinimalModel;
+    zeroTolerances +=
+        "integration: {absolute_tolerance: 0.0, relative_tolerance: 0.0}\n";
+    EXPECT_THROW(
+        pyseb::LoadSubunitDefinitionYaml(zeroTolerances, "tolerance.pyseb.yaml"),
+        SEBException);
+
+    std::string indirect = kMinimalModel;
+    indirect.replace(
+        indirect.find("parameters: {}"),
+        std::string("parameters: {}").size(),
+        "parameters: {}\ndefinitions: {wrapped: \"I\"}");
+    indirect +=
+        "integrals:\n"
+        "  I: {variable: t, lower: \"0\", upper: \"1\", integrand: \"wrapped * t\"}\n";
+    EXPECT_THROW(
+        pyseb::LoadSubunitDefinitionYaml(indirect, "indirect.pyseb.yaml"),
+        SEBException);
+
+    std::string integralSize = kMinimalModel;
+    integralSize.replace(
+        integralSize.find("radius_of_gyration_squared: \"0\""),
+        std::string("radius_of_gyration_squared: \"0\"").size(),
+        "radius_of_gyration_squared: \"I\"");
+    integralSize +=
+        "integrals:\n"
+        "  I: {variable: t, lower: \"0\", upper: \"1\", integrand: \"t\"}\n";
+    EXPECT_THROW(
+        pyseb::LoadSubunitDefinitionYaml(integralSize, "size.pyseb.yaml"),
+        SEBException);
+}
+
+TEST(FileDefinedIntegral, SupportsParameterizedAndReversedBounds) {
+    const char yaml[] = R"YAML(
+format: pyseb-subunit
+schema_version: 1
+id: test/ReversedIntegral
+api_name: ReversedIntegral
+model_version: "1"
+parameters:
+  a: {unit: length}
+definitions:
+  limit: a
+integrals:
+  reverse:
+    variable: t
+    lower: limit
+    upper: "0"
+    integrand: t
+references:
+  specific: [center]
+  distributed: []
+expressions:
+  form_factor: reverse
+  amplitudes: {center: reverse}
+  phases: []
+sizes:
+  radius_of_gyration_squared: "0"
+  reference_to_scatterer: {center: "0"}
+  reference_to_reference: []
+)YAML";
+    const pyseb::SubunitDefinition definition =
+        pyseb::LoadSubunitDefinitionYaml(yaml, "reversed.pyseb.yaml");
+    SymbolInterface symbols;
+    FileDefinedSubunit subunit(definition);
+    subunit.Init("reverse", "reverse", &symbols);
+    const ParameterList values{{"beta_reverse", 2.0}, {"a_reverse", 2.0}};
+    EXPECT_NEAR(subunit.NumericFormFactorUnnormalized(0.5, values), -8.0, 1e-10);
 }
 
 TEST(FileDefinedSchema, LoadsAndValidatesBundledModels) {

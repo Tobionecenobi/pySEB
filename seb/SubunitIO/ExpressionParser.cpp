@@ -311,6 +311,8 @@ double evaluate(
                 }
                 return 2.0 * gsl_sf_bessel_J1(arg) / arg;
             }
+            if (node->text == "struve_h0") return StruveH0Value(arg);
+            if (node->text == "struve_h1") return StruveH1Value(arg);
             break;
         }
     }

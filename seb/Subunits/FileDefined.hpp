@@ -33,7 +33,8 @@ protected:
 private:
     std::map<std::string, std::unique_ptr<NumericalIntegrator>> integrators_;
 
-    bool dependsOnIntegral(const pyseb::ParsedExpression& expression) const;
+    bool requiresParsedNumericalEvaluation(
+        const pyseb::ParsedExpression& expression) const;
     double evaluateNumerically(
         const pyseb::ParsedExpression& expression,
         double q,

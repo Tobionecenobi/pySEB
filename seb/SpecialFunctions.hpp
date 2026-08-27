@@ -33,6 +33,8 @@ Expression Erfc(const Expression& x);
 Expression Hypergeometric0F1Regularized(const Expression& a, const Expression& x);
 Expression StruveH0(const Expression& x);
 Expression StruveH1(const Expression& x);
+double StruveH0Value(double x);
+double StruveH1Value(double x);
 
 #ifdef USE_GINAC
 #include <ginac/ginac.h>

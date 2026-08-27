@@ -169,14 +169,14 @@ void FileDefinedSubunit::Init(string name, string tag, SymbolInterface* GEX) {
             pyseb::MaterializeSubunitExpression(size.second, expandedResolve);
     }
 
-    if (dependsOnIntegral(definition_.formFactor)) {
+    if (requiresParsedNumericalEvaluation(definition_.formFactor)) {
         setNumericalFormFactorFunction(
             [this](double q, const ParameterList& values) {
                 return evaluateNumerically(definition_.formFactor, q, values);
             });
     }
     for (const auto& amplitude : definition_.amplitudes) {
-        if (!dependsOnIntegral(amplitude.second)) continue;
+        if (!requiresParsedNumericalEvaluation(amplitude.second)) continue;
         const std::string reference = amplitude.first;
         setNumericalFormFactorAmplitudeFunction(
             reference,
@@ -185,7 +185,7 @@ void FileDefinedSubunit::Init(string name, string tag, SymbolInterface* GEX) {
             });
     }
     for (const auto& phase : definition_.phases) {
-        if (!dependsOnIntegral(phase.second)) continue;
+        if (!requiresParsedNumericalEvaluation(phase.second)) continue;
         const pyseb::ReferencePair references = phase.first;
         setNumericalPhaseFactorFunction(
             references.first,
@@ -196,11 +196,24 @@ void FileDefinedSubunit::Init(string name, string tag, SymbolInterface* GEX) {
     }
 }
 
-bool FileDefinedSubunit::dependsOnIntegral(
+bool FileDefinedSubunit::requiresParsedNumericalEvaluation(
     const pyseb::ParsedExpression& expression) const {
     std::set<std::string> visited;
     std::function<bool(const pyseb::ParsedExpression&)> inspect;
     inspect = [&](const pyseb::ParsedExpression& current) {
+        std::function<bool(const std::shared_ptr<const pyseb::ParsedExpressionNode>&)> usesAstFunction;
+        usesAstFunction = [&](const std::shared_ptr<const pyseb::ParsedExpressionNode>& node) {
+            if (!node) return false;
+            if (node->kind == pyseb::ParsedExpressionNode::Kind::Function &&
+                (node->text == "struve_h0" || node->text == "struve_h1")) {
+                return true;
+            }
+            for (const auto& child : node->children) {
+                if (usesAstFunction(child)) return true;
+            }
+            return false;
+        };
+        if (usesAstFunction(current.root())) return true;
         for (const auto& identifier : current.identifiers()) {
             if (definition_.integrals.count(identifier)) return true;
             const auto named = definition_.definitions.find(identifier);
