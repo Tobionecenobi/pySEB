@@ -173,6 +173,17 @@ class TestFileDefinedSubunits(unittest.TestCase):
         with self.assertRaises(AttributeError):
             form_factor.variable = "other"
 
+        spheroid = pyseb.load_subunit_definition(str(MODELS / "Spheroid.pyseb.yaml"))
+        surface_amplitude = spheroid.integrals["surfaceAmplitude"]
+        self.assertEqual(
+            [(dimension.variable, dimension.lower, dimension.upper)
+             for dimension in surface_amplitude.dimensions],
+            [("orientation", "0", "pi / 2"), ("theta", "0", "pi")],
+        )
+        self.assertEqual(
+            len(spheroid.integrals["surfaceSurfacePhase"].dimensions), 3
+        )
+
     def test_schema_and_expression_errors_include_context(self):
         source = (MODELS / "Point.pyseb.yaml").read_text(encoding="utf-8")
         with tempfile.TemporaryDirectory() as directory:

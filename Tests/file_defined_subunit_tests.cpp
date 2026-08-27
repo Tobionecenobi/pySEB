@@ -152,6 +152,60 @@ sizes:
     EXPECT_NEAR(subunit.NumericFormFactorUnnormalized(0.0, values), 4.0, 1e-12);
 }
 
+TEST(FileDefinedIntegral, EvaluatesOrderedMultidimensionalIntegrals) {
+    const char yaml[] = R"YAML(
+format: pyseb-subunit
+schema_version: 1
+id: test/MultidimensionalIntegral
+api_name: MultidimensionalIntegral
+model_version: "1"
+parameters: {}
+integrals:
+  triangle:
+    variables:
+      - {variable: x, lower: "0", upper: "1"}
+      - {variable: y, lower: "x", upper: "x + 1"}
+    integrand: "x + y"
+  cube:
+    variables:
+      - {variable: x, lower: "0", upper: "1"}
+      - {variable: y, lower: "0", upper: "1"}
+      - {variable: z, lower: "0", upper: "1"}
+    integrand: "x * y * z"
+references:
+  specific: [center]
+  distributed: []
+expressions:
+  form_factor: "triangle"
+  amplitudes: {center: "cube"}
+  phases: []
+sizes:
+  radius_of_gyration_squared: "0"
+  reference_to_scatterer: {center: "0"}
+  reference_to_reference: []
+)YAML";
+    const pyseb::SubunitDefinition definition =
+        pyseb::LoadSubunitDefinitionYaml(yaml, "multidimensional.pyseb.yaml");
+    ASSERT_EQ(definition.integrals.at("triangle").dimensions.size(), 2u);
+    ASSERT_EQ(definition.integrals.at("cube").dimensions.size(), 3u);
+
+    SymbolInterface symbols;
+    FileDefinedSubunit subunit(definition);
+    subunit.Init("multidimensional", "multidimensional", &symbols);
+    const ParameterList values{{"beta_multidimensional", 1.0}};
+    EXPECT_NEAR(subunit.NumericFormFactorUnnormalized(0.25, values), 1.5, 1e-9);
+    EXPECT_NEAR(
+        subunit.NumericFormFactorAmplitudeUnnormalized("center", 0.25, values),
+        0.125,
+        1e-10);
+    ParameterList betas;
+    ParameterList params;
+    const std::string symbolic = subunit.FormFactor(betas, params, XVAR).to_string();
+    EXPECT_TRUE(
+        symbolic.find("Integral") != std::string::npos ||
+        symbolic.find("integral") != std::string::npos);
+}
+
 TEST(FileDefinedIntegral, RejectsInvalidSettingsScopeAndNesting) {
     std::string invalidMethod = kMinimalModel;
     invalidMethod += "integration: {method: trapezoid}\n";
@@ -220,6 +274,30 @@ TEST(FileDefinedIntegral, RejectsInvalidSettingsScopeAndNesting) {
     EXPECT_THROW(
         pyseb::LoadSubunitDefinitionYaml(integralSize, "size.pyseb.yaml"),
         SEBException);
+
+    std::string forwardBound = kMinimalModel;
+    forwardBound +=
+        "integrals:\n"
+        "  I:\n"
+        "    variables:\n"
+        "      - {variable: x, lower: y, upper: \"1\"}\n"
+        "      - {variable: y, lower: \"0\", upper: \"1\"}\n"
+        "    integrand: \"x + y\"\n";
+    EXPECT_THROW(
+        pyseb::LoadSubunitDefinitionYaml(forwardBound, "forward-bound.pyseb.yaml"),
+        SEBException);
+
+    std::string duplicateDimension = kMinimalModel;
+    duplicateDimension +=
+        "integrals:\n"
+        "  I:\n"
+        "    variables:\n"
+        "      - {variable: x, lower: \"0\", upper: \"1\"}\n"
+        "      - {variable: x, lower: \"0\", upper: \"1\"}\n"
+        "    integrand: x\n";
+    EXPECT_THROW(
+        pyseb::LoadSubunitDefinitionYaml(duplicateDimension, "duplicate-dimension.pyseb.yaml"),
+        SEBException);
 }
 
 TEST(FileDefinedIntegral, SupportsParameterizedAndReversedBounds) {
@@ -265,12 +343,17 @@ TEST(FileDefinedSchema, LoadsAndValidatesBundledModels) {
         std::string(PYSEB_MODEL_DIR) + "/Point.pyseb.yaml");
     const auto polymer = pyseb::LoadSubunitDefinitionFile(
         std::string(PYSEB_MODEL_DIR) + "/GaussianPolymer.pyseb.yaml");
+    const auto spheroid = pyseb::LoadSubunitDefinitionFile(
+        std::string(PYSEB_MODEL_DIR) + "/Spheroid.pyseb.yaml");
     EXPECT_EQ(point.id, "pyseb/Point");
     EXPECT_EQ(point.apiName, "Point");
     EXPECT_TRUE(point.invisible);
     EXPECT_EQ(polymer.amplitudes.size(), 4u);
+    EXPECT_EQ(spheroid.integrals.at("surfaceAmplitude").dimensions.size(), 2u);
+    EXPECT_EQ(spheroid.integrals.at("surfaceSurfacePhase").dimensions.size(), 3u);
     EXPECT_TRUE(pyseb::ValidateSubunitDefinition(point).ok());
     EXPECT_TRUE(pyseb::ValidateSubunitDefinition(polymer).ok());
+    EXPECT_TRUE(pyseb::ValidateSubunitDefinition(spheroid).ok());
 }
 
 TEST(FileDefinedSchema, RejectsUnknownFieldsAndDependencyCycles) {
