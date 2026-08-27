@@ -1,21 +1,31 @@
 #include "Subunits/FileDefined.hpp"
 
+#include <cmath>
 #include <functional>
 #include <map>
+#include <memory>
 #include <set>
+#include <sstream>
 
 #include "Exceptions.hpp"
+#include "ExpressionFunctions.hpp"
 #include "SubunitIO/ExpressionParser.hpp"
 
 FileDefinedSubunit::FileDefinedSubunit(const pyseb::SubunitDefinition& definition)
-    : SubUnit(), definition_(definition) {
+    : IntegratedSubunit(), definition_(definition) {
     type = SUBUNITCHILD;
     stype = FILEDEFINEDSUBUNIT;
     setName(definition.id);
+    for (const auto& integral : definition_.integrals) {
+        integrators_.emplace(
+            integral.first,
+            std::unique_ptr<NumericalIntegrator>(
+                new NumericalIntegrator(integral.second.integration)));
+    }
 }
 
 void FileDefinedSubunit::Init(string name, string tag, SymbolInterface* GEX) {
-    SubUnit::Init(name, tag, GEX);
+    IntegratedSubunit::Init(name, tag, GEX);
     const string modelTag = getTag();
 
     for (const auto& reference : definition_.specificReferences) setReferencePointName(reference);
@@ -68,13 +78,17 @@ void FileDefinedSubunit::Init(string name, string tag, SymbolInterface* GEX) {
     }
 
     std::map<std::string, Expression> namedExpressions;
+    std::map<std::string, Expression> namedIntegrals;
     std::set<std::string> materializingDefinitions;
+    std::set<std::string> materializingIntegrals;
     std::function<Expression(const std::string&)> materializeDefinition;
+    std::function<Expression(const std::string&)> materializeIntegral;
     std::function<Expression(const std::string&)> symbolicResolve;
     symbolicResolve = [&](const std::string& identifier) -> Expression {
         const auto variable = variableSymbols.find(identifier);
         if (variable != variableSymbols.end()) return variable->second;
         if (definition_.definitions.count(identifier)) return materializeDefinition(identifier);
+        if (definition_.integrals.count(identifier)) return materializeIntegral(identifier);
         return baseResolve(identifier);
     };
     materializeDefinition = [&](const std::string& name) -> Expression {
@@ -87,6 +101,29 @@ void FileDefinedSubunit::Init(string name, string tag, SymbolInterface* GEX) {
             definition_.definitions.at(name), symbolicResolve);
         materializingDefinitions.erase(name);
         namedExpressions.emplace(name, value);
+        return value;
+    };
+    materializeIntegral = [&](const std::string& name) -> Expression {
+        const auto cached = namedIntegrals.find(name);
+        if (cached != namedIntegrals.end()) return cached->second;
+        if (!materializingIntegrals.insert(name).second) {
+            throw SEBException(definition_.source + ": cyclic integral dependency at '" + name + "'");
+        }
+        const pyseb::IntegralDefinition& integral = definition_.integrals.at(name);
+        const Expression variable = GLEX->getSymbol(integral.variable, modelTag);
+        const auto integralResolve = [&](const std::string& identifier) -> Expression {
+            if (identifier == integral.variable) return variable;
+            return symbolicResolve(identifier);
+        };
+        const Expression lower = pyseb::MaterializeSubunitExpression(
+            integral.lower, symbolicResolve);
+        const Expression upper = pyseb::MaterializeSubunitExpression(
+            integral.upper, symbolicResolve);
+        const Expression integrand = pyseb::MaterializeSubunitExpression(
+            integral.integrand, integralResolve);
+        const Expression value = integrate(variable, lower, upper, integrand);
+        materializingIntegrals.erase(name);
+        namedIntegrals.emplace(name, value);
         return value;
     };
 
@@ -131,6 +168,156 @@ void FileDefinedSubunit::Init(string name, string tag, SymbolInterface* GEX) {
         sigmaMSDref2ref[size.first.first][size.first.second] =
             pyseb::MaterializeSubunitExpression(size.second, expandedResolve);
     }
+
+    if (dependsOnIntegral(definition_.formFactor)) {
+        setNumericalFormFactorFunction(
+            [this](double q, const ParameterList& values) {
+                return evaluateNumerically(definition_.formFactor, q, values);
+            });
+    }
+    for (const auto& amplitude : definition_.amplitudes) {
+        if (!dependsOnIntegral(amplitude.second)) continue;
+        const std::string reference = amplitude.first;
+        setNumericalFormFactorAmplitudeFunction(
+            reference,
+            [this, reference](double q, const ParameterList& values) {
+                return evaluateNumerically(definition_.amplitudes.at(reference), q, values);
+            });
+    }
+    for (const auto& phase : definition_.phases) {
+        if (!dependsOnIntegral(phase.second)) continue;
+        const pyseb::ReferencePair references = phase.first;
+        setNumericalPhaseFactorFunction(
+            references.first,
+            references.second,
+            [this, references](double q, const ParameterList& values) {
+                return evaluateNumerically(definition_.phases.at(references), q, values);
+            });
+    }
+}
+
+bool FileDefinedSubunit::dependsOnIntegral(
+    const pyseb::ParsedExpression& expression) const {
+    std::set<std::string> visited;
+    std::function<bool(const pyseb::ParsedExpression&)> inspect;
+    inspect = [&](const pyseb::ParsedExpression& current) {
+        for (const auto& identifier : current.identifiers()) {
+            if (definition_.integrals.count(identifier)) return true;
+            const auto named = definition_.definitions.find(identifier);
+            if (named != definition_.definitions.end() && visited.insert(identifier).second &&
+                inspect(named->second)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    return inspect(expression);
+}
+
+double FileDefinedSubunit::evaluateNumerically(
+    const pyseb::ParsedExpression& expression,
+    double q,
+    const ParameterList& values) {
+    std::map<std::string, double> variableValues;
+    std::map<std::string, double> definitionValues;
+    std::map<std::string, double> integralValues;
+    std::set<std::string> evaluating;
+
+    std::function<double(const pyseb::ParsedExpression&, const std::string*, double)> evaluate;
+    std::function<double(const std::string&)> resolve;
+    std::function<double(const std::string&)> evaluateVariable;
+    std::function<double(const std::string&)> evaluateDefinition;
+    std::function<double(const std::string&)> evaluateIntegral;
+
+    evaluate = [&](const pyseb::ParsedExpression& current,
+                   const std::string* localName,
+                   double localValue) {
+        return pyseb::EvaluateSubunitExpression(
+            current,
+            [&](const std::string& identifier) {
+                if (localName && identifier == *localName) return localValue;
+                return resolve(identifier);
+            });
+    };
+    evaluateVariable = [&](const std::string& name) {
+        const auto cached = variableValues.find(name);
+        if (cached != variableValues.end()) return cached->second;
+        if (!evaluating.insert("variable:" + name).second) {
+            throw SEBException(definition_.source + ": cyclic variable dependency at '" + name + "'");
+        }
+        const double value = evaluate(definition_.variables.at(name), nullptr, 0.0);
+        evaluating.erase("variable:" + name);
+        variableValues.emplace(name, value);
+        return value;
+    };
+    evaluateDefinition = [&](const std::string& name) {
+        const auto cached = definitionValues.find(name);
+        if (cached != definitionValues.end()) return cached->second;
+        if (!evaluating.insert("definition:" + name).second) {
+            throw SEBException(definition_.source + ": cyclic definition dependency at '" + name + "'");
+        }
+        const double value = evaluate(definition_.definitions.at(name), nullptr, 0.0);
+        evaluating.erase("definition:" + name);
+        definitionValues.emplace(name, value);
+        return value;
+    };
+    evaluateIntegral = [&](const std::string& name) {
+        const auto cached = integralValues.find(name);
+        if (cached != integralValues.end()) return cached->second;
+        const pyseb::IntegralDefinition& integral = definition_.integrals.at(name);
+        const double lower = evaluate(integral.lower, nullptr, 0.0);
+        const double upper = evaluate(integral.upper, nullptr, 0.0);
+        if (!std::isfinite(lower) || !std::isfinite(upper)) {
+            throw SEBException(
+                definition_.source + ": integrals." + name +
+                    ": evaluated bounds must be finite",
+                "FileDefinedSubunit numerical integration");
+        }
+        try {
+            const double value = integrators_.at(name)->integrate(
+                [&](double integrationVariable) {
+                    return evaluate(
+                        integral.integrand,
+                        &integral.variable,
+                        integrationVariable);
+                },
+                lower,
+                upper).value;
+            integralValues.emplace(name, value);
+            return value;
+        } catch (const std::exception& error) {
+            std::ostringstream message;
+            message << definition_.source << ": integrals." << name
+                    << " on [" << lower << ", " << upper << "]: " << error.what();
+            throw SEBException(message.str(), "FileDefinedSubunit numerical integration");
+        }
+    };
+    resolve = [&](const std::string& identifier) {
+        if (identifier == "q") return q;
+        if (definition_.variables.count(identifier)) return evaluateVariable(identifier);
+        if (definition_.definitions.count(identifier)) return evaluateDefinition(identifier);
+        if (definition_.integrals.count(identifier)) return evaluateIntegral(identifier);
+        if (definition_.parameters.count(identifier)) {
+            const std::string tagged = identifier + "_" + getTag();
+            const auto value = values.find(tagged);
+            if (value == values.end()) {
+                throw SEBException(
+                    definition_.source + ": missing numerical parameter " + tagged,
+                    "FileDefinedSubunit numerical evaluation");
+            }
+            if (!std::isfinite(value->second)) {
+                throw SEBException(
+                    definition_.source + ": numerical parameter " + tagged + " must be finite",
+                    "FileDefinedSubunit numerical evaluation");
+            }
+            return value->second;
+        }
+        throw SEBException(
+            definition_.source + ": unresolved numerical identifier '" + identifier + "'",
+            "FileDefinedSubunit numerical evaluation");
+    };
+
+    return evaluate(expression, nullptr, 0.0);
 }
 
 Expression FileDefinedSubunit::FormFactor(

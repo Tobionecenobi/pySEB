@@ -19,6 +19,12 @@ namespace {
 using Node = fkyaml::node;
 constexpr std::size_t kMaximumModelFileSize = 1024u * 1024u;
 
+void rejectUnknownKeys(
+    const Node& node,
+    const std::set<std::string>& allowed,
+    const std::string& source,
+    const std::string& path);
+
 [[noreturn]] void schemaError(
     const std::string& source,
     const std::string& path,
@@ -46,6 +52,78 @@ double scalarDouble(const Node& node, const std::string& source, const std::stri
     const double value = node.get_value<double>();
     if (!std::isfinite(value)) schemaError(source, path, "expected a finite number");
     return value;
+}
+
+std::size_t scalarSize(
+    const Node& node,
+    const std::string& source,
+    const std::string& path) {
+    if (!node.is_integer()) schemaError(source, path, "expected a positive integer");
+    const long long value = node.get_value<long long>();
+    if (value <= 0) schemaError(source, path, "expected a positive integer");
+    return static_cast<std::size_t>(value);
+}
+
+int qagRuleKey(int points, const std::string& source, const std::string& path) {
+    switch (points) {
+        case 15: return GSL_INTEG_GAUSS15;
+        case 21: return GSL_INTEG_GAUSS21;
+        case 31: return GSL_INTEG_GAUSS31;
+        case 41: return GSL_INTEG_GAUSS41;
+        case 51: return GSL_INTEG_GAUSS51;
+        case 61: return GSL_INTEG_GAUSS61;
+        default:
+            schemaError(source, path, "expected one of 15, 21, 31, 41, 51, or 61");
+    }
+}
+
+IntegrationOptions integrationOptions(
+    const Node& node,
+    const IntegrationOptions& inherited,
+    const std::string& source,
+    const std::string& path) {
+    rejectUnknownKeys(
+        node,
+        {"method", "absolute_tolerance", "relative_tolerance", "workspace_size", "qag_rule"},
+        source,
+        path);
+    IntegrationOptions result = inherited;
+    if (node.contains("method")) {
+        const std::string method = scalarString(node.at("method"), source, path + ".method");
+        if (method == "qag") result.method = IntegrationMethod::QAG;
+        else if (method == "cquad") result.method = IntegrationMethod::CQUAD;
+        else schemaError(source, path + ".method", "expected 'qag' or 'cquad'");
+    }
+    if (node.contains("absolute_tolerance")) {
+        result.absoluteTolerance = scalarDouble(
+            node.at("absolute_tolerance"), source, path + ".absolute_tolerance");
+    }
+    if (node.contains("relative_tolerance")) {
+        result.relativeTolerance = scalarDouble(
+            node.at("relative_tolerance"), source, path + ".relative_tolerance");
+    }
+    if (result.absoluteTolerance < 0.0 || result.relativeTolerance < 0.0 ||
+        (result.absoluteTolerance == 0.0 && result.relativeTolerance == 0.0)) {
+        schemaError(
+            source,
+            path,
+            "integration tolerances must be non-negative and at least one must be positive");
+    }
+    if (node.contains("workspace_size")) {
+        result.workspaceSize = scalarSize(
+            node.at("workspace_size"), source, path + ".workspace_size");
+    }
+    if (result.workspaceSize < 3) {
+        schemaError(source, path + ".workspace_size", "must be at least 3");
+    }
+    if (node.contains("qag_rule")) {
+        if (!node.at("qag_rule").is_integer()) {
+            schemaError(source, path + ".qag_rule", "expected an integer");
+        }
+        result.qagRule = qagRuleKey(
+            node.at("qag_rule").get_value<int>(), source, path + ".qag_rule");
+    }
+    return result;
 }
 
 void rejectUnknownKeys(
@@ -186,6 +264,53 @@ std::map<std::string, ParsedExpression> expressionMap(
     return result;
 }
 
+std::map<std::string, IntegralDefinition> integralMap(
+    const Node& node,
+    const IntegrationOptions& inherited,
+    const std::string& source,
+    const std::string& path) {
+    requireMapping(node, source, path);
+    std::map<std::string, IntegralDefinition> result;
+    for (const auto& item : node.map_items()) {
+        IntegralDefinition integral;
+        integral.name = scalarString(item.key(), source, path + ".<key>");
+        const std::string itemPath = path + "." + integral.name;
+        if (!validSymbolName(integral.name)) {
+            schemaError(source, itemPath, "invalid identifier");
+        }
+        rejectUnknownKeys(
+            item.value(),
+            {"variable", "lower", "upper", "integrand", "integration"},
+            source,
+            itemPath);
+        integral.variable = scalarString(
+            requiredNode(item.value(), "variable", source, itemPath),
+            source,
+            itemPath + ".variable");
+        if (!validSymbolName(integral.variable)) {
+            schemaError(source, itemPath + ".variable", "invalid identifier");
+        }
+        integral.lower = parsedExpression(
+            requiredNode(item.value(), "lower", source, itemPath),
+            source,
+            itemPath + ".lower");
+        integral.upper = parsedExpression(
+            requiredNode(item.value(), "upper", source, itemPath),
+            source,
+            itemPath + ".upper");
+        integral.integrand = parsedExpression(
+            requiredNode(item.value(), "integrand", source, itemPath),
+            source,
+            itemPath + ".integrand");
+        integral.integration = item.value().contains("integration")
+            ? integrationOptions(
+                item.value().at("integration"), inherited, source, itemPath + ".integration")
+            : inherited;
+        result.emplace(integral.name, std::move(integral));
+    }
+    return result;
+}
+
 ReferencePair parseReferencePair(
     const Node& node,
     const std::string& source,
@@ -221,7 +346,7 @@ void validateUniqueNames(SubunitDefinition& definition) {
     const std::set<std::string> reserved = {
         "q", "pi", "e", "abs", "acos", "asin", "atan", "bessel_j0", "bessel_j1",
         "cos", "cosh", "dawson", "erf", "erfc", "exp", "log", "pow", "sin", "sinh",
-        "six", "sqrt", "tan", "tanh"
+        "six", "sqrt", "struve_h0", "struve_h1", "tan", "tanh"
     };
     std::set<std::string> names = reserved;
     const auto insertName = [&](const std::string& name, const std::string& path) {
@@ -232,6 +357,16 @@ void validateUniqueNames(SubunitDefinition& definition) {
     for (const auto& parameter : definition.parameters) insertName(parameter.first, "parameters." + parameter.first);
     for (const auto& variable : definition.variables) insertName(variable.first, "variables." + variable.first);
     for (const auto& named : definition.definitions) insertName(named.first, "definitions." + named.first);
+    for (const auto& integral : definition.integrals) insertName(integral.first, "integrals." + integral.first);
+    for (const auto& integral : definition.integrals) {
+        const std::string path = "integrals." + integral.first + ".variable";
+        if (!validSymbolName(integral.second.variable)) {
+            schemaError(source, path, "names must start with a letter and contain only letters and digits");
+        }
+        if (names.count(integral.second.variable)) {
+            schemaError(source, path, "bound variable collides with a model-level or reserved name");
+        }
+    }
 
     std::set<std::string> references;
     for (const auto& ref : definition.specificReferences) {
@@ -253,9 +388,12 @@ void validateExpressionDependencies(const SubunitDefinition& definition) {
     for (const auto& value : definition.variables) variables.insert(value.first);
     std::set<std::string> namedDefinitions;
     for (const auto& value : definition.definitions) namedDefinitions.insert(value.first);
+    std::set<std::string> integrals;
+    for (const auto& value : definition.integrals) integrals.insert(value.first);
 
     const auto knownBase = [&](const std::string& id) {
-        return id == "q" || id == "pi" || id == "e" || parameters.count(id) || variables.count(id) || namedDefinitions.count(id);
+        return id == "q" || id == "pi" || id == "e" || parameters.count(id) ||
+            variables.count(id) || namedDefinitions.count(id) || integrals.count(id);
     };
     const auto checkKnown = [&](const ParsedExpression& expression, const std::string& path) {
         for (const auto& id : expression.identifiers()) {
@@ -281,6 +419,37 @@ void validateExpressionDependencies(const SubunitDefinition& definition) {
     for (const auto& item : definition.referenceToScatterer) checkKnown(item.second, "sizes.reference_to_scatterer." + item.first);
     for (const auto& item : definition.referenceToReference) checkKnown(item.second, "sizes.reference_to_reference");
 
+    const auto checkIntegralExpression = [&](const ParsedExpression& expression,
+                                             const IntegralDefinition& integral,
+                                             const std::string& path) {
+        for (const auto& id : expression.identifiers()) {
+            if (id == integral.variable) continue;
+            if (!knownBase(id)) schemaError(source, path, "unknown identifier '" + id + "'");
+        }
+    };
+    for (const auto& item : definition.integrals) {
+        const IntegralDefinition& integral = item.second;
+        const std::string path = "integrals." + item.first;
+        checkIntegralExpression(integral.lower, integral, path + ".lower");
+        checkIntegralExpression(integral.upper, integral, path + ".upper");
+        checkIntegralExpression(integral.integrand, integral, path + ".integrand");
+        for (const auto& id : integral.lower.identifiers()) {
+            if (id == "q") schemaError(source, path + ".lower", "integration bounds cannot depend on q");
+            if (id == integral.variable) schemaError(source, path + ".lower", "integration bounds cannot depend on the bound variable");
+            if (integrals.count(id)) schemaError(source, path + ".lower", "integration bounds cannot depend on another integral");
+        }
+        for (const auto& id : integral.upper.identifiers()) {
+            if (id == "q") schemaError(source, path + ".upper", "integration bounds cannot depend on q");
+            if (id == integral.variable) schemaError(source, path + ".upper", "integration bounds cannot depend on the bound variable");
+            if (integrals.count(id)) schemaError(source, path + ".upper", "integration bounds cannot depend on another integral");
+        }
+        for (const auto& id : integral.integrand.identifiers()) {
+            if (integrals.count(id)) {
+                schemaError(source, path + ".integrand", "nested integrals are not supported");
+            }
+        }
+    }
+
     enum class Visit { Unvisited, Visiting, Done };
     std::map<std::string, Visit> visits;
     std::function<void(const std::string&)> visit = [&](const std::string& name) {
@@ -298,6 +467,41 @@ void validateExpressionDependencies(const SubunitDefinition& definition) {
     for (const auto& value : definition.variables) visit(value.first);
     for (const auto& value : definition.definitions) visit(value.first);
 
+    std::map<std::string, bool> integralDependencies;
+    std::function<bool(const std::string&)> dependsOnIntegral = [&](const std::string& name) {
+        const auto cached = integralDependencies.find(name);
+        if (cached != integralDependencies.end()) return cached->second;
+        const auto variable = definition.variables.find(name);
+        const ParsedExpression& expression = variable != definition.variables.end()
+            ? variable->second : definition.definitions.at(name);
+        bool depends = false;
+        for (const auto& id : expression.identifiers()) {
+            if (integrals.count(id)) depends = true;
+            if (variables.count(id) || namedDefinitions.count(id)) {
+                depends = depends || dependsOnIntegral(id);
+            }
+        }
+        integralDependencies[name] = depends;
+        return depends;
+    };
+    for (const auto& value : definition.variables) dependsOnIntegral(value.first);
+    for (const auto& value : definition.definitions) dependsOnIntegral(value.first);
+
+    for (const auto& item : definition.integrals) {
+        const IntegralDefinition& integral = item.second;
+        const auto requireIntegralFree = [&](const ParsedExpression& expression,
+                                             const std::string& path) {
+            for (const auto& id : expression.identifiers()) {
+                if ((variables.count(id) || namedDefinitions.count(id)) && dependsOnIntegral(id)) {
+                    schemaError(source, path, "nested integral dependency through '" + id + "'");
+                }
+            }
+        };
+        requireIntegralFree(integral.lower, "integrals." + item.first + ".lower");
+        requireIntegralFree(integral.upper, "integrals." + item.first + ".upper");
+        requireIntegralFree(integral.integrand, "integrals." + item.first + ".integrand");
+    }
+
     std::map<std::string, bool> qDependencies;
     std::function<bool(const std::string&)> dependsOnQ = [&](const std::string& name) {
         const auto cached = qDependencies.find(name);
@@ -312,11 +516,29 @@ void validateExpressionDependencies(const SubunitDefinition& definition) {
         qDependencies[name] = depends;
         return depends;
     };
+    for (const auto& item : definition.integrals) {
+        const auto requireBoundIndependent = [&](const ParsedExpression& expression,
+                                                 const std::string& path) {
+            for (const auto& id : expression.identifiers()) {
+                if ((variables.count(id) || namedDefinitions.count(id)) && dependsOnQ(id)) {
+                    schemaError(source, path, "integration bounds cannot depend on q through '" + id + "'");
+                }
+            }
+        };
+        requireBoundIndependent(item.second.lower, "integrals." + item.first + ".lower");
+        requireBoundIndependent(item.second.upper, "integrals." + item.first + ".upper");
+    }
     const auto requireSizeIndependent = [&](const ParsedExpression& expression, const std::string& path) {
         if (expression.identifiers().count("q")) schemaError(source, path, "size expressions cannot depend on q");
         for (const auto& id : expression.identifiers()) {
+            if (integrals.count(id)) {
+                schemaError(source, path, "size expressions cannot depend on integrals");
+            }
             if ((variables.count(id) || namedDefinitions.count(id)) && dependsOnQ(id)) {
                 schemaError(source, path, "size expressions cannot depend on q through '" + id + "'");
+            }
+            if ((variables.count(id) || namedDefinitions.count(id)) && dependsOnIntegral(id)) {
+                schemaError(source, path, "size expressions cannot depend on integrals through '" + id + "'");
             }
         }
     };
@@ -471,7 +693,7 @@ SubunitDefinition LoadSubunitDefinitionYaml(const std::string& yaml, const std::
     rejectUnknownKeys(
         root,
         {"format", "schema_version", "id", "api_name", "model_version", "metadata", "behavior", "parameters",
-         "variables", "definitions", "references", "expressions", "sizes", "validation"},
+         "variables", "definitions", "integration", "integrals", "references", "expressions", "sizes", "validation"},
         source,
         "$");
 
@@ -527,6 +749,14 @@ SubunitDefinition LoadSubunitDefinitionYaml(const std::string& yaml, const std::
 
     if (root.contains("variables")) definition.variables = expressionMap(root.at("variables"), source, "variables");
     if (root.contains("definitions")) definition.definitions = expressionMap(root.at("definitions"), source, "definitions");
+    if (root.contains("integration")) {
+        definition.integration = integrationOptions(
+            root.at("integration"), definition.integration, source, "integration");
+    }
+    if (root.contains("integrals")) {
+        definition.integrals = integralMap(
+            root.at("integrals"), definition.integration, source, "integrals");
+    }
 
     const Node& references = requiredNode(root, "references", source, "$");
     rejectUnknownKeys(references, {"specific", "distributed"}, source, "references");

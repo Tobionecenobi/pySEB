@@ -6,6 +6,11 @@
 #include <sstream>
 #include <stdexcept>
 
+#include <gsl/gsl_sf_bessel.h>
+#include <gsl/gsl_sf_dawson.h>
+#include <gsl/gsl_sf_expint.h>
+#include <gsl/gsl_sf_erf.h>
+
 #include "Exceptions.hpp"
 #include "ExpressionFunctions.hpp"
 #include "SpecialFunctions.hpp"
@@ -236,6 +241,68 @@ sebsym::Expression materialize(
     throw SEBException("Unsupported parsed expression node", "MaterializeSubunitExpression()");
 }
 
+double evaluate(
+    const NodePtr& node,
+    const std::function<double(const std::string&)>& resolve) {
+    if (!node) throw SEBException("Cannot evaluate an empty expression");
+
+    switch (node->kind) {
+        case Node::Kind::Number:
+            return node->number;
+        case Node::Kind::Identifier:
+            if (node->text == "pi") return std::acos(-1.0);
+            if (node->text == "e") return std::exp(1.0);
+            return resolve(node->text);
+        case Node::Kind::Unary:
+            return -evaluate(node->children.at(0), resolve);
+        case Node::Kind::Binary: {
+            const double lhs = evaluate(node->children.at(0), resolve);
+            const double rhs = evaluate(node->children.at(1), resolve);
+            if (node->text == "+") return lhs + rhs;
+            if (node->text == "-") return lhs - rhs;
+            if (node->text == "*") return lhs * rhs;
+            if (node->text == "/") return lhs / rhs;
+            if (node->text == "^") return std::pow(lhs, rhs);
+            break;
+        }
+        case Node::Kind::Function: {
+            const double arg = evaluate(node->children.at(0), resolve);
+            if (node->text == "pow") {
+                return std::pow(arg, evaluate(node->children.at(1), resolve));
+            }
+            if (node->text == "exp") return std::exp(arg);
+            if (node->text == "log") return std::log(arg);
+            if (node->text == "sqrt") return std::sqrt(arg);
+            if (node->text == "abs") return std::abs(arg);
+            if (node->text == "sin") return std::sin(arg);
+            if (node->text == "cos") return std::cos(arg);
+            if (node->text == "tan") return std::tan(arg);
+            if (node->text == "asin") return std::asin(arg);
+            if (node->text == "acos") return std::acos(arg);
+            if (node->text == "atan") return std::atan(arg);
+            if (node->text == "sinh") return std::sinh(arg);
+            if (node->text == "cosh") return std::cosh(arg);
+            if (node->text == "tanh") return std::tanh(arg);
+            if (node->text == "erf") return gsl_sf_erf(arg);
+            if (node->text == "erfc") return gsl_sf_erfc(arg);
+            if (node->text == "bessel_j0") return gsl_sf_bessel_J0(arg);
+            if (node->text == "bessel_j1") return gsl_sf_bessel_J1(arg);
+            if (node->text == "dawson") return gsl_sf_dawson(arg);
+            if (node->text == "six") {
+                const double squared = arg * arg;
+                if (squared < 1e-8) {
+                    return 1.0 - squared / 18.0 + squared * squared / 600.0;
+                }
+                return gsl_sf_Si(arg) / arg;
+            }
+            break;
+        }
+    }
+    throw SEBException(
+        "Unsupported parsed expression node during numerical evaluation",
+        "EvaluateSubunitExpression()");
+}
+
 } // namespace
 
 ParsedExpression::ParsedExpression(
@@ -252,6 +319,12 @@ sebsym::Expression MaterializeSubunitExpression(
     const ParsedExpression& expression,
     const std::function<sebsym::Expression(const std::string&)>& resolveIdentifier) {
     return materialize(expression.root(), resolveIdentifier);
+}
+
+double EvaluateSubunitExpression(
+    const ParsedExpression& expression,
+    const std::function<double(const std::string&)>& resolveIdentifier) {
+    return evaluate(expression.root(), resolveIdentifier);
 }
 
 bool IsSubunitExpressionFunction(const std::string& name) {

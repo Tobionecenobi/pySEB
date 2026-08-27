@@ -47,6 +47,10 @@ sebsym::Expression MaterializeSubunitExpression(
     const ParsedExpression& expression,
     const std::function<sebsym::Expression(const std::string&)>& resolveIdentifier);
 
+double EvaluateSubunitExpression(
+    const ParsedExpression& expression,
+    const std::function<double(const std::string&)>& resolveIdentifier);
+
 bool IsSubunitExpressionFunction(const std::string& name);
 
 } // namespace pyseb

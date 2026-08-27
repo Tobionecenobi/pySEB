@@ -55,6 +55,35 @@ PYBIND11_MODULE(_pyseb, m) {
         .value("Normalized", NormalizationMode::Normalized)
         .value("Unnormalized", NormalizationMode::Unnormalized);
 
+    py::enum_<IntegrationMethod>(m, "IntegrationMethod")
+        .value("QAG", IntegrationMethod::QAG)
+        .value("CQUAD", IntegrationMethod::CQUAD);
+
+    py::class_<IntegrationOptions>(m, "SubunitIntegrationOptions")
+        .def_readonly("method", &IntegrationOptions::method)
+        .def_readonly("absolute_tolerance", &IntegrationOptions::absoluteTolerance)
+        .def_readonly("relative_tolerance", &IntegrationOptions::relativeTolerance)
+        .def_readonly("workspace_size", &IntegrationOptions::workspaceSize)
+        .def_property_readonly("qag_rule", [](const IntegrationOptions& options) {
+            static const int points[] = {0, 15, 21, 31, 41, 51, 61};
+            return options.qagRule >= 1 && options.qagRule <= 6
+                ? points[options.qagRule] : options.qagRule;
+        });
+
+    py::class_<pyseb::IntegralDefinition>(m, "SubunitIntegralDefinition")
+        .def_readonly("name", &pyseb::IntegralDefinition::name)
+        .def_readonly("variable", &pyseb::IntegralDefinition::variable)
+        .def_property_readonly("lower", [](const pyseb::IntegralDefinition& integral) {
+            return integral.lower.source();
+        })
+        .def_property_readonly("upper", [](const pyseb::IntegralDefinition& integral) {
+            return integral.upper.source();
+        })
+        .def_property_readonly("integrand", [](const pyseb::IntegralDefinition& integral) {
+            return integral.integrand.source();
+        })
+        .def_readonly("integration", &pyseb::IntegralDefinition::integration);
+
     py::class_<pyseb::ParameterDefinition>(m, "SubunitParameterDefinition")
         .def_readonly("name", &pyseb::ParameterDefinition::name)
         .def_readonly("unit", &pyseb::ParameterDefinition::unit)
@@ -76,6 +105,8 @@ PYBIND11_MODULE(_pyseb, m) {
         .def_readonly("metadata", &pyseb::SubunitDefinition::metadata)
         .def_readonly("invisible", &pyseb::SubunitDefinition::invisible)
         .def_readonly("parameters", &pyseb::SubunitDefinition::parameters)
+        .def_readonly("integration", &pyseb::SubunitDefinition::integration)
+        .def_readonly("integrals", &pyseb::SubunitDefinition::integrals)
         .def_readonly("specific_references", &pyseb::SubunitDefinition::specificReferences)
         .def_readonly("distributed_references", &pyseb::SubunitDefinition::distributedReferences)
         .def_property_readonly("validation_case_count", [](const pyseb::SubunitDefinition& definition) {

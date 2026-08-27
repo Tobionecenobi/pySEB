@@ -56,6 +56,114 @@ TEST(FileDefinedExpression, RejectsUnsupportedFunctionsAndTrailingInput) {
     EXPECT_THROW(pyseb::ParseSubunitExpression("pow(2)"), SEBException);
 }
 
+TEST(FileDefinedExpression, EvaluatesParsedAstNumerically) {
+    const auto expression = pyseb::ParseSubunitExpression(
+        "sin(pi / 2) + pow(a, 2) + six(0)");
+    EXPECT_NEAR(
+        pyseb::EvaluateSubunitExpression(
+            expression,
+            [](const std::string& name) {
+                if (name == "a") return 3.0;
+                throw SEBException("unexpected identifier " + name);
+            }),
+        11.0,
+        1e-12);
+}
+
+TEST(FileDefinedIntegral, LoadsSettingsAndEvaluatesNamedIntegral) {
+    const char yaml[] = R"YAML(
+format: pyseb-subunit
+schema_version: 1
+id: test/Integral
+api_name: IntegralModel
+model_version: "1"
+parameters: {}
+integration:
+  method: cquad
+  absolute_tolerance: 1.0e-11
+  relative_tolerance: 1.0e-9
+  workspace_size: 200
+  qag_rule: 31
+integrals:
+  orientation:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta)"
+    integration:
+      method: qag
+references:
+  specific: [center]
+  distributed: []
+expressions:
+  form_factor: orientation
+  amplitudes: {center: orientation}
+  phases: []
+sizes:
+  radius_of_gyration_squared: "0"
+  reference_to_scatterer: {center: "0"}
+  reference_to_reference: []
+)YAML";
+    const pyseb::SubunitDefinition definition =
+        pyseb::LoadSubunitDefinitionYaml(yaml, "integral.pyseb.yaml");
+    ASSERT_EQ(definition.integrals.size(), 1u);
+    EXPECT_EQ(definition.integration.method, IntegrationMethod::CQUAD);
+    EXPECT_EQ(definition.integration.qagRule, GSL_INTEG_GAUSS31);
+    EXPECT_EQ(
+        definition.integrals.at("orientation").integration.method,
+        IntegrationMethod::QAG);
+
+    SymbolInterface symbols;
+    FileDefinedSubunit subunit(definition);
+    subunit.Init("integral", "integral", &symbols);
+    const ParameterList values{{"beta_integral", 2.0}};
+    EXPECT_NEAR(subunit.NumericFormFactorUnnormalized(0.25, values), 4.0, 1e-10);
+    EXPECT_NEAR(
+        subunit.NumericFormFactorAmplitudeUnnormalized("center", 0.25, values),
+        2.0,
+        1e-10);
+    EXPECT_NEAR(subunit.NumericFormFactorUnnormalized(0.0, values), 4.0, 1e-12);
+}
+
+TEST(FileDefinedIntegral, RejectsInvalidSettingsScopeAndNesting) {
+    std::string invalidMethod = kMinimalModel;
+    invalidMethod += "integration: {method: trapezoid}\n";
+    EXPECT_THROW(
+        pyseb::LoadSubunitDefinitionYaml(invalidMethod, "method.pyseb.yaml"),
+        SEBException);
+
+    std::string invalidRule = kMinimalModel;
+    invalidRule += "integration: {method: qag, qag_rule: 17}\n";
+    EXPECT_THROW(
+        pyseb::LoadSubunitDefinitionYaml(invalidRule, "rule.pyseb.yaml"),
+        SEBException);
+
+    std::string badBound = kMinimalModel;
+    badBound +=
+        "integrals:\n"
+        "  I: {variable: t, lower: \"q\", upper: \"1\", integrand: \"t\"}\n";
+    EXPECT_THROW(
+        pyseb::LoadSubunitDefinitionYaml(badBound, "bound.pyseb.yaml"),
+        SEBException);
+
+    std::string nested = kMinimalModel;
+    nested +=
+        "integrals:\n"
+        "  I: {variable: t, lower: \"0\", upper: \"1\", integrand: \"t\"}\n"
+        "  J: {variable: u, lower: \"0\", upper: \"1\", integrand: \"I * u\"}\n";
+    EXPECT_THROW(
+        pyseb::LoadSubunitDefinitionYaml(nested, "nested.pyseb.yaml"),
+        SEBException);
+
+    std::string collision = kMinimalModel;
+    collision +=
+        "integrals:\n"
+        "  I: {variable: q, lower: \"0\", upper: \"1\", integrand: \"q\"}\n";
+    EXPECT_THROW(
+        pyseb::LoadSubunitDefinitionYaml(collision, "collision.pyseb.yaml"),
+        SEBException);
+}
+
 TEST(FileDefinedSchema, LoadsAndValidatesBundledModels) {
     const auto point = pyseb::LoadSubunitDefinitionFile(
         std::string(PYSEB_MODEL_DIR) + "/Point.pyseb.yaml");

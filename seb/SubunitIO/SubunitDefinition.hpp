@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 
+#include "NumericalIntegration.hpp"
 #include "SubunitIO/ExpressionParser.hpp"
 
 namespace pyseb {
@@ -39,6 +40,15 @@ struct SubunitValidationCase {
     double relativeTolerance = -1.0;
 };
 
+struct IntegralDefinition {
+    std::string name;
+    std::string variable;
+    ParsedExpression lower;
+    ParsedExpression upper;
+    ParsedExpression integrand;
+    IntegrationOptions integration;
+};
+
 struct SubunitDefinition {
     int schemaVersion = 1;
     std::string id;
@@ -51,6 +61,8 @@ struct SubunitDefinition {
     std::map<std::string, ParameterDefinition> parameters;
     std::map<std::string, ParsedExpression> variables;
     std::map<std::string, ParsedExpression> definitions;
+    IntegrationOptions integration;
+    std::map<std::string, IntegralDefinition> integrals;
     std::vector<std::string> specificReferences;
     std::vector<std::string> distributedReferences;
 

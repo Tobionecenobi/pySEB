@@ -1,10 +1,13 @@
 #ifndef PYSEB_SUBUNITS_FILE_DEFINED_HPP
 #define PYSEB_SUBUNITS_FILE_DEFINED_HPP
 
-#include "Subunit.hpp"
-#include "SubunitIO/SubunitDefinition.hpp"
+#include <map>
+#include <memory>
 
-class FileDefinedSubunit : public SubUnit {
+#include "SubunitIO/SubunitDefinition.hpp"
+#include "Subunits/Integrated.hpp"
+
+class FileDefinedSubunit : public IntegratedSubunit {
 public:
     explicit FileDefinedSubunit(const pyseb::SubunitDefinition& definition);
     ~FileDefinedSubunit() override = default;
@@ -26,6 +29,15 @@ public:
 
 protected:
     pyseb::SubunitDefinition definition_;
+
+private:
+    std::map<std::string, std::unique_ptr<NumericalIntegrator>> integrators_;
+
+    bool dependsOnIntegral(const pyseb::ParsedExpression& expression) const;
+    double evaluateNumerically(
+        const pyseb::ParsedExpression& expression,
+        double q,
+        const ParameterList& values);
 };
 
 #endif
