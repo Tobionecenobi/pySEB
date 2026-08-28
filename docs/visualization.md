@@ -89,3 +89,5 @@ interior cylinder, is demonstrated in
 `pyseb/examples/python/usd_cylinder_chain.py`.
 An alternating 10-rod/10-polymer chain joined exclusively through `end1` and
 `end2` is demonstrated in `pyseb/examples/python/usd_rod_polymer_chain.py`.
+A 20-spheroid chain joined from each `north` pole to the next `south` pole is
+demonstrated in `pyseb/examples/python/usd_spheroid_chain.py`.
