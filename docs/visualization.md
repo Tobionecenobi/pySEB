@@ -94,3 +94,11 @@ demonstrated in `pyseb/examples/python/usd_spheroid_chain.py`.
 A Debye sphere cloud attached through its named `join` reference to an analytic
 spheroid is demonstrated in
 `pyseb/examples/python/usd_debye_cloud_attachment.py`.
+
+Debye clouds include a translucent visualization-only envelope by default.
+The envelope is a triangulated union of inflated scatterer spheres; automatic
+padding connects the cloud while preserving its irregular outline.  Configure
+it with `debye_envelope`, `debye_envelope_resolution`,
+`debye_envelope_padding` (`-1` selects automatic padding), and
+`debye_envelope_opacity` in `USDExportOptions`.  The USD mesh is marked with
+`pyseb:visualOnly = true` and contributes no scattering physics.

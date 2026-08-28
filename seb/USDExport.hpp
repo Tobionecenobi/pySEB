@@ -23,6 +23,10 @@ struct USDExportOptions {
     std::size_t surfaceSamples = 48;
     bool referenceMarkers = false;
     double zeroRadiusMarkerSize = 0.01;
+    bool debyeEnvelope = true;
+    std::size_t debyeEnvelopeResolution = 24;
+    double debyeEnvelopePadding = -1.0;
+    double debyeEnvelopeOpacity = 0.15;
     std::map<std::string, std::array<double,3>> colorOverrides;
     std::map<std::string, double> opacityOverrides;
 };

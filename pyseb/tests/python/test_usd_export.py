@@ -271,6 +271,23 @@ class TestUSDExport(unittest.TestCase):
                     "rod", str(Path(directory) / "invalid.usda"), {"L_rod": 1.0}, options
                 )
 
+            invalid_options = (
+                ("debye_envelope_resolution", 7, "debyeEnvelopeResolution"),
+                ("debye_envelope_padding", -0.5, "debyeEnvelopePadding"),
+                ("debye_envelope_opacity", 1.1, "debyeEnvelopeOpacity"),
+            )
+            for attribute, value, message in invalid_options:
+                with self.subTest(attribute=attribute):
+                    options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+                    setattr(options, attribute, value)
+                    with self.assertRaisesRegex(RuntimeError, message):
+                        world.export_usd(
+                            "rod",
+                            str(Path(directory) / f"invalid-{attribute}.usda"),
+                            {"L_rod": 1.0},
+                            options,
+                        )
+
     def test_reference_variants_use_both_ends_of_cylinder_chain(self):
         with tempfile.TemporaryDirectory() as directory:
             world = pyseb.World("cylinder_ends")
@@ -408,6 +425,8 @@ class TestUSDExport(unittest.TestCase):
             options.seed = 42
             options.curve_samples = 8
             options.zero_radius_marker_size = 0.125
+            options.debye_envelope_resolution = 12
+            options.debye_envelope_opacity = 0.2
             options.color_overrides = {"cloud": (0.2, 0.6, 0.8)}
             parameters = {"L_rod": 2.0, "beta_rod": 1.0}
             before = world.EvaluateFormFactor("assembly", parameters, 0.2)
@@ -431,8 +450,20 @@ class TestUSDExport(unittest.TestCase):
             self.assertIn("custom float[] pyseb:beta = [1, 0.5, -0.25, ]", document)
             self.assertIn("custom int[] pyseb:index = [0, 1, 2, ]", document)
             self.assertIn("(0.125, 0.125, 0.125)", document)
+            self.assertIn('def Mesh "envelope"', document)
+            self.assertIn("custom bool pyseb:visualOnly = true", document)
+            self.assertIn('custom string pyseb:construction = "union_of_inflated_scatterer_spheres"', document)
+            self.assertIn("custom uint64 pyseb:resolution = 12", document)
+            self.assertIn("float[] primvars:displayOpacity = [0.20000000000000001]", document)
             self.assertIn('custom string pyseb:model_id = "pyseb/DebyeSphereCloud"', document)
             self.assertIn("rel pyseb:link_0", document)
+
+            without_envelope = Path(directory) / "cloud-without-envelope.usda"
+            options.debye_envelope = False
+            world.export_usd("assembly", str(without_envelope), parameters, options)
+            self.assertNotIn(
+                'def Mesh "envelope"', without_envelope.read_text(encoding="utf-8")
+            )
 
 
 if __name__ == "__main__":
