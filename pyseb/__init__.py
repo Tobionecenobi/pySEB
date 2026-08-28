@@ -102,6 +102,10 @@ SubunitValidationReport = _pyseb.SubunitValidationReport
 FileDefinedSubunit = _pyseb.FileDefinedSubunit
 load_subunit_definition = _pyseb.load_subunit_definition
 validate_subunit_file = _pyseb.validate_subunit_file
+load_world = _pyseb.load_world
+save_world = _pyseb.save_world
+world_from_yaml = _pyseb.world_from_yaml
+world_to_yaml = _pyseb.world_to_yaml
 
 from .symbolic import (
     SymPyExpression,
@@ -180,6 +184,10 @@ __all__ = [
     'FileDefinedSubunit',
     'load_subunit_definition',
     'validate_subunit_file',
+    'load_world',
+    'save_world',
+    'world_from_yaml',
+    'world_to_yaml',
     'SymPyExpression',
     'SymPyFactory',
     'get_factory',
