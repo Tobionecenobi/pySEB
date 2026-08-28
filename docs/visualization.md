@@ -75,3 +75,5 @@ The contour-to-contour variant is in
 `pyseb/examples/python/usd_contour_linked_rod_dendrimer.py`.
 A 100-circle center-to-contour chain is demonstrated in
 `pyseb/examples/python/usd_circle_chain.py`.
+A 100-sphere center-to-surface chain is demonstrated in
+`pyseb/examples/python/usd_sphere_chain.py`.
