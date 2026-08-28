@@ -72,6 +72,7 @@ PYBIND11_MODULE(_pyseb, m) {
         .def_readwrite("seed", &USDExportOptions::seed)
         .def_readwrite("layout_mode", &USDExportOptions::layoutMode)
         .def_readwrite("orientation_trials", &USDExportOptions::orientationTrials)
+        .def_readwrite("relaxation_sweeps", &USDExportOptions::relaxationSweeps)
         .def_readwrite("minimum_clearance", &USDExportOptions::minimumClearance)
         .def_readwrite("curve_samples", &USDExportOptions::curveSamples)
         .def_readwrite("surface_samples", &USDExportOptions::surfaceSamples)

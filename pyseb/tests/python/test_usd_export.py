@@ -211,6 +211,7 @@ class TestUSDExport(unittest.TestCase):
             world.Add(graph, "dendrimer")
 
             random_output = directory / "random.usda"
+            greedy_output = directory / "greedy.usda"
             readable_output = directory / "readable.usda"
             repeated_output = directory / "repeated.usda"
             options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
@@ -220,29 +221,44 @@ class TestUSDExport(unittest.TestCase):
             options.layout_mode = pyseb.LayoutMode.Readable
             options.orientation_trials = 64
             options.minimum_clearance = 0.08
+            options.relaxation_sweeps = 0
+            world.export_usd("dendrimer", str(greedy_output), {"L_rod": 1.0}, options)
+            options.relaxation_sweeps = 4
             world.export_usd("dendrimer", str(readable_output), {"L_rod": 1.0}, options)
             world.export_usd("dendrimer", str(repeated_output), {"L_rod": 1.0}, options)
 
             random_document = random_output.read_text(encoding="utf-8")
+            greedy_document = greedy_output.read_text(encoding="utf-8")
             readable_document = readable_output.read_text(encoding="utf-8")
             self.assertEqual(readable_output.read_bytes(), repeated_output.read_bytes())
             self.assertIn('pyseb:layoutMode = "readable"', readable_document)
             self.assertIn('pyseb:overlapPolicy = "best_effort_minimized"', readable_document)
             self.assertGreater(
                 _minimum_nonlinked_rod_distance(readable_document, 15),
+                _minimum_nonlinked_rod_distance(greedy_document, 15),
+            )
+            self.assertGreater(
+                _minimum_nonlinked_rod_distance(greedy_document, 15),
                 _minimum_nonlinked_rod_distance(random_document, 15),
             )
 
-            parent_world = _world_point(
-                _pose(readable_document, "rod1"),
-                _reference(readable_document, "rod1", "contour_g1_branch1"),
+            relationships = re.findall(
+                r'rel pyseb:link_\d+ = \[</dendrimer/(rod\d+)/ref_([^>]+)>, '
+                r'</dendrimer/(rod\d+)/ref_([^>]+)>\]',
+                readable_document,
             )
-            child_world = _world_point(
-                _pose(readable_document, "rod2"),
-                _reference(readable_document, "rod2", "contour_attachment"),
-            )
-            for actual, expected in zip(child_world, parent_world):
-                self.assertAlmostEqual(actual, expected, places=12)
+            self.assertEqual(len(relationships), 14)
+            for first, first_reference, second, second_reference in relationships:
+                first_world = _world_point(
+                    _pose(readable_document, first),
+                    _reference(readable_document, first, first_reference),
+                )
+                second_world = _world_point(
+                    _pose(readable_document, second),
+                    _reference(readable_document, second, second_reference),
+                )
+                for actual, expected in zip(first_world, second_world):
+                    self.assertAlmostEqual(actual, expected, places=12)
 
     def test_readable_layout_options_are_validated(self):
         with tempfile.TemporaryDirectory() as directory:

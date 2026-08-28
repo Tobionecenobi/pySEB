@@ -61,6 +61,15 @@ Vec3 rotate(const Quaternion& q, const Vec3& value) {
     return value + cross(u, value) * (2.0*q.w) + cross(u, cross(u, value)) * 2.0;
 }
 
+Quaternion multiply(const Quaternion& first, const Quaternion& second) {
+    return {
+        first.w*second.w-first.x*second.x-first.y*second.y-first.z*second.z,
+        first.w*second.x+first.x*second.w+first.y*second.z-first.z*second.y,
+        first.w*second.y-first.x*second.z+first.y*second.w+first.z*second.x,
+        first.w*second.z+first.x*second.y-first.y*second.x+first.z*second.w
+    };
+}
+
 struct Pose {
     Quaternion rotation;
     Vec3 translation;
@@ -93,6 +102,12 @@ struct LinkEndpoint {
 struct SceneLink {
     LinkEndpoint first;
     LinkEndpoint second;
+    std::string key;
+};
+
+struct RootedLink {
+    LinkEndpoint parent;
+    LinkEndpoint child;
     std::string key;
 };
 
@@ -332,6 +347,47 @@ GeometryProxy transformProxy(const GeometryProxy& local, const Pose& pose) {
     return world;
 }
 
+GeometryProxy maskJointNeighborhood(const GeometryProxy& proxy,
+                                    const Vec3& joint,
+                                    double radius) {
+    if (radius <= 0.0) return proxy;
+    GeometryProxy masked;
+    masked.centroid=proxy.centroid;
+    masked.radius=proxy.radius;
+    const double radiusSquared=radius*radius;
+    for (const Vec3& point : proxy.points) {
+        if (dot(point-joint,point-joint)>radiusSquared) masked.points.push_back(point);
+    }
+    for (const ProxySegment& segment : proxy.segments) {
+        const Vec3 direction=segment.second-segment.first;
+        const Vec3 offset=segment.first-joint;
+        const double a=dot(direction,direction);
+        if (a<=1e-15) continue;
+        const double b=2.0*dot(offset,direction);
+        const double c=dot(offset,offset)-radiusSquared;
+        std::vector<double> cuts{0.0,1.0};
+        const double discriminant=b*b-4.0*a*c;
+        if (discriminant>0.0) {
+            const double root=std::sqrt(discriminant);
+            const double first=(-b-root)/(2.0*a);
+            const double second=(-b+root)/(2.0*a);
+            if (first>0.0 && first<1.0) cuts.push_back(first);
+            if (second>0.0 && second<1.0) cuts.push_back(second);
+        }
+        std::sort(cuts.begin(),cuts.end());
+        for (std::size_t index=0; index+1<cuts.size(); ++index) {
+            const double lower=cuts[index], upper=cuts[index+1];
+            const Vec3 midpoint=segment.first+direction*((lower+upper)*0.5);
+            if (dot(midpoint-joint,midpoint-joint)<=radiusSquared) continue;
+            masked.segments.push_back({
+                segment.first+direction*lower,
+                segment.first+direction*upper
+            });
+        }
+    }
+    return masked;
+}
+
 double proxyDistanceSquared(const GeometryProxy& first, const GeometryProxy& second) {
     double result=std::numeric_limits<double>::infinity();
     for (const ProxySegment& a : first.segments) {
@@ -341,6 +397,15 @@ double proxyDistanceSquared(const GeometryProxy& first, const GeometryProxy& sec
         for (const Vec3& b : second.points) result=std::min(result,dot(a-b,a-b));
     }
     return result;
+}
+
+double linkedProxyDistanceSquared(const GeometryProxy& first,
+                                  const GeometryProxy& second,
+                                  const Vec3& joint,
+                                  double maskRadius) {
+    return proxyDistanceSquared(
+        maskJointNeighborhood(first,joint,maskRadius),
+        maskJointNeighborhood(second,joint,maskRadius));
 }
 
 double readableScore(const GeometryProxy& candidate,
@@ -359,8 +424,11 @@ double readableScore(const GeometryProxy& candidate,
             placedCentroid=placedCentroid+item.second.centroid;
             ++centroidCount;
         }
-        if (item.first == parent || item.second.points.empty() || candidate.points.empty()) continue;
-        const double distanceSquared=proxyDistanceSquared(candidate,item.second);
+        if (item.second.points.empty() || candidate.points.empty()) continue;
+        const double maskRadius=std::max(minimumClearance,0.02*scale);
+        const double distanceSquared=item.first == parent
+            ? linkedProxyDistanceSquared(candidate,item.second,joint,maskRadius)
+            : proxyDistanceSquared(candidate,item.second);
         if (!std::isfinite(distanceSquared)) continue;
         const double distance=std::sqrt(std::max(0.0,distanceSquared));
         if (distance < minimumClearance) {
@@ -388,6 +456,61 @@ double readableScore(const GeometryProxy& candidate,
         spread=length(candidate.centroid-placedCentroid)/scale;
     }
     return collisionPenalty*1e6+proximityPenalty-2.0*outward-0.1*spread;
+}
+
+double pairLayoutScore(const GeometryProxy& first,
+                       const GeometryProxy& second,
+                       double minimumClearance,
+                       const Vec3* joint) {
+    if (first.points.empty() || second.points.empty()) return 0.0;
+    const double scale=std::max(std::max(first.radius,second.radius),1e-9);
+    const double lowerBound=std::max(
+        0.0,length(first.centroid-second.centroid)-first.radius-second.radius);
+    double distanceSquared;
+    if (!joint && lowerBound>std::max(minimumClearance,2.0*scale)) {
+        distanceSquared=lowerBound*lowerBound;
+    } else if (joint) {
+        const double maskRadius=std::max(minimumClearance,0.02*scale);
+        distanceSquared=linkedProxyDistanceSquared(first,second,*joint,maskRadius);
+    } else {
+        distanceSquared=proxyDistanceSquared(first,second);
+    }
+    if (!std::isfinite(distanceSquared)) return 0.0;
+    const double distance=std::sqrt(std::max(0.0,distanceSquared));
+    double score=1.0/(0.05+distanceSquared/(scale*scale));
+    if (distance<minimumClearance) {
+        const double deficit=(minimumClearance-distance)/scale;
+        score+=1e6*deficit*deficit;
+    }
+    return score;
+}
+
+double partitionLayoutScore(const std::set<std::string>& subtree,
+                            const std::map<std::string,GeometryProxy>& candidateProxies,
+                            const std::map<std::string,GeometryProxy>& currentProxies,
+                            const std::string& parent,
+                            const std::string& child,
+                            const Vec3& joint,
+                            double minimumClearance) {
+    double score=0.0;
+    for (const std::string& inside : subtree) {
+        const auto first=candidateProxies.find(inside);
+        if (first == candidateProxies.end()) continue;
+        for (const auto& outside : currentProxies) {
+            if (subtree.count(outside.first)) continue;
+            const Vec3* sharedJoint=inside==child && outside.first==parent ? &joint : nullptr;
+            score+=pairLayoutScore(
+                first->second,outside.second,minimumClearance,sharedJoint);
+        }
+    }
+    return score;
+}
+
+Pose rotatePoseAround(const Pose& pose, const Quaternion& rotation, const Vec3& pivot) {
+    Pose result=pose;
+    result.rotation=multiply(rotation,pose.rotation);
+    result.translation=pivot+rotate(rotation,pose.translation-pivot);
+    return result;
 }
 
 } // namespace
@@ -611,6 +734,7 @@ void World::ExportUSD(const std::string& structure,
         sceneLinks.push_back(sceneLink);
     }
     std::sort(sceneLinks.begin(),sceneLinks.end(),[](const SceneLink& a,const SceneLink& b){return a.key<b.key;});
+    std::vector<RootedLink> rootedLinks;
     std::size_t resolvedCount=1;
     while (resolvedCount < poses.size()) {
         bool progress=false;
@@ -654,6 +778,7 @@ void World::ExportUSD(const std::string& structure,
             if (childProxy != localProxies.end()) {
                 placedProxies[childEndpoint.instance]=transformProxy(childProxy->second,child);
             }
+            rootedLinks.push_back({parentEndpoint,childEndpoint,link.key});
         }
         if (!progress) {
             for (auto& pose : poses) if (!pose.second.resolved) {
@@ -662,6 +787,65 @@ void World::ExportUSD(const std::string& structure,
                 if (proxy != localProxies.end()) placedProxies[pose.first]=transformProxy(proxy->second,pose.second);
                 ++resolvedCount;
                 break;
+            }
+        }
+    }
+
+    if (options.layoutMode == USDLayoutMode::Readable && options.relaxationSweeps>0) {
+        std::map<std::string,std::vector<std::string>> children;
+        for (const RootedLink& link : rootedLinks) {
+            children[link.parent.instance].push_back(link.child.instance);
+        }
+        for (auto& item : children) std::sort(item.second.begin(),item.second.end());
+
+        std::vector<std::set<std::string>> subtrees;
+        for (const RootedLink& link : rootedLinks) {
+            std::set<std::string> subtree;
+            std::function<void(const std::string&)> collect=[&](const std::string& name) {
+                if (!subtree.insert(name).second) return;
+                const auto found=children.find(name);
+                if (found != children.end()) for (const std::string& child : found->second) collect(child);
+            };
+            collect(link.child.instance);
+            subtrees.push_back(std::move(subtree));
+        }
+
+        for (std::size_t sweep=0; sweep<options.relaxationSweeps; ++sweep) {
+            for (std::size_t order=0; order<rootedLinks.size(); ++order) {
+                const std::size_t index=sweep%2==0 ? order : rootedLinks.size()-1-order;
+                const RootedLink& link=rootedLinks[index];
+                const std::set<std::string>& subtree=subtrees[index];
+                const Vec3 parentLocal=resolveReference(link.parent);
+                const Pose& parentPose=poses[link.parent.instance];
+                const Vec3 joint=parentPose.translation+rotate(parentPose.rotation,parentLocal);
+
+                Quaternion bestRotation;
+                double bestScore=std::numeric_limits<double>::infinity();
+                for (std::size_t trial=0; trial<options.orientationTrials; ++trial) {
+                    const Quaternion candidateRotation=trial==0 ? Quaternion() : uniformRotation(
+                        options.seed,link.key+"/relaxation/"+std::to_string(sweep)+"/"+std::to_string(trial));
+                    std::map<std::string,GeometryProxy> candidateProxies;
+                    for (const std::string& name : subtree) {
+                        const auto local=localProxies.find(name);
+                        if (local == localProxies.end()) continue;
+                        const Pose candidatePose=rotatePoseAround(poses[name],candidateRotation,joint);
+                        candidateProxies.emplace(name,transformProxy(local->second,candidatePose));
+                    }
+                    const double score=partitionLayoutScore(
+                        subtree,candidateProxies,placedProxies,
+                        link.parent.instance,link.child.instance,joint,options.minimumClearance);
+                    if (score<bestScore) {
+                        bestScore=score;
+                        bestRotation=candidateRotation;
+                    }
+                }
+                for (const std::string& name : subtree) {
+                    poses[name]=rotatePoseAround(poses[name],bestRotation,joint);
+                    const auto local=localProxies.find(name);
+                    if (local != localProxies.end()) {
+                        placedProxies[name]=transformProxy(local->second,poses[name]);
+                    }
+                }
             }
         }
     }
@@ -675,6 +859,7 @@ void World::ExportUSD(const std::string& structure,
         output << "    custom string pyseb:orientationSemantics = \"readability_optimized_free_rotation\"\n";
         output << "    custom string pyseb:overlapPolicy = \"best_effort_minimized\"\n";
         output << "    custom uint64 pyseb:orientationTrials = " << options.orientationTrials << "\n";
+        output << "    custom uint64 pyseb:relaxationSweeps = " << options.relaxationSweeps << "\n";
         output << "    custom double pyseb:minimumClearance = " << number(options.minimumClearance) << "\n";
     } else {
         output << "    custom string pyseb:layoutMode = \"random\"\n";

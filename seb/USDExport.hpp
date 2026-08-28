@@ -17,6 +17,7 @@ struct USDExportOptions {
     unsigned long long seed = 0;
     USDLayoutMode layoutMode = USDLayoutMode::Random;
     std::size_t orientationTrials = 64;
+    std::size_t relaxationSweeps = 4;
     double minimumClearance = 0.0;
     std::size_t curveSamples = 96;
     std::size_t surfaceSamples = 48;
