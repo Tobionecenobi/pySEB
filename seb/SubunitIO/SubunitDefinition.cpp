@@ -464,7 +464,7 @@ VisualizationDefinition parseVisualization(const Node& node, const std::string& 
         for (const auto& item : node.at("references").map_items()) {
             const std::string name = scalarString(item.key(), source, path + ".references.<key>");
             const std::string p = path + ".references." + name;
-            rejectUnknownKeys(item.value(), {"kind","geometry","fraction","position","sampling","patches","weights"}, source, p);
+            rejectUnknownKeys(item.value(), {"kind","geometry","fraction","position","sampling","patches","weights","variants"}, source, p);
             VisualizationReference r; r.name = name;
             if (item.value().contains("kind")) r.kind = scalarString(item.value().at("kind"), source, p + ".kind");
             if (item.value().contains("geometry")) r.geometry = scalarString(item.value().at("geometry"), source, p + ".geometry");
@@ -473,6 +473,21 @@ VisualizationDefinition parseVisualization(const Node& node, const std::string& 
             if (item.value().contains("sampling")) r.sampling = scalarString(item.value().at("sampling"), source, p + ".sampling");
             if (item.value().contains("patches")) r.patches = stringSequence(item.value().at("patches"), source, p + ".patches");
             if (item.value().contains("weights")) { requireSequence(item.value().at("weights"), source, p + ".weights"); for (const auto& w : item.value().at("weights")) r.weights.push_back(scalarDouble(w, source, p + ".weights")); }
+            if (item.value().contains("variants")) {
+                const Node& variants=item.value().at("variants");
+                requireMapping(variants,source,p+".variants");
+                for (const auto& variantItem : variants.map_items()) {
+                    const std::string variantName=scalarString(variantItem.key(),source,p+".variants.<key>");
+                    if (!validSymbolName(variantName)) schemaError(source,p+".variants."+variantName,"names must start with a letter and contain only letters and digits");
+                    const std::string variantPath=p+".variants."+variantName;
+                    rejectUnknownKeys(variantItem.value(),{"geometry","sampling"},source,variantPath);
+                    VisualizationReferenceVariant variant;
+                    variant.geometry=scalarString(requiredNode(variantItem.value(),"geometry",source,variantPath),source,variantPath+".geometry");
+                    variant.sampling=scalarString(requiredNode(variantItem.value(),"sampling",source,variantPath),source,variantPath+".sampling");
+                    if (variant.sampling != "uniform_parameter" && variant.sampling != "arc_length" && variant.sampling != "surface_area") schemaError(source,variantPath+".sampling","unsupported sampling mode");
+                    r.variants.emplace(variantName,std::move(variant));
+                }
+            }
             if (r.kind != "fixed" && r.kind != "curve_fraction" && r.kind != "distributed") schemaError(source, p + ".kind", "expected fixed, curve_fraction, or distributed");
             if (r.sampling != "uniform_parameter" && r.sampling != "arc_length" && r.sampling != "surface_area" && r.sampling != "weighted_mixture") schemaError(source, p + ".sampling", "unsupported sampling mode");
             result.references.emplace(name, std::move(r));
@@ -1022,6 +1037,14 @@ SubunitDefinition LoadSubunitDefinitionYaml(const std::string& yaml, const std::
                     total += r.second.weights[index];
                 }
                 if (total <= 0.0) schemaError(source, "visualization.references." + r.first + ".weights", "weights must have positive total");
+            }
+            if (!r.second.variants.empty() && r.second.kind != "distributed") schemaError(source, "visualization.references." + r.first + ".variants", "variants require a distributed reference");
+            for (const auto& variant : r.second.variants) {
+                const std::string variantPath="visualization.references."+r.first+".variants."+variant.first;
+                const auto geometry=definition.visualization.geometry.find(variant.second.geometry);
+                if (geometry == definition.visualization.geometry.end()) schemaError(source,variantPath+".geometry","unknown geometry patch '"+variant.second.geometry+"'");
+                if (geometry->second.kind == VisualizationGeometryKind::Surface && variant.second.sampling != "surface_area" && variant.second.sampling != "arc_length") schemaError(source,variantPath+".sampling","surface variants require surface_area or arc_length sampling");
+                if (geometry->second.kind != VisualizationGeometryKind::Surface && variant.second.sampling == "surface_area") schemaError(source,variantPath+".sampling","surface_area sampling requires a surface variant");
             }
         }
     }

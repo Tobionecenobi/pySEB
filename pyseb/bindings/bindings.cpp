@@ -140,11 +140,15 @@ PYBIND11_MODULE(_pyseb, m) {
         .def_readonly("samples", &pyseb::VisualizationGeometry::samples)
         .def_readonly("distribution", &pyseb::VisualizationGeometry::distribution)
         .def_readonly("closure", &pyseb::VisualizationGeometry::closure);
+    py::class_<pyseb::VisualizationReferenceVariant>(m, "VisualizationReferenceVariant")
+        .def_readonly("geometry", &pyseb::VisualizationReferenceVariant::geometry)
+        .def_readonly("sampling", &pyseb::VisualizationReferenceVariant::sampling);
     py::class_<pyseb::VisualizationReference>(m, "VisualizationReference")
         .def_readonly("name", &pyseb::VisualizationReference::name)
         .def_readonly("kind", &pyseb::VisualizationReference::kind)
         .def_readonly("geometry", &pyseb::VisualizationReference::geometry)
-        .def_readonly("sampling", &pyseb::VisualizationReference::sampling);
+        .def_readonly("sampling", &pyseb::VisualizationReference::sampling)
+        .def_readonly("variants", &pyseb::VisualizationReference::variants);
     py::class_<pyseb::VisualizationDefinition>(m, "VisualizationDefinition")
         .def_readonly("present", &pyseb::VisualizationDefinition::present)
         .def_readonly("geometry", &pyseb::VisualizationDefinition::geometry)

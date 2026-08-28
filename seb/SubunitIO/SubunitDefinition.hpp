@@ -72,6 +72,10 @@ struct VisualizationGeometry {
     double width = 0.01;
     bool periodic = false;
 };
+struct VisualizationReferenceVariant {
+    std::string geometry;
+    std::string sampling = "uniform_parameter";
+};
 struct VisualizationReference {
     std::string name;
     std::string kind = "fixed";       // fixed, curve_fraction, distributed
@@ -81,6 +85,7 @@ struct VisualizationReference {
     std::string sampling = "uniform_parameter";
     std::vector<std::string> patches;
     std::vector<double> weights;
+    std::map<std::string, VisualizationReferenceVariant> variants;
 };
 struct VisualizationDefinition {
     bool present = false;

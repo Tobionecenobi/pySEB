@@ -9,6 +9,13 @@ distributed geometry locations.  Expressions may use model parameters,
 visualization definitions, domain variables (`u`, `v`, `t`), constants, and
 the standard mathematical functions.
 
+A distributed reference can expose named visualization-only `variants`.  A
+reference such as `ends#top#joint7` selects the `top` variant and uses `joint7`
+as the deterministic point identity.  The base scattering reference remains
+`ends`; the variant affects only the representative visualization.  The legacy
+one-label form `ends#joint7` continues to use the reference's normal sampling
+rule.
+
 Links constrain positions only.  A labelled distributed reference is sampled
 deterministically from the export seed and instance path.  The default
 `Random` layout gives each linked child one uniformly random 3D rotation;
@@ -77,3 +84,6 @@ A 100-circle center-to-contour chain is demonstrated in
 `pyseb/examples/python/usd_circle_chain.py`.
 A 100-sphere center-to-surface chain is demonstrated in
 `pyseb/examples/python/usd_sphere_chain.py`.
+A 20-cylinder end-to-end chain, selecting opposite cap variants on every
+interior cylinder, is demonstrated in
+`pyseb/examples/python/usd_cylinder_chain.py`.

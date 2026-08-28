@@ -189,11 +189,30 @@ bool parseEndpoint(const std::string& value, LinkEndpoint& endpoint) {
     return true;
 }
 
-std::pair<std::string,std::string> splitReference(const std::string& reference) {
-    const std::size_t hash = reference.find('#');
-    return hash == std::string::npos
-        ? std::make_pair(reference, std::string())
-        : std::make_pair(reference.substr(0, hash), reference.substr(hash + 1));
+struct VisualizationReferenceName {
+    std::string base;
+    std::string variant;
+    std::string label;
+};
+
+VisualizationReferenceName parseVisualizationReference(const std::string& reference) {
+    VisualizationReferenceName result;
+    const std::size_t first=reference.find('#');
+    if (first == std::string::npos) {
+        result.base=reference;
+        return result;
+    }
+    result.base=reference.substr(0,first);
+    const std::size_t second=reference.find('#',first+1);
+    if (second == std::string::npos) {
+        result.label=reference.substr(first+1);
+        return result;
+    }
+    if (reference.find('#',second+1) != std::string::npos) throw SEBException("visualization reference contains too many '#' separators", "World::ExportUSD");
+    result.variant=reference.substr(first+1,second-first-1);
+    result.label=reference.substr(second+1);
+    if (result.variant.empty() || result.label.empty()) throw SEBException("visualization variant and label must be non-empty", "World::ExportUSD");
+    return result;
 }
 
 Vec3 interpolate(const Vec3& a, const Vec3& b, double fraction) {
@@ -694,19 +713,25 @@ void World::ExportUSD(const std::string& structure,
         if (instance == instances.end()) return Vec3();
         auto cached=instance->second.resolvedReferences.find(endpoint.reference);
         if (cached != instance->second.resolvedReferences.end()) return cached->second;
-        const auto parts=splitReference(endpoint.reference);
-        const auto base=instance->second.subunit->getDefinition().visualization.references.find(parts.first);
+        const auto parts=parseVisualizationReference(endpoint.reference);
+        const auto base=instance->second.subunit->getDefinition().visualization.references.find(parts.base);
         if (base == instance->second.subunit->getDefinition().visualization.references.end()) throw SEBException("unknown visualization reference "+endpoint.reference,"World::ExportUSD");
         const auto& reference=base->second;
         if (reference.kind != "distributed") {
-            const auto fixed=instance->second.resolvedReferences.find(parts.first);
+            const auto fixed=instance->second.resolvedReferences.find(parts.base);
             if (fixed == instance->second.resolvedReferences.end()) throw SEBException("unresolved visualization reference "+endpoint.reference,"World::ExportUSD");
             return fixed->second;
         }
-        if (parts.second.empty()) throw SEBException("distributed link reference requires a #label", "World::ExportUSD");
+        if (parts.label.empty()) throw SEBException("distributed link reference requires a #label", "World::ExportUSD");
         std::mt19937_64 generator(derivedSeed(options.seed,endpoint.instance+"/reference/"+endpoint.reference));
         std::string patchName=reference.geometry;
-        if (reference.sampling == "weighted_mixture") {
+        std::string sampling=reference.sampling;
+        if (!parts.variant.empty()) {
+            const auto variant=reference.variants.find(parts.variant);
+            if (variant == reference.variants.end()) throw SEBException("unknown visualization reference variant '"+parts.variant+"'", "World::ExportUSD");
+            patchName=variant->second.geometry;
+            sampling=variant->second.sampling;
+        } else if (reference.sampling == "weighted_mixture") {
             if (reference.patches.empty() || reference.patches.size()!=reference.weights.size()) throw SEBException("weighted mixture requires equally sized patches and weights", "World::ExportUSD");
             double total=0.0; for(double weight:reference.weights){if(weight<0.0)throw SEBException("mixture weights must be non-negative","World::ExportUSD");total+=weight;}
             if(total<=0.0)throw SEBException("mixture weights must have positive total","World::ExportUSD");
@@ -717,9 +742,9 @@ void World::ExportUSD(const std::string& structure,
         if (patch == instance->second.patches.end()) throw SEBException("distributed reference uses unknown geometry patch", "World::ExportUSD");
         Vec3 point;
         if (patch->second.kind == pyseb::VisualizationGeometryKind::Surface) {
-            point=reference.sampling == "arc_length" ? sampleSurfaceBoundary(patch->second,unitRandom(generator)) : sampleSurfaceArea(patch->second,generator);
+            point=sampling == "arc_length" ? sampleSurfaceBoundary(patch->second,unitRandom(generator)) : sampleSurfaceArea(patch->second,generator);
         } else {
-            point=reference.sampling == "uniform_parameter" ? sampleCurveParameter(patch->second,unitRandom(generator)) : sampleCurveLength(patch->second,unitRandom(generator));
+            point=sampling == "uniform_parameter" ? sampleCurveParameter(patch->second,unitRandom(generator)) : sampleCurveLength(patch->second,unitRandom(generator));
         }
         instance->second.resolvedReferences[endpoint.reference]=point;
         return point;

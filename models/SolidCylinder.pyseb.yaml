@@ -198,13 +198,25 @@ visualization:
       u: {lower: "0", upper: "L"}
       v: {lower: "0", upper: "2 * pi"}
       coordinates: ["R * cos(v)", "R * sin(v)", "u - L / 2"]
-    ends:
+    ends_top:
       kind: surface
       u: {lower: "0", upper: "R"}
       v: {lower: "0", upper: "2 * pi"}
       coordinates: ["u * cos(v)", "u * sin(v)", "L / 2"]
+    ends_bottom:
+      kind: surface
+      u: {lower: "0", upper: "R"}
+      v: {lower: "0", upper: "2 * pi"}
+      coordinates: ["u * cos(v)", "u * sin(v)", "-L / 2"]
   references:
     center: {kind: fixed, position: [0, 0, 0]}
     hull: {kind: distributed, geometry: hull, sampling: surface_area}
-    ends: {kind: distributed, geometry: ends, sampling: surface_area}
+    ends:
+      kind: distributed
+      patches: [ends_top, ends_bottom]
+      weights: [1, 1]
+      sampling: weighted_mixture
+      variants:
+        top: {geometry: ends_top, sampling: surface_area}
+        bottom: {geometry: ends_bottom, sampling: surface_area}
     surface: {kind: distributed, geometry: hull, sampling: surface_area}

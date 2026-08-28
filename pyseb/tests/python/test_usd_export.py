@@ -271,6 +271,79 @@ class TestUSDExport(unittest.TestCase):
                     "rod", str(Path(directory) / "invalid.usda"), {"L_rod": 1.0}, options
                 )
 
+    def test_reference_variants_use_both_ends_of_cylinder_chain(self):
+        with tempfile.TemporaryDirectory() as directory:
+            world = pyseb.World("cylinder_ends")
+            graph = world.Add("SolidCylinder", "cylinder1", "cylinder")
+            for index in range(2, 21):
+                graph = world.Link(
+                    "SolidCylinder",
+                    f"cylinder{index}.ends#bottom#joint{index - 1}",
+                    f"cylinder{index - 1}.ends#top#joint{index - 1}",
+                    "cylinder",
+                )
+            world.Add(graph, "chain")
+            output = Path(directory) / "cylinders.usda"
+            options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+            options.seed = 42
+            options.surface_samples = 8
+            world.export_usd(
+                "chain",
+                str(output),
+                {"R_cylinder": 0.25, "L_cylinder": 3.0},
+                options,
+            )
+            document = output.read_text(encoding="utf-8")
+            for index in range(1, 21):
+                if index > 1:
+                    bottom = _reference(
+                        document, f"cylinder{index}", f"ends_bottom_joint{index - 1}"
+                    )
+                    self.assertAlmostEqual(bottom[2], -1.5)
+                if index < 20:
+                    top = _reference(
+                        document, f"cylinder{index}", f"ends_top_joint{index}"
+                    )
+                    self.assertAlmostEqual(top[2], 1.5)
+
+            relationships = re.findall(
+                r'rel pyseb:link_\d+ = \[</chain/(cylinder\d+)/ref_([^>]+)>, '
+                r'</chain/(cylinder\d+)/ref_([^>]+)>\]',
+                document,
+            )
+            self.assertEqual(len(relationships), 19)
+            for first, first_reference, second, second_reference in relationships:
+                first_world = _world_point(
+                    _pose(document, first), _reference(document, first, first_reference)
+                )
+                second_world = _world_point(
+                    _pose(document, second), _reference(document, second, second_reference)
+                )
+                for actual, expected in zip(first_world, second_world):
+                    self.assertAlmostEqual(actual, expected, places=12)
+
+    def test_unknown_reference_variant_fails_atomically(self):
+        with tempfile.TemporaryDirectory() as directory:
+            world = pyseb.World("invalid_variant")
+            graph = world.Add("SolidCylinder", "cylinder1", "cylinder")
+            graph = world.Link(
+                "SolidCylinder",
+                "cylinder2.ends#side#joint1",
+                "cylinder1.ends#top#joint1",
+                "cylinder",
+            )
+            world.Add(graph, "chain")
+            output = Path(directory) / "invalid.usda"
+            options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+            with self.assertRaisesRegex(RuntimeError, "unknown visualization reference variant 'side'"):
+                world.export_usd(
+                    "chain",
+                    str(output),
+                    {"R_cylinder": 0.25, "L_cylinder": 3.0},
+                    options,
+                )
+            self.assertFalse(output.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
