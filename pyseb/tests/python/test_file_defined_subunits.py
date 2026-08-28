@@ -179,6 +179,10 @@ class TestFileDefinedSubunits(unittest.TestCase):
             form_factor.variable = "other"
 
         spheroid = pyseb.load_subunit_definition(str(MODELS / "Spheroid.pyseb.yaml"))
+        self.assertEqual(
+            set(spheroid.specific_references),
+            {"center", "pole", "north", "south"},
+        )
         surface_amplitude = spheroid.integrals["surfaceAmplitude"]
         self.assertEqual(
             [(dimension.variable, dimension.lower, dimension.upper)

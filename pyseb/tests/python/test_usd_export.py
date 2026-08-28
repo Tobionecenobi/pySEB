@@ -344,6 +344,50 @@ class TestUSDExport(unittest.TestCase):
                 )
             self.assertFalse(output.exists())
 
+    def test_spheroid_chain_uses_north_and_south_poles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            world = pyseb.World("spheroid_poles")
+            graph = world.Add("Spheroid", "spheroid1", "spheroid")
+            for index in range(2, 6):
+                graph = world.Link(
+                    "Spheroid",
+                    f"spheroid{index}.south",
+                    f"spheroid{index - 1}.north",
+                    "spheroid",
+                )
+            world.Add(graph, "chain")
+            output = Path(directory) / "spheroids.usda"
+            options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+            options.seed = 42
+            options.surface_samples = 8
+            world.export_usd(
+                "chain",
+                str(output),
+                {"a_spheroid": 0.4, "c_spheroid": 1.2},
+                options,
+            )
+            document = output.read_text(encoding="utf-8")
+            for index in range(1, 6):
+                self.assertEqual(_reference(document, f"spheroid{index}", "north"), (0.0, 0.0, 1.2))
+                self.assertEqual(_reference(document, f"spheroid{index}", "south"), (0.0, 0.0, -1.2))
+                self.assertEqual(_reference(document, f"spheroid{index}", "pole"), (0.0, 0.0, 1.2))
+
+            relationships = re.findall(
+                r'rel pyseb:link_\d+ = \[</chain/(spheroid\d+)/ref_([^>]+)>, '
+                r'</chain/(spheroid\d+)/ref_([^>]+)>\]',
+                document,
+            )
+            self.assertEqual(len(relationships), 4)
+            for first, first_reference, second, second_reference in relationships:
+                first_world = _world_point(
+                    _pose(document, first), _reference(document, first, first_reference)
+                )
+                second_world = _world_point(
+                    _pose(document, second), _reference(document, second, second_reference)
+                )
+                for actual, expected in zip(first_world, second_world):
+                    self.assertAlmostEqual(actual, expected, places=12)
+
 
 if __name__ == "__main__":
     unittest.main()
