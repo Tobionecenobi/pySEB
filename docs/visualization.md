@@ -91,3 +91,6 @@ An alternating 10-rod/10-polymer chain joined exclusively through `end1` and
 `end2` is demonstrated in `pyseb/examples/python/usd_rod_polymer_chain.py`.
 A 20-spheroid chain joined from each `north` pole to the next `south` pole is
 demonstrated in `pyseb/examples/python/usd_spheroid_chain.py`.
+A Debye sphere cloud attached through its named `join` reference to an analytic
+spheroid is demonstrated in
+`pyseb/examples/python/usd_debye_cloud_attachment.py`.
