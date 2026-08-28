@@ -87,3 +87,5 @@ A 100-sphere center-to-surface chain is demonstrated in
 A 20-cylinder end-to-end chain, selecting opposite cap variants on every
 interior cylinder, is demonstrated in
 `pyseb/examples/python/usd_cylinder_chain.py`.
+An alternating 10-rod/10-polymer chain joined exclusively through `end1` and
+`end2` is demonstrated in `pyseb/examples/python/usd_rod_polymer_chain.py`.
