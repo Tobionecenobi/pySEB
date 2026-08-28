@@ -2,7 +2,7 @@ format: pyseb-subunit
 schema_version: 1
 id: pyseb/Spheroid
 api_name: Spheroid
-model_version: "1.0.0"
+model_version: "1.1.0"
 
 metadata:
   title: Axial spheroid
@@ -57,7 +57,7 @@ integrals:
     integrand: "sin(theta1) * sin(theta2) * sinc(q * sqrt(a^2 * (sin(theta1)^2 + sin(theta2)^2 - 2 * sin(theta1) * sin(theta2) * cos(phi)) + c^2 * (cos(theta1) - cos(theta2))^2)) / (8 * pi)"
 
 references:
-  specific: [center, pole]
+  specific: [center, pole, north, south]
   distributed: [surface]
 
 expressions:
@@ -65,13 +65,29 @@ expressions:
   amplitudes:
     center: centerAmplitude
     pole: poleAmplitude
+    north: poleAmplitude
+    south: poleAmplitude
     surface: surfaceAmplitude
   phases:
     - references: [center, pole]
       expression: "sinc(y)"
+    - references: [center, north]
+      expression: "sinc(y)"
+    - references: [center, south]
+      expression: "sinc(y)"
+    - references: [pole, north]
+      expression: "1"
+    - references: [pole, south]
+      expression: "sinc(2 * y)"
+    - references: [north, south]
+      expression: "sinc(2 * y)"
     - references: [center, surface]
       expression: surfaceAmplitude
     - references: [pole, surface]
+      expression: poleSurfacePhase
+    - references: [north, surface]
+      expression: poleSurfacePhase
+    - references: [south, surface]
       expression: poleSurfacePhase
     - references: [surface, surface]
       expression: surfaceSurfacePhase
@@ -81,13 +97,29 @@ sizes:
   reference_to_scatterer:
     center: "(2 * a^2 + c^2) / 5"
     pole: "(2 * a^2 + c^2) / 5 + c^2"
+    north: "(2 * a^2 + c^2) / 5 + c^2"
+    south: "(2 * a^2 + c^2) / 5 + c^2"
     surface: "(2 * a^2 + c^2) / 3"
   reference_to_reference:
     - references: [center, pole]
       expression: "c^2"
+    - references: [center, north]
+      expression: "c^2"
+    - references: [center, south]
+      expression: "c^2"
+    - references: [pole, north]
+      expression: "0"
+    - references: [pole, south]
+      expression: "4 * c^2"
+    - references: [north, south]
+      expression: "4 * c^2"
     - references: [center, surface]
       expression: "(2 * a^2 + c^2) / 3"
     - references: [pole, surface]
+      expression: "(2 * a^2 + 4 * c^2) / 3"
+    - references: [north, surface]
+      expression: "(2 * a^2 + 4 * c^2) / 3"
+    - references: [south, surface]
       expression: "(2 * a^2 + 4 * c^2) / 3"
     - references: [surface, surface]
       expression: "2 * (2 * a^2 + c^2) / 3"
@@ -144,3 +176,28 @@ validation:
       parameters: {a: 2.0, c: 3.0}
       references: [center, pole]
       expected: 9.0
+    - name: north-to-south phase at finite q
+      quantity: phase
+      parameters: {a: 2.0, c: 3.0}
+      references: [north, south]
+      q: 0.5
+      expected: 0.0470400026866224
+    - name: north-to-south distance
+      quantity: reference_to_reference
+      parameters: {a: 2.0, c: 3.0}
+      references: [north, south]
+      expected: 36.0
+
+visualization:
+  geometry:
+    surface:
+      kind: surface
+      u: {lower: "0", upper: "pi"}
+      v: {lower: "0", upper: "2 * pi"}
+      coordinates: ["a * sin(u) * cos(v)", "a * sin(u) * sin(v)", "c * cos(u)"]
+  references:
+    center: {kind: fixed, position: [0, 0, 0]}
+    pole: {kind: fixed, position: [0, 0, c]}
+    north: {kind: fixed, position: [0, 0, c]}
+    south: {kind: fixed, position: [0, 0, "-c"]}
+    surface: {kind: distributed, geometry: surface, sampling: surface_area}
