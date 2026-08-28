@@ -32,6 +32,9 @@ world.Add(graph, "dendrimer")
 parameters = {"L_rod": 1.0}
 options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
 options.seed = 42
+options.layout_mode = pyseb.LayoutMode.Readable
+options.orientation_trials = 64
+options.minimum_clearance = 0.08
 options.curve_samples = 2
 generation_colors = (
     (0.19, 0.20, 0.23),

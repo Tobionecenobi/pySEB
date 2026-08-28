@@ -6,6 +6,7 @@
 #include <array>
 
 enum class LengthUnit { Meter, Millimeter, Micrometer, Nanometer, Angstrom };
+enum class USDLayoutMode { Random, Readable };
 
 struct USDExportOptions {
     explicit USDExportOptions(LengthUnit unit);
@@ -14,6 +15,9 @@ struct USDExportOptions {
     double metersPerUnit = 1.0;
     bool customUnit = false;
     unsigned long long seed = 0;
+    USDLayoutMode layoutMode = USDLayoutMode::Random;
+    std::size_t orientationTrials = 64;
+    double minimumClearance = 0.0;
     std::size_t curveSamples = 96;
     std::size_t surfaceSamples = 48;
     bool referenceMarkers = false;

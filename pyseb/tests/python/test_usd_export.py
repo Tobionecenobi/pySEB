@@ -51,6 +51,56 @@ def _rotate(quaternion, point):
     return tuple(point[i] + 2*w*cross1[i] + 2*cross2[i] for i in range(3))
 
 
+def _world_point(pose, point):
+    translation, rotation = pose
+    rotated = _rotate(rotation, point)
+    return tuple(translation[i] + rotated[i] for i in range(3))
+
+
+def _segment_distance(first, second):
+    p1, q1 = first
+    p2, q2 = second
+    subtract = lambda a, b: tuple(a[i] - b[i] for i in range(3))
+    dot = lambda a, b: sum(a[i] * b[i] for i in range(3))
+    add_scaled = lambda a, b, scale: tuple(a[i] + scale * b[i] for i in range(3))
+    u, v, w = subtract(q1, p1), subtract(q2, p2), subtract(p1, p2)
+    a, b, c = dot(u, u), dot(u, v), dot(v, v)
+    d, e = dot(u, w), dot(v, w)
+    if a < 1e-15 and c < 1e-15:
+        return math.dist(p1, p2)
+    if a < 1e-15:
+        return math.dist(p1, add_scaled(p2, v, max(0.0, min(1.0, e / c))))
+    if c < 1e-15:
+        return math.dist(add_scaled(p1, u, max(0.0, min(1.0, -d / a))), p2)
+    denominator = a*c - b*b
+    s = 0.0 if denominator < 1e-15 else max(0.0, min(1.0, (b*e-c*d)/denominator))
+    t = max(0.0, min(1.0, (b*s+e)/c))
+    s = max(0.0, min(1.0, (b*t-d)/a))
+    return math.dist(add_scaled(p1, u, s), add_scaled(p2, v, t))
+
+
+def _minimum_nonlinked_rod_distance(document, rod_count):
+    segments = {}
+    for index in range(1, rod_count + 1):
+        pose = _pose(document, f"rod{index}")
+        segments[index] = (
+            _world_point(pose, (0.0, 0.0, -0.5)),
+            _world_point(pose, (0.0, 0.0, 0.5)),
+        )
+    linked = {
+        frozenset((int(first), int(second)))
+        for first, second in re.findall(
+            r'/rod(\d+)/ref_[^>]+>, </[^>]+/rod(\d+)/ref_', document
+        )
+    }
+    return min(
+        _segment_distance(segments[first], segments[second])
+        for first in segments
+        for second in segments
+        if first < second and frozenset((first, second)) not in linked
+    )
+
+
 class TestUSDExport(unittest.TestCase):
     def _sphere_rods(self, seed, output):
         world = pyseb.World("usd")
@@ -136,6 +186,74 @@ class TestUSDExport(unittest.TestCase):
             self.assertEqual(first.read_bytes(), second.read_bytes())
             self.assertNotEqual(first.read_bytes(), different.read_bytes())
             self.assertAlmostEqual(before, after, places=14)
+
+    def test_readable_layout_improves_clearance_and_preserves_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            world = pyseb.World("readable")
+            graph = world.Add("ThinRod", "rod1", "rod")
+            parents = ["rod1"]
+            next_index = 2
+            for generation in range(1, 4):
+                children = []
+                for parent in parents:
+                    for branch in (1, 2):
+                        child = f"rod{next_index}"
+                        graph = world.Link(
+                            "ThinRod",
+                            f"{child}.contour#attachment",
+                            f"{parent}.contour#g{generation}_branch{branch}",
+                            "rod",
+                        )
+                        children.append(child)
+                        next_index += 1
+                parents = children
+            world.Add(graph, "dendrimer")
+
+            random_output = directory / "random.usda"
+            readable_output = directory / "readable.usda"
+            repeated_output = directory / "repeated.usda"
+            options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+            options.seed = 42
+            options.curve_samples = 2
+            world.export_usd("dendrimer", str(random_output), {"L_rod": 1.0}, options)
+            options.layout_mode = pyseb.LayoutMode.Readable
+            options.orientation_trials = 64
+            options.minimum_clearance = 0.08
+            world.export_usd("dendrimer", str(readable_output), {"L_rod": 1.0}, options)
+            world.export_usd("dendrimer", str(repeated_output), {"L_rod": 1.0}, options)
+
+            random_document = random_output.read_text(encoding="utf-8")
+            readable_document = readable_output.read_text(encoding="utf-8")
+            self.assertEqual(readable_output.read_bytes(), repeated_output.read_bytes())
+            self.assertIn('pyseb:layoutMode = "readable"', readable_document)
+            self.assertIn('pyseb:overlapPolicy = "best_effort_minimized"', readable_document)
+            self.assertGreater(
+                _minimum_nonlinked_rod_distance(readable_document, 15),
+                _minimum_nonlinked_rod_distance(random_document, 15),
+            )
+
+            parent_world = _world_point(
+                _pose(readable_document, "rod1"),
+                _reference(readable_document, "rod1", "contour_g1_branch1"),
+            )
+            child_world = _world_point(
+                _pose(readable_document, "rod2"),
+                _reference(readable_document, "rod2", "contour_attachment"),
+            )
+            for actual, expected in zip(child_world, parent_world):
+                self.assertAlmostEqual(actual, expected, places=12)
+
+    def test_readable_layout_options_are_validated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            world = pyseb.World("invalid_readable")
+            world.Add("ThinRod", "rod")
+            options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+            options.orientation_trials = 0
+            with self.assertRaisesRegex(RuntimeError, "orientationTrials"):
+                world.export_usd(
+                    "rod", str(Path(directory) / "invalid.usda"), {"L_rod": 1.0}, options
+                )
 
 
 if __name__ == "__main__":

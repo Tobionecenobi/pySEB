@@ -78,6 +78,8 @@ abs = _pyseb.abs
 NormalizationMode = _pyseb.NormalizationMode
 IntegrationMethod = _pyseb.IntegrationMethod
 LengthUnit = _pyseb.LengthUnit
+USDLayoutMode = _pyseb.USDLayoutMode
+LayoutMode = USDLayoutMode
 USDExportOptions = _pyseb.USDExportOptions
 VisualizationGeometryKind = _pyseb.VisualizationGeometryKind
 VisualizationGeometry = _pyseb.VisualizationGeometry
@@ -162,6 +164,8 @@ __all__ = [
     'NormalizationMode',
     'IntegrationMethod',
     'LengthUnit',
+    'USDLayoutMode',
+    'LayoutMode',
     'USDExportOptions',
     'VisualizationGeometryKind',
     'VisualizationGeometry',

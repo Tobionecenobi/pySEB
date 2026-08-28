@@ -63,10 +63,16 @@ PYBIND11_MODULE(_pyseb, m) {
         .value("Meter", LengthUnit::Meter).value("Millimeter", LengthUnit::Millimeter)
         .value("Micrometer", LengthUnit::Micrometer).value("Nanometer", LengthUnit::Nanometer)
         .value("Angstrom", LengthUnit::Angstrom);
+    py::enum_<USDLayoutMode>(m, "USDLayoutMode")
+        .value("Random", USDLayoutMode::Random)
+        .value("Readable", USDLayoutMode::Readable);
     py::class_<USDExportOptions>(m, "USDExportOptions")
         .def(py::init<LengthUnit>())
         .def(py::init<double>())
         .def_readwrite("seed", &USDExportOptions::seed)
+        .def_readwrite("layout_mode", &USDExportOptions::layoutMode)
+        .def_readwrite("orientation_trials", &USDExportOptions::orientationTrials)
+        .def_readwrite("minimum_clearance", &USDExportOptions::minimumClearance)
         .def_readwrite("curve_samples", &USDExportOptions::curveSamples)
         .def_readwrite("surface_samples", &USDExportOptions::surfaceSamples)
         .def_readwrite("reference_markers", &USDExportOptions::referenceMarkers)

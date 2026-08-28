@@ -10,11 +10,19 @@ visualization definitions, domain variables (`u`, `v`, `t`), constants, and
 the standard mathematical functions.
 
 Links constrain positions only.  A labelled distributed reference is sampled
-deterministically from the export seed and instance path, and the linked child
-receives one uniformly random 3D rotation.  This free orientation is only a
-representative realization: it does not alter pySEB's orientationally averaged
-scattering calculation.  Geometry overlap is permitted and changing the seed
-produces a different realization.
+deterministically from the export seed and instance path.  The default
+`Random` layout gives each linked child one uniformly random 3D rotation;
+geometry overlap is permitted.  This free orientation is only a representative
+realization and does not alter pySEB's orientationally averaged scattering
+calculation.  Changing the seed produces a different realization.
+
+The optional `Readable` layout evaluates several seeded rotations for each
+new child and selects the one with the best clearance from geometry already
+placed.  It always preserves exact reference-point coincidence and never
+rejects an export when overlap cannot be avoided.  Candidate scoring uses
+coarse geometry proxies, so this is deterministic best-effort layout rather
+than a collision-free guarantee.  Its USD metadata identifies the orientations
+as optimized for readability rather than uniformly sampled.
 
 The exporter writes a deterministic representative realization as text USDA;
 no OpenUSD runtime is required.  Use `.usda` for explicit text or `.usd` when
@@ -23,6 +31,9 @@ an interchange tool expects that extension:
 ```python
 options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
 options.seed = 42
+options.layout_mode = pyseb.LayoutMode.Readable
+options.orientation_trials = 64
+options.minimum_clearance = 0.05  # In the selected model length unit.
 world.export_usd("structure", "structure.usda", parameters, options)
 ```
 
@@ -31,6 +42,9 @@ The C++ API is equivalent:
 ```cpp
 USDExportOptions options(LengthUnit::Angstrom);
 options.seed = 42;
+options.layoutMode = USDLayoutMode::Readable;
+options.orientationTrials = 64;
+options.minimumClearance = 0.05;
 world.ExportUSD("structure", "structure.usda", parameters, options);
 ```
 

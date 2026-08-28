@@ -14,6 +14,7 @@
 #include <iomanip>
 #include <locale>
 #include <map>
+#include <limits>
 #include <random>
 #include <set>
 #include <sstream>
@@ -93,6 +94,18 @@ struct SceneLink {
     LinkEndpoint first;
     LinkEndpoint second;
     std::string key;
+};
+
+struct ProxySegment {
+    Vec3 first;
+    Vec3 second;
+};
+
+struct GeometryProxy {
+    std::vector<Vec3> points;
+    std::vector<ProxySegment> segments;
+    Vec3 centroid;
+    double radius = 0.0;
 };
 
 std::string quote(const std::string& value) {
@@ -232,6 +245,151 @@ Vec3 sampleSurfaceBoundary(const GeometryPatch& patch, double draw) {
     return sampleCurveLength(boundary,draw);
 }
 
+double segmentDistanceSquared(const ProxySegment& first, const ProxySegment& second) {
+    const Vec3 u=first.second-first.first;
+    const Vec3 v=second.second-second.first;
+    const Vec3 w=first.first-second.first;
+    const double a=dot(u,u), b=dot(u,v), c=dot(v,v), d=dot(u,w), e=dot(v,w);
+    const double denominator=a*c-b*b;
+    double numeratorS, denominatorS=denominator;
+    double numeratorT, denominatorT=denominator;
+    const double epsilon=1e-15;
+    if (denominator < epsilon) {
+        numeratorS=0.0;
+        denominatorS=1.0;
+        numeratorT=e;
+        denominatorT=c;
+    } else {
+        numeratorS=b*e-c*d;
+        numeratorT=a*e-b*d;
+        if (numeratorS < 0.0) {
+            numeratorS=0.0;
+            numeratorT=e;
+            denominatorT=c;
+        } else if (numeratorS > denominatorS) {
+            numeratorS=denominatorS;
+            numeratorT=e+b;
+            denominatorT=c;
+        }
+    }
+    if (numeratorT < 0.0) {
+        numeratorT=0.0;
+        if (-d < 0.0) numeratorS=0.0;
+        else if (-d > a) numeratorS=denominatorS;
+        else { numeratorS=-d; denominatorS=a; }
+    } else if (numeratorT > denominatorT) {
+        numeratorT=denominatorT;
+        if (-d+b < 0.0) numeratorS=0.0;
+        else if (-d+b > a) numeratorS=denominatorS;
+        else { numeratorS=-d+b; denominatorS=a; }
+    }
+    const double s=std::abs(numeratorS)<epsilon ? 0.0 : numeratorS/denominatorS;
+    const double t=std::abs(numeratorT)<epsilon ? 0.0 : numeratorT/denominatorT;
+    const Vec3 separation=w+u*s-v*t;
+    return dot(separation,separation);
+}
+
+GeometryProxy localProxy(const InstanceScene& instance) {
+    GeometryProxy proxy;
+    constexpr std::size_t maxPatchPoints=32;
+    constexpr std::size_t maxPatchSegments=32;
+    for (const auto& item : instance.patches) {
+        const GeometryPatch& patch=item.second;
+        if (patch.points.empty()) continue;
+        const std::size_t pointCount=std::min(maxPatchPoints,patch.points.size());
+        for (std::size_t i=0; i<pointCount; ++i) {
+            const std::size_t index=pointCount==1 ? 0 : i*(patch.points.size()-1)/(pointCount-1);
+            proxy.points.push_back(patch.points[index]);
+        }
+        if (patch.kind != pyseb::VisualizationGeometryKind::Surface && patch.points.size()>1) {
+            const std::size_t segmentCount=std::min(maxPatchSegments,patch.points.size()-1);
+            for (std::size_t i=0; i<segmentCount; ++i) {
+                const std::size_t first=i*(patch.points.size()-1)/segmentCount;
+                const std::size_t second=(i+1)*(patch.points.size()-1)/segmentCount;
+                proxy.segments.push_back({patch.points[first],patch.points[second]});
+            }
+        }
+    }
+    if (!proxy.points.empty()) {
+        for (const Vec3& point : proxy.points) proxy.centroid=proxy.centroid+point;
+        proxy.centroid=proxy.centroid*(1.0/static_cast<double>(proxy.points.size()));
+        for (const Vec3& point : proxy.points) proxy.radius=std::max(proxy.radius,length(point-proxy.centroid));
+    }
+    return proxy;
+}
+
+GeometryProxy transformProxy(const GeometryProxy& local, const Pose& pose) {
+    GeometryProxy world;
+    world.radius=local.radius;
+    world.centroid=pose.translation+rotate(pose.rotation,local.centroid);
+    for (const Vec3& point : local.points) world.points.push_back(pose.translation+rotate(pose.rotation,point));
+    for (const ProxySegment& segment : local.segments) {
+        world.segments.push_back({
+            pose.translation+rotate(pose.rotation,segment.first),
+            pose.translation+rotate(pose.rotation,segment.second)
+        });
+    }
+    return world;
+}
+
+double proxyDistanceSquared(const GeometryProxy& first, const GeometryProxy& second) {
+    double result=std::numeric_limits<double>::infinity();
+    for (const ProxySegment& a : first.segments) {
+        for (const ProxySegment& b : second.segments) result=std::min(result,segmentDistanceSquared(a,b));
+    }
+    for (const Vec3& a : first.points) {
+        for (const Vec3& b : second.points) result=std::min(result,dot(a-b,a-b));
+    }
+    return result;
+}
+
+double readableScore(const GeometryProxy& candidate,
+                     const std::map<std::string,GeometryProxy>& placed,
+                     const std::string& parent,
+                     const Vec3& joint,
+                     double minimumClearance) {
+    const double scale=std::max(candidate.radius,1e-9);
+    double collisionPenalty=0.0;
+    double proximityPenalty=0.0;
+    std::size_t comparisonCount=0;
+    Vec3 placedCentroid;
+    std::size_t centroidCount=0;
+    for (const auto& item : placed) {
+        if (!item.second.points.empty()) {
+            placedCentroid=placedCentroid+item.second.centroid;
+            ++centroidCount;
+        }
+        if (item.first == parent || item.second.points.empty() || candidate.points.empty()) continue;
+        const double distanceSquared=proxyDistanceSquared(candidate,item.second);
+        if (!std::isfinite(distanceSquared)) continue;
+        const double distance=std::sqrt(std::max(0.0,distanceSquared));
+        if (distance < minimumClearance) {
+            const double deficit=(minimumClearance-distance)/scale;
+            collisionPenalty+=deficit*deficit;
+        }
+        const double normalizedSquared=distanceSquared/(scale*scale);
+        proximityPenalty+=1.0/(0.05+normalizedSquared);
+        ++comparisonCount;
+    }
+    if (comparisonCount) proximityPenalty/=static_cast<double>(comparisonCount);
+
+    double outward=0.0;
+    const auto parentProxy=placed.find(parent);
+    if (parentProxy != placed.end() && !parentProxy->second.points.empty()) {
+        const Vec3 parentDirection=joint-parentProxy->second.centroid;
+        const Vec3 childDirection=candidate.centroid-joint;
+        const double denominator=length(parentDirection)*length(childDirection);
+        if (denominator>1e-12) outward=dot(parentDirection,childDirection)/denominator;
+    }
+
+    double spread=0.0;
+    if (centroidCount) {
+        placedCentroid=placedCentroid*(1.0/static_cast<double>(centroidCount));
+        spread=length(candidate.centroid-placedCentroid)/scale;
+    }
+    return collisionPenalty*1e6+proximityPenalty-2.0*outward-0.1*spread;
+}
+
 } // namespace
 
 void World::ExportUSD(const std::string& structure,
@@ -245,6 +403,12 @@ void World::ExportUSD(const std::string& structure,
     const double metersPerUnit = options.metersPerUnit;
     if (!(metersPerUnit > 0.0) || !std::isfinite(metersPerUnit)) {
         throw SEBException("metersPerUnit must be positive and finite", "World::ExportUSD");
+    }
+    if (options.orientationTrials == 0) {
+        throw SEBException("orientationTrials must be at least one", "World::ExportUSD");
+    }
+    if (options.minimumClearance < 0.0 || !std::isfinite(options.minimumClearance)) {
+        throw SEBException("minimumClearance must be non-negative and finite", "World::ExportUSD");
     }
 
     std::set<std::string> selected;
@@ -394,6 +558,14 @@ void World::ExportUSD(const std::string& structure,
     for (const auto& name : selected) poses[name]=Pose();
     poses.begin()->second.resolved=true;
 
+    std::map<std::string,GeometryProxy> localProxies;
+    for (const auto& instance : instances) localProxies.emplace(instance.first,localProxy(instance.second));
+    std::map<std::string,GeometryProxy> placedProxies;
+    const auto rootProxy=localProxies.find(poses.begin()->first);
+    if (rootProxy != localProxies.end()) {
+        placedProxies.emplace(rootProxy->first,transformProxy(rootProxy->second,poses.begin()->second));
+    }
+
     auto resolveReference=[&](const LinkEndpoint& endpoint) -> Vec3 {
         auto instance=instances.find(endpoint.instance);
         if (instance == instances.end()) return Vec3();
@@ -452,13 +624,45 @@ void World::ExportUSD(const std::string& structure,
             const LinkEndpoint& childEndpoint=firstIsParent?link.second:link.first;
             const Vec3 parentLocal=resolveReference(parentEndpoint);
             const Vec3 childLocal=resolveReference(childEndpoint);
-            child.rotation=uniformRotation(options.seed,childEndpoint.instance+"/orientation/"+link.key);
             const Vec3 parentWorld=parent.translation+rotate(parent.rotation,parentLocal);
-            child.translation=parentWorld-rotate(child.rotation,childLocal);
+            const std::string orientationKey=childEndpoint.instance+"/orientation/"+link.key;
+            if (options.layoutMode == USDLayoutMode::Random) {
+                child.rotation=uniformRotation(options.seed,orientationKey);
+                child.translation=parentWorld-rotate(child.rotation,childLocal);
+            } else {
+                Pose best;
+                double bestScore=std::numeric_limits<double>::infinity();
+                const auto localProxy=localProxies.find(childEndpoint.instance);
+                for (std::size_t trial=0; trial<options.orientationTrials; ++trial) {
+                    Pose candidate;
+                    candidate.rotation=uniformRotation(options.seed,orientationKey+"/candidate/"+std::to_string(trial));
+                    candidate.translation=parentWorld-rotate(candidate.rotation,childLocal);
+                    const GeometryProxy candidateProxy=localProxy == localProxies.end()
+                        ? GeometryProxy() : transformProxy(localProxy->second,candidate);
+                    const double score=readableScore(
+                        candidateProxy,placedProxies,parentEndpoint.instance,parentWorld,options.minimumClearance);
+                    if (score < bestScore) {
+                        bestScore=score;
+                        best=candidate;
+                    }
+                }
+                child.rotation=best.rotation;
+                child.translation=best.translation;
+            }
             child.resolved=true; ++resolvedCount; progress=true;
+            const auto childProxy=localProxies.find(childEndpoint.instance);
+            if (childProxy != localProxies.end()) {
+                placedProxies[childEndpoint.instance]=transformProxy(childProxy->second,child);
+            }
         }
         if (!progress) {
-            for (auto& pose : poses) if (!pose.second.resolved) { pose.second.resolved=true; ++resolvedCount; break; }
+            for (auto& pose : poses) if (!pose.second.resolved) {
+                pose.second.resolved=true;
+                const auto proxy=localProxies.find(pose.first);
+                if (proxy != localProxies.end()) placedProxies[pose.first]=transformProxy(proxy->second,pose.second);
+                ++resolvedCount;
+                break;
+            }
         }
     }
 
@@ -466,8 +670,17 @@ void World::ExportUSD(const std::string& structure,
     output.imbue(std::locale::classic());
     output << "#usda 1.0\n(\n    upAxis = \"Z\"\n    metersPerUnit = " << number(metersPerUnit) << "\n)\n\n";
     output << "def Xform \"" << usdName(structure) << "\" {\n";
-    output << "    custom string pyseb:orientationSemantics = \"representative_free_rotation\"\n";
-    output << "    custom string pyseb:overlapPolicy = \"permitted\"\n";
+    if (options.layoutMode == USDLayoutMode::Readable) {
+        output << "    custom string pyseb:layoutMode = \"readable\"\n";
+        output << "    custom string pyseb:orientationSemantics = \"readability_optimized_free_rotation\"\n";
+        output << "    custom string pyseb:overlapPolicy = \"best_effort_minimized\"\n";
+        output << "    custom uint64 pyseb:orientationTrials = " << options.orientationTrials << "\n";
+        output << "    custom double pyseb:minimumClearance = " << number(options.minimumClearance) << "\n";
+    } else {
+        output << "    custom string pyseb:layoutMode = \"random\"\n";
+        output << "    custom string pyseb:orientationSemantics = \"representative_free_rotation\"\n";
+        output << "    custom string pyseb:overlapPolicy = \"permitted\"\n";
+    }
     for (const auto& name : selected) {
         const auto catalog=nameCatalog.find(name);
         const SubUnit* sub=catalog == nameCatalog.end()?nullptr:dynamic_cast<const SubUnit*>(catalog->second);
