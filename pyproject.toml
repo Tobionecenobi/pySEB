@@ -30,6 +30,7 @@ dependencies = [
 
 [project.scripts]
 pyseb-subunit = "pyseb.cli:subunit_main"
+pyseb-world = "pyseb.cli:world_main"
 
 [tool.scikit-build]
 cmake.version = ">=3.18"

@@ -3,8 +3,11 @@
 
 // Include creation function for sub-units.
 #include "Subunits/CreateSubunit.hpp"
+#include "Subunits/FileDefined.hpp"
 
+#include <algorithm>
 #include <memory>
+#include <set>
 
 using sebsym::Expression;
 
@@ -49,6 +52,14 @@ GraphID World::Add(string subtype, subName name, string tag)
 {
    std::unique_ptr<SubUnit> subunit(subunitRegistry.Create(subtype));
    GraphID result = Add(subunit.get(), name, tag);
+   string canonical = subtype;
+   for (const auto& model : subunitRegistry.List()) {
+       if (model.id == subtype || model.apiName == subtype) {
+           canonical = model.id;
+           break;
+       }
+   }
+   modelCatalog[name] = canonical;
    subunit.release();
    return result;
 }
@@ -58,6 +69,7 @@ GraphID World::AddFile(string path, subName name, string tag)
    pyseb::SubunitDefinition definition = pyseb::LoadSubunitDefinitionFile(path);
    std::unique_ptr<SubUnit> subunit(new FileDefinedSubunit(definition));
    GraphID result = Add(subunit.get(), name, tag);
+   modelCatalog[name] = definition.id;
    subunit.release();
    return result;
 }
@@ -196,6 +208,14 @@ GraphID World::Link(string subtype, refPoint newr, refPoint oldr, string tag)
 {
    std::unique_ptr<SubUnit> subunit(subunitRegistry.Create(subtype));
    GraphID result = Link(subunit.get(), newr, oldr, tag);
+   string canonical = subtype;
+   for (const auto& model : subunitRegistry.List()) {
+       if (model.id == subtype || model.apiName == subtype) {
+           canonical = model.id;
+           break;
+       }
+   }
+   modelCatalog[getName(newr)] = canonical;
    subunit.release();
    return result;
 }
@@ -205,6 +225,7 @@ GraphID World::LinkFile(string path, refPoint newr, refPoint oldr, string tag)
    pyseb::SubunitDefinition definition = pyseb::LoadSubunitDefinitionFile(path);
    std::unique_ptr<SubUnit> subunit(new FileDefinedSubunit(definition));
    GraphID result = Link(subunit.get(), newr, oldr, tag);
+   modelCatalog[getName(newr)] = definition.id;
    subunit.release();
    return result;
 }
@@ -880,6 +901,125 @@ GraphID World::getGraphID(string name)
 /*Returns the graphID id given a pointer to a sub-unit or structure */
 GraphID World::getGraphID(SubUnit *s)    {  return getGraphID( s->getName() ); }
 GraphID World::getGraphID(Structure *s)  {  return getGraphID( s->getName() ); }
+
+void World::SetGraphLabel(GraphID gid, const string& label)
+{
+    if (!testGraphID(gid)) throw SEBException("Bad graphid:" + to_string(gid), "World::SetGraphLabel()");
+    if (label.empty()) throw SEBException("Graph label must not be empty", "World::SetGraphLabel()");
+    for (const auto& item : graphLabels) {
+        if (item.first != gid && item.second == label) {
+            throw SEBException("Graph label " + label + " is already in use", "World::SetGraphLabel()");
+        }
+    }
+    graphLabels[gid] = label;
+}
+
+pyseb::WorldDefinition World::Describe() const
+{
+    pyseb::WorldDefinition result;
+    result.schemaVersion = 1;
+    result.worldId = worldId;
+
+    map<GraphID, string> labels;
+    set<string> usedLabels;
+    for (const auto& graph : subGraphs) {
+        const auto known = graphLabels.find(graph.first);
+        if (known != graphLabels.end()) {
+            labels.emplace(graph.first, known->second);
+            usedLabels.insert(known->second);
+        }
+    }
+    int generatedLabel = 1;
+    for (const auto& graph : subGraphs) {
+        if (labels.count(graph.first)) continue;
+        string candidate;
+        do {
+            candidate = string("graph-") + to_string(generatedLabel++);
+        } while (usedLabels.count(candidate));
+        labels.emplace(graph.first, candidate);
+        usedLabels.insert(candidate);
+    }
+    auto graphLabel = [&](GraphID gid) { return labels.at(gid); };
+    auto endpointObject = [](const string& endpoint) {
+        const size_t colon = endpoint.find(':');
+        const size_t period = endpoint.find('.');
+        size_t cut = string::npos;
+        if (colon != string::npos) cut = colon;
+        if (period != string::npos) cut = min(cut, period);
+        return cut == string::npos ? endpoint : endpoint.substr(0, cut);
+    };
+    auto graphForObject = [&](const string& name) {
+        for (const auto& graph : subGraphs) {
+            for (const auto& member : graph.second) {
+                if (member == name) return graph.first;
+            }
+        }
+        throw SEBException("The specified name was not found in any sub-graph", "World::Describe()");
+    };
+
+    for (const auto& item : nameCatalog) {
+        if (item.second->getType() == STRUCTURE) {
+            Structure* structure = reinterpret_cast<Structure*>(item.second);
+            pyseb::WorldStructureDefinition value;
+            value.name = item.first;
+            value.graph = graphLabel(structure->getGraphID());
+            result.structures.push_back(value);
+            continue;
+        }
+
+        SubUnit* subunit = reinterpret_cast<SubUnit*>(item.second);
+        if (subunit->getSubunitType() != FILEDEFINEDSUBUNIT) {
+            throw SEBException(
+                "Subunit '" + item.first + "' is not representable in world schema version 1",
+                "World::Describe()");
+        }
+        pyseb::WorldSubunitDefinition value;
+        value.name = item.first;
+        const auto origin = modelCatalog.find(item.first);
+        if (origin != modelCatalog.end()) {
+            value.model = origin->second;
+        } else {
+            FileDefinedSubunit* fileDefined = dynamic_cast<FileDefinedSubunit*>(subunit);
+            if (fileDefined == nullptr) {
+                throw SEBException(
+                    "Subunit '" + item.first + "' is not representable in world schema version 1",
+                    "World::Describe()");
+            }
+            value.model = fileDefined->getDefinition().id;
+        }
+        value.tag = subunit->getTag();
+        result.subunits.push_back(value);
+    }
+
+    map<GraphID, std::size_t> graphIndices;
+    for (const auto& graph : subGraphs) {
+        pyseb::WorldGraphDefinition value;
+        value.id = graphLabel(graph.first);
+        for (const auto& member : graph.second) value.members.push_back(member);
+        graphIndices.emplace(graph.first, result.graphs.size());
+        result.graphs.push_back(value);
+    }
+
+    for (const auto& link : links) {
+        const GraphID firstGraph = graphForObject(endpointObject(link.first));
+        const GraphID secondGraph = graphForObject(endpointObject(link.second));
+        if (firstGraph != secondGraph) {
+            throw SEBException("Link endpoints belong to different graphs", "World::Describe()");
+        }
+        result.graphs.at(graphIndices.at(firstGraph)).links.push_back(link);
+    }
+
+    set<GraphID> referencedGraphs;
+    for (const auto& item : nameCatalog) {
+        if (item.second->getType() == STRUCTURE) {
+            referencedGraphs.insert(reinterpret_cast<Structure*>(item.second)->getGraphID());
+        }
+    }
+    for (const auto& graph : subGraphs) {
+        if (!referencedGraphs.count(graph.first)) result.roots.push_back(graphLabel(graph.first));
+    }
+    return result;
+}
 
 
 // return sub-unit pointer to specified sub-unit. Throws if name unknown, or pointer is not to a sub-unit
@@ -2334,10 +2474,4 @@ Expression World::getFF(string myself, int varform)
                                       return beta * beta * F;
                                    }
 }
-
-
-
-
-
-
 

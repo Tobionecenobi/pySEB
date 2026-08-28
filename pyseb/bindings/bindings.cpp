@@ -13,6 +13,7 @@
 #include "Symbolic.hpp"
 #include "SymbolInterface.hpp"
 #include "bindingsSymbolic.hpp"
+#include "WorldIO/WorldParser.hpp"
 
 namespace py = pybind11;
 
@@ -200,6 +201,12 @@ PYBIND11_MODULE(_pyseb, m) {
 
     m.def("load_subunit_definition", &pyseb::LoadSubunitDefinitionFile, py::arg("path"));
     m.def("validate_subunit_file", &pyseb::ValidateSubunitFile, py::arg("path"));
+    m.def("load_world", &pyseb::LoadWorld,
+          py::arg("path"), py::arg("model_files") = std::vector<std::string>());
+    m.def("world_from_yaml", &pyseb::WorldFromYaml,
+          py::arg("yaml"), py::arg("model_files") = std::vector<std::string>());
+    m.def("save_world", &pyseb::SaveWorld, py::arg("world"), py::arg("path"));
+    m.def("world_to_yaml", &pyseb::WorldToYaml, py::arg("world"));
 
     py::class_<
         SymbolicSubunit,
@@ -444,6 +451,10 @@ PYBIND11_MODULE(_pyseb, m) {
     // Expose World class - basic structure only, symbolic methods are registered in backend-specific files
     py::class_<World> world(m, "World");
     world.def(py::init<std::string>(), py::arg("id") = "World")
+        .def("to_yaml", &pyseb::WorldToYaml)
+        .def("save", [](const World& self, const std::string& path) {
+            pyseb::SaveWorld(self, path);
+        }, py::arg("path"))
         .def("register_subunit_file", &World::RegisterSubunitFile, py::arg("path"))
         .def("register_subunit_directory", &World::RegisterSubunitDirectory, py::arg("path"))
         .def("list_subunit_models", &World::ListSubunitModels)
