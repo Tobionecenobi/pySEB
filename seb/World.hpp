@@ -8,6 +8,7 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
+#include <utility>
 
 #include "Types.hpp"
 #include "Constants.hpp"
@@ -18,6 +19,7 @@
 #include "Subunit.hpp"
 #include "Subunits/Subunits.hpp"
 #include "SubunitIO/SubunitRegistry.hpp"
+#include "WorldIO/WorldDefinition.hpp"
 
 
 //===========================================================================
@@ -54,8 +56,12 @@ private:
     /* Map listing all the sub-unit / structure names inside each sub-graph. */
     map<GraphID, list<string>> subGraphs;
 
+    /* Optional document-local labels retained by world import/export. */
+    map<GraphID, string> graphLabels;
+
     /*   sub-unit name -> type map.  WHY THIS WHEN sub-units knows their own type? */
     map<subName, int> typeCatalog;
+    map<subName, string> modelCatalog;
 
     // ?? for optimization?
     map<pair<string, string>, list<refPoint>> alreadyKnownPaths;
@@ -80,6 +86,35 @@ public:
 #endif
     };
 
+    World(const World&) = delete;
+    World& operator=(const World&) = delete;
+    World(World&& other) noexcept
+        : worldId(std::move(other.worldId)),
+          links(std::move(other.links)),
+          nameCatalog(std::move(other.nameCatalog)),
+          totalNumberofGraphs(other.totalNumberofGraphs),
+          subGraphs(std::move(other.subGraphs)),
+          graphLabels(std::move(other.graphLabels)),
+          typeCatalog(std::move(other.typeCatalog)),
+          modelCatalog(std::move(other.modelCatalog)),
+          alreadyKnownPaths(std::move(other.alreadyKnownPaths)),
+          numberOfPathsFound(other.numberOfPathsFound),
+          GLEX(other.GLEX),
+          betas(std::move(other.betas)),
+          params(std::move(other.params)),
+          subunitRegistry(std::move(other.subunitRegistry))
+    {
+        other.nameCatalog.clear();
+        other.subGraphs.clear();
+        other.graphLabels.clear();
+        other.typeCatalog.clear();
+        other.modelCatalog.clear();
+        other.GLEX = nullptr;
+        other.totalNumberofGraphs = 0;
+        other.numberOfPathsFound = 0;
+    }
+    World& operator=(World&&) = delete;
+
     ~World(){
         // release allocated sub-units / structures.
         for (auto it = nameCatalog.begin(); it != nameCatalog.end(); ++it) delete it->second;
@@ -92,6 +127,10 @@ public:
     GraphID getGraphID(string);              // NB. fails if given a path as structure_name:subunit_name, since that's two different graphIDs!
     GraphID getGraphID(SubUnit*);            // Supplied for user convenience. NOT USED INTERNALLY
     GraphID getGraphID(Structure*);          // Supplied for user convenience. NOT USED INTERNALLY
+
+    const string& getId() const { return worldId; }
+    pyseb::WorldDefinition Describe() const;
+    void SetGraphLabel(GraphID gid, const string& label);
 
     // Get pointers from strings
     SubUnit* getSubunit(string);             // return sub-unit pointer to specified sub-unit.

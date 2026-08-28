@@ -113,6 +113,7 @@ add_library(seb STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/SubunitDefinition.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/SubunitRegistry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/SubunitValidator.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/WorldIO/WorldParser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/Subunits/FileDefined.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/generated/BundledModels.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SymbolInterface.cpp
