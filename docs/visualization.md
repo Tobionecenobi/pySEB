@@ -73,3 +73,5 @@ A contour-linked binary rod dendrimer is demonstrated in
 `pyseb/examples/python/usd_rod_dendrimer.py`.
 The contour-to-contour variant is in
 `pyseb/examples/python/usd_contour_linked_rod_dendrimer.py`.
+A 100-circle center-to-contour chain is demonstrated in
+`pyseb/examples/python/usd_circle_chain.py`.
