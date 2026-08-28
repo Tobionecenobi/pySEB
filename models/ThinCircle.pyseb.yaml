@@ -66,6 +66,7 @@ validation:
       parameters: {R: 3.0}
       references: [center]
       expected: 9.0
+
     - name: center-to-contour phase at zero angle
       quantity: phase
       parameters: {R: 3.0}
@@ -77,3 +78,14 @@ validation:
       parameters: {R: 3.0}
       references: [center, contour]
       expected: 9.0
+
+visualization:
+  geometry:
+    contour:
+      kind: curve
+      u: {lower: "0", upper: "2 * pi"}
+      coordinates: ["R * cos(u)", "R * sin(u)", "0"]
+      periodic: true
+  references:
+    center: {kind: fixed, position: [0, 0, 0]}
+    contour: {kind: distributed, geometry: contour, sampling: uniform_parameter}

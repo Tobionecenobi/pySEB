@@ -247,6 +247,9 @@ ParsedExpression parsedExpression(
     const Node& node,
     const std::string& source,
     const std::string& path) {
+    if (node.is_integer() || node.is_float_number()) {
+        return ParseSubunitExpression(std::to_string(node.get_value<double>()), source + ": " + path);
+    }
     return ParseSubunitExpression(scalarString(node, source, path), source + ": " + path);
 }
 
@@ -378,6 +381,116 @@ std::map<ReferencePair, ParsedExpression> pairExpressionSequence(
             requiredNode(item, "expression", source, itemPath), source, itemPath + ".expression");
         if (!result.emplace(pair, expression).second) {
             schemaError(source, itemPath + ".references", "duplicate unordered reference pair");
+        }
+    }
+    return result;
+}
+
+std::array<ParsedExpression,3> expressionTriple(const Node& node, const std::string& source, const std::string& path) {
+    requireSequence(node, source, path);
+    if (node.size() != 3) schemaError(source, path, "expected exactly three expressions");
+    std::array<ParsedExpression,3> out;
+    std::size_t i = 0;
+    for (const auto& n : node) out[i++] = parsedExpression(n, source, path + "[" + std::to_string(i-1) + "]");
+    return out;
+}
+
+VisualizationDefinition parseVisualization(const Node& node, const std::string& source, const std::string& path) {
+    VisualizationDefinition result;
+    result.present = true;
+    rejectUnknownKeys(node, {"definitions", "style", "geometry", "references"}, source, path);
+    if (node.contains("definitions")) result.definitions = expressionMap(node.at("definitions"), source, path + ".definitions");
+    if (node.contains("style")) {
+        const Node& style = node.at("style");
+        rejectUnknownKeys(style, {"color", "opacity", "double_sided", "curve_width"}, source, path + ".style");
+        if (style.contains("color")) {
+            const auto c = expressionTriple(style.at("color"), source, path + ".style.color");
+            for (int i=0;i<3;++i) {
+                if (!c[i].root() || c[i].root()->kind != ParsedExpressionNode::Kind::Number) schemaError(source, path + ".style.color", "color components must be numeric");
+                result.color[i] = c[i].root()->number;
+                if (result.color[i] < 0 || result.color[i] > 1) schemaError(source, path + ".style.color", "color components must be in [0,1]");
+            }
+        }
+        if (style.contains("opacity")) result.opacity = scalarDouble(style.at("opacity"), source, path + ".style.opacity");
+        if (result.opacity < 0 || result.opacity > 1) schemaError(source, path + ".style.opacity", "opacity must be in [0,1]");
+        if (style.contains("curve_width")) result.curveWidth = scalarDouble(style.at("curve_width"), source, path + ".style.curve_width");
+        if (style.contains("double_sided")) {
+            if (!style.at("double_sided").is_boolean()) schemaError(source, path + ".style.double_sided", "expected boolean");
+            result.doubleSided = style.at("double_sided").get_value<bool>();
+        }
+        if (result.curveWidth < 0) schemaError(source, path + ".style.curve_width", "curve width must be non-negative");
+    }
+    if (node.contains("geometry")) {
+        requireMapping(node.at("geometry"), source, path + ".geometry");
+        for (const auto& item : node.at("geometry").map_items()) {
+            const std::string name = scalarString(item.key(), source, path + ".geometry.<key>");
+            const std::string p = path + ".geometry." + name;
+            rejectUnknownKeys(item.value(), {"kind","u","v","coordinates","samples","distribution","closure","target_rg","width","periodic","style"}, source, p);
+            VisualizationGeometry g; g.name = name;
+            const std::string kind = scalarString(requiredNode(item.value(), "kind", source, p), source, p + ".kind");
+            if (kind == "curve") g.kind = VisualizationGeometryKind::Curve;
+            else if (kind == "surface") g.kind = VisualizationGeometryKind::Surface;
+            else if (kind == "random_walk") g.kind = VisualizationGeometryKind::RandomWalk;
+            else schemaError(source, p + ".kind", "expected curve, surface, or random_walk");
+            if (item.value().contains("coordinates")) g.coordinates = expressionTriple(item.value().at("coordinates"), source, p + ".coordinates");
+            else if (g.kind != VisualizationGeometryKind::RandomWalk) schemaError(source, p + ".coordinates", "required field is missing");
+            g.uLower = ParseSubunitExpression("0", source + ": " + p + ".u.lower");
+            g.uUpper = ParseSubunitExpression("1", source + ": " + p + ".u.upper");
+            g.vLower = ParseSubunitExpression("0", source + ": " + p + ".v.lower");
+            g.vUpper = ParseSubunitExpression("1", source + ": " + p + ".v.upper");
+            if (item.value().contains("u")) {
+                const Node& u = item.value().at("u"); rejectUnknownKeys(u, {"lower","upper"}, source, p + ".u");
+                if (u.contains("lower")) g.uLower = parsedExpression(u.at("lower"), source, p + ".u.lower");
+                if (u.contains("upper")) g.uUpper = parsedExpression(u.at("upper"), source, p + ".u.upper");
+            }
+            if (item.value().contains("v")) {
+                const Node& v = item.value().at("v"); rejectUnknownKeys(v, {"lower","upper"}, source, p + ".v");
+                if (v.contains("lower")) g.vLower = parsedExpression(v.at("lower"), source, p + ".v.lower");
+                if (v.contains("upper")) g.vUpper = parsedExpression(v.at("upper"), source, p + ".v.upper");
+            }
+            if (item.value().contains("samples")) g.samples = scalarSize(item.value().at("samples"), source, p + ".samples");
+            if (item.value().contains("distribution")) g.distribution = scalarString(item.value().at("distribution"), source, p + ".distribution");
+            if (item.value().contains("closure")) g.closure = scalarString(item.value().at("closure"), source, p + ".closure");
+            if (g.kind == VisualizationGeometryKind::RandomWalk && g.distribution != "gaussian" && g.distribution != "fixed_length") schemaError(source, p + ".distribution", "expected gaussian or fixed_length");
+            if (g.kind == VisualizationGeometryKind::RandomWalk && g.closure != "open" && g.closure != "bridge") schemaError(source, p + ".closure", "expected open or bridge");
+            if (item.value().contains("target_rg")) g.targetRg = parsedExpression(item.value().at("target_rg"), source, p + ".target_rg");
+            if (item.value().contains("width")) g.width = scalarDouble(item.value().at("width"), source, p + ".width");
+            if (item.value().contains("periodic")) g.periodic = true;
+            result.geometry.emplace(name, std::move(g));
+        }
+    }
+    if (node.contains("references")) {
+        requireMapping(node.at("references"), source, path + ".references");
+        for (const auto& item : node.at("references").map_items()) {
+            const std::string name = scalarString(item.key(), source, path + ".references.<key>");
+            const std::string p = path + ".references." + name;
+            rejectUnknownKeys(item.value(), {"kind","geometry","fraction","position","sampling","patches","weights","variants"}, source, p);
+            VisualizationReference r; r.name = name;
+            if (item.value().contains("kind")) r.kind = scalarString(item.value().at("kind"), source, p + ".kind");
+            if (item.value().contains("geometry")) r.geometry = scalarString(item.value().at("geometry"), source, p + ".geometry");
+            if (item.value().contains("fraction")) r.fraction = parsedExpression(item.value().at("fraction"), source, p + ".fraction");
+            if (item.value().contains("position")) r.position = expressionTriple(item.value().at("position"), source, p + ".position");
+            if (item.value().contains("sampling")) r.sampling = scalarString(item.value().at("sampling"), source, p + ".sampling");
+            if (item.value().contains("patches")) r.patches = stringSequence(item.value().at("patches"), source, p + ".patches");
+            if (item.value().contains("weights")) { requireSequence(item.value().at("weights"), source, p + ".weights"); for (const auto& w : item.value().at("weights")) r.weights.push_back(scalarDouble(w, source, p + ".weights")); }
+            if (item.value().contains("variants")) {
+                const Node& variants=item.value().at("variants");
+                requireMapping(variants,source,p+".variants");
+                for (const auto& variantItem : variants.map_items()) {
+                    const std::string variantName=scalarString(variantItem.key(),source,p+".variants.<key>");
+                    if (!validSymbolName(variantName)) schemaError(source,p+".variants."+variantName,"names must start with a letter and contain only letters and digits");
+                    const std::string variantPath=p+".variants."+variantName;
+                    rejectUnknownKeys(variantItem.value(),{"geometry","sampling"},source,variantPath);
+                    VisualizationReferenceVariant variant;
+                    variant.geometry=scalarString(requiredNode(variantItem.value(),"geometry",source,variantPath),source,variantPath+".geometry");
+                    variant.sampling=scalarString(requiredNode(variantItem.value(),"sampling",source,variantPath),source,variantPath+".sampling");
+                    if (variant.sampling != "uniform_parameter" && variant.sampling != "arc_length" && variant.sampling != "surface_area") schemaError(source,variantPath+".sampling","unsupported sampling mode");
+                    r.variants.emplace(variantName,std::move(variant));
+                }
+            }
+            if (r.kind != "fixed" && r.kind != "curve_fraction" && r.kind != "distributed") schemaError(source, p + ".kind", "expected fixed, curve_fraction, or distributed");
+            if (r.sampling != "uniform_parameter" && r.sampling != "arc_length" && r.sampling != "surface_area" && r.sampling != "weighted_mixture") schemaError(source, p + ".sampling", "unsupported sampling mode");
+            result.references.emplace(name, std::move(r));
         }
     }
     return result;
@@ -619,6 +732,34 @@ void validateExpressionDependencies(const SubunitDefinition& definition) {
     for (const auto& item : definition.referenceToReference) {
         requireSizeIndependent(item.second, "sizes.reference_to_reference");
     }
+
+    if (definition.visualization.present) {
+        std::set<std::string> local = parameters;
+        for (const auto& p : variables) local.insert(p);
+        for (const auto& p : namedDefinitions) local.insert(p);
+        for (const auto& p : definition.visualization.definitions) local.insert(p.first);
+        local.insert({"pi", "e", "sin", "cos", "tan", "sqrt", "exp", "log", "abs", "pow", "sinh", "cosh", "tanh", "asin", "acos", "atan"});
+        const auto checkViz = [&](const ParsedExpression& e, const std::string& path, bool allowDomain) {
+            for (const auto& id : e.identifiers()) {
+                if (id == "q" || id == "beta") schemaError(source, path, "visualization expressions cannot depend on q or beta");
+                if (allowDomain && (id == "u" || id == "v" || id == "t")) continue;
+                if (!local.count(id)) schemaError(source, path, "unknown visualization identifier '" + id + "'");
+            }
+        };
+        for (const auto& d : definition.visualization.definitions) checkViz(d.second, "visualization.definitions." + d.first, false);
+        for (const auto& g : definition.visualization.geometry) {
+            const std::string p = "visualization.geometry." + g.first;
+            for (const auto& e : g.second.coordinates) checkViz(e, p + ".coordinates", true);
+            checkViz(g.second.uLower, p + ".u.lower", false); checkViz(g.second.uUpper, p + ".u.upper", false);
+            checkViz(g.second.vLower, p + ".v.lower", false); checkViz(g.second.vUpper, p + ".v.upper", false);
+            if (g.second.targetRg.root()) checkViz(g.second.targetRg, p + ".target_rg", false);
+        }
+        for (const auto& r : definition.visualization.references) {
+            const std::string p = "visualization.references." + r.first;
+            for (const auto& e : r.second.position) checkViz(e, p + ".position", false);
+            if (r.second.fraction.root()) checkViz(r.second.fraction, p + ".fraction", true);
+        }
+    }
 }
 
 void validateReferenceCompleteness(const SubunitDefinition& definition) {
@@ -763,7 +904,7 @@ SubunitDefinition LoadSubunitDefinitionYaml(const std::string& yaml, const std::
     rejectUnknownKeys(
         root,
         {"format", "schema_version", "id", "api_name", "model_version", "metadata", "behavior", "parameters",
-         "variables", "definitions", "integration", "integrals", "references", "expressions", "sizes", "validation"},
+         "variables", "definitions", "integration", "integrals", "references", "expressions", "sizes", "validation", "visualization"},
         source,
         "$");
 
@@ -848,6 +989,10 @@ SubunitDefinition LoadSubunitDefinitionYaml(const std::string& yaml, const std::
     definition.referenceToReference = pairExpressionSequence(
         requiredNode(sizes, "reference_to_reference", source, "sizes"), source, "sizes.reference_to_reference");
 
+    if (root.contains("visualization")) {
+        definition.visualization = parseVisualization(root.at("visualization"), source, "visualization");
+    }
+
     if (root.contains("validation")) {
         const Node& validation = root.at("validation");
         rejectUnknownKeys(validation, {"absolute_tolerance", "relative_tolerance", "cases"}, source, "validation");
@@ -874,6 +1019,35 @@ SubunitDefinition LoadSubunitDefinitionYaml(const std::string& yaml, const std::
     validateUniqueNames(definition);
     validateExpressionDependencies(definition);
     validateReferenceCompleteness(definition);
+    if (definition.visualization.present) {
+        std::set<std::string> scattering(definition.specificReferences.begin(), definition.specificReferences.end());
+        scattering.insert(definition.distributedReferences.begin(), definition.distributedReferences.end());
+        std::set<std::string> visual;
+        for (const auto& r : definition.visualization.references) visual.insert(r.first);
+        if (visual != scattering) schemaError(source, "visualization.references", "must match scattering references exactly");
+        for (const auto& r : definition.visualization.references) {
+            if (r.second.kind != "fixed" && r.second.sampling != "weighted_mixture" && r.second.geometry.empty()) schemaError(source, "visualization.references." + r.first, "geometry is required for non-fixed references");
+            if (!r.second.geometry.empty() && !definition.visualization.geometry.count(r.second.geometry)) schemaError(source, "visualization.references." + r.first + ".geometry", "unknown geometry patch");
+            if (r.second.sampling == "weighted_mixture") {
+                if (r.second.patches.empty() || r.second.patches.size() != r.second.weights.size()) schemaError(source, "visualization.references." + r.first, "weighted mixture requires equally sized patches and weights");
+                double total = 0.0;
+                for (std::size_t index = 0; index < r.second.patches.size(); ++index) {
+                    if (!definition.visualization.geometry.count(r.second.patches[index])) schemaError(source, "visualization.references." + r.first + ".patches", "unknown geometry patch '" + r.second.patches[index] + "'");
+                    if (r.second.weights[index] < 0.0) schemaError(source, "visualization.references." + r.first + ".weights", "weights must be non-negative");
+                    total += r.second.weights[index];
+                }
+                if (total <= 0.0) schemaError(source, "visualization.references." + r.first + ".weights", "weights must have positive total");
+            }
+            if (!r.second.variants.empty() && r.second.kind != "distributed") schemaError(source, "visualization.references." + r.first + ".variants", "variants require a distributed reference");
+            for (const auto& variant : r.second.variants) {
+                const std::string variantPath="visualization.references."+r.first+".variants."+variant.first;
+                const auto geometry=definition.visualization.geometry.find(variant.second.geometry);
+                if (geometry == definition.visualization.geometry.end()) schemaError(source,variantPath+".geometry","unknown geometry patch '"+variant.second.geometry+"'");
+                if (geometry->second.kind == VisualizationGeometryKind::Surface && variant.second.sampling != "surface_area" && variant.second.sampling != "arc_length") schemaError(source,variantPath+".sampling","surface variants require surface_area or arc_length sampling");
+                if (geometry->second.kind != VisualizationGeometryKind::Surface && variant.second.sampling == "surface_area") schemaError(source,variantPath+".sampling","surface_area sampling requires a surface variant");
+            }
+        }
+    }
     std::set<std::string> validationReferences(
         definition.specificReferences.begin(), definition.specificReferences.end());
     validationReferences.insert(

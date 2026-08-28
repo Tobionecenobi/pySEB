@@ -166,6 +166,11 @@ class TestFileDefinedSubunits(unittest.TestCase):
         self.assertEqual(definition.integration.workspace_size, 1000)
         self.assertEqual(definition.integration.qag_rule, 61)
         self.assertEqual(len(definition.integrals), 14)
+        variants = definition.visualization.references["ends"].variants
+        self.assertEqual(set(variants), {"top", "bottom"})
+        self.assertEqual(variants["top"].geometry, "ends_top")
+        self.assertEqual(variants["top"].sampling, "surface_area")
+        self.assertEqual(variants["bottom"].geometry, "ends_bottom")
         form_factor = definition.integrals["formFactor"]
         self.assertEqual(form_factor.variable, "theta")
         self.assertEqual(form_factor.lower, "0")
@@ -174,6 +179,10 @@ class TestFileDefinedSubunits(unittest.TestCase):
             form_factor.variable = "other"
 
         spheroid = pyseb.load_subunit_definition(str(MODELS / "Spheroid.pyseb.yaml"))
+        self.assertEqual(
+            set(spheroid.specific_references),
+            {"center", "pole", "north", "south"},
+        )
         surface_amplitude = spheroid.integrals["surfaceAmplitude"]
         self.assertEqual(
             [(dimension.variable, dimension.lower, dimension.upper)
@@ -190,6 +199,16 @@ class TestFileDefinedSubunits(unittest.TestCase):
             path = Path(directory) / "broken.pyseb.yaml"
             path.write_text(source + "unknown_field: true\n", encoding="utf-8")
             with self.assertRaisesRegex(RuntimeError, r"unknown_field"):
+                pyseb.load_subunit_definition(str(path))
+
+        cylinder = (MODELS / "SolidCylinder.pyseb.yaml").read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "broken-variant.pyseb.yaml"
+            path.write_text(
+                cylinder.replace("geometry: ends_top", "geometry: missing_patch"),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(RuntimeError, r"missing_patch"):
                 pyseb.load_subunit_definition(str(path))
 
     def test_schema_rejects_reference_errors_and_multiple_documents(self):

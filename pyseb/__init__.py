@@ -77,6 +77,14 @@ sqrt = _pyseb.sqrt
 abs = _pyseb.abs
 NormalizationMode = _pyseb.NormalizationMode
 IntegrationMethod = _pyseb.IntegrationMethod
+LengthUnit = _pyseb.LengthUnit
+USDLayoutMode = _pyseb.USDLayoutMode
+LayoutMode = USDLayoutMode
+USDExportOptions = _pyseb.USDExportOptions
+VisualizationGeometryKind = _pyseb.VisualizationGeometryKind
+VisualizationGeometry = _pyseb.VisualizationGeometry
+VisualizationReference = _pyseb.VisualizationReference
+VisualizationDefinition = _pyseb.VisualizationDefinition
 SymbolicSubunit = _pyseb.SymbolicSubunit
 NumericalSubunit = _pyseb.NumericalSubunit
 CartesianPoint3D = _pyseb.CartesianPoint3D
@@ -155,6 +163,14 @@ __all__ = [
     'abs',
     'NormalizationMode',
     'IntegrationMethod',
+    'LengthUnit',
+    'USDLayoutMode',
+    'LayoutMode',
+    'USDExportOptions',
+    'VisualizationGeometryKind',
+    'VisualizationGeometry',
+    'VisualizationReference',
+    'VisualizationDefinition',
     'SymbolicSubunit',
     'NumericalSubunit',
     'CartesianPoint3D',

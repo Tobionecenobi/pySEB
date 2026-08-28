@@ -53,6 +53,7 @@ validation:
       parameters: {Rg: 2.0}
       q: 0.0
       expected: 1.0
+
     - name: radius of gyration
       quantity: radius_of_gyration_squared
       parameters: {Rg: 2.0}
@@ -68,3 +69,13 @@ validation:
       references: [contour, contour]
       q: 0.0
       expected: 1.0
+
+visualization:
+  geometry:
+    contour:
+      kind: random_walk
+      samples: 96
+      closure: bridge
+      target_rg: Rg
+  references:
+    contour: {kind: distributed, geometry: contour, sampling: arc_length}

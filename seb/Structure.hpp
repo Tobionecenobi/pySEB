@@ -54,6 +54,7 @@ class Structure : public ABSSubUnit{
 
     // Gets the ID of the graph inside the this structure.
     GraphID getGraphID() { return gid; }
+    GraphID getGraphID() const { return gid; }
 
     
 

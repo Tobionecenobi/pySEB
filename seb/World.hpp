@@ -18,6 +18,7 @@
 #include "Subunit.hpp"
 #include "Subunits/Subunits.hpp"
 #include "SubunitIO/SubunitRegistry.hpp"
+#include "USDExport.hpp"
 
 
 //===========================================================================
@@ -142,6 +143,9 @@ public:
     pyseb::SubunitModelInfo RegisterSubunitFile(string path);
     vector<pyseb::SubunitModelInfo> RegisterSubunitDirectory(string path);
     vector<pyseb::SubunitModelInfo> ListSubunitModels() const;
+
+    void ExportUSD(const std::string& structure, const std::string& path,
+                   const ParameterList& parameters, const USDExportOptions& options) const;
 
     /* Wraps a given graph in a structure name. The graph now is a node that we can build with. */
     GraphID Add(GraphID gid, structName name);
