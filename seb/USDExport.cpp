@@ -41,16 +41,32 @@ namespace {
 
 struct Vec3 {
     double x = 0.0, y = 0.0, z = 0.0;
-    Vec3 operator+(const Vec3& other) const { return {x + other.x, y + other.y, z + other.z}; }
-    Vec3 operator-(const Vec3& other) const { return {x - other.x, y - other.y, z - other.z}; }
-    Vec3 operator*(double scale) const { return {x * scale, y * scale, z * scale}; }
+    Vec3 operator+(const Vec3& other) const {
+        return {x + other.x, y + other.y, z + other.z};
+    }
+    Vec3 operator-(const Vec3& other) const {
+        return {x - other.x, y - other.y, z - other.z};
+    }
+    Vec3 operator*(double scale) const {
+        return {x * scale, y * scale, z * scale};
+    }
 };
 
-double dot(const Vec3& a, const Vec3& b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
-Vec3 cross(const Vec3& a, const Vec3& b) {
-    return {a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x};
+double dot(const Vec3& a, const Vec3& b) {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
 }
-double length(const Vec3& value) { return std::sqrt(dot(value, value)); }
+
+Vec3 cross(const Vec3& a, const Vec3& b) {
+    return {
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    };
+}
+
+double length(const Vec3& value) {
+    return std::sqrt(dot(value, value));
+}
 
 struct Quaternion {
     double w = 1.0, x = 0.0, y = 0.0, z = 0.0;
@@ -58,15 +74,21 @@ struct Quaternion {
 
 Vec3 rotate(const Quaternion& q, const Vec3& value) {
     const Vec3 u{q.x, q.y, q.z};
-    return value + cross(u, value) * (2.0*q.w) + cross(u, cross(u, value)) * 2.0;
+    return value
+        + cross(u, value) * (2.0 * q.w)
+        + cross(u, cross(u, value)) * 2.0;
 }
 
 Quaternion multiply(const Quaternion& first, const Quaternion& second) {
     return {
-        first.w*second.w-first.x*second.x-first.y*second.y-first.z*second.z,
-        first.w*second.x+first.x*second.w+first.y*second.z-first.z*second.y,
-        first.w*second.y-first.x*second.z+first.y*second.w+first.z*second.x,
-        first.w*second.z+first.x*second.y-first.y*second.x+first.z*second.w
+        first.w * second.w - first.x * second.x
+            - first.y * second.y - first.z * second.z,
+        first.w * second.x + first.x * second.w
+            + first.y * second.z - first.z * second.y,
+        first.w * second.y - first.x * second.z
+            + first.y * second.w + first.z * second.x,
+        first.w * second.z + first.x * second.y
+            - first.y * second.x + first.z * second.w
     };
 }
 
@@ -94,6 +116,11 @@ struct InstanceScene {
     double opacity = 1.0;
 };
 
+using ExpressionEvaluator = std::function<double(
+    const pyseb::ParsedExpression&,
+    const std::map<std::string, double>&)>;
+
+// Scene realization: turn schema descriptions into sampled, local geometry.
 struct LinkEndpoint {
     std::string instance;
     std::string reference;
@@ -277,6 +304,129 @@ Vec3 sampleSurfaceBoundary(const GeometryPatch& patch, double draw) {
     const std::size_t offset=(patch.uCount-1)*patch.vCount;
     boundary.points.assign(patch.points.begin()+offset,patch.points.begin()+offset+patch.vCount);
     return sampleCurveLength(boundary,draw);
+}
+
+GeometryPatch realizeGeometry(
+    const pyseb::VisualizationGeometry& definition,
+    std::size_t sampleCount,
+    const ExpressionEvaluator& evaluate,
+    unsigned long long seed,
+    const std::string& instanceName,
+    const std::string& geometryName) {
+    GeometryPatch patch;
+    patch.kind = definition.kind;
+
+    if (definition.kind == pyseb::VisualizationGeometryKind::RandomWalk) {
+        std::mt19937_64 generator(
+            derivedSeed(seed, instanceName + "/geometry/" + geometryName));
+        std::normal_distribution<double> normal(0.0, 1.0);
+        patch.points.resize(sampleCount);
+
+        for (std::size_t index = 1; index < sampleCount; ++index) {
+            Vec3 step{normal(generator), normal(generator), normal(generator)};
+            if (definition.distribution == "fixed_length") {
+                const double size = length(step);
+                if (size > 0.0) step = step * (1.0 / size);
+            }
+            patch.points[index] = patch.points[index - 1] + step;
+        }
+
+        if (definition.closure == "bridge") {
+            const Vec3 end = patch.points.back();
+            for (std::size_t index = 0; index < sampleCount; ++index) {
+                patch.points[index] = patch.points[index]
+                    - end * (static_cast<double>(index) / (sampleCount - 1));
+            }
+        }
+
+        Vec3 center;
+        for (const Vec3& point : patch.points) center = center + point;
+        center = center * (1.0 / sampleCount);
+        double radiusOfGyrationSquared = 0.0;
+        for (Vec3& point : patch.points) {
+            point = point - center;
+            radiusOfGyrationSquared += dot(point, point);
+        }
+
+        const double radiusOfGyration = std::sqrt(
+            radiusOfGyrationSquared / sampleCount);
+        const double target = definition.targetRg.root()
+            ? evaluate(definition.targetRg, {})
+            : 1.0;
+        if (radiusOfGyration > 0.0) {
+            for (Vec3& point : patch.points) {
+                point = point * (target / radiusOfGyration);
+            }
+        }
+        return patch;
+    }
+
+    if (definition.kind == pyseb::VisualizationGeometryKind::Curve) {
+        patch.uCount = sampleCount;
+        const double lower = evaluate(definition.uLower, {});
+        const double upper = evaluate(definition.uUpper, {});
+        for (std::size_t index = 0; index < sampleCount; ++index) {
+            const double u = lower + (upper - lower)
+                * static_cast<double>(index) / (sampleCount - 1);
+            const std::map<std::string, double> local{{"u", u}, {"t", u}};
+            patch.points.push_back({
+                evaluate(definition.coordinates[0], local),
+                evaluate(definition.coordinates[1], local),
+                evaluate(definition.coordinates[2], local)
+            });
+        }
+        return patch;
+    }
+
+    patch.uCount = sampleCount;
+    patch.vCount = sampleCount;
+    const double uLower = evaluate(definition.uLower, {});
+    const double uUpper = evaluate(definition.uUpper, {});
+    const double vLower = evaluate(definition.vLower, {});
+    const double vUpper = evaluate(definition.vUpper, {});
+    for (std::size_t uIndex = 0; uIndex < sampleCount; ++uIndex) {
+        const double u = uLower + (uUpper - uLower)
+            * static_cast<double>(uIndex) / (sampleCount - 1);
+        for (std::size_t vIndex = 0; vIndex < sampleCount; ++vIndex) {
+            const double v = vLower + (vUpper - vLower)
+                * static_cast<double>(vIndex) / (sampleCount - 1);
+            const std::map<std::string, double> local{{"u", u}, {"v", v}};
+            patch.points.push_back({
+                evaluate(definition.coordinates[0], local),
+                evaluate(definition.coordinates[1], local),
+                evaluate(definition.coordinates[2], local)
+            });
+        }
+    }
+    return patch;
+}
+
+void resolveSpecificReferences(
+    InstanceScene& instance,
+    const pyseb::VisualizationDefinition& visualization,
+    const ExpressionEvaluator& evaluate) {
+    for (const auto& item : visualization.references) {
+        const auto& reference = item.second;
+        if (reference.kind == "fixed") {
+            instance.resolvedReferences[item.first] = {
+                evaluate(reference.position[0], {}),
+                evaluate(reference.position[1], {}),
+                evaluate(reference.position[2], {})
+            };
+            continue;
+        }
+        if (reference.kind == "curve_fraction") {
+            const auto patch = instance.patches.find(reference.geometry);
+            if (patch == instance.patches.end()) {
+                throw SEBException(
+                    "reference uses unknown geometry",
+                    "World::ExportUSD");
+            }
+            instance.resolvedReferences[item.first] = sampleCurveParameter(
+                patch->second,
+                evaluate(reference.fraction, {}));
+        }
+    }
 }
 
 double segmentDistanceSquared(const ProxySegment& first, const ProxySegment& second) {
@@ -717,6 +867,280 @@ Pose rotatePoseAround(const Pose& pose, const Quaternion& rotation, const Vec3& 
     return result;
 }
 
+// USDA serialization: keep formatting and metadata in one place.
+void writePose(std::ostream& output, const Pose& pose) {
+    output << "        double3 xformOp:translate = ("
+           << number(pose.translation.x) << ", "
+           << number(pose.translation.y) << ", "
+           << number(pose.translation.z) << ")\n";
+    output << "        quatd xformOp:orient = ("
+           << number(pose.rotation.w) << ", ("
+           << number(pose.rotation.x) << ", "
+           << number(pose.rotation.y) << ", "
+           << number(pose.rotation.z) << "))\n";
+    output << "        uniform token[] xformOpOrder = "
+              "[\"xformOp:translate\", \"xformOp:orient\"]\n";
+}
+
+void writeReferencePrim(
+    std::ostream& output,
+    const std::string& referenceName,
+    const Vec3& position) {
+    output << "        def Xform \"ref_" << usdName(referenceName)
+           << "\" {\n"
+           << "            visibility = \"invisible\"\n"
+           << "            custom string pyseb:reference = "
+           << quote(referenceName) << "\n"
+           << "            double3 xformOp:translate = ("
+           << number(position.x) << ", "
+           << number(position.y) << ", "
+           << number(position.z) << ")\n"
+           << "            uniform token[] xformOpOrder = "
+              "[\"xformOp:translate\"]\n"
+           << "        }\n";
+}
+
+void writeGeometryPrim(
+    std::ostream& output,
+    const std::string& name,
+    const GeometryPatch& patch,
+    const std::array<double, 3>& color,
+    double opacity) {
+    const bool isSurface =
+        patch.kind == pyseb::VisualizationGeometryKind::Surface;
+    output << "        def " << (isSurface ? "Mesh" : "BasisCurves")
+           << " \"" << usdName(name) << "\" {\n";
+
+    if (isSurface) {
+        output << "            int[] faceVertexCounts = [";
+        for (std::size_t u = 0; u + 1 < patch.uCount; ++u) {
+            for (std::size_t v = 0; v + 1 < patch.vCount; ++v) {
+                output << "4, ";
+            }
+        }
+        output << "]\n            int[] faceVertexIndices = [";
+        for (std::size_t u = 0; u + 1 < patch.uCount; ++u) {
+            for (std::size_t v = 0; v + 1 < patch.vCount; ++v) {
+                const std::size_t index = u * patch.vCount + v;
+                output << index << ", "
+                       << index + 1 << ", "
+                       << index + patch.vCount + 1 << ", "
+                       << index + patch.vCount << ", ";
+            }
+        }
+        output << "]\n";
+    } else {
+        output << "            int[] curveVertexCounts = ["
+               << patch.points.size() << "]\n";
+    }
+
+    output << "            point3f[] points = [";
+    for (const Vec3& point : patch.points) {
+        output << "(" << number(point.x) << ", "
+               << number(point.y) << ", "
+               << number(point.z) << "), ";
+    }
+    output << "]\n"
+           << "            color3f[] primvars:displayColor = [("
+           << number(color[0]) << ", "
+           << number(color[1]) << ", "
+           << number(color[2]) << ")]\n"
+           << "            float[] primvars:displayOpacity = ["
+           << number(opacity) << "]\n"
+           << "        }\n";
+}
+
+void writeCloudPrim(
+    std::ostream& output,
+    const std::string& structure,
+    const std::string& name,
+    const DebyeSphereCloud& cloud,
+    const USDExportOptions& options,
+    const std::map<std::string, Vec3>& references) {
+    std::array<double, 3> color{{0.7, 0.7, 0.7}};
+    const auto colorOverride = options.colorOverrides.find(name);
+    if (colorOverride != options.colorOverrides.end()) {
+        color = colorOverride->second;
+    }
+
+    double opacity = 1.0;
+    const auto opacityOverride = options.opacityOverrides.find(name);
+    if (opacityOverride != options.opacityOverrides.end()) {
+        opacity = opacityOverride->second;
+    }
+
+    const auto& scatterers = cloud.getScatterers();
+    output << "        def PointInstancer \"cloud\" {\n"
+           << "            rel prototypes = [</" << usdName(structure)
+           << "/" << usdName(name) << "/spherePrototype>]\n"
+           << "            point3f[] positions = [";
+    for (const auto& scatterer : scatterers) {
+        output << "(" << number(scatterer.center.x) << ", "
+               << number(scatterer.center.y) << ", "
+               << number(scatterer.center.z) << "), ";
+    }
+    output << "]\n            int[] protoIndices = [";
+    for (std::size_t index = 0; index < scatterers.size(); ++index) {
+        output << "0, ";
+    }
+    output << "]\n            float3[] scales = [";
+    for (const auto& scatterer : scatterers) {
+        const double radius = displayedRadius(
+            scatterer, options.zeroRadiusMarkerSize);
+        output << "(" << number(radius) << ", "
+               << number(radius) << ", "
+               << number(radius) << "), ";
+    }
+    output << "]\n"
+           << "            custom float[] pyseb:radius = [";
+    for (const auto& scatterer : scatterers) {
+        output << number(scatterer.radius) << ", ";
+    }
+    output << "]\n            custom float[] pyseb:beta = [";
+    for (const auto& scatterer : scatterers) {
+        output << number(scatterer.beta) << ", ";
+    }
+    output << "]\n            custom int[] pyseb:index = [";
+    for (std::size_t index = 0; index < scatterers.size(); ++index) {
+        output << index << ", ";
+    }
+    output << "]\n            color3f[] primvars:displayColor = [";
+    for (std::size_t index = 0; index < scatterers.size(); ++index) {
+        output << "(" << number(color[0]) << ", "
+               << number(color[1]) << ", "
+               << number(color[2]) << "), ";
+    }
+    output << "]\n            float[] primvars:displayOpacity = [";
+    for (std::size_t index = 0; index < scatterers.size(); ++index) {
+        output << number(opacity) << ", ";
+    }
+    output << "]\n        }\n"
+           << "        def Sphere \"spherePrototype\" { float radius = 1 }\n";
+
+    if (options.debyeEnvelope) {
+        const double padding = options.debyeEnvelopePadding >= 0.0
+            ? options.debyeEnvelopePadding
+            : automaticEnvelopePadding(
+                scatterers, options.zeroRadiusMarkerSize);
+        const TriangleMesh envelope = debyeEnvelopeMesh(
+            cloud,
+            options.debyeEnvelopeResolution,
+            padding,
+            options.zeroRadiusMarkerSize);
+        if (!envelope.triangles.empty()) {
+            output << "        def Mesh \"envelope\" {\n"
+                   << "            custom bool pyseb:visualOnly = true\n"
+                   << "            custom string pyseb:construction = "
+                      "\"union_of_inflated_scatterer_spheres\"\n"
+                   << "            custom double pyseb:padding = "
+                   << number(padding) << "\n"
+                   << "            custom uint64 pyseb:resolution = "
+                   << options.debyeEnvelopeResolution << "\n"
+                   << "            uniform bool doubleSided = true\n"
+                   << "            int[] faceVertexCounts = [";
+            for (std::size_t index = 0; index < envelope.triangles.size(); ++index) {
+                output << "3, ";
+            }
+            output << "]\n            int[] faceVertexIndices = [";
+            for (const auto& triangle : envelope.triangles) {
+                output << triangle[0] << ", "
+                       << triangle[1] << ", "
+                       << triangle[2] << ", ";
+            }
+            output << "]\n            point3f[] points = [";
+            for (const Vec3& point : envelope.points) {
+                output << "(" << number(point.x) << ", "
+                       << number(point.y) << ", "
+                       << number(point.z) << "), ";
+            }
+            output << "]\n"
+                   << "            color3f[] primvars:displayColor = [("
+                   << number(color[0]) << ", "
+                   << number(color[1]) << ", "
+                   << number(color[2]) << ")]\n"
+                   << "            float[] primvars:displayOpacity = ["
+                   << number(options.debyeEnvelopeOpacity * opacity) << "]\n"
+                   << "        }\n";
+        }
+    }
+
+    for (const auto& reference : references) {
+        writeReferencePrim(output, reference.first, reference.second);
+    }
+    output << "        custom string pyseb:model_id = "
+           << quote("pyseb/DebyeSphereCloud") << "\n"
+           << "        custom string pyseb:instance_path = " << quote(name)
+           << "\n"
+           << "        custom uint64 pyseb:seed = " << options.seed << "\n"
+           << "    }\n";
+}
+
+void writeFileInstanceBody(
+    std::ostream& output,
+    const InstanceScene& instance,
+    unsigned long long seed) {
+    for (const auto& reference : instance.resolvedReferences) {
+        writeReferencePrim(output, reference.first, reference.second);
+    }
+    for (const auto& patch : instance.patches) {
+        writeGeometryPrim(
+            output,
+            patch.first,
+            patch.second,
+            instance.color,
+            instance.opacity);
+    }
+    output << "        custom string pyseb:model_id = "
+           << quote(instance.subunit->getDefinition().id) << "\n"
+           << "        custom string pyseb:instance_path = "
+           << quote(instance.name) << "\n"
+           << "        custom string pyseb:tag = " << quote(instance.tag)
+           << "\n"
+           << "        custom uint64 pyseb:seed = " << seed
+           << "\n";
+    for (const auto& parameter : instance.parameters) {
+        output << "        custom double pyseb:param_"
+               << usdName(parameter.first) << " = "
+               << number(parameter.second) << "\n";
+    }
+    output << "    }\n";
+}
+
+void writeLayoutMetadata(std::ostream& output, const USDExportOptions& options) {
+    if (options.layoutMode == USDLayoutMode::Readable) {
+        output << "    custom string pyseb:layoutMode = \"readable\"\n"
+               << "    custom string pyseb:orientationSemantics = "
+                  "\"readability_optimized_free_rotation\"\n"
+               << "    custom string pyseb:overlapPolicy = "
+                  "\"best_effort_minimized\"\n"
+               << "    custom uint64 pyseb:orientationTrials = "
+               << options.orientationTrials << "\n"
+               << "    custom uint64 pyseb:relaxationSweeps = "
+               << options.relaxationSweeps << "\n"
+               << "    custom double pyseb:minimumClearance = "
+               << number(options.minimumClearance) << "\n";
+        return;
+    }
+    output << "    custom string pyseb:layoutMode = \"random\"\n"
+           << "    custom string pyseb:orientationSemantics = "
+              "\"representative_free_rotation\"\n"
+           << "    custom string pyseb:overlapPolicy = \"permitted\"\n";
+}
+
+void writeLinkRelationships(
+    std::ostream& output,
+    const std::string& structure,
+    const std::vector<SceneLink>& links) {
+    for (std::size_t index = 0; index < links.size(); ++index) {
+        const auto& link = links[index];
+        output << "    rel pyseb:link_" << index << " = [</"
+               << usdName(structure) << "/" << usdName(link.first.instance)
+               << "/ref_" << usdName(link.first.reference) << ">, </"
+               << usdName(structure) << "/" << usdName(link.second.instance)
+               << "/ref_" << usdName(link.second.reference) << ">]\n";
+    }
+}
+
 } // namespace
 
 void World::ExportUSD(const std::string& structure,
@@ -832,66 +1256,29 @@ void World::ExportUSD(const std::string& structure,
         };
 
         for (const auto& geometry : visualization.geometry) {
-            const auto& definition=geometry.second;
-            GeometryPatch patch;
-            patch.kind=definition.kind;
-            std::size_t count=definition.samples ? definition.samples :
-                (definition.kind == pyseb::VisualizationGeometryKind::Surface ? options.surfaceSamples : options.curveSamples);
-            if (count < 2) throw SEBException("visualization sampling requires at least two points", "World::ExportUSD");
-            if (definition.kind == pyseb::VisualizationGeometryKind::RandomWalk) {
-                std::mt19937_64 generator(derivedSeed(options.seed,name+"/geometry/"+geometry.first));
-                std::normal_distribution<double> normal(0.0,1.0);
-                patch.points.resize(count);
-                for (std::size_t i=1; i<count; ++i) {
-                    Vec3 step{normal(generator),normal(generator),normal(generator)};
-                    if (definition.distribution == "fixed_length") { const double size=length(step); if (size>0.0) step=step*(1.0/size); }
-                    patch.points[i]=patch.points[i-1]+step;
-                }
-                if (definition.closure == "bridge") {
-                    const Vec3 end=patch.points.back();
-                    for (std::size_t i=0; i<count; ++i) patch.points[i]=patch.points[i]-end*(static_cast<double>(i)/(count-1));
-                }
-                Vec3 center;
-                for (const auto& point : patch.points) center=center+point;
-                center=center*(1.0/count);
-                double rg2=0.0;
-                for (auto& point : patch.points) { point=point-center; rg2+=dot(point,point); }
-                const double rg=std::sqrt(rg2/count);
-                const double target=definition.targetRg.root() ? evaluate(definition.targetRg,{}) : 1.0;
-                if (rg>0.0) for (auto& point : patch.points) point=point*(target/rg);
-            } else if (definition.kind == pyseb::VisualizationGeometryKind::Curve) {
-                patch.uCount=count;
-                const double lower=evaluate(definition.uLower,{}), upper=evaluate(definition.uUpper,{});
-                for (std::size_t i=0; i<count; ++i) {
-                    const double u=lower+(upper-lower)*static_cast<double>(i)/(count-1);
-                    const std::map<std::string,double> local{{"u",u},{"t",u}};
-                    patch.points.push_back({evaluate(definition.coordinates[0],local),evaluate(definition.coordinates[1],local),evaluate(definition.coordinates[2],local)});
-                }
-            } else {
-                patch.uCount=count; patch.vCount=count;
-                const double u0=evaluate(definition.uLower,{}), u1=evaluate(definition.uUpper,{});
-                const double v0=evaluate(definition.vLower,{}), v1=evaluate(definition.vUpper,{});
-                for (std::size_t uIndex=0; uIndex<count; ++uIndex) {
-                    const double u=u0+(u1-u0)*static_cast<double>(uIndex)/(count-1);
-                    for (std::size_t vIndex=0; vIndex<count; ++vIndex) {
-                        const double v=v0+(v1-v0)*static_cast<double>(vIndex)/(count-1);
-                        const std::map<std::string,double> local{{"u",u},{"v",v}};
-                        patch.points.push_back({evaluate(definition.coordinates[0],local),evaluate(definition.coordinates[1],local),evaluate(definition.coordinates[2],local)});
-                    }
-                }
+            const auto& definition = geometry.second;
+            const std::size_t sampleCount = definition.samples
+                ? definition.samples
+                : definition.kind == pyseb::VisualizationGeometryKind::Surface
+                    ? options.surfaceSamples
+                    : options.curveSamples;
+            if (sampleCount < 2) {
+                throw SEBException(
+                    "visualization sampling requires at least two points",
+                    "World::ExportUSD");
             }
-            instance.patches.emplace(geometry.first,std::move(patch));
+            instance.patches.emplace(
+                geometry.first,
+                realizeGeometry(
+                    definition,
+                    sampleCount,
+                    evaluate,
+                    options.seed,
+                    name,
+                    geometry.first));
         }
 
-        for (const auto& reference : visualization.references) {
-            if (reference.second.kind == "fixed") {
-                instance.resolvedReferences[reference.first]={evaluate(reference.second.position[0],{}),evaluate(reference.second.position[1],{}),evaluate(reference.second.position[2],{})};
-            } else if (reference.second.kind == "curve_fraction") {
-                const auto patch=instance.patches.find(reference.second.geometry);
-                if (patch == instance.patches.end()) throw SEBException("reference uses unknown geometry", "World::ExportUSD");
-                instance.resolvedReferences[reference.first]=sampleCurveParameter(patch->second,evaluate(reference.second.fraction,{}));
-            }
-        }
+        resolveSpecificReferences(instance, visualization, evaluate);
         instances.emplace(name,std::move(instance));
     }
 
@@ -1102,18 +1489,7 @@ void World::ExportUSD(const std::string& structure,
     output.imbue(std::locale::classic());
     output << "#usda 1.0\n(\n    upAxis = \"Z\"\n    metersPerUnit = " << number(metersPerUnit) << "\n)\n\n";
     output << "def Xform \"" << usdName(structure) << "\" {\n";
-    if (options.layoutMode == USDLayoutMode::Readable) {
-        output << "    custom string pyseb:layoutMode = \"readable\"\n";
-        output << "    custom string pyseb:orientationSemantics = \"readability_optimized_free_rotation\"\n";
-        output << "    custom string pyseb:overlapPolicy = \"best_effort_minimized\"\n";
-        output << "    custom uint64 pyseb:orientationTrials = " << options.orientationTrials << "\n";
-        output << "    custom uint64 pyseb:relaxationSweeps = " << options.relaxationSweeps << "\n";
-        output << "    custom double pyseb:minimumClearance = " << number(options.minimumClearance) << "\n";
-    } else {
-        output << "    custom string pyseb:layoutMode = \"random\"\n";
-        output << "    custom string pyseb:orientationSemantics = \"representative_free_rotation\"\n";
-        output << "    custom string pyseb:overlapPolicy = \"permitted\"\n";
-    }
+    writeLayoutMetadata(output, options);
     for (const auto& name : selected) {
         const auto catalog=nameCatalog.find(name);
         const SubUnit* sub=catalog == nameCatalog.end()?nullptr:dynamic_cast<const SubUnit*>(catalog->second);
@@ -1125,64 +1501,24 @@ void World::ExportUSD(const std::string& structure,
         output << "        uniform token[] xformOpOrder = [\"xformOp:translate\", \"xformOp:orient\"]\n";
         const DebyeSphereCloud* cloud=dynamic_cast<const DebyeSphereCloud*>(sub);
         if (cloud) {
-            std::array<double,3> color{{0.7,0.7,0.7}};
-            double opacity=1.0;
-            const auto colorOverride=options.colorOverrides.find(name);
-            if (colorOverride != options.colorOverrides.end()) color=colorOverride->second;
-            const auto opacityOverride=options.opacityOverrides.find(name);
-            if (opacityOverride != options.opacityOverrides.end()) opacity=opacityOverride->second;
-            output << "        def PointInstancer \"cloud\" {\n            rel prototypes = [</"<<usdName(structure)<<"/"<<usdName(name)<<"/spherePrototype>]\n            point3f[] positions = [";
-            for(const auto& scatterer:cloud->getScatterers())output<<"("<<number(scatterer.center.x)<<", "<<number(scatterer.center.y)<<", "<<number(scatterer.center.z)<<"), ";
-            output<<"]\n            int[] protoIndices = [";for(std::size_t i=0;i<cloud->getScatterers().size();++i)output<<"0, ";output<<"]\n            float3[] scales = [";
-            for(const auto& scatterer:cloud->getScatterers()){double radius=scatterer.radius>0.0?scatterer.radius:options.zeroRadiusMarkerSize;output<<"("<<number(radius)<<", "<<number(radius)<<", "<<number(radius)<<"), ";}
-            output<<"]\n            custom float[] pyseb:radius = [";for(const auto& scatterer:cloud->getScatterers())output<<number(scatterer.radius)<<", ";output<<"]\n            custom float[] pyseb:beta = [";for(const auto& scatterer:cloud->getScatterers())output<<number(scatterer.beta)<<", ";output<<"]\n";
-            output<<"            custom int[] pyseb:index = [";for(std::size_t i=0;i<cloud->getScatterers().size();++i)output<<i<<", ";output<<"]\n            color3f[] primvars:displayColor = [";
-            for(std::size_t i=0;i<cloud->getScatterers().size();++i)output<<"("<<number(color[0])<<", "<<number(color[1])<<", "<<number(color[2])<<"), ";
-            output<<"]\n            float[] primvars:displayOpacity = [";for(std::size_t i=0;i<cloud->getScatterers().size();++i)output<<number(opacity)<<", ";output<<"]\n        }\n        def Sphere \"spherePrototype\" { float radius = 1 }\n";
-            if (options.debyeEnvelope) {
-                const double envelopePadding=options.debyeEnvelopePadding>=0.0
-                    ? options.debyeEnvelopePadding
-                    : automaticEnvelopePadding(cloud->getScatterers(),options.zeroRadiusMarkerSize);
-                const TriangleMesh envelope=debyeEnvelopeMesh(
-                    *cloud,options.debyeEnvelopeResolution,envelopePadding,options.zeroRadiusMarkerSize);
-                if (!envelope.triangles.empty()) {
-                    output<<"        def Mesh \"envelope\" {\n            custom bool pyseb:visualOnly = true\n            custom string pyseb:construction = \"union_of_inflated_scatterer_spheres\"\n            custom double pyseb:padding = "<<number(envelopePadding)<<"\n            custom uint64 pyseb:resolution = "<<options.debyeEnvelopeResolution<<"\n            uniform bool doubleSided = true\n            int[] faceVertexCounts = [";
-                    for (std::size_t index=0; index<envelope.triangles.size(); ++index) output<<"3, ";
-                    output<<"]\n            int[] faceVertexIndices = [";
-                    for (const auto& triangle : envelope.triangles) output<<triangle[0]<<", "<<triangle[1]<<", "<<triangle[2]<<", ";
-                    output<<"]\n            point3f[] points = [";
-                    for (const Vec3& point : envelope.points) output<<"("<<number(point.x)<<", "<<number(point.y)<<", "<<number(point.z)<<"), ";
-                    output<<"]\n            color3f[] primvars:displayColor = [ ("<<number(color[0])<<", "<<number(color[1])<<", "<<number(color[2])<<") ]\n            float[] primvars:displayOpacity = ["<<number(options.debyeEnvelopeOpacity*opacity)<<"]\n        }\n";
-                }
-            }
-            const auto references=numericalReferences.find(name);
-            if (references != numericalReferences.end()) for (const auto& reference : references->second) {
-                output<<"        def Xform \"ref_"<<usdName(reference.first)<<"\" {\n            visibility = \"invisible\"\n            custom string pyseb:reference = "<<quote(reference.first)<<"\n            double3 xformOp:translate = ("<<number(reference.second.x)<<", "<<number(reference.second.y)<<", "<<number(reference.second.z)<<")\n            uniform token[] xformOpOrder = [\"xformOp:translate\"]\n        }\n";
-            }
-            output<<"        custom string pyseb:model_id = \"pyseb/DebyeSphereCloud\"\n        custom string pyseb:instance_path = "<<quote(name)<<"\n        custom uint64 pyseb:seed = "<<options.seed<<"\n    }\n";
+            const auto references = numericalReferences.find(name);
+            const std::map<std::string, Vec3> emptyReferences;
+            writeCloudPrim(
+                output,
+                structure,
+                name,
+                *cloud,
+                options,
+                references == numericalReferences.end()
+                    ? emptyReferences
+                    : references->second);
             continue;
         }
         const auto instance=instances.find(name);
         if (instance == instances.end()) { output<<"    }\n"; continue; }
-        for (const auto& reference : instance->second.resolvedReferences) {
-            output<<"        def Xform \"ref_"<<usdName(reference.first)<<"\" {\n            visibility = \"invisible\"\n            custom string pyseb:reference = "<<quote(reference.first)<<"\n            double3 xformOp:translate = ("<<number(reference.second.x)<<", "<<number(reference.second.y)<<", "<<number(reference.second.z)<<")\n            uniform token[] xformOpOrder = [\"xformOp:translate\"]\n        }\n";
-        }
-        for (const auto& patch : instance->second.patches) {
-            const bool surface=patch.second.kind==pyseb::VisualizationGeometryKind::Surface;
-            output<<"        def "<<(surface?"Mesh":"BasisCurves")<<" \""<<usdName(patch.first)<<"\" {\n";
-            if(surface){output<<"            int[] faceVertexCounts = [";for(std::size_t u=0;u+1<patch.second.uCount;++u)for(std::size_t v=0;v+1<patch.second.vCount;++v)output<<"4, ";output<<"]\n            int[] faceVertexIndices = [";for(std::size_t u=0;u+1<patch.second.uCount;++u)for(std::size_t v=0;v+1<patch.second.vCount;++v){std::size_t i=u*patch.second.vCount+v;output<<i<<", "<<i+1<<", "<<i+patch.second.vCount+1<<", "<<i+patch.second.vCount<<", ";}output<<"]\n";}
-            else output<<"            int[] curveVertexCounts = ["<<patch.second.points.size()<<"]\n";
-            output<<"            point3f[] points = [";for(const auto& point:patch.second.points)output<<"("<<number(point.x)<<", "<<number(point.y)<<", "<<number(point.z)<<"), ";output<<"]\n";
-            output<<"            color3f[] primvars:displayColor = [ ("<<number(instance->second.color[0])<<", "<<number(instance->second.color[1])<<", "<<number(instance->second.color[2])<<") ]\n            float[] primvars:displayOpacity = ["<<number(instance->second.opacity)<<"]\n        }\n";
-        }
-        output<<"        custom string pyseb:model_id = "<<quote(instance->second.subunit->getDefinition().id)<<"\n        custom string pyseb:instance_path = "<<quote(name)<<"\n        custom string pyseb:tag = "<<quote(instance->second.tag)<<"\n        custom uint64 pyseb:seed = "<<options.seed<<"\n";
-        for(const auto& parameter:instance->second.parameters)output<<"        custom double pyseb:param_"<<usdName(parameter.first)<<" = "<<number(parameter.second)<<"\n";
-        output<<"    }\n";
+        writeFileInstanceBody(output, instance->second, options.seed);
     }
-    for (std::size_t index=0; index<sceneLinks.size(); ++index) {
-        const auto& link=sceneLinks[index];
-        output<<"    rel pyseb:link_"<<index<<" = [</"<<usdName(structure)<<"/"<<usdName(link.first.instance)<<"/ref_"<<usdName(link.first.reference)<<">, </"<<usdName(structure)<<"/"<<usdName(link.second.instance)<<"/ref_"<<usdName(link.second.reference)<<">]\n";
-    }
+    writeLinkRelationships(output, structure, sceneLinks);
     output<<"}\n";
 
     const std::string temporary=path+".tmp";
