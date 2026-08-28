@@ -352,6 +352,28 @@ GeometryProxy localProxy(const InstanceScene& instance) {
     return proxy;
 }
 
+GeometryProxy localProxy(const DebyeSphereCloud& cloud) {
+    GeometryProxy proxy;
+    const auto& scatterers=cloud.getScatterers();
+    constexpr std::size_t maxPoints=64;
+    const std::size_t pointCount=std::min(maxPoints,scatterers.size());
+    for (std::size_t index=0; index<pointCount; ++index) {
+        const std::size_t source=pointCount==1 ? 0 : index*(scatterers.size()-1)/(pointCount-1);
+        const auto& center=scatterers[source].center;
+        proxy.points.push_back({center.x,center.y,center.z});
+    }
+    if (!proxy.points.empty()) {
+        for (const Vec3& point : proxy.points) proxy.centroid=proxy.centroid+point;
+        proxy.centroid=proxy.centroid*(1.0/static_cast<double>(proxy.points.size()));
+        for (std::size_t index=0; index<scatterers.size(); ++index) {
+            const auto& scatterer=scatterers[index];
+            const Vec3 center{scatterer.center.x,scatterer.center.y,scatterer.center.z};
+            proxy.radius=std::max(proxy.radius,length(center-proxy.centroid)+scatterer.radius);
+        }
+    }
+    return proxy;
+}
+
 GeometryProxy transformProxy(const GeometryProxy& local, const Pose& pose) {
     GeometryProxy world;
     world.radius=local.radius;
@@ -696,12 +718,30 @@ void World::ExportUSD(const std::string& structure,
         instances.emplace(name,std::move(instance));
     }
 
+    std::map<std::string,std::map<std::string,Vec3>> numericalReferences;
+    for (const auto& name : selected) {
+        const auto catalog=nameCatalog.find(name);
+        const DebyeSphereCloud* cloud=catalog == nameCatalog.end()
+            ? nullptr : dynamic_cast<const DebyeSphereCloud*>(catalog->second);
+        if (!cloud) continue;
+        for (const auto& reference : cloud->getReferenceCoordinates()) {
+            numericalReferences[name][reference.first]={
+                reference.second.x,reference.second.y,reference.second.z};
+        }
+    }
+
     std::map<std::string,Pose> poses;
     for (const auto& name : selected) poses[name]=Pose();
     poses.begin()->second.resolved=true;
 
     std::map<std::string,GeometryProxy> localProxies;
     for (const auto& instance : instances) localProxies.emplace(instance.first,localProxy(instance.second));
+    for (const auto& name : selected) {
+        const auto catalog=nameCatalog.find(name);
+        const DebyeSphereCloud* cloud=catalog == nameCatalog.end()
+            ? nullptr : dynamic_cast<const DebyeSphereCloud*>(catalog->second);
+        if (cloud) localProxies.emplace(name,localProxy(*cloud));
+    }
     std::map<std::string,GeometryProxy> placedProxies;
     const auto rootProxy=localProxies.find(poses.begin()->first);
     if (rootProxy != localProxies.end()) {
@@ -710,7 +750,13 @@ void World::ExportUSD(const std::string& structure,
 
     auto resolveReference=[&](const LinkEndpoint& endpoint) -> Vec3 {
         auto instance=instances.find(endpoint.instance);
-        if (instance == instances.end()) return Vec3();
+        if (instance == instances.end()) {
+            const auto numerical=numericalReferences.find(endpoint.instance);
+            if (numerical == numericalReferences.end()) throw SEBException("unknown visualization instance "+endpoint.instance,"World::ExportUSD");
+            const auto reference=numerical->second.find(endpoint.reference);
+            if (reference == numerical->second.end()) throw SEBException("unknown numerical visualization reference "+endpoint.reference,"World::ExportUSD");
+            return reference->second;
+        }
         auto cached=instance->second.resolvedReferences.find(endpoint.reference);
         if (cached != instance->second.resolvedReferences.end()) return cached->second;
         const auto parts=parseVisualizationReference(endpoint.reference);
@@ -902,11 +948,25 @@ void World::ExportUSD(const std::string& structure,
         output << "        uniform token[] xformOpOrder = [\"xformOp:translate\", \"xformOp:orient\"]\n";
         const DebyeSphereCloud* cloud=dynamic_cast<const DebyeSphereCloud*>(sub);
         if (cloud) {
+            std::array<double,3> color{{0.7,0.7,0.7}};
+            double opacity=1.0;
+            const auto colorOverride=options.colorOverrides.find(name);
+            if (colorOverride != options.colorOverrides.end()) color=colorOverride->second;
+            const auto opacityOverride=options.opacityOverrides.find(name);
+            if (opacityOverride != options.opacityOverrides.end()) opacity=opacityOverride->second;
             output << "        def PointInstancer \"cloud\" {\n            rel prototypes = [</"<<usdName(structure)<<"/"<<usdName(name)<<"/spherePrototype>]\n            point3f[] positions = [";
             for(const auto& scatterer:cloud->getScatterers())output<<"("<<number(scatterer.center.x)<<", "<<number(scatterer.center.y)<<", "<<number(scatterer.center.z)<<"), ";
             output<<"]\n            int[] protoIndices = [";for(std::size_t i=0;i<cloud->getScatterers().size();++i)output<<"0, ";output<<"]\n            float3[] scales = [";
             for(const auto& scatterer:cloud->getScatterers()){double radius=scatterer.radius>0.0?scatterer.radius:options.zeroRadiusMarkerSize;output<<"("<<number(radius)<<", "<<number(radius)<<", "<<number(radius)<<"), ";}
-            output<<"]\n            custom float[] pyseb:radius = [";for(const auto& scatterer:cloud->getScatterers())output<<number(scatterer.radius)<<", ";output<<"]\n            custom float[] pyseb:beta = [";for(const auto& scatterer:cloud->getScatterers())output<<number(scatterer.beta)<<", ";output<<"]\n        }\n        def Sphere \"spherePrototype\" { float radius = 1 }\n    }\n";
+            output<<"]\n            custom float[] pyseb:radius = [";for(const auto& scatterer:cloud->getScatterers())output<<number(scatterer.radius)<<", ";output<<"]\n            custom float[] pyseb:beta = [";for(const auto& scatterer:cloud->getScatterers())output<<number(scatterer.beta)<<", ";output<<"]\n";
+            output<<"            custom int[] pyseb:index = [";for(std::size_t i=0;i<cloud->getScatterers().size();++i)output<<i<<", ";output<<"]\n            color3f[] primvars:displayColor = [";
+            for(std::size_t i=0;i<cloud->getScatterers().size();++i)output<<"("<<number(color[0])<<", "<<number(color[1])<<", "<<number(color[2])<<"), ";
+            output<<"]\n            float[] primvars:displayOpacity = [";for(std::size_t i=0;i<cloud->getScatterers().size();++i)output<<number(opacity)<<", ";output<<"]\n        }\n        def Sphere \"spherePrototype\" { float radius = 1 }\n";
+            const auto references=numericalReferences.find(name);
+            if (references != numericalReferences.end()) for (const auto& reference : references->second) {
+                output<<"        def Xform \"ref_"<<usdName(reference.first)<<"\" {\n            visibility = \"invisible\"\n            custom string pyseb:reference = "<<quote(reference.first)<<"\n            double3 xformOp:translate = ("<<number(reference.second.x)<<", "<<number(reference.second.y)<<", "<<number(reference.second.z)<<")\n            uniform token[] xformOpOrder = [\"xformOp:translate\"]\n        }\n";
+            }
+            output<<"        custom string pyseb:model_id = \"pyseb/DebyeSphereCloud\"\n        custom string pyseb:instance_path = "<<quote(name)<<"\n        custom uint64 pyseb:seed = "<<options.seed<<"\n    }\n";
             continue;
         }
         const auto instance=instances.find(name);

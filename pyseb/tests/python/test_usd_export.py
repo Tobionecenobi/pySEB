@@ -388,6 +388,52 @@ class TestUSDExport(unittest.TestCase):
                 for actual, expected in zip(first_world, second_world):
                     self.assertAlmostEqual(actual, expected, places=12)
 
+    def test_debye_cloud_reference_attaches_to_analytic_subunit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cloud = pyseb.DebyeSphereCloud(
+                [
+                    pyseb.SphereScatterer(0.0, 0.0, 0.0, 0.4, 1.0),
+                    pyseb.SphereScatterer(0.8, 0.2, 0.0, 0.3, 0.5),
+                    pyseb.SphereScatterer(1.6, -0.1, 0.2, 0.0, -0.25),
+                ]
+            )
+            cloud.addReferencePoint("join", 2.0, 0.0, 0.0)
+            world = pyseb.World("cloud_attachment")
+            graph = world.Add(cloud, "cloud")
+            world.Link("ThinRod", "rod.end1", "cloud.join", "rod")
+            world.Add(graph, "assembly")
+
+            output = Path(directory) / "cloud.usda"
+            options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+            options.seed = 42
+            options.curve_samples = 8
+            options.zero_radius_marker_size = 0.125
+            options.color_overrides = {"cloud": (0.2, 0.6, 0.8)}
+            parameters = {"L_rod": 2.0, "beta_rod": 1.0}
+            before = world.EvaluateFormFactor("assembly", parameters, 0.2)
+            world.export_usd("assembly", str(output), parameters, options)
+            after = world.EvaluateFormFactor("assembly", parameters, 0.2)
+            self.assertAlmostEqual(before, after, places=14)
+            document = output.read_text(encoding="utf-8")
+
+            self.assertEqual(_reference(document, "cloud", "join"), (2.0, 0.0, 0.0))
+            cloud_world = _world_point(
+                _pose(document, "cloud"), _reference(document, "cloud", "join")
+            )
+            rod_world = _world_point(
+                _pose(document, "rod"), _reference(document, "rod", "end1")
+            )
+            for actual, expected in zip(cloud_world, rod_world):
+                self.assertAlmostEqual(actual, expected, places=12)
+
+            self.assertIn('def PointInstancer "cloud"', document)
+            self.assertIn("custom float[] pyseb:radius = [0.40000000000000002, 0.29999999999999999, 0, ]", document)
+            self.assertIn("custom float[] pyseb:beta = [1, 0.5, -0.25, ]", document)
+            self.assertIn("custom int[] pyseb:index = [0, 1, 2, ]", document)
+            self.assertIn("(0.125, 0.125, 0.125)", document)
+            self.assertIn('custom string pyseb:model_id = "pyseb/DebyeSphereCloud"', document)
+            self.assertIn("rel pyseb:link_0", document)
+
 
 if __name__ == "__main__":
     unittest.main()
