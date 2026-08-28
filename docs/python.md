@@ -103,6 +103,37 @@ constructed through their namespaced ID. See the
 [file-defined subunit guide](file-defined-subunits.qmd) for the schema,
 expression grammar, validation cases, C++ API, and registry rules.
 
+## World import and export
+
+Complete worlds can be saved as versioned `.pyseb-world.yaml` files. The file
+stores subunit instances, reusable structures, graph membership, links, and
+root graphs; numerical evaluation parameters remain separate.
+
+```python
+world.save("model.pyseb-world.yaml")
+loaded = pyseb.load_world("model.pyseb-world.yaml")
+
+yaml_text = pyseb.world_to_yaml(world)
+loaded = pyseb.world_from_yaml(yaml_text)
+```
+
+Bundled catalogue models are available automatically. External file-defined
+models can be supplied while loading:
+
+```python
+loaded = pyseb.load_world(
+    "model.pyseb-world.yaml",
+    model_files=["CustomModel.pyseb.yaml"],
+)
+```
+
+The command-line helpers validate or print the canonical representation:
+
+```bash
+pyseb-world validate model.pyseb-world.yaml
+pyseb-world inspect model.pyseb-world.yaml
+```
+
 ## Numerical Subunits
 
 `World` can evaluate structures containing both analytic subunits and numerical
