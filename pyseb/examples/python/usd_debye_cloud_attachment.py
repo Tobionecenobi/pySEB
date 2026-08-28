@@ -35,6 +35,10 @@ options.relaxation_sweeps = 4
 options.minimum_clearance = 0.15
 options.surface_samples = 32
 options.zero_radius_marker_size = 0.08
+options.debye_envelope = True
+options.debye_envelope_resolution = 32
+options.debye_envelope_padding = -1.0  # Automatically connect the cloud.
+options.debye_envelope_opacity = 0.14
 options.color_overrides = {
     "cloud": (0.10, 0.55, 0.78),
     "spheroid": (0.92, 0.43, 0.12),
