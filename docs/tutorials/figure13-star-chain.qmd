@@ -24,23 +24,11 @@ reference paths are unfamiliar. Publication details are collected in the
 
 ## Structure hierarchy
 
-```text
-diblock:       A ---- B
-
-four-arm star:     A--B
-                    |
-                B--A--B
-                    |
-                   A--B
-
-star chain:       --*-- = --*-- = --*-- = --*-- = --*--
-                    |       |       |       |       |
-```
-
 The graphs are defined once and instantiated repeatedly. Internal names are
 therefore shared across every instance.
 
-## Python
+Interactive OpenUSD views of these three levels are generated from the same
+`World` after the construction steps below.
 
 ### 1. Define the reusable diblock
 
@@ -55,6 +43,7 @@ world = pyseb.World("Figure13Tutorial")
 
 diblock = world.Add("GaussianPolymer", "A")
 world.Link("GaussianPolymer", "B.end1", "A.end2")
+world.Add(diblock, "diblock")
 ```
 
 The graph identifier `diblock` can now be instantiated inside a larger graph.
@@ -69,6 +58,7 @@ star = world.Add(diblock, "diblock1")
 world.Link(diblock, "diblock2:A.end1", "diblock1:A.end1")
 world.Link(diblock, "diblock3:A.end1", "diblock1:A.end1")
 world.Link(diblock, "diblock4:A.end1", "diblock1:A.end1")
+world.Add(star, "star")
 ```
 
 Each free `B.end2` reference lies at the outer end of one star arm.
@@ -124,6 +114,91 @@ print("subunits: 5 stars x 4 diblocks x 2 polymers = 40")
 ```
 
 Changing these four values updates all twenty diblock instances together.
+
+### Interactive OpenUSD figures
+
+The exporter can now expand repeated nested graph instances. These figures are
+written from the same `world` used for the form-factor calculation, then read
+back with OpenUSD and rendered in the browser with Plotly.
+
+```{python}
+#| echo: false
+
+from pathlib import Path
+import tempfile
+
+from _helpers import usd_to_plotly
+
+visual_workspace = tempfile.TemporaryDirectory()
+visual_directory = Path(visual_workspace.name)
+visual_options = pyseb.USDExportOptions(pyseb.LengthUnit.Nanometer)
+visual_options.seed = 13
+visual_options.layout_mode = pyseb.LayoutMode.Readable
+visual_options.orientation_trials = 32
+visual_options.relaxation_sweeps = 2
+visual_options.curve_samples = 64
+visual_options.color_overrides = {
+    "A": (0.13, 0.47, 0.78),
+    "B": (0.94, 0.47, 0.15),
+}
+
+visual_paths = {}
+for name in ("diblock", "star", "chain"):
+    visual_paths[name] = visual_directory / f"figure13-{name}.usda"
+    world.export_usd(
+        name,
+        str(visual_paths[name]),
+        parameters,
+        visual_options,
+    )
+```
+
+::: {.grid}
+::: {.g-col-12 .g-col-lg-4}
+```{python}
+#| echo: false
+#| label: fig-interactive-figure13-diblock
+#| fig-cap: "Diblock: one Gaussian A block linked to one Gaussian B block."
+
+usd_to_plotly(visual_paths["diblock"], height=430).show(config={
+    "displaylogo": False,
+    "scrollZoom": True,
+    "responsive": True,
+})
+```
+:::
+
+::: {.g-col-12 .g-col-lg-4}
+```{python}
+#| echo: false
+#| label: fig-interactive-figure13-star
+#| fig-cap: "Four-arm star: four diblocks sharing their A-block ends."
+
+usd_to_plotly(visual_paths["star"], height=430).show(config={
+    "displaylogo": False,
+    "scrollZoom": True,
+    "responsive": True,
+})
+```
+:::
+
+::: {.g-col-12 .g-col-lg-4}
+```{python}
+#| echo: false
+#| label: fig-interactive-figure13-chain
+#| fig-cap: "Star chain: five linked stars containing forty Gaussian polymers."
+
+usd_to_plotly(visual_paths["chain"], height=430).show(config={
+    "displaylogo": False,
+    "scrollZoom": True,
+    "responsive": True,
+})
+```
+:::
+:::
+
+Drag to orbit, scroll to zoom, and hover over a curve to inspect its USD path.
+Blue curves are A blocks and orange curves are B blocks.
 
 ### 5. Evaluate and plot the form factor
 
