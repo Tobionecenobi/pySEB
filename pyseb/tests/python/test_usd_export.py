@@ -6,6 +6,15 @@ import unittest
 
 import pyseb
 
+try:
+    from pxr import Usd, UsdGeom
+except ImportError:
+    Usd = None
+    UsdGeom = None
+
+
+OPENUSD_AVAILABLE = Usd is not None and UsdGeom is not None
+
 
 def _vector(text):
     return tuple(float(value) for value in text.split(", "))
@@ -15,12 +24,14 @@ def _pose(document, name):
     pattern = re.compile(
         rf'    def Xform "{re.escape(name)}" \{{\n'
         rf'        double3 xformOp:translate = \(([^)]+)\)\n'
-        rf'        quatd xformOp:orient = \(([^,]+), \(([^)]+)\)\)'
+        rf'        quatd xformOp:orient = \(([^,]+), ([^,]+), ([^,]+), ([^)]+)\)'
     )
     match = pattern.search(document)
     if not match:
         raise AssertionError(f"missing pose for {name}")
-    return _vector(match.group(1)), (float(match.group(2)),) + _vector(match.group(3))
+    return _vector(match.group(1)), tuple(
+        float(match.group(index)) for index in range(2, 6)
+    )
 
 
 def _reference(document, instance, reference):
@@ -120,6 +131,196 @@ class TestUSDExport(unittest.TestCase):
         )
         return world
 
+    def _figure13_chain(self, seed, output, color_overrides=None):
+        world = pyseb.World("figure13")
+        diblock = world.Add("GaussianPolymer", "A")
+        world.Link("GaussianPolymer", "B.end1", "A.end2")
+
+        star = world.Add(diblock, "diblock1")
+        world.Link(diblock, "diblock2:A.end1", "diblock1:A.end1")
+        world.Link(diblock, "diblock3:A.end1", "diblock1:A.end1")
+        world.Link(diblock, "diblock4:A.end1", "diblock1:A.end1")
+
+        chain = world.Add(star, "star1")
+        world.Link(star, "star2:diblock1:B.end2", "star1:diblock3:B.end2")
+        world.Link(star, "star3:diblock1:B.end2", "star2:diblock3:B.end2")
+        world.Link(star, "star4:diblock1:B.end2", "star3:diblock3:B.end2")
+        world.Link(star, "star5:diblock1:B.end2", "star4:diblock3:B.end2")
+        world.Add(chain, "chain")
+
+        options = pyseb.USDExportOptions(pyseb.LengthUnit.Nanometer)
+        options.seed = seed
+        options.curve_samples = 24
+        options.color_overrides = color_overrides or {}
+        world.export_usd(
+            "chain",
+            str(output),
+            {"beta_A": 1.0, "beta_B": 1.0, "Rg_A": 1.0, "Rg_B": 1.0},
+            options,
+        )
+        return world
+
+    def test_nested_structure_occurrences_are_expanded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "figure13.usda"
+            self._figure13_chain(42, output)
+            document = output.read_text(encoding="utf-8")
+            self.assertEqual(document.count("def BasisCurves"), 40)
+            self.assertEqual(len(re.findall(r"rel pyseb:link_\d+", document)), 39)
+            for instance_path in (
+                "star1/diblock1/A",
+                "star2/diblock1/B",
+                "star5/diblock4/A",
+            ):
+                self.assertIn(
+                    f'custom string pyseb:instance_path = "{instance_path}"',
+                    document,
+                )
+            self.assertIn(
+                "</chain/star2/diblock1/B/ref_end2>",
+                document,
+            )
+
+    @unittest.skipUnless(OPENUSD_AVAILABLE, "usd-core is required")
+    def test_nested_stage_has_resolvable_occurrence_hierarchy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "figure13.usda"
+            self._figure13_chain(42, output)
+
+            stage = Usd.Stage.Open(str(output))
+            self.assertTrue(stage)
+            self.assertAlmostEqual(
+                UsdGeom.GetStageMetersPerUnit(stage),
+                1.0e-9,
+            )
+
+            expected_types = {
+                "/chain": "Xform",
+                "/chain/star2": "Xform",
+                "/chain/star2/diblock1": "Xform",
+                "/chain/star2/diblock1/A": "Xform",
+                "/chain/star2/diblock1/A/contour": "BasisCurves",
+            }
+            for path, type_name in expected_types.items():
+                prim = stage.GetPrimAtPath(path)
+                self.assertTrue(prim.IsValid(), path)
+                self.assertEqual(prim.GetTypeName(), type_name)
+
+            leaf = stage.GetPrimAtPath("/chain/star2/diblock1/A")
+            self.assertEqual(
+                leaf.GetAttribute("pyseb:instance_path").Get(),
+                "star2/diblock1/A",
+            )
+            self.assertEqual(
+                leaf.GetAttribute("pyseb:source_name").Get(),
+                "A",
+            )
+
+            curves = [
+                prim for prim in stage.Traverse()
+                if prim.GetTypeName() == "BasisCurves"
+            ]
+            self.assertEqual(len(curves), 40)
+
+            root = stage.GetPrimAtPath("/chain")
+            relationships = [
+                relationship for relationship in root.GetRelationships()
+                if str(relationship.GetName()).startswith("pyseb:link_")
+            ]
+            self.assertEqual(len(relationships), 39)
+            for relationship in relationships:
+                targets = relationship.GetTargets()
+                self.assertEqual(len(targets), 2, relationship.GetName())
+                for target in targets:
+                    prim = stage.GetPrimAtPath(target)
+                    self.assertTrue(
+                        prim.IsValid(),
+                        f"{relationship.GetName()} -> {target}",
+                    )
+                    self.assertEqual(prim.GetTypeName(), "Xform")
+
+    @unittest.skipUnless(OPENUSD_AVAILABLE, "usd-core is required")
+    def test_nested_stage_link_endpoints_coincide_in_world_space(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "figure13.usda"
+            self._figure13_chain(42, output)
+
+            stage = Usd.Stage.Open(str(output))
+            self.assertTrue(stage)
+            root = stage.GetPrimAtPath("/chain")
+            relationships = [
+                relationship for relationship in root.GetRelationships()
+                if str(relationship.GetName()).startswith("pyseb:link_")
+            ]
+            self.assertEqual(len(relationships), 39)
+
+            for relationship in relationships:
+                positions = []
+                for target in relationship.GetTargets():
+                    prim = stage.GetPrimAtPath(target)
+                    transform = UsdGeom.Xformable(
+                        prim
+                    ).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+                    translation = transform.ExtractTranslation()
+                    positions.append(tuple(translation))
+                self.assertLessEqual(
+                    math.dist(positions[0], positions[1]),
+                    1.0e-8,
+                    relationship.GetName(),
+                )
+
+    def test_nested_structure_export_is_deterministic_and_occurrence_specific(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "first.usda"
+            second = Path(directory) / "second.usda"
+            self._figure13_chain(42, first)
+            self._figure13_chain(42, second)
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+
+            document = first.read_text(encoding="utf-8")
+            points = []
+            for instance_path in ("star1/diblock1/A", "star2/diblock1/A"):
+                marker = f'custom string pyseb:instance_path = "{instance_path}"'
+                marker_position = document.index(marker)
+                points_start = document.rfind("point3f[] points = [", 0, marker_position)
+                point_start = points_start + len("point3f[] points = [")
+                points.append(document[point_start:document.index(")", point_start) + 1])
+            self.assertNotEqual(points[0], points[1])
+
+    def test_nested_occurrence_style_override_accepts_full_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "figure13.usda"
+            self._figure13_chain(
+                42,
+                output,
+                {"star2/diblock1/A": (1.0, 0.0, 0.0)},
+            )
+            document = output.read_text(encoding="utf-8")
+            marker = 'custom string pyseb:instance_path = "star2/diblock1/A"'
+            marker_position = document.index(marker)
+            color_start = document.rfind(
+                "color3f[] primvars:displayColor = [",
+                0,
+                marker_position,
+            )
+            color_end = document.index("\n", color_start)
+            self.assertIn("(1, 0, 0)", document[color_start:color_end])
+
+    def test_recursive_structure_graph_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            world = pyseb.World("cycle")
+            graph = world.Add("GaussianPolymer", "A")
+            world.Add(graph, "self")
+            world.Link(graph, "self2:A.end1", "A.end2")
+            options = pyseb.USDExportOptions(pyseb.LengthUnit.Nanometer)
+            with self.assertRaisesRegex(RuntimeError, "cyclic nested structure graph"):
+                world.export_usd(
+                    "self",
+                    str(Path(directory) / "cycle.usda"),
+                    {"Rg": 1.0},
+                    options,
+                )
+
     def test_position_only_links_coincide_after_free_rotation(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "assembly.usda"
@@ -156,6 +357,7 @@ class TestUSDExport(unittest.TestCase):
             )
             self.assertIn('pyseb:overlapPolicy = "permitted"', document)
             self.assertIn("rel pyseb:link_0", document)
+            self.assertIn('token visibility = "invisible"', document)
 
     def test_seed_is_reproducible_and_does_not_change_scattering(self):
         with tempfile.TemporaryDirectory() as directory:
