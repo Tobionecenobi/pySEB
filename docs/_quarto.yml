@@ -1,6 +1,8 @@
 project:
   type: website
   output-dir: _site
+  resources:
+    - tutorials/models/*.pyseb.yaml
   render:
     - index.qmd
     - tutorials/index.qmd
@@ -14,9 +16,11 @@ project:
     - tutorials/symbolic-expressions.qmd
     - tutorials/scattering-quantities.qmd
     - tutorials/figure13-star-chain.qmd
+    - tutorials/custom-yaml-workflow.qmd
     - tutorials/pyseb_tutorial.qmd
     - tutorials/cpp_tutorials.qmd
     - file-defined-subunits.qmd
+    - visualization.qmd
 
 website:
   title: "pySEB"
@@ -33,6 +37,8 @@ website:
         text: Tutorials
       - href: file-defined-subunits.qmd
         text: Model files
+      - href: visualization.qmd
+        text: 3D visuals
       - href: https://github.com/Tobionecenobi/pySEB/wiki
         text: Reference Wiki
   sidebar:
@@ -49,6 +55,7 @@ website:
             - tutorials/random-walk-rods.qmd
             - tutorials/parameter-sweeps.qmd
             - tutorials/pdb-polymer.qmd
+            - tutorials/custom-yaml-workflow.qmd
         - section: "Advanced tutorials"
           contents:
             - tutorials/mixed-model-evaluation.qmd
@@ -59,6 +66,10 @@ website:
           contents:
             - tutorials/pyseb_tutorial.qmd
             - tutorials/cpp_tutorials.qmd
+        - section: "Portable models and visuals"
+          contents:
+            - file-defined-subunits.qmd
+            - visualization.qmd
   page-footer:
     left: "pySEB documentation"
     right:

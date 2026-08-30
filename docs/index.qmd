@@ -75,6 +75,11 @@ print(world.EvaluateFormFactor("diblock", parameters, [0.001, 0.01, 0.1]))
   size measures.
 - Numerical Debye sphere clouds, callback-defined subunits, and PDB-derived
   atom clouds.
+- User-authored analytic subunits defined and validated in safe YAML files.
+- Versioned world import/export for portable structure topology and reusable
+  external model registrations.
+- Deterministic OpenUSD visualization with random or best-effort readable
+  layouts.
 - Portable and GiNaC C++ backends plus SymPy conversion and code export.
 
 ## Supported subunits
@@ -102,9 +107,19 @@ diblock in Python and C++.
 ### Choose by task
 
 Continue with micelles, nested structures, parameter sweeps, or a mixed
-PDB–polymer model. Every page includes executable Python and compiled C++14.
+PDB–polymer model. The task pages use executable examples and show the
+equivalent C++ APIs where relevant.
 
 [Browse tutorials](tutorials/index.qmd){.btn .btn-primary}
+:::
+
+::: {.g-col-12 .g-col-md-6}
+### Portable YAML workflow
+
+Define a custom subunit, validate it, save and reload its complete world, and
+export a seeded 3D realization.
+
+[Use a custom YAML model](tutorials/custom-yaml-workflow.qmd){.btn .btn-primary}
 :::
 :::
 

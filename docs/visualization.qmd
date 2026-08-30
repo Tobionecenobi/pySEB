@@ -1,4 +1,18 @@
-# YAML-driven visualization and OpenUSD
+---
+title: "YAML Visualization and OpenUSD"
+jupyter: python3
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+Subunit YAML can describe representative 3D geometry, and a `World` can export
+one deterministic realization as OpenUSD. For a complete runnable path from a
+user-authored model through world save/reload to `.usda`, start with the
+[custom YAML model workflow](tutorials/custom-yaml-workflow.qmd).
+
+## Geometry and reference mappings
 
 Schema version 1 model files may include a `visualization` block.  Geometry is
 declared as named `curve`, `surface`, or `random_walk` patches.  Curves use a
@@ -67,6 +81,151 @@ Curve and surface resolutions default to 96 and 48 samples respectively.
 Display color/opacity can be supplied in YAML style defaults or overridden by
 full instance path in `USDExportOptions`.  The resulting hierarchy, curves,
 meshes, point instancers, and metadata can be opened by Blender or `usdview`.
+
+![Representative curve, surface, and random-walk geometry emitted from YAML visualization definitions.](previews/usd_preview.png){fig-alt="Four 3D panels showing a rod curve, parametric disk, random-walk polymer, and sphere surface." width="95%"}
+
+## Interactive examples
+
+The following figures are built from the actual USDA files written by the
+maintained Python examples. OpenUSD resolves their transforms and scene
+hierarchy during the documentation build; Plotly renders the resulting meshes,
+curves, and points in the browser.
+
+```{python}
+#| echo: false
+
+from tutorials._helpers import run_usd_example, usd_to_plotly
+
+rod_workspace, rod_usd = run_usd_example(
+    "usd_rod_polymer_chain.py",
+    "rod_polymer_chain.usda",
+)
+cloud_workspace, cloud_usd = run_usd_example(
+    "usd_debye_cloud_attachment.py",
+    "debye_cloud_attachment.usda",
+)
+cylinder_workspace, cylinder_usd = run_usd_example(
+    "usd_cylinder_chain.py",
+    "cylinder_chain.usda",
+)
+spheroid_workspace, spheroid_usd = run_usd_example(
+    "usd_spheroid_chain.py",
+    "spheroid_chain.usda",
+)
+polymers_workspace, polymers_usd = run_usd_example(
+    "usd_sphere_polymers.py",
+    "sphere_polymers.usda",
+)
+dendrimer_workspace, dendrimer_usd = run_usd_example(
+    "usd_contour_linked_rod_dendrimer.py",
+    "contour_linked_rod_dendrimer.usda",
+)
+```
+
+### Curves and readable layout
+
+This alternating chain combines straight parametric curves and seeded
+random-walk curves. The readable layout rotates complete linked subtrees while
+preserving every end-to-end junction.
+
+```{python}
+#| label: fig-interactive-rod-polymer-chain
+#| fig-cap: "Interactive OpenUSD realization of an alternating rod–polymer chain."
+
+rod_figure = usd_to_plotly(rod_usd, height=600)
+rod_figure.show(config={
+    "displaylogo": False,
+    "scrollZoom": True,
+    "responsive": True,
+})
+```
+
+### Point instancing and a visual-only envelope
+
+This scene combines a Debye `PointInstancer`, its translucent triangulated
+envelope, and a parametric spheroid surface. The envelope is visual-only and
+does not contribute to the scattering calculation.
+
+```{python}
+#| label: fig-interactive-debye-cloud
+#| fig-cap: "Interactive OpenUSD Debye cloud, envelope, and attached spheroid."
+
+cloud_figure = usd_to_plotly(cloud_usd, height=600)
+cloud_figure.show(config={
+    "displaylogo": False,
+    "scrollZoom": True,
+    "responsive": True,
+})
+```
+
+Drag any figure to orbit, scroll to zoom, and hover to inspect resolved USD
+paths. The examples execute only while Quarto builds the page; published-page
+interaction runs in the browser without a Python server.
+
+## More example structures
+
+These gallery entries are also rendered from their maintained examples rather
+than from screenshots.
+
+::: {.grid}
+::: {.g-col-12 .g-col-md-6}
+```{python}
+#| echo: false
+#| label: fig-interactive-cylinder-chain
+#| fig-cap: "Cylinder chain joined through named opposite-cap variants."
+
+usd_to_plotly(cylinder_usd, height=475).show(config={
+    "displaylogo": False,
+    "scrollZoom": True,
+    "responsive": True,
+})
+```
+:::
+
+::: {.g-col-12 .g-col-md-6}
+```{python}
+#| echo: false
+#| label: fig-interactive-spheroid-chain
+#| fig-cap: "Spheroid chain joined north-to-south through fixed references."
+
+usd_to_plotly(spheroid_usd, height=475).show(config={
+    "displaylogo": False,
+    "scrollZoom": True,
+    "responsive": True,
+})
+```
+:::
+
+::: {.g-col-12 .g-col-md-6}
+```{python}
+#| echo: false
+#| label: fig-interactive-sphere-polymers
+#| fig-cap: "Gaussian polymers attached to labelled points on a sphere surface."
+
+usd_to_plotly(polymers_usd, height=475).show(config={
+    "displaylogo": False,
+    "scrollZoom": True,
+    "responsive": True,
+})
+```
+:::
+
+::: {.g-col-12 .g-col-md-6}
+```{python}
+#| echo: false
+#| label: fig-interactive-contour-rod-dendrimer
+#| fig-cap: "Contour-linked rod dendrimer laid out for readability."
+
+usd_to_plotly(dendrimer_usd, height=475).show(config={
+    "displaylogo": False,
+    "scrollZoom": True,
+    "responsive": True,
+})
+```
+:::
+:::
+
+## Maintained examples
 
 For example, a cone needs no C++ registration: define a `surface` patch with
 `coordinates: ["(1-u) * R * cos(v)", "(1-u) * R * sin(v)", "u * H"]`,

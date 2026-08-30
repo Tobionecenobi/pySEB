@@ -15,6 +15,27 @@ output produced by pySEB during the documentation build.
 | [Random-walk rod chain](random-walk-rods.qmd) | Link rigid segments, calculate the chain size, and compare with a Gaussian polymer | Intermediate |
 | [Parameter sweeps](parameter-sweeps.qmd) | Reuse one graph with several parameter sets | Intermediate |
 | [PDB cloud with an attached polymer](pdb-polymer.qmd) | Combine coordinate-based numerical scattering with an analytic subunit | Advanced |
+| [Custom YAML model workflow](custom-yaml-workflow.qmd) | Define and validate a subunit, save and reload its world, and export a 3D visual | Intermediate |
+
+## New portable workflow in 0.3.0
+
+The custom YAML tutorial connects the release's three main capabilities in one
+runnable example:
+
+1. author scattering equations, references, validation cases, and visual
+   geometry in a safe `.pyseb.yaml` model file;
+2. save and reload complete structure topology as `.pyseb-world.yaml`, including
+   the external model registration needed during import;
+3. export a seeded representative realization as text OpenUSD (`.usda`) for
+   Blender or `usdview`.
+
+![A sphere with surface-linked random-walk polymers, demonstrating YAML geometry and deterministic distributed attachments.](../previews/sphere_with_polymers.png){fig-alt="A translucent sphere with many colored random-walk polymer paths attached across its surface." width="80%"}
+
+The release also adds YAML-backed finite integrals, stable special functions,
+named visualization variants, best-effort readable layouts, Debye-cloud
+envelopes, and the `pyseb-subunit` and `pyseb-world` validation CLIs. These are
+routed from the end-to-end tutorial to the detailed model and visualization
+guides.
 
 ## Advanced tutorials
 
@@ -25,9 +46,11 @@ output produced by pySEB during the documentation build.
 | [Scattering quantities](scattering-quantities.qmd) | Compare normalized and unnormalized form factors, amplitudes, phase factors, and size measures |
 | [Figure 13 star chain](figure13-star-chain.qmd) | Construct and evaluate the published chain of five four-arm diblock stars |
 
-Each task page presents Python and C++ in parallel. The Python blocks execute
-in the documentation environment, the C++ listing comes from the maintained
-source file, and its output comes from the compiled executable.
+The established modeling task pages present Python and C++ in parallel. Their
+Python blocks execute in the documentation environment, while maintained C++
+listings are compiled and their output is captured during the build. The custom
+YAML workflow is executable in Python and includes the equivalent portable C++
+file APIs.
 
 ## Extended guides
 

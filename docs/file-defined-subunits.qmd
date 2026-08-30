@@ -205,6 +205,38 @@ coordinate-cloud subunits retain their existing class APIs.
 `behavior.scattering: invisible` defines a connector such as Point. Its form
 factor and amplitudes must be literal zero expressions.
 
+## Describe a 3D visualization
+
+An optional `visualization` block describes representative geometry without
+changing any scattering equation. Geometry can be a parametric `curve`, a
+parametric `surface`, or a seeded `random_walk`. Each scattering reference is
+then mapped to a fixed position, a curve fraction, or a distributed geometry
+location.
+
+```yaml
+visualization:
+  geometry:
+    contour:
+      kind: random_walk
+      samples: 96
+      closure: open
+      target_rg: Rg
+  references:
+    end1: {kind: curve_fraction, geometry: contour, fraction: 0}
+    end2: {kind: curve_fraction, geometry: contour, fraction: 1}
+```
+
+The exporter reads structural parameters such as `Rg` from the same dictionary
+used for evaluation. It writes a representative OpenUSD realization; visual
+sampling and layout never feed back into the orientationally averaged
+scattering calculation.
+
+Follow the executable [custom YAML model workflow](tutorials/custom-yaml-workflow.qmd)
+to define, validate, register, save, reload, evaluate, and visualize one model.
+The [visualization guide](visualization.qmd) documents surface patches,
+distributed references, deterministic labels, named variants, readable
+layout, style overrides, and Debye-cloud envelopes.
+
 ## Reference validation
 
 Validation cases are optional and run only when requested:

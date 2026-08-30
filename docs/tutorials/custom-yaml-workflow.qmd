@@ -1,0 +1,342 @@
+---
+title: "Custom YAML Model Workflow"
+subtitle: "Define a subunit, save and reload its world, and export an OpenUSD visual"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+This tutorial exercises the complete portable workflow introduced in pySEB
+0.3.0. You will define a flexible linker without writing C++, validate it,
+use it in a coated-particle model, save and reload the topology, evaluate its
+form factor, and export a deterministic 3D realization.
+
+Three files have different jobs:
+
+| File | Contains | Does not contain |
+| --- | --- | --- |
+| `FlexibleLinker.pyseb.yaml` | One subunit's parameters, scattering equations, references, validation cases, and visual geometry | Instances or links |
+| `coated-sphere.pyseb-world.yaml` | World ID, model instances, tags, reusable graphs, links, and roots | Parameter values or external model definitions |
+| `coated-sphere.usda` | One deterministic visual realization in a chosen length unit | Scattering physics |
+
+Keeping these concerns separate lets one subunit definition serve many worlds,
+and one saved world support parameter sweeps and contrast changes.
+
+This tutorial assumes the Python environment from the
+[diblock tutorial](diblock-copolymer.qmd). To render its final interactive
+OpenUSD figure locally, add the two documentation-only packages:
+
+```bash
+python -m pip install plotly usd-core
+```
+
+## 1. Write a subunit model
+
+The complete tutorial model is below. It uses the Gaussian-chain scattering
+equations, exposes two end references, and asks the visual exporter to draw a
+random walk whose radius of gyration is `Rg`.
+
+[Download `FlexibleLinker.pyseb.yaml`](models/FlexibleLinker.pyseb.yaml){download="FlexibleLinker.pyseb.yaml"}
+
+```yaml
+{{< include models/FlexibleLinker.pyseb.yaml >}}
+```
+
+The scattering expressions and visual geometry share the structural parameter
+`Rg`, so a parameter change affects both the calculation and its representative
+shape. The random walk is only a visualization of an orientationally averaged
+model; it is not used to calculate the form factor.
+
+::: {.callout-note}
+The YAML expression language is declarative and restricted. It does not run
+Python, C++, shell commands, imports, or arbitrary functions.
+:::
+
+## 2. Validate before building
+
+Validation first checks the schema and every expression, then evaluates the
+optional numerical reference cases in the file.
+
+```{python}
+from pathlib import Path
+import tempfile
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+model_path = Path("models/FlexibleLinker.pyseb.yaml").resolve()
+report = pyseb.validate_subunit_file(str(model_path))
+
+print("model:", report.model_id)
+print("reference cases:", report.case_count)
+print("valid:", report.ok)
+assert report.ok, [failure.message for failure in report.failures]
+```
+
+The equivalent command is useful in continuous integration:
+
+```bash
+pyseb-subunit validate models/FlexibleLinker.pyseb.yaml
+```
+
+It exits with status 0 when the schema and reference cases pass.
+
+## 3. Register and use the model
+
+Registration belongs to one `World`. After registration, either the canonical
+ID `tutorial/FlexibleLinker` or the short API name `FlexibleLinker` can be
+passed to `Add` and `Link`.
+
+The example attaches twelve user-defined linkers to labelled, deterministic
+points on a sphere surface.
+
+```{python}
+world = pyseb.World("CustomLinkerTutorial")
+model_info = world.register_subunit_file(str(model_path))
+print(model_info.id, "registered as", model_info.api_name)
+
+graph = world.Add("SolidSphere", "core")
+for index in range(1, 13):
+    graph = world.Link(
+        "FlexibleLinker",
+        f"linker{index}.end1",
+        f"core.surface#linker{index}",
+    )
+world.Add(graph, "coatedSphere")
+```
+
+The text after `#` identifies a repeatable representative point on the
+distributed sphere surface. With the same instance path and export seed, the
+same labels produce the same attachment positions.
+
+For a one-off instance, `world.add_subunit_file(path, name)` loads and adds the
+model in one call. `register_subunit_file` is preferable here because the same
+model is instantiated repeatedly.
+
+## 4. Supply parameters and evaluate
+
+The custom YAML declares `Rg`; pySEB adds one generated excess-scattering-length
+parameter, `beta`, to every scattering subunit. Instance names become parameter
+suffixes in the usual way.
+
+```{python}
+parameters = {
+    "beta_core": 8.0,
+    "R_core": 3.0,
+}
+for index in range(1, 13):
+    parameters[f"beta_linker{index}"] = 0.25
+    parameters[f"Rg_linker{index}"] = 0.6
+
+q = np.geomspace(1e-3, 2.0, 160)
+form_factor = np.asarray(
+    world.EvaluateFormFactor("coatedSphere", parameters, q.tolist())
+)
+
+print("F(0) =", world.EvaluateFormFactor("coatedSphere", parameters, 0.0))
+assert np.isclose(
+    world.EvaluateFormFactor("coatedSphere", parameters, 0.0),
+    1.0,
+)
+```
+
+```{python}
+#| label: fig-custom-yaml-form-factor
+#| fig-cap: "Normalized form factor of a sphere carrying twelve user-defined flexible linkers."
+
+plt.loglog(q, form_factor)
+plt.xlabel(r"$q$ (nm$^{-1}$)")
+plt.ylabel(r"$F(q)$")
+plt.show()
+```
+
+## 5. Export and import the world
+
+Use the `.pyseb-world.yaml` format to preserve topology. The tutorial writes
+temporary files so rendering the documentation does not leave generated files
+in the source tree.
+
+```{python}
+temporary_directory = tempfile.TemporaryDirectory()
+output_directory = Path(temporary_directory.name)
+world_path = output_directory / "coated-sphere.pyseb-world.yaml"
+
+world.save(str(world_path))
+print("\n".join(world_path.read_text().splitlines()[:18]))
+```
+
+The canonical document records `tutorial/FlexibleLinker` as the model ID. It
+does not copy the contents of `FlexibleLinker.pyseb.yaml` into the world file.
+Register that external definition while loading:
+
+```{python}
+loaded = pyseb.load_world(
+    str(world_path),
+    model_files=[str(model_path)],
+)
+
+assert world.to_yaml() == loaded.to_yaml()
+reloaded_value = loaded.EvaluateFormFactor("coatedSphere", parameters, 0.2)
+original_value = world.EvaluateFormFactor("coatedSphere", parameters, 0.2)
+assert np.isclose(reloaded_value, original_value)
+print(f"round-trip F(0.2) = {reloaded_value:.8f}")
+```
+
+For in-memory workflows, use `world.to_yaml()` and
+`pyseb.world_from_yaml(yaml_text, model_files=[...])`. The file and string APIs
+produce the same canonical YAML.
+
+::: {.callout-important}
+World files deliberately omit numerical parameter values. Store fitted or
+swept parameter sets separately and pass the selected dictionary to
+`Evaluate*` or `export_usd` after loading.
+:::
+
+The world CLI validates names, references, graph connectivity, external model
+availability, and schema versions without running an analysis:
+
+```bash
+pyseb-world validate coated-sphere.pyseb-world.yaml \
+  --model-file models/FlexibleLinker.pyseb.yaml
+
+pyseb-world inspect coated-sphere.pyseb-world.yaml \
+  --model-file models/FlexibleLinker.pyseb.yaml
+```
+
+`inspect` prints the canonical representation, which is convenient for review
+and stable round-trip tests.
+
+## 6. Export a deterministic visual
+
+The YAML model's `visualization` block is consumed by the OpenUSD exporter.
+`Readable` layout samples several seeded orientations and relaxes linked
+subtrees to improve clearance while preserving every junction.
+
+```{python}
+usd_path = output_directory / "coated-sphere.usda"
+options = pyseb.USDExportOptions(pyseb.LengthUnit.Nanometer)
+options.seed = 42
+options.layout_mode = pyseb.LayoutMode.Readable
+options.orientation_trials = 32
+options.relaxation_sweeps = 2
+options.surface_samples = 40
+options.curve_samples = 48
+options.color_overrides = {
+    "core": (0.18, 0.48, 0.78),
+    **{
+        f"linker{index}": (0.92, 0.42, 0.14)
+        for index in range(1, 13)
+    },
+}
+options.opacity_overrides = {"core": 0.62}
+
+loaded.export_usd(
+    "coatedSphere",
+    str(usd_path),
+    parameters,
+    options,
+)
+
+print(usd_path.name, f"({usd_path.stat().st_size / 1024:.1f} KiB)")
+print("\n".join(usd_path.read_text().splitlines()[:8]))
+```
+
+The text USDA file opens in Blender, `usdview`, and other OpenUSD tools; pySEB
+does not require an OpenUSD runtime to write it. The seed makes the
+representative random walks, distributed attachment positions, and layout
+repeatable. Change it when you want another equally valid realization.
+
+The documentation build can now open that exact USDA file with the OpenUSD
+Python bindings and hand its resolved meshes and curves to Plotly. This adapter
+lives in `docs/tutorials/_helpers.py`; it is not part of pySEB's runtime API or
+required dependencies.
+
+```{python}
+#| label: fig-interactive-openusd
+#| fig-cap: "Interactive realization read back from the OpenUSD file produced above."
+
+from _helpers import usd_to_plotly
+
+interactive_scene = usd_to_plotly(usd_path)
+interactive_scene.show(config={
+    "displaylogo": False,
+    "scrollZoom": True,
+    "responsive": True,
+})
+```
+
+Drag to orbit, scroll to zoom, and hover over geometry to see its resolved USD
+path. Python and OpenUSD run during the documentation build; the published page
+loads Plotly's JavaScript renderer to handle interaction in the browser.
+
+## C++ equivalents
+
+The same files are portable to the C++ API. Include the world parser explicitly
+for import and export:
+
+```cpp
+#include "SEB.hpp"
+#include "WorldIO/WorldParser.hpp"
+
+World world("CustomLinkerTutorial");
+world.RegisterSubunitFile("models/FlexibleLinker.pyseb.yaml");
+GraphID graph = world.Add("SolidSphere", "core");
+graph = world.Link(
+    "FlexibleLinker", "linker1.end1", "core.surface#linker1");
+world.Add(graph, "coatedSphere");
+
+pyseb::SaveWorld(world, "coated-sphere.pyseb-world.yaml");
+auto loaded = pyseb::LoadWorld(
+    "coated-sphere.pyseb-world.yaml",
+    {"models/FlexibleLinker.pyseb.yaml"});
+
+ParameterList parameters{
+    {"R_core", 3.0},
+    {"Rg_linker1", 0.6},
+};
+USDExportOptions options(LengthUnit::Nanometer);
+options.seed = 42;
+options.layoutMode = USDLayoutMode::Readable;
+loaded->ExportUSD(
+    "coatedSphere", "coated-sphere.usda", parameters, options);
+```
+
+`AddFile` and `LinkFile` are the C++ one-off loading conveniences corresponding
+to Python's `add_subunit_file` and `link_subunit_file`.
+
+## What else is new in 0.3.0?
+
+- YAML models can define reusable one-dimensional or ordered iterated finite
+  integrals with CQUAD or QAG. Use them for orientational averages that do not
+  have a closed form.
+- `sinc` and `jinc` provide stable removable limits at zero, and the expression
+  language also includes Bessel, Struve, Dawson, and error functions.
+- Visual references support fixed positions, curve fractions, distributed
+  sampling, labelled identities, and named variants such as opposite cylinder
+  caps or spheroid poles.
+- OpenUSD export supports random or best-effort readable layouts, per-instance
+  colors and opacity, custom length units, and visualization-only envelopes for
+  Debye sphere clouds.
+- Bundled analytic models are now discovered from YAML. Construct catalogue
+  models through `World.Add()` and `World.Link()`; direct constructors are not
+  available for YAML-backed entries.
+
+The [file-defined subunit guide](../file-defined-subunits.qmd) documents the
+complete schema and integral rules. The
+[visualization guide](../visualization.qmd) covers geometry patches, layout
+controls, named variants, Debye envelopes, and the example gallery.
+
+## Next steps
+
+- [File-defined subunits](../file-defined-subunits.qmd)
+- [YAML visualization and OpenUSD](../visualization.qmd)
+- [Evaluate mixed models](mixed-model-evaluation.qmd)
+- [World import and export reference](https://github.com/Tobionecenobi/pySEB/wiki/World-Import-and-Export)
