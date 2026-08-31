@@ -7,6 +7,14 @@ pySEB is the Python interface to the Scattering Equation Builder. It constructs
 small-angle-scattering expressions for composite structures assembled by
 connecting reusable subunits at named or distributed reference points.
 
+## From a model to a scattering expression
+
+![A four-step SEB workflow: choose a target structure, assemble it from subunits, derive the symbolic scattering expression, and evaluate or plot it.](assets/seb-workflow.png){fig-alt="SEB workflow from a target structure through subunit construction and symbolic derivation to a scattering plot." width="95%"}
+
+The same structure graph supports symbolic output, direct numerical
+evaluation, parameter sweeps, and contrast changes. Python and C++ use the
+same `World`, `Add`, `Link`, names, tags, and reference-point concepts.
+
 ## What pySEB provides
 
 - Analytic YAML subunits, callback-defined numerical subunits, Debye sphere

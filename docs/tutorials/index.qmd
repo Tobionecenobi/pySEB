@@ -5,14 +5,6 @@ title: "Tutorials"
 The tutorials combine explanation, maintained Python and C++ source code, and
 output produced by pySEB during the documentation build.
 
-## From a model to a scattering expression
-
-![A four-step SEB workflow: choose a target structure, assemble it from subunits, derive the symbolic scattering expression, and evaluate or plot it.](../assets/seb-workflow.png){fig-alt="SEB workflow from a target structure through subunit construction and symbolic derivation to a scattering plot." width="95%"}
-
-The same structure graph supports symbolic output, direct numerical
-evaluation, parameter sweeps, and contrast changes. Python and C++ use the
-same `World`, `Add`, `Link`, names, tags, and reference-point concepts.
-
 ## Choose a tutorial by task
 
 | Tutorial | What you will learn | Level |
@@ -73,11 +65,3 @@ programs:
 The displayed C++ is included directly from the compiled source files. The
 terminal output beneath each program is captured from the executable during
 the Quarto render.
-
-## Before you begin
-
-The diblock tutorial starts by creating a Python virtual environment and
-installing pySEB with `pip`. To compile C++, use the
-[platform build guides](https://github.com/Tobionecenobi/pySEB/wiki/Build-Guides).
-For terminology, reference syntax, and the available models, see the
-[reference wiki](https://github.com/Tobionecenobi/pySEB/wiki).
