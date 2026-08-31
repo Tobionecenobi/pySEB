@@ -1,0 +1,53 @@
+---
+title: "About pySEB"
+subtitle: "Scope, capabilities, and architecture"
+---
+
+pySEB is the Python interface to the Scattering Equation Builder. It constructs
+small-angle-scattering expressions for composite structures assembled by
+connecting reusable subunits at named or distributed reference points.
+
+## What pySEB provides
+
+- Analytic YAML subunits, callback-defined numerical subunits, Debye sphere
+  clouds, and PDB-derived atom clouds.
+- Reusable nested structures for chains, stars, micelles, dendrimers, and other
+  connected models.
+- Normalized and unnormalized form factors, amplitudes, phase factors, and size
+  measures.
+- Direct scalar and vector evaluation, symbolic inspection, parameter sweeps,
+  and contrast variation.
+- Versioned YAML world import and export for portable structure topology.
+- Deterministic OpenUSD visualization with random or readability-optimized
+  representative layouts.
+- Linux, macOS, and Windows wheels plus a public C++ API.
+
+## Architecture
+
+| Layer | Responsibility |
+| --- | --- |
+| Native C++ core | Structure graphs, scattering traversal, numerical evaluation, model and world I/O, and OpenUSD export |
+| Portable symbolic backend | Dependency-light symbolic expressions used by the standard Python package and portable C++ builds |
+| Optional GiNaC backend | Native C++ symbolic algebra for builds that explicitly enable GiNaC |
+| Python package | Python bindings, NumPy-oriented evaluation workflows, SymPy conversion, command-line tools, and examples |
+| YAML model catalogue | Validated analytic subunit equations, references, validation cases, and representative visual geometry |
+
+The same public structure concepts—`World`, `Add`, `Link`, names, tags, and
+reference points—are available from Python and C++. Visualization remains
+separate from the orientationally averaged scattering calculation: it provides
+one deterministic representative realization of the model topology.
+
+## Documentation
+
+- [Tutorials](tutorials/index.qmd) provide task-oriented, tested examples.
+- [Subunits and YAML Models](tutorials/custom-yaml-workflow.qmd) explains the
+  model catalogue and how to create a portable subunit.
+- The [Reference Wiki](https://github.com/Tobionecenobi/pySEB/wiki) contains
+  build guides, theory, API summaries, model references, validation details,
+  and troubleshooting.
+
+## Project information
+
+- [Publications and citation](https://github.com/Tobionecenobi/pySEB/wiki/Publications-and-Citation)
+- [Project status and roadmap](https://github.com/Tobionecenobi/pySEB/wiki/Project-Status-and-Roadmap)
+- [Contributing](https://github.com/Tobionecenobi/pySEB/wiki/Contributing)

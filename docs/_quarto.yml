@@ -5,6 +5,7 @@ project:
     - tutorials/models/*.pyseb.yaml
   render:
     - index.qmd
+    - about.qmd
     - tutorials/index.qmd
     - tutorials/diblock-copolymer.qmd
     - tutorials/micelle.qmd
@@ -15,6 +16,9 @@ project:
     - tutorials/mixed-model-evaluation.qmd
     - tutorials/symbolic-expressions.qmd
     - tutorials/scattering-quantities.qmd
+    - tutorials/figure10-linear-chains.qmd
+    - tutorials/figure11-dendrimers.qmd
+    - tutorials/figure12-surface-attachments.qmd
     - tutorials/figure13-star-chain.qmd
     - tutorials/custom-yaml-workflow.qmd
     - tutorials/pyseb_tutorial.qmd
@@ -35,10 +39,8 @@ website:
         text: Home
       - href: tutorials/index.qmd
         text: Tutorials
-      - href: file-defined-subunits.qmd
-        text: Model files
-      - href: visualization.qmd
-        text: 3D visuals
+      - href: about.qmd
+        text: About
       - href: https://github.com/Tobionecenobi/pySEB/wiki
         text: Reference Wiki
   sidebar:
@@ -61,6 +63,11 @@ website:
             - tutorials/mixed-model-evaluation.qmd
             - tutorials/symbolic-expressions.qmd
             - tutorials/scattering-quantities.qmd
+        - section: "Published structures"
+          contents:
+            - tutorials/figure10-linear-chains.qmd
+            - tutorials/figure11-dendrimers.qmd
+            - tutorials/figure12-surface-attachments.qmd
             - tutorials/figure13-star-chain.qmd
         - section: "Extended guides"
           contents:
@@ -83,6 +90,7 @@ format:
     theme:
       light: cosmo
       dark: darkly
+    css: styles.css
     respect-user-color-scheme: true
     toc: true
     code-tools: true

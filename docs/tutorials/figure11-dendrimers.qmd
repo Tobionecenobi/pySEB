@@ -1,0 +1,164 @@
+---
+title: "Figure 11 Dendrimers"
+subtitle: "Build branched structures recursively"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+Figure 11 of the original SEB paper constructs dendrimers from Gaussian
+polymers and thin rods. Each new generation branches from a free endpoint or
+from a newly sampled contour position.
+
+![Published Figure 11: recursively assembled polymer and rod dendrimers.](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/PaperFigs/fig11.png){fig-alt="Published Figure 11 comparing endpoint-linked and contour-linked dendrimers assembled from Gaussian polymers and thin rods." width="90%"}
+
+The publication uses four generations. This page executes three generations
+to keep routine documentation builds responsive; changing `generations` to
+four restores the published topology.
+
+## Recursive construction
+
+A zero-scattering `Point` supplies the root. Functionality three creates three
+branches at the root and two children at every later branch: one connection is
+already occupied by the branch's parent.
+
+```{python}
+import math
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+
+def build_dendrimer(model, link_mode, generations=3, functionality=3):
+    world = pyseb.World(f"Figure11-{model}-{link_mode}")
+    graph = world.Add("Point", "center")
+    next_index = 0
+
+    def attach(generation, parent_reference):
+        nonlocal next_index
+        child_count = (
+            functionality
+            if parent_reference == "center.point"
+            else functionality - 1
+        )
+
+        for _ in range(child_count):
+            index = next_index
+            next_index += 1
+            name = f"branch{index}"
+
+            if link_mode == "ends":
+                incoming = f"{name}.end1"
+                outgoing = f"{name}.end2"
+            else:
+                incoming = f"{name}.contour#in{index}"
+                outgoing = f"{name}.contour#out{index}"
+
+            world.Link(model, incoming, parent_reference, "branch")
+            if generation > 1:
+                attach(generation - 1, outgoing)
+
+    attach(generations, "center.point")
+    world.Add(graph, "dendrimer")
+    return world, next_index
+```
+
+The counter gives every branch a unique instance name and every distributed
+contour reference a stable anchor suffix.
+
+## Build the four comparisons
+
+The rod length $\sqrt{12}$ and polymer radius of gyration 1 give each branch
+$R_g^2=1$.
+
+```{python}
+generations = 3
+specifications = [
+    ("Polymer: endpoint", "GaussianPolymer", "ends",
+     {"beta_branch": 1.0, "Rg_branch": 1.0}),
+    ("Polymer: contour", "GaussianPolymer", "contour",
+     {"beta_branch": 1.0, "Rg_branch": 1.0}),
+    ("Rod: endpoint", "ThinRod", "ends",
+     {"beta_branch": 1.0, "L_branch": math.sqrt(12.0)}),
+    ("Rod: contour", "ThinRod", "contour",
+     {"beta_branch": 1.0, "L_branch": math.sqrt(12.0)}),
+]
+
+dendrimers = {}
+for label, model, mode, parameters in specifications:
+    world, branch_count = build_dendrimer(model, mode, generations)
+    dendrimers[label] = (world, parameters)
+
+print(f"branches per dendrimer: {branch_count}")
+```
+
+With functionality three, the number of scattering branches is
+$3 + 6 + 12 = 21$ for three generations and 45 for four generations.
+
+## Evaluate and compare
+
+```{python}
+q = np.geomspace(1e-2, 30.0, 64)
+curves = {
+    label: np.asarray(
+        world.EvaluateFormFactor("dendrimer", parameters, q.tolist())
+    )
+    for label, (world, parameters) in dendrimers.items()
+}
+```
+
+```{python}
+#| label: fig-figure11-dendrimer-comparison
+#| fig-cap: "Three-generation polymer and rod dendrimers joined through fixed endpoints or distributed contour references."
+
+for label, values in curves.items():
+    plt.loglog(q, values, label=label)
+plt.xlabel(r"$q$")
+plt.ylabel(r"$F(q)$")
+plt.legend(fontsize="small")
+plt.show()
+```
+
+Recursion changes only the topology-building code. pySEB derives all
+intra-branch and inter-branch scattering terms from the resulting graph.
+
+## C++
+
+The maintained C++14 version constructs the three-generation endpoint-linked
+thin-rod dendrimer and evaluates representative q values.
+
+```cpp
+{{< include cpp/figure11-dendrimers.cpp >}}
+```
+
+```{python}
+#| echo: false
+from _helpers import run_tutorial
+
+run_tutorial("figure11-dendrimers")
+```
+
+## What this demonstrates
+
+- A recursive function can grow a connected SEB graph without special
+  dendrimer primitives.
+- The root functionality and later functionality differ because every branch
+  after the root already has a parent.
+- Replacing `end1`/`end2` with distributed `contour` references changes the
+  ensemble while preserving the branching topology.
+- One shared tag keeps the parameter count fixed as the dendrimer grows.
+
+## Next steps
+
+- [Reusable nested structures](nested-structures.qmd)
+- [Figure 12 surface attachments](figure12-surface-attachments.qmd)
+- [Core concepts](https://github.com/Tobionecenobi/pySEB/wiki/Core-Concepts)
+- [Original Figure 11 sources](https://github.com/Tobionecenobi/pySEB/tree/main/PaperFigs)

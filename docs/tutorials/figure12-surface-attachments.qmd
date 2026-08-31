@@ -1,0 +1,225 @@
+---
+title: "Figure 12 Surface Attachments"
+subtitle: "Place polymers and rods on spheres, shells, and cylinders"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+Figure 12 of the original SEB paper uses distributed reference points to
+attach Gaussian polymers and thin rods to solid spheres, spherical shells,
+and cylinders. The reference name selects the geometric region over which an
+attachment is averaged.
+
+![Published Figure 12: rods and polymers attached to sphere, shell, and cylinder surfaces.](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/PaperFigs/fig12.png){fig-alt="Published Figure 12 showing polymers and rods attached to solid spheres, spherical shells, and solid cylinders through several distributed surface references." width="95%"}
+
+The publication attaches 50 polymers and 50 rods in each case. The executable
+tutorial uses six pairs; increase `pair_count` to 50 for the published grafting
+count.
+
+## Build a surface-decorated structure
+
+The core, polymer, and rod instances retain different tags. A transparent
+core can therefore provide geometry and attachment correlations without
+contributing contrast to the evaluated scattering curve.
+
+```{python}
+import math
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+
+def build_surface_structure(
+    core_model,
+    polymer_reference,
+    rod_reference,
+    pair_count,
+    *,
+    paired_anchors=False,
+):
+    world = pyseb.World(f"Figure12-{core_model}")
+    graph = world.Add(core_model, "core")
+
+    for index in range(pair_count):
+        polymer_anchor = f"pair{index}" if paired_anchors else f"polymer{index}"
+        rod_anchor = f"pair{index}" if paired_anchors else f"rod{index}"
+        world.Link(
+            "GaussianPolymer",
+            f"polymer{index}.end1",
+            f"core.{polymer_reference}#{polymer_anchor}",
+            "polymer",
+        )
+        world.Link(
+            "ThinRod",
+            f"rod{index}.end1",
+            f"core.{rod_reference}#{rod_anchor}",
+            "rod",
+        )
+
+    world.Add(graph, "structure")
+    return world
+```
+
+If the polymer and rod use the same suffix, they share one sampled attachment
+point. Different suffixes request statistically independent points from the
+same distribution.
+
+## Select geometric reference distributions
+
+```{python}
+pair_count = 6
+
+structures = {
+    "Sphere: independent surface points": (
+        build_surface_structure(
+            "SolidSphere", "surface", "surface", pair_count
+        ),
+        {"beta_core": 0.0, "R_core": 10.0},
+    ),
+    "Sphere: paired surface points": (
+        build_surface_structure(
+            "SolidSphere", "surface", "surface", pair_count,
+            paired_anchors=True,
+        ),
+        {"beta_core": 0.0, "R_core": 10.0},
+    ),
+    "Shell: outer polymers / inner rods": (
+        build_surface_structure(
+            "SolidSphericalShell", "surfaceo", "surfacei", pair_count
+        ),
+        {"beta_core": 0.0, "Ri_core": 8.0, "Ro_core": 12.0},
+    ),
+    "Cylinder: hull polymers / end rods": (
+        build_surface_structure(
+            "SolidCylinder", "hull", "ends", pair_count
+        ),
+        {"beta_core": 0.0, "R_core": 5.0, "L_core": 10.0},
+    ),
+}
+
+shared_parameters = {
+    "beta_polymer": 1.0,
+    "Rg_polymer": 1.0,
+    "beta_rod": 1.0,
+    "L_rod": math.sqrt(12.0),
+}
+```
+
+The available distributions are specific to the core geometry: a sphere has
+`surface`; a solid spherical shell distinguishes `surfacei`, `surfaceo`, and
+their combined `surface`; a cylinder distinguishes `hull`, `ends`, and the
+combined `surface`.
+
+## Evaluate the attachment correlations
+
+```{python}
+q = np.geomspace(0.05, 5.0, 64)
+curves = {}
+for label, (world, core_parameters) in structures.items():
+    parameters = {**core_parameters, **shared_parameters}
+    curves[label] = np.asarray(
+        world.EvaluateFormFactor("structure", parameters, q.tolist())
+    )
+```
+
+```{python}
+#| label: fig-figure12-surface-attachment-comparison
+#| fig-cap: "Form factors for polymer–rod pairs attached through different distributed surface references."
+
+for label, values in curves.items():
+    plt.loglog(q, values, label=label)
+plt.xlabel(r"$q$")
+plt.ylabel(r"$F(q)$")
+plt.legend(fontsize="small")
+plt.show()
+```
+
+The core contrast is zero here, but its reference distributions still control
+the interference between grafted subunits. Setting `beta_core` to a nonzero
+value adds the core's own scattering and its cross terms with every graft.
+
+## Inspect one OpenUSD realization
+
+The scattering calculation averages over the reference distribution. OpenUSD
+shows one deterministic representative realization of that ensemble.
+
+```{python}
+#| echo: false
+
+from pathlib import Path
+import tempfile
+
+from _helpers import usd_to_plotly
+
+shell_world, shell_core_parameters = structures[
+    "Shell: outer polymers / inner rods"
+]
+shell_parameters = {**shell_core_parameters, **shared_parameters}
+visual_workspace = tempfile.TemporaryDirectory()
+visual_path = Path(visual_workspace.name) / "figure12-shell.usda"
+visual_options = pyseb.USDExportOptions(pyseb.LengthUnit.Nanometer)
+visual_options.seed = 12
+visual_options.layout_mode = pyseb.LayoutMode.Readable
+visual_options.orientation_trials = 24
+visual_options.relaxation_sweeps = 2
+visual_options.opacity_overrides = {"core": 0.35}
+
+shell_world.export_usd(
+    "structure", str(visual_path), shell_parameters, visual_options
+)
+```
+
+```{python}
+#| echo: false
+#| label: fig-interactive-figure12-shell
+#| fig-cap: "A representative shell realization with polymers on the outer surface and rods on the inner surface."
+
+usd_to_plotly(visual_path, height=560).show(config={
+    "displaylogo": False,
+    "scrollZoom": True,
+    "responsive": True,
+})
+```
+
+## C++
+
+The maintained C++14 example constructs the shell case and evaluates a compact
+set of q values.
+
+```cpp
+{{< include cpp/figure12-surface-attachments.cpp >}}
+```
+
+```{python}
+#| echo: false
+from _helpers import run_tutorial
+
+run_tutorial("figure12-surface-attachments")
+```
+
+## What this demonstrates
+
+- Distributed references encode a geometrical probability distribution, not
+  one permanently fixed coordinate.
+- Anchor suffixes express correlation: equal suffixes share a sampled point;
+  different suffixes are independently averaged.
+- A zero-contrast core can still determine the spatial correlations between
+  visible grafts.
+- The same attachment loop works across core shapes by changing only their
+  reference names and structural parameters.
+
+## Next steps
+
+- [Sphere–polymer micelle](micelle.qmd)
+- [OpenUSD visualization](../visualization.qmd)
+- [Naming and linking](https://github.com/Tobionecenobi/pySEB/wiki/Naming-and-Linking)
+- [Original Figure 12 sources](https://github.com/Tobionecenobi/pySEB/tree/main/PaperFigs)

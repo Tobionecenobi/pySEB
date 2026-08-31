@@ -1,0 +1,6 @@
+/* Plotly annotations use an inline fill color and do not inherit Quarto's
+   active Bootstrap theme. Keep the generated subunit labels readable when
+   the alternate dark stylesheet is active. */
+.quarto-dark #fig-bundled-subunit-catalogue .annotation-text {
+  fill: #fff !important;
+}

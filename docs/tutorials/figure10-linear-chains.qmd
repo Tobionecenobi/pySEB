@@ -1,0 +1,157 @@
+---
+title: "Figure 10 Linear Chains"
+subtitle: "Compare endpoint and distributed-contour links"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+Figure 10 of the original SEB paper compares linear chains assembled from
+Gaussian polymers, thin rods, Gaussian loops, and thin circles. It also shows
+that the choice of reference point is part of the model: joining fixed ends is
+not equivalent to joining independently sampled positions on two contours.
+
+![Published Figure 10: form factors for linear chains assembled from different subunits and reference-point choices.](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/PaperFigs/fig10.png){fig-alt="Published Figure 10 comparing endpoint-linked and contour-linked linear chains of Gaussian polymers, thin rods, Gaussian loops, and thin circles." width="90%"}
+
+The paper uses 100 subunits per chain. The executable comparison below uses 12
+so the documentation remains quick to rebuild. Set `segment_count = 100` to
+reproduce the published chain length.
+
+## Build a reusable chain function
+
+Every instance receives a unique name but shares the tag `segment`. The tag
+reduces the complete chain to one excess scattering length and one structural
+size parameter.
+
+For a distributed reference such as `contour`, the suffix after `#` identifies
+one sampled attachment. Different suffixes on the two sides of every link make
+the two contour positions statistically independent.
+
+```{python}
+import math
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+
+def build_chain(model, left_reference, right_reference, segment_count):
+    world = pyseb.World(f"Figure10-{model}-{left_reference}")
+    graph = world.Add(model, "segment1", "segment")
+
+    for index in range(2, segment_count + 1):
+        current = f"segment{index}.{left_reference}"
+        previous = f"segment{index - 1}.{right_reference}"
+        if left_reference == "contour":
+            current += f"#left{index}"
+        if right_reference == "contour":
+            previous += f"#right{index - 1}"
+        world.Link(model, current, previous, "segment")
+
+    world.Add(graph, "chain")
+    return world
+```
+
+## Match the single-subunit size
+
+Each case below has single-subunit $R_g^2=1$, matching the comparison used for
+the publication figure. Loops and circles have no fixed ends, so they only
+appear in the contour-linked cases.
+
+```{python}
+segment_count = 12
+
+cases = [
+    ("Polymer: end to end", "GaussianPolymer", "end1", "end2",
+     {"beta_segment": 1.0, "Rg_segment": 1.0}),
+    ("Polymer: contour to contour", "GaussianPolymer", "contour", "contour",
+     {"beta_segment": 1.0, "Rg_segment": 1.0}),
+    ("Rod: end to end", "ThinRod", "end1", "end2",
+     {"beta_segment": 1.0, "L_segment": math.sqrt(12.0)}),
+    ("Rod: contour to contour", "ThinRod", "contour", "contour",
+     {"beta_segment": 1.0, "L_segment": math.sqrt(12.0)}),
+    ("Loop: contour to contour", "GaussianLoop", "contour", "contour",
+     {"beta_segment": 1.0, "Rg_segment": 1.0}),
+    ("Circle: contour to contour", "ThinCircle", "contour", "contour",
+     {"beta_segment": 1.0, "R_segment": math.sqrt(2.0)}),
+]
+
+chains = {
+    label: (build_chain(model, left, right, segment_count), parameters)
+    for label, model, left, right, parameters in cases
+}
+
+print(f"built {len(chains)} chains with {segment_count} subunits each")
+```
+
+## Evaluate the form factors
+
+```{python}
+q = np.geomspace(1e-2, 50.0, 72)
+curves = {
+    label: np.asarray(world.EvaluateFormFactor("chain", parameters, q.tolist()))
+    for label, (world, parameters) in chains.items()
+}
+```
+
+```{python}
+#| label: fig-figure10-linear-chain-comparison
+#| fig-cap: "Form factors for six 12-subunit chains. Increase segment_count to 100 for the published chain length."
+
+fig, axes = plt.subplots(1, 2, figsize=(10, 4), sharex=True, sharey=True)
+for label, values in curves.items():
+    axis = axes[0] if "end to end" in label else axes[1]
+    axis.loglog(q, values, label=label.split(":")[0])
+
+axes[0].set_title("Fixed endpoint links")
+axes[1].set_title("Distributed contour links")
+for axis in axes:
+    axis.set_xlabel(r"$q$")
+    axis.legend(fontsize="small")
+axes[0].set_ylabel(r"$F(q)$")
+plt.tight_layout()
+plt.show()
+```
+
+The chains agree at sufficiently small q because every normalized form factor
+approaches one. Their intermediate- and high-q behavior separates the local
+subunit shape from the statistics introduced by the selected references.
+
+## C++
+
+The maintained C++14 example applies the same builder to endpoint- and
+contour-linked thin-rod chains and prints a compact comparison.
+
+```cpp
+{{< include cpp/figure10-linear-chains.cpp >}}
+```
+
+```{python}
+#| echo: false
+from _helpers import run_tutorial
+
+run_tutorial("figure10-linear-chains")
+```
+
+## What this demonstrates
+
+- A subunit type and a linking reference are independent modeling choices.
+- Tags share physical parameters without merging instance identities.
+- Distributed-reference suffixes control whether attachments are shared or
+  independently averaged.
+- The same chain-building loop works for any subunit exposing compatible
+  references.
+
+## Next steps
+
+- [Figure 11 dendrimers](figure11-dendrimers.qmd)
+- [Random-walk rod chain](random-walk-rods.qmd)
+- [Naming and linking](https://github.com/Tobionecenobi/pySEB/wiki/Naming-and-Linking)
+- [Original Figure 10 sources](https://github.com/Tobionecenobi/pySEB/tree/main/PaperFigs)

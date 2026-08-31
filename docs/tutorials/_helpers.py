@@ -5,6 +5,16 @@ from pathlib import Path
 import subprocess
 
 
+def repository_root():
+    """Return the repository containing the documentation being rendered."""
+    current = Path.cwd().resolve()
+    return next(
+        candidate
+        for candidate in (current, *current.parents)
+        if (candidate / "pyproject.toml").is_file()
+    )
+
+
 def tutorial_binary(name):
     configured = os.environ.get("PYSEB_TUTORIAL_BIN_DIR")
     if configured:
@@ -32,12 +42,7 @@ def run_usd_example(script_name, output_name):
     import sys
     import tempfile
 
-    current = Path.cwd().resolve()
-    repository = next(
-        candidate
-        for candidate in (current, *current.parents)
-        if (candidate / "pyproject.toml").is_file()
-    )
+    repository = repository_root()
     workspace = tempfile.TemporaryDirectory()
     environment = os.environ.copy()
     existing_python_path = environment.get("PYTHONPATH")
@@ -59,12 +64,11 @@ def run_usd_example(script_name, output_name):
     return workspace, output
 
 
-def usd_to_plotly(path, *, height=650):
-    """Convert the pySEB geometry in a USDA file to an interactive Plotly figure.
+def _usd_traces(path):
+    """Convert the pySEB geometry in a USDA file to Plotly traces.
 
     This documentation-only adapter deliberately lives outside the pyseb
-    package. OpenUSD resolves the scene hierarchy and transforms; Plotly
-    supplies the browser renderer used by the generated tutorial site.
+    package. OpenUSD resolves the scene hierarchy and transforms.
     """
     import plotly.graph_objects as go
     from pxr import Usd, UsdGeom
@@ -171,7 +175,14 @@ def usd_to_plotly(path, *, height=650):
                 showlegend=False,
             ))
 
-    figure = go.Figure(traces)
+    return traces
+
+
+def usd_to_plotly(path, *, height=650):
+    """Convert the pySEB geometry in a USDA file to an interactive Plotly figure."""
+    import plotly.graph_objects as go
+
+    figure = go.Figure(_usd_traces(path))
     figure.update_layout(
         height=height,
         margin={"l": 0, "r": 0, "t": 35, "b": 0},
@@ -191,6 +202,158 @@ def usd_to_plotly(path, *, height=650):
             "xanchor": "center",
             "font": {"size": 15},
         },
+        showlegend=False,
+    )
+    return figure
+
+
+def bundled_subunit_catalogue():
+    """Load bundled YAML models and choose validated preview parameters.
+
+    A bundled model appears automatically when a new ``models/*.pyseb.yaml``
+    file is added. Its first validation case containing every structural
+    parameter supplies the deterministic scale used by the homepage preview.
+    """
+    import pyseb
+    import yaml
+
+    catalogue = []
+    for path in sorted((repository_root() / "models").glob("*.pyseb.yaml")):
+        definition = pyseb.load_subunit_definition(str(path))
+        if not definition.visualization.present:
+            raise ValueError(
+                f"bundled model {definition.id} needs visualization metadata "
+                "for the generated homepage catalogue"
+            )
+
+        document = yaml.safe_load(path.read_text(encoding="utf-8"))
+        required = set(definition.parameters)
+        preview_parameters = None
+        for case in document.get("validation", {}).get("cases", []):
+            values = case.get("parameters", {})
+            if required.issubset(values):
+                preview_parameters = {
+                    name: float(values[name]) for name in sorted(required)
+                }
+                break
+        if preview_parameters is None:
+            names = ", ".join(sorted(required)) or "no parameters"
+            raise ValueError(
+                f"bundled model {definition.id} needs a validation case covering "
+                f"all preview parameters ({names})"
+            )
+
+        catalogue.append({
+            "api_name": definition.api_name,
+            "description": definition.metadata.description,
+            "id": definition.id,
+            "parameters": preview_parameters,
+            "path": path,
+            "title": definition.metadata.title,
+        })
+
+    return catalogue
+
+
+def bundled_subunit_markdown(catalogue):
+    """Return the generated homepage bullet for the bundled catalogue."""
+    names = ", ".join(f"`{model['api_name']}`" for model in catalogue)
+    return f"- **{len(catalogue)} bundled YAML subunits:** {names}."
+
+
+def bundled_subunit_figure(catalogue, *, columns=3):
+    """Render every bundled YAML subunit through pySEB's OpenUSD exporter."""
+    import math
+    import tempfile
+
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    import pyseb
+
+    rows = math.ceil(len(catalogue) / columns)
+    specs = [[{"type": "scene"} for _ in range(columns)] for _ in range(rows)]
+    titles = [model["api_name"] for model in catalogue]
+    titles.extend([""] * (rows * columns - len(titles)))
+    figure = make_subplots(
+        rows=rows,
+        cols=columns,
+        specs=specs,
+        subplot_titles=titles,
+        horizontal_spacing=0.015,
+        vertical_spacing=0.06,
+    )
+
+    palette = (
+        (0.12, 0.38, 0.72),
+        (0.10, 0.62, 0.66),
+        (0.32, 0.68, 0.38),
+        (0.91, 0.63, 0.13),
+        (0.82, 0.25, 0.18),
+        (0.56, 0.36, 0.73),
+    )
+
+    with tempfile.TemporaryDirectory() as directory:
+        directory = Path(directory)
+        for index, model in enumerate(catalogue):
+            row, column = divmod(index, columns)
+            color = palette[index % len(palette)]
+            world = pyseb.World(f"catalogue-{model['api_name']}")
+            graph = world.Add(model["id"], "sample", "preview")
+            world.Add(graph, "previewStructure")
+
+            parameters = {
+                f"{name}_preview": value
+                for name, value in model["parameters"].items()
+            }
+            options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+            options.seed = 1000 + index
+            options.curve_samples = 64
+            options.surface_samples = 22
+            options.color_overrides = {"sample": color}
+            options.opacity_overrides = {"sample": 0.82}
+            path = directory / f"{model['api_name']}.usda"
+            world.export_usd(
+                "previewStructure", str(path), parameters, options)
+
+            traces = _usd_traces(path)
+            if not traces:
+                # Point is deliberately invisible and has no scattering
+                # geometry. Represent its fixed connector reference explicitly.
+                rgb = "rgb({},{},{})".format(
+                    *(round(255 * channel) for channel in color)
+                )
+                traces = [go.Scatter3d(
+                    x=[0], y=[0], z=[0],
+                    mode="markers",
+                    marker={"color": rgb, "size": 8, "symbol": "diamond"},
+                    hovertemplate=(
+                        f"{model['api_name']}: fixed connector reference"
+                        "<extra></extra>"
+                    ),
+                    showlegend=False,
+                )]
+
+            for trace in traces:
+                trace.name = model["api_name"]
+                figure.add_trace(trace, row=row + 1, col=column + 1)
+
+    scene_style = {
+        "aspectmode": "data",
+        "xaxis": {"visible": False},
+        "yaxis": {"visible": False},
+        "zaxis": {"visible": False},
+        "camera": {"eye": {"x": 1.45, "y": 1.45, "z": 1.0}},
+        "bgcolor": "rgba(0,0,0,0)",
+    }
+    for index in range(1, rows * columns + 1):
+        name = "scene" if index == 1 else f"scene{index}"
+        figure.layout[name].update(scene_style)
+
+    figure.update_layout(
+        height=270 * rows,
+        margin={"l": 0, "r": 0, "t": 35, "b": 0},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
         showlegend=False,
     )
     return figure

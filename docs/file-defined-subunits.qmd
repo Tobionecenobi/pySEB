@@ -231,7 +231,7 @@ used for evaluation. It writes a representative OpenUSD realization; visual
 sampling and layout never feed back into the orientationally averaged
 scattering calculation.
 
-Follow the executable [custom YAML model workflow](tutorials/custom-yaml-workflow.qmd)
+Follow the tested [Subunits and YAML Models tutorial](tutorials/custom-yaml-workflow.qmd)
 to define, validate, register, save, reload, evaluate, and visualize one model.
 The [visualization guide](visualization.qmd) documents surface patches,
 distributed references, deterministic labels, named variants, readable

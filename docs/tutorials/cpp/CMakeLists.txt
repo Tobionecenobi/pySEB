@@ -7,6 +7,9 @@ set(PYSEB_DOC_TUTORIAL_NAMES
     pdb-polymer
     symbolic-expressions
     scattering-quantities
+    figure10-linear-chains
+    figure11-dendrimers
+    figure12-surface-attachments
     figure13-star-chain
     inspect-structures
 )

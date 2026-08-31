@@ -1,6 +1,6 @@
 ---
-title: "Custom YAML Model Workflow"
-subtitle: "Define a subunit, save and reload its world, and export an OpenUSD visual"
+title: "Subunits and YAML Models"
+subtitle: "Explore bundled subunits and define, validate, and visualize your own"
 jupyter: python3
 format:
   html:
@@ -13,10 +13,59 @@ execute:
   error: false
 ---
 
-This tutorial exercises the complete portable workflow introduced in pySEB
-0.3.0. You will define a flexible linker without writing C++, validate it,
-use it in a coated-particle model, save and reload the topology, evaluate its
-form factor, and export a deterministic 3D realization.
+This tutorial first explains the role of a subunit and presents the bundled
+model catalogue. You will then define a flexible linker without writing C++,
+validate it, use it in a coated-particle model, save and reload the topology,
+evaluate its form factor, and export a deterministic 3D realization.
+
+## What is a subunit?
+
+A subunit is a reusable scattering component. It supplies its normalized form
+factor, amplitudes relative to its reference points, phase factors between
+those references, structural parameters, and size measures. pySEB connects
+subunits through specific references such as a polymer end or sphere center,
+or distributed references such as a contour or surface.
+
+Subunits describe local scattering physics. A `World` supplies instance names,
+parameter-sharing tags, links, and reusable nested structures. Keeping those
+responsibilities separate lets one subunit definition participate in chains,
+stars, micelles, dendrimers, and other composite models.
+
+## Explore the bundled subunits
+
+```{python}
+#| echo: false
+#| output: asis
+
+from _helpers import (
+    bundled_subunit_catalogue,
+    bundled_subunit_figure,
+    bundled_subunit_markdown,
+)
+
+catalogue = bundled_subunit_catalogue()
+print(bundled_subunit_markdown(catalogue))
+```
+
+```{python}
+#| label: fig-bundled-subunit-catalogue
+#| fig-cap: "Bundled YAML subunits rendered automatically from their OpenUSD visualization definitions. Drag a panel to rotate it and scroll to zoom."
+#| echo: false
+
+catalogue_figure = bundled_subunit_figure(catalogue)
+catalogue_figure.show(config={
+    "displaylogo": False,
+    "scrollZoom": True,
+    "responsive": True,
+})
+```
+
+The names and visual gallery are generated from `models/*.pyseb.yaml` during
+the documentation build. A newly bundled model appears automatically when it
+provides visualization metadata and a validation case containing values for
+all structural parameters. The
+[Subunit Catalogue](https://github.com/Tobionecenobi/pySEB/wiki/Subunit-Catalogue)
+remains the reference for equations, parameters, and reference points.
 
 Three files have different jobs:
 

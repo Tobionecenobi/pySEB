@@ -5,6 +5,14 @@ title: "Tutorials"
 The tutorials combine explanation, maintained Python and C++ source code, and
 output produced by pySEB during the documentation build.
 
+## From a model to a scattering expression
+
+![A four-step SEB workflow: choose a target structure, assemble it from subunits, derive the symbolic scattering expression, and evaluate or plot it.](../assets/seb-workflow.png){fig-alt="SEB workflow from a target structure through subunit construction and symbolic derivation to a scattering plot." width="95%"}
+
+The same structure graph supports symbolic output, direct numerical
+evaluation, parameter sweeps, and contrast changes. Python and C++ use the
+same `World`, `Add`, `Link`, names, tags, and reference-point concepts.
+
 ## Choose a tutorial by task
 
 | Tutorial | What you will learn | Level |
@@ -15,27 +23,7 @@ output produced by pySEB during the documentation build.
 | [Random-walk rod chain](random-walk-rods.qmd) | Link rigid segments, calculate the chain size, and compare with a Gaussian polymer | Intermediate |
 | [Parameter sweeps](parameter-sweeps.qmd) | Reuse one graph with several parameter sets | Intermediate |
 | [PDB cloud with an attached polymer](pdb-polymer.qmd) | Combine coordinate-based numerical scattering with an analytic subunit | Advanced |
-| [Custom YAML model workflow](custom-yaml-workflow.qmd) | Define and validate a subunit, save and reload its world, and export a 3D visual | Intermediate |
-
-## New portable workflow in 0.3.0
-
-The custom YAML tutorial connects the release's three main capabilities in one
-runnable example:
-
-1. author scattering equations, references, validation cases, and visual
-   geometry in a safe `.pyseb.yaml` model file;
-2. save and reload complete structure topology as `.pyseb-world.yaml`, including
-   the external model registration needed during import;
-3. export a seeded representative realization as text OpenUSD (`.usda`) for
-   Blender or `usdview`.
-
-![A sphere with surface-linked random-walk polymers, demonstrating YAML geometry and deterministic distributed attachments.](../previews/sphere_with_polymers.png){fig-alt="A translucent sphere with many colored random-walk polymer paths attached across its surface." width="80%"}
-
-The release also adds YAML-backed finite integrals, stable special functions,
-named visualization variants, best-effort readable layouts, Debye-cloud
-envelopes, and the `pyseb-subunit` and `pyseb-world` validation CLIs. These are
-routed from the end-to-end tutorial to the detailed model and visualization
-guides.
+| [Subunits and YAML models](custom-yaml-workflow.qmd) | Understand and explore bundled subunits, then define, validate, and visualize your own | Intermediate |
 
 ## Advanced tutorials
 
@@ -44,13 +32,21 @@ guides.
 | [Evaluate mixed models](mixed-model-evaluation.qmd) | Evaluate structures containing numerical, integrated, and analytic subunits with one API |
 | [Symbolic expressions and export](symbolic-expressions.qmd) | Select a backend, inspect expressions, convert to SymPy, and export Python, LaTeX, and C forms |
 | [Scattering quantities](scattering-quantities.qmd) | Compare normalized and unnormalized form factors, amplitudes, phase factors, and size measures |
-| [Figure 13 star chain](figure13-star-chain.qmd) | Construct and evaluate the published chain of five four-arm diblock stars |
+
+## Published structure tutorials
+
+| Tutorial | What you will learn |
+| --- | --- |
+| [Figure 10 linear chains](figure10-linear-chains.qmd) | Compare endpoint and distributed-contour links across polymers, rods, loops, and rings |
+| [Figure 11 dendrimers](figure11-dendrimers.qmd) | Build branched structures recursively and compare endpoint and contour attachment |
+| [Figure 12 surface attachments](figure12-surface-attachments.qmd) | Attach polymers and rods to sphere, shell, and cylinder reference distributions |
+| [Figure 13 star chain](figure13-star-chain.qmd) | Construct and evaluate a chain of five reusable four-arm diblock stars |
 
 The established modeling task pages present Python and C++ in parallel. Their
 Python blocks execute in the documentation environment, while maintained C++
-listings are compiled and their output is captured during the build. The custom
-YAML workflow is executable in Python and includes the equivalent portable C++
-file APIs.
+listings are compiled and their output is captured during the build. The
+Subunits and YAML Models tutorial runs in Python and includes the equivalent
+portable C++ file APIs.
 
 ## Extended guides
 
