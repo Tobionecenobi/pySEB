@@ -2,7 +2,7 @@ format: pyseb-subunit
 schema_version: 1
 id: pyseb/SolidCylinder
 api_name: SolidCylinder
-model_version: "1.0.0"
+model_version: "1.1.0"
 
 metadata:
   title: Solid cylinder
@@ -41,6 +41,11 @@ integrals:
     lower: "0"
     upper: "pi / 2"
     integrand: "sin(theta) * jinc(x * sin(theta)) * sinc(y * cos(theta) / 2)"
+  capCenterAmplitude:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * jinc(x * sin(theta)) * sinc(y * cos(theta) / 2) * cos(y * cos(theta) / 2)"
   endsAmplitude:
     variable: theta
     lower: "0"
@@ -71,6 +76,21 @@ integrals:
     lower: "0"
     upper: "pi / 2"
     integrand: "sin(theta) * (L * bessel_j0(x * sin(theta)) * sinc(y * cos(theta) / 2) + R * cos(y * cos(theta) / 2) * jinc(x * sin(theta))) / (L + R)"
+  capCenterEndsPhase:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * cos(y * cos(theta) / 2)^2 * jinc(x * sin(theta))"
+  capCenterHullPhase:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * cos(y * cos(theta) / 2) * bessel_j0(x * sin(theta)) * sinc(y * cos(theta) / 2)"
+  capCenterSurfacePhase:
+    variable: theta
+    lower: "0"
+    upper: "pi / 2"
+    integrand: "sin(theta) * cos(y * cos(theta) / 2) * (L * bessel_j0(x * sin(theta)) * sinc(y * cos(theta) / 2) + R * cos(y * cos(theta) / 2) * jinc(x * sin(theta))) / (L + R)"
   endsEndsPhase:
     variable: theta
     lower: "0"
@@ -103,23 +123,43 @@ integrals:
     integrand: "sin(theta) * ((L * bessel_j0(x * sin(theta)) * sinc(y * cos(theta) / 2) + R * cos(y * cos(theta) / 2) * jinc(x * sin(theta))) / (L + R))^2"
 
 references:
-  specific: [center]
+  specific: [center, top, bottom]
   distributed: [hull, ends, surface]
 
 expressions:
   form_factor: formFactor
   amplitudes:
     center: centerAmplitude
+    top: capCenterAmplitude
+    bottom: capCenterAmplitude
     ends: endsAmplitude
     hull: hullAmplitude
     surface: surfaceAmplitude
   phases:
+    - references: [center, top]
+      expression: "sinc(y / 2)"
+    - references: [center, bottom]
+      expression: "sinc(y / 2)"
+    - references: [top, bottom]
+      expression: "sinc(y)"
     - references: [center, ends]
       expression: centerEndsPhase
     - references: [center, hull]
       expression: centerHullPhase
     - references: [center, surface]
       expression: centerSurfacePhase
+    - references: [top, ends]
+      expression: capCenterEndsPhase
+    - references: [bottom, ends]
+      expression: capCenterEndsPhase
+    - references: [top, hull]
+      expression: capCenterHullPhase
+    - references: [bottom, hull]
+      expression: capCenterHullPhase
+    - references: [top, surface]
+      expression: capCenterSurfacePhase
+    - references: [bottom, surface]
+      expression: capCenterSurfacePhase
     - references: [ends, ends]
       expression: endsEndsPhase
     - references: [ends, hull]
@@ -137,16 +177,36 @@ sizes:
   radius_of_gyration_squared: "(L^2 + 6 * R^2) / 12"
   reference_to_scatterer:
     center: "(L^2 + 6 * R^2) / 12"
+    top: "L^2 / 3 + R^2 / 2"
+    bottom: "L^2 / 3 + R^2 / 2"
     ends: "(L^2 + 3 * R^2) / 3"
     hull: "(L^2 + 9 * R^2) / 6"
     surface: "(L^3 + 2 * L^2 * R + 9 * L * R^2 + 6 * R^3) / (6 * (L + R))"
   reference_to_reference:
+    - references: [center, top]
+      expression: "L^2 / 4"
+    - references: [center, bottom]
+      expression: "L^2 / 4"
+    - references: [top, bottom]
+      expression: "L^2"
     - references: [center, ends]
       expression: "(L^2 + 2 * R^2) / 4"
     - references: [center, hull]
       expression: "L^2 / 12 + R^2"
     - references: [center, surface]
       expression: "(L^3 + 3 * L^2 * R + 12 * L * R^2 + 6 * R^3) / (12 * (L + R))"
+    - references: [top, ends]
+      expression: "(L^2 + R^2) / 2"
+    - references: [bottom, ends]
+      expression: "(L^2 + R^2) / 2"
+    - references: [top, hull]
+      expression: "L^2 / 3 + R^2"
+    - references: [bottom, hull]
+      expression: "L^2 / 3 + R^2"
+    - references: [top, surface]
+      expression: "(2 * L^3 + 3 * L^2 * R + 6 * L * R^2 + 3 * R^3) / (6 * (L + R))"
+    - references: [bottom, surface]
+      expression: "(2 * L^3 + 3 * L^2 * R + 6 * L * R^2 + 3 * R^3) / (6 * (L + R))"
     - references: [ends, ends]
       expression: "L^2 / 2 + R^2"
     - references: [ends, hull]
@@ -180,6 +240,18 @@ validation:
       references: [center]
       q: 0.01
       expected: 0.9999885417153439
+    - name: cap-center amplitude at small q
+      quantity: amplitude
+      parameters: {R: 1.0, L: 1.5}
+      references: [top]
+      q: 0.01
+      expected: 0.9999791668413186
+    - name: top-to-bottom phase at small q
+      quantity: phase
+      parameters: {R: 1.0, L: 1.5}
+      references: [top, bottom]
+      q: 0.01
+      expected: 0.9999625004218727
     - name: ends-to-hull phase at small q
       quantity: phase
       parameters: {R: 1.0, L: 1.5}
@@ -190,6 +262,16 @@ validation:
       quantity: radius_of_gyration_squared
       parameters: {R: 1.0, L: 1.5}
       expected: 0.6875
+    - name: top-to-scatterer mean-square distance
+      quantity: reference_to_scatterer
+      parameters: {R: 1.0, L: 1.5}
+      references: [top]
+      expected: 1.25
+    - name: top-to-bottom mean-square distance
+      quantity: reference_to_reference
+      parameters: {R: 1.0, L: 1.5}
+      references: [top, bottom]
+      expected: 2.25
 
 visualization:
   geometry:
@@ -210,6 +292,8 @@ visualization:
       coordinates: ["u * cos(v)", "u * sin(v)", "-L / 2"]
   references:
     center: {kind: fixed, position: [0, 0, 0]}
+    top: {kind: fixed, position: [0, 0, "L / 2"]}
+    bottom: {kind: fixed, position: [0, 0, "-L / 2"]}
     hull: {kind: distributed, geometry: hull, sampling: surface_area}
     ends:
       kind: distributed

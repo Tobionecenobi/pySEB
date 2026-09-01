@@ -490,6 +490,27 @@ class TestUSDExport(unittest.TestCase):
                             options,
                         )
 
+    def test_cylinder_fixed_references_are_end_cap_centers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            world = pyseb.World("cylinder_cap_centers")
+            world.Add("SolidCylinder", "cylinder")
+            output = Path(directory) / "cylinder.usda"
+            world.export_usd(
+                "cylinder",
+                str(output),
+                {"R_cylinder": 2.0, "L_cylinder": 8.0},
+                pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom),
+            )
+            document = output.read_text(encoding="utf-8")
+            self.assertEqual(
+                _reference(document, "cylinder", "top"),
+                (0.0, 0.0, 4.0),
+            )
+            self.assertEqual(
+                _reference(document, "cylinder", "bottom"),
+                (0.0, 0.0, -4.0),
+            )
+
     def test_reference_variants_use_both_ends_of_cylinder_chain(self):
         with tempfile.TemporaryDirectory() as directory:
             world = pyseb.World("cylinder_ends")

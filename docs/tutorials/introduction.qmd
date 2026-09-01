@@ -1,0 +1,122 @@
+---
+title: "Introduction to pySEB"
+subtitle: "The ideas and vocabulary you need before writing code"
+---
+
+This tutorial assumes no experience with pySEB. It introduces the physical
+question pySEB answers, the pieces used to describe a model, and the small
+amount of vocabulary needed for the first executable tutorial.
+
+You do not need to understand the full scattering theory before starting.
+The [Theory Overview](https://github.com/Tobionecenobi/pySEB/wiki/Theory-Overview)
+is available when you want the mathematical details.
+
+## What problem does pySEB solve?
+
+Small-angle scattering experiments measure how a sample scatters radiation as
+a function of the magnitude of the scattering vector, $q$. Small q probes
+large structural length scales; large q probes smaller details.
+
+A model predicts a curve that can be compared with experimental data. pySEB
+builds that prediction for structures assembled from connected components—for
+example, two polymer blocks, chains attached to a particle, or a hierarchy of
+repeated stars.
+
+pySEB does not fit experimental data by itself. Its main job is to construct,
+inspect, and evaluate the scattering model that a fitting workflow can use.
+
+## The six ideas to know
+
+| Idea | Plain-language meaning | Example |
+| --- | --- | --- |
+| Subunit | One reusable scattering component | A solid sphere or Gaussian polymer |
+| Reference point | A place or distribution through which subunits can connect | A sphere center, sphere surface, or polymer end |
+| Link | A connection between two compatible references | Attach a polymer end to a sphere surface |
+| Structure graph | The subunits and links forming one model | A diblock or micelle |
+| Parameters | The physical values used when evaluating the graph | Radius, radius of gyration, and excess scattering length |
+| q values | The reciprocal-length positions where the model is evaluated | Values in Å⁻¹ when lengths are in Å |
+
+### Subunits
+
+A subunit provides its own scattering equations and a set of named reference
+points. `SolidSphere`, `GaussianPolymer`, and `ThinRod` are examples. A subunit
+definition describes local physics; it does not decide what larger structure
+the subunit belongs to.
+
+### Fixed and distributed references
+
+A fixed reference identifies one location, such as `center` or `end1`. A
+distributed reference represents an average over a set of possible locations,
+such as `surface` or `contour`.
+
+This distinction matters. Attaching at a polymer end describes a different
+ensemble from attaching at an independently sampled position along its
+contour.
+
+### A World and its graphs
+
+A `World` is the workspace in which you add subunits, connect them, and name
+complete structures. The topology is stored separately from the numerical
+parameter values, so one graph can be evaluated repeatedly with different
+sizes or contrasts.
+
+## Read the smallest useful model
+
+The next tutorial executes this pattern one step at a time:
+
+```python
+import pyseb
+
+world = pyseb.World("FirstModel")
+graph = world.Add("SolidSphere", "sphere")
+world.Add(graph, "sphereModel")
+
+parameters = {
+    "beta_sphere": 1.0,
+    "R_sphere": 50.0,
+}
+
+value = world.EvaluateFormFactor(
+    "sphereModel", parameters, 0.01
+)
+print(value)
+```
+
+Line by line, this creates a workspace, adds one sphere instance, names the
+complete graph, supplies its physical values, and evaluates its normalized
+form factor at one q value.
+
+## Parameter names
+
+Generated parameter names combine a physical quantity with an instance name
+or shared tag:
+
+- `R_sphere` is the radius of the instance named `sphere`;
+- `beta_sphere` is its excess scattering length;
+- `Rg_chain` would be the radius of gyration shared by subunits tagged
+  `chain`.
+
+`beta` represents scattering contrast integrated over a subunit. It becomes
+especially important when several subunits interfere or when contrast is
+changed. Even when a normalized single-subunit curve does not visibly depend
+on its magnitude, pySEB still uses the parameter consistently in composite
+models.
+
+## Units
+
+pySEB does not impose a particular length unit on analytic calculations. It
+requires consistency:
+
+- if radii and lengths are in ångström, q must be in Å⁻¹;
+- if radii and lengths are in nanometres, q must be in nm⁻¹.
+
+Mixing the two shifts every feature of the predicted curve.
+
+## Your learning path
+
+1. [Build and plot one solid sphere](first-model.qmd).
+2. [Connect two Gaussian polymers](diblock-copolymer.qmd).
+3. Choose a task from the [tutorial index](index.qmd).
+
+After those first two models, terms such as `World`, subunit, link, reference,
+parameter, and q will recur with the same meaning throughout the documentation.

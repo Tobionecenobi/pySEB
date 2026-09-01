@@ -1,0 +1,1085 @@
+---
+title: "Fit a Linked Titin Doublet"
+subtitle: "Compare spheroids, C-alpha clouds, and a heavy-atom ensemble using real SAXS data"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+This tutorial fits a genuinely side-by-side structure to experimental SAXS
+data in three rounds:
+
+```text
+Round 1: Spheroid -- GaussianPolymer -- Spheroid
+Round 2: 89-point C-alpha cloud -- GaussianPolymer -- C-alpha cloud
+Round 3: 688-point heavy-atom ensemble -- GaussianPolymer -- heavy-atom ensemble
+```
+
+The measurement is [SASBDB entry SASDKC2](https://www.sasbdb.org/data/SASDKC2/),
+two titin I27 domains joined by a short glycine-rich linker. The experiment
+reports a 23 kDa monomer with an $R_g$ of about 2.9 nm. Unlike the concentric
+core--shell example, the subunits here are connected terminal to terminal.
+
+This is a model-comparison lesson, not a publication-quality reanalysis. The
+small structural ensemble and simple scattering weights used below do not
+include the disordered residues, hydration layer, atom-specific solvent
+contrast, or the full solution ensemble used in a protein SAXS analysis.
+
+## Install the fitting dependency
+
+Continue in the environment from the introductory tutorials and install
+SciPy if needed:
+
+```bash
+python -m pip install scipy
+```
+
+## Load the measured curve
+
+The local file contains every fourth deposited point through
+$q=0.30\;\mathrm{\AA}^{-1}$. Its q, intensity, and uncertainty columns are
+otherwise unchanged. We fit every second local point to keep this executable
+tutorial quick, then evaluate the fitted curves at every stored q value.
+
+- [Experimental curve](data/SASDKC2-titin.csv){download="SASDKC2-titin.csv"}
+- [C-alpha extract of PDB 1TIT](data/1TIT-ca.pdb){download="1TIT-ca.pdb"}
+- [Four-model heavy-atom extract of PDB 1TIU](data/1TIU-heavy-ensemble.pdb){download="1TIU-heavy-ensemble.pdb"}
+- [Data provenance and reuse notice](data/TITIN-DATA-NOTICE.txt){download="TITIN-DATA-NOTICE.txt"}
+
+```{python}
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+from IPython.display import Markdown, display
+from scipy.interpolate import CubicSpline
+from scipy.optimize import least_squares
+
+
+data_directory = Path("data")
+cylinder_model_path = Path(
+    "../../models/SolidCylinder.pyseb.yaml"
+).resolve()
+if not cylinder_model_path.is_file():
+    raise FileNotFoundError(
+        "The tutorial needs the repository copy of "
+        f"SolidCylinder.pyseb.yaml, but it was not found at "
+        f"{cylinder_model_path}. Run this tutorial from the pySEB "
+        "source checkout."
+    )
+
+q, intensity, uncertainty = np.loadtxt(
+    data_directory / "SASDKC2-titin.csv",
+    delimiter=",",
+    skiprows=3,
+    unpack=True,
+)
+
+fit_q = q[::2]
+fit_intensity = intensity[::2]
+fit_uncertainty = uncertainty[::2]
+
+print(f"Stored points: {q.size}")
+print(f"Points used by the optimizer: {fit_q.size}")
+print(f"q range: {q.min():.4f}--{q.max():.4f} A^-1")
+```
+
+The SASBDB graph displays reciprocal nanometres, whereas the numeric source
+curve uses reciprocal ångströms. The two representations are consistent:
+$0.028\;\mathrm{\AA}^{-1}=0.28\;\mathrm{nm}^{-1}$.
+
+For all three rounds we fit
+
+$$
+I(q)=S\,P_{\mathrm{pySEB}}(q)+B,
+$$
+
+where $P_{\mathrm{pySEB}}(0)=1$, $S$ is an intensity scale, and $B$ is a flat
+background. The deposited intensity is therefore not treated as an absolute
+contrast calibration. The [deposited construct sequence](https://www.sasbdb.org/molecule/SASDKC2/2620.fasta)
+contains a 24-residue N-terminal segment, two 89-residue I27 domains, the
+8-residue interdomain sequence `GGGSGGGG`, and a 7-residue C-terminal segment
+`LPETGSS`. We use residue-count weights of 24:89:8:89:7 in all three main
+rounds.
+
+The two terminal segments and the interdomain linker are Gaussian polymers in
+the three main rounds. The interdomain linker $R_g$ is fitted independently
+from one shared terminal-chain scale, $R_{g,8}$. Assuming the same mean-square
+step length for the two terminal segments gives
+$R_{g,\mathrm{tail}}=R_{g,8}\sqrt{N_\mathrm{tail}/8}$. This avoids forcing the
+terminal conformations to follow the central linker while using only one
+additional parameter for both tails.
+
+```{python}
+n_tail_sequence = "MHHHHHHDYDIPTTENLYLQGGGG"
+linker_sequence = "GGGSGGGG"
+c_tail_sequence = "LPETGSS"
+domain_beta = 89.0
+linker_beta = float(len(linker_sequence))
+n_tail_beta = float(len(n_tail_sequence))
+c_tail_beta = float(len(c_tail_sequence))
+
+
+def construct_tail_parameters(tail_rg8):
+    return {
+        "Rg_ntail": tail_rg8
+        * np.sqrt(n_tail_beta / linker_beta),
+        "beta_ntail": n_tail_beta,
+        "Rg_ctail": tail_rg8
+        * np.sqrt(c_tail_beta / linker_beta),
+        "beta_ctail": c_tail_beta,
+    }
+
+
+def construct_polymer_parameters(linker_rg, tail_rg8):
+    parameters = construct_tail_parameters(tail_rg8)
+    parameters.update({
+        "Rg_linker": linker_rg,
+        "beta_linker": linker_beta,
+    })
+    return parameters
+
+
+def print_derived_tail_radii(tail_rg8):
+    parameters = construct_tail_parameters(tail_rg8)
+    print(f"derived N-tail Rg [A]         = {parameters['Rg_ntail']:.6g}")
+    print(f"derived C-tail Rg [A]         = {parameters['Rg_ctail']:.6g}")
+
+
+def reduced_chi_squared(residual, number_of_parameters):
+    degrees_of_freedom = residual.size - number_of_parameters
+    return np.sum(residual**2) / degrees_of_freedom
+```
+
+## Round 1: spheroid--polymer--spheroid
+
+The first structure connects two spheroids through the central Gaussian
+polymer and attaches the N- and C-terminal Gaussian polymers to their exposed
+opposite poles. The domains are therefore adjacent rather than superimposed.
+
+```{python}
+spheroid_world = pyseb.World("TitinSpheroids")
+spheroid_graph = spheroid_world.Add("Spheroid", "domain1")
+spheroid_world.Link(
+    "GaussianPolymer",
+    "ntail.end2",
+    "domain1.south",
+)
+spheroid_world.Link(
+    "GaussianPolymer",
+    "linker.end1",
+    "domain1.north",
+)
+spheroid_world.Link(
+    "Spheroid",
+    "domain2.south",
+    "linker.end2",
+)
+spheroid_world.Link(
+    "GaussianPolymer",
+    "ctail.end1",
+    "domain2.north",
+)
+spheroid_world.Add(spheroid_graph, "titin")
+
+print("N-tail -- Spheroid -- linker -- Spheroid -- C-tail")
+print("ntail.end2 = domain1.south")
+print("domain1.north = linker.end1")
+print("linker.end2 = domain2.south")
+print("domain2.north = ctail.end1")
+```
+
+Six variables are fitted simultaneously: the shared equatorial and polar
+semi-axes, the linker $R_g$, the shared terminal-chain scale $R_{g,8}$, the
+intensity scale, and the background. Sharing the domain dimensions enforces
+the fact that the construct contains two copies of I27.
+
+```{python}
+def spheroid_curve(values, q_values):
+    (
+        equatorial_radius,
+        polar_radius,
+        linker_rg,
+        tail_rg8,
+        scale,
+        background,
+    ) = values
+    parameters = construct_polymer_parameters(linker_rg, tail_rg8)
+    parameters.update({
+        "a_domain1": equatorial_radius,
+        "c_domain1": polar_radius,
+        "beta_domain1": domain_beta,
+        "a_domain2": equatorial_radius,
+        "c_domain2": polar_radius,
+        "beta_domain2": domain_beta,
+    })
+    form_factor = np.asarray(
+        spheroid_world.EvaluateFormFactor(
+            "titin", parameters, q_values.tolist()
+        )
+    )
+    return scale * form_factor + background
+
+
+def spheroid_residual(values):
+    return (
+        spheroid_curve(values, fit_q) - fit_intensity
+    ) / fit_uncertainty
+
+
+spheroid_fit = least_squares(
+    spheroid_residual,
+    x0=[14.0, 22.0, 5.0, 5.0, 0.033, 0.0002],
+    bounds=(
+        [5.0, 10.0, 0.5, 0.1, 0.0, 0.0],
+        [30.0, 50.0, 25.0, 30.0, 1.0, 0.01],
+    ),
+    x_scale="jac",
+)
+
+spheroid_names = [
+    "equatorial semi-axis a [A]",
+    "polar semi-axis c [A]",
+    "linker Rg [A]",
+    "terminal-chain Rg8 [A]",
+    "scale",
+    "background",
+]
+for name, value in zip(spheroid_names, spheroid_fit.x):
+    print(f"{name:31s} = {value:.6g}")
+print_derived_tail_radii(spheroid_fit.x[3])
+print(
+    "reduced chi^2                 = "
+    f"{reduced_chi_squared(spheroid_fit.fun, spheroid_fit.x.size):.3f}"
+)
+```
+
+The interdomain linker reaches its lower bound near $R_g=0.5$ Å, while the
+independent terminal-chain scale is $R_{g,8}\approx10.6$ Å. This implies N-
+and C-terminal $R_g$ values near 18.3 and 9.9 Å. The contrast between a nearly
+collapsed central linker and expanded terminal chains is a warning about
+parameter identifiability, not a literal conformational assignment.
+
+## Stress-test the analytical fit
+
+Was the spheroid result unusually lucky, or can almost any analytical model
+fit this curve? To test that, cross four domain shapes with three linker models
+while keeping the two domain copies identical:
+
+Every combination includes the same Gaussian N- and C-terminal polymers as
+the detailed fits. Their shared $R_{g,8}$ is independent of the central linker
+size, so changing the central linker from a Gaussian chain to a rod or cylinder
+does not silently change the terminal-chain conformations.
+
+| Domain model | Shared size variables | Attachment |
+| --- | --- | --- |
+| `SolidSphere` | radius | surface |
+| `Spheroid` | equatorial and polar semi-axes | north/south poles |
+| `SolidCylinder` | radius and length | fixed cap centers |
+| `ThinDisk` | radius | rim distribution |
+
+The linker choices are a Gaussian polymer, a thin rigid rod, and a solid
+cylinder. All three have fixed terminal references: the cylinder uses the
+centers of its bottom and top end-cap disks. This preserves the same
+terminal-to-terminal topology across the linker comparison.
+
+Each fit shares the domain dimensions, fixes the same 24:89:8:89:7 relative
+weights, fits one common terminal-chain scale, and fits scale and background.
+The screen uses every fourth stored point to keep its twelve fits quick; all
+models see exactly the same points. Corrected Akaike information criterion
+(AICc) is included because the models contain five to seven fitted variables.
+Only differences within this table are meaningful.
+
+```{python}
+domain_screen = {
+    "Sphere": {
+        "model": "SolidSphere",
+        "left_reference": "surface#join",
+        "right_reference": "surface#join",
+        "left_outer_reference": "surface#ntail",
+        "right_outer_reference": "surface#ctail",
+        "parameters": ("R",),
+        "initial": (18.0,),
+        "lower": (5.0,),
+        "upper": (50.0,),
+    },
+    "Spheroid": {
+        "model": "Spheroid",
+        "left_reference": "north",
+        "right_reference": "south",
+        "left_outer_reference": "south",
+        "right_outer_reference": "north",
+        "parameters": ("a", "c"),
+        "initial": (14.0, 22.0),
+        "lower": (5.0, 10.0),
+        "upper": (30.0, 60.0),
+    },
+    "Cylinder": {
+        "model": "SolidCylinder",
+        "left_reference": "top",
+        "right_reference": "bottom",
+        "left_outer_reference": "bottom",
+        "right_outer_reference": "top",
+        "parameters": ("R", "L"),
+        "initial": (12.0, 30.0),
+        "lower": (3.0, 5.0),
+        "upper": (35.0, 80.0),
+    },
+    "Thin disk": {
+        "model": "ThinDisk",
+        "left_reference": "rim#join",
+        "right_reference": "rim#join",
+        "left_outer_reference": "rim#ntail",
+        "right_outer_reference": "rim#ctail",
+        "parameters": ("R",),
+        "initial": (24.0,),
+        "lower": (5.0,),
+        "upper": (60.0,),
+    },
+}
+
+linker_screen = {
+    "Gaussian": {
+        "model": "GaussianPolymer",
+        "left_reference": "end1",
+        "right_reference": "end2",
+        "parameters": ("Rg",),
+        "initial": (5.0,),
+        "lower": (0.1,),
+        "upper": (30.0,),
+    },
+    "Rod": {
+        "model": "ThinRod",
+        "left_reference": "end1",
+        "right_reference": "end2",
+        "parameters": ("L",),
+        "initial": (10.0,),
+        "lower": (0.1,),
+        "upper": (60.0,),
+    },
+    "Cylinder": {
+        "model": "SolidCylinder",
+        "left_reference": "bottom",
+        "right_reference": "top",
+        "parameters": ("R", "L"),
+        "initial": (1.5, 10.0),
+        "lower": (0.2, 0.1),
+        "upper": (8.0, 60.0),
+    },
+}
+
+screen_q = q[::4]
+screen_intensity = intensity[::4]
+screen_uncertainty = uncertainty[::4]
+```
+
+```{python}
+def add_screen_subunit(world, model, name):
+    if model == "SolidCylinder":
+        return world.add_subunit_file(
+            str(cylinder_model_path), name=name
+        )
+    return world.Add(model, name)
+
+
+def link_screen_subunit(
+    world, model, new_reference, old_reference
+):
+    if model == "SolidCylinder":
+        return world.link_subunit_file(
+            str(cylinder_model_path),
+            new_reference,
+            old_reference,
+        )
+    return world.Link(model, new_reference, old_reference)
+
+
+def screen_world(domain, linker):
+    world = pyseb.World(
+        f"{domain['model']}-{linker['model']}"
+    )
+    graph = add_screen_subunit(
+        world, domain["model"], "domain1"
+    )
+    world.Link(
+        "GaussianPolymer",
+        "ntail.end2",
+        f"domain1.{domain['left_outer_reference']}",
+    )
+    link_screen_subunit(
+        world,
+        linker["model"],
+        f"linker.{linker['left_reference']}",
+        f"domain1.{domain['left_reference']}",
+    )
+    link_screen_subunit(
+        world,
+        domain["model"],
+        f"domain2.{domain['right_reference']}",
+        f"linker.{linker['right_reference']}",
+    )
+    world.Link(
+        "GaussianPolymer",
+        "ctail.end1",
+        f"domain2.{domain['right_outer_reference']}",
+    )
+    world.Add(graph, "titin")
+    return world
+
+
+def screen_parameters(values, domain, linker):
+    parameters = {
+        "beta_domain1": domain_beta,
+        "beta_linker": linker_beta,
+        "beta_domain2": domain_beta,
+    }
+    offset = 0
+    for name in domain["parameters"]:
+        parameters[f"{name}_domain1"] = values[offset]
+        parameters[f"{name}_domain2"] = values[offset]
+        offset += 1
+    for name in linker["parameters"]:
+        parameters[f"{name}_linker"] = values[offset]
+        offset += 1
+    parameters.update(construct_tail_parameters(values[offset]))
+    return parameters
+
+
+screen_results = []
+
+for domain_name, domain in domain_screen.items():
+    for linker_name, linker in linker_screen.items():
+        world = screen_world(domain, linker)
+        number_of_sizes = (
+            len(domain["parameters"])
+            + len(linker["parameters"])
+            + 1
+        )
+
+        def residual(values):
+            parameters = screen_parameters(values, domain, linker)
+            form_factor = np.asarray(
+                world.EvaluateFormFactor(
+                    "titin", parameters, screen_q.tolist()
+                )
+            )
+            model = values[-2] * form_factor + values[-1]
+            return (model - screen_intensity) / screen_uncertainty
+
+        initial = np.asarray(
+            domain["initial"]
+            + linker["initial"]
+            + (5.0, 0.04, 0.0002)
+        )
+        lower = np.asarray(
+            domain["lower"]
+            + linker["lower"]
+            + (0.1, 0.0, 0.0)
+        )
+        upper = np.asarray(
+            domain["upper"]
+            + linker["upper"]
+            + (30.0, 1.0, 0.01)
+        )
+        fit = least_squares(
+            residual,
+            x0=initial,
+            bounds=(lower, upper),
+            x_scale="jac",
+            max_nfev=60,
+        )
+
+        chi_squared = np.sum(fit.fun**2)
+        parameter_count = fit.x.size
+        point_count = fit.fun.size
+        aicc = (
+            chi_squared
+            + 2 * parameter_count
+            + 2 * parameter_count * (parameter_count + 1)
+            / (point_count - parameter_count - 1)
+        )
+        relative_bound_distance = np.minimum(
+            fit.x - lower, upper - fit.x
+        ) / (upper - lower)
+        screen_results.append(
+            {
+                "domain": domain_name,
+                "linker": linker_name,
+                "parameters": parameter_count,
+                "reduced_chi2": chi_squared
+                / (point_count - parameter_count),
+                "aicc": aicc,
+                "at_bound": np.any(relative_bound_distance < 0.001),
+                "fit": fit.x,
+                "number_of_sizes": number_of_sizes,
+            }
+        )
+
+best_aicc = min(result["aicc"] for result in screen_results)
+table = [
+    "| Domains | Linker | k | Reduced chi-squared | Delta AICc | Boundary? |",
+    "| --- | --- | ---: | ---: | ---: | :---: |",
+]
+for result in screen_results:
+    table.append(
+        "| {domain} | {linker} | {parameters} | {reduced_chi2:.3f} "
+        "| {delta:.1f} | {boundary} |".format(
+            **result,
+            delta=result["aicc"] - best_aicc,
+            boundary="yes" if result["at_bound"] else "no",
+        )
+    )
+display(Markdown("\n".join(table)))
+```
+
+This screen rejects the idea that every analytical subunit fits easily.
+Spheres and thin disks fail badly. The data instead favor elongated domains:
+solid cylinders give reduced $\chi^2$ between 1.45 and 1.92, while spheroids
+give values between 1.61 and 1.67. The cylinder-domain/Gaussian-linker model
+has the lowest AICc. For cylinder domains, the rod and cylinder linkers are
+disfavored by $\Delta\mathrm{AICc}=13.3$ and 16.1; for spheroid domains,
+Gaussian and rod linkers remain effectively tied. Including the terminal
+chains therefore changes the linker comparison rather than merely shifting
+all fits by the same amount.
+
+The near-equivalence of flexible and rigid linkers, several boundary hits,
+and fitted domain lengths larger than the roughly 43--50 Å PDB extent are
+warnings about identifiability. The analytical models are successfully
+capturing a smooth elongated pair-distance distribution, but that does not
+establish that their fitted geometry is the physical structure. AICc also
+selects only among the models in this table; it is not an absolute validation.
+
+## Round 2: C-alpha cloud--polymer--C-alpha cloud
+
+Now replace each smooth spheroid by the 89 C-alpha coordinates from
+[PDB 1TIT](https://www.rcsb.org/structure/1TIT). Each coordinate is one equal
+residue scatterer. The first cloud exposes its C-terminal atom and the second
+its N-terminal atom as named references, so the same side-by-side topology is
+explicit in the graph.
+
+The 1TIT template has the same 89-residue length as each construct domain but
+contains three substitutions: F21L, T42V, and A78T when written as
+template-to-construct changes. Equal C-alpha weights are unaffected; the
+heavy-atom round still uses the deposited NMR side-chain coordinates and is
+therefore not yet an exact sequence model.
+
+The deposited PDB coordinates are kept fixed. The fit varies linker $R_g$,
+the shared terminal-chain scale $R_{g,8}$, intensity scale, and background.
+This prevents the optimizer from improving the curve by unphysically expanding
+or contracting the folded I27 domain.
+
+```{python}
+pdb_path = data_directory / "1TIT-ca.pdb"
+unscaled_atoms = pyseb.PDBParser().parse_file(str(pdb_path))
+
+print(f"C-alpha scatterers per I27 cloud: {len(unscaled_atoms)}")
+print(
+    "terminal serials:",
+    unscaled_atoms[0].serial,
+    unscaled_atoms[-1].serial,
+)
+```
+
+```{python}
+def build_pdb_world():
+    atoms = pyseb.PDBParser().parse_file(str(pdb_path))
+
+    profile = pyseb.AtomParameterProfile()
+    profile.set_element("C", radius=0.0, beta=1.0)
+
+    options = pyseb.AtomCloudBuildOptions()
+    options.reference_atom_serials = {
+        "nterminus": atoms[0].serial,
+        "cterminus": atoms[-1].serial,
+    }
+
+    domain1 = pyseb.AtomCloudBuilder.build(atoms, profile, options)
+    domain2 = pyseb.AtomCloudBuilder.build(atoms, profile, options)
+
+    world = pyseb.World("TitinPDBClouds")
+    graph = world.Add(domain1, "domain1")
+    world.Link(
+        "GaussianPolymer",
+        "ntail.end2",
+        "domain1.nterminus",
+    )
+    world.Link(
+        "GaussianPolymer",
+        "linker.end1",
+        "domain1.cterminus",
+    )
+    world.Link(
+        domain2,
+        "domain2.nterminus",
+        "linker.end2",
+    )
+    world.Link(
+        "GaussianPolymer",
+        "ctail.end1",
+        "domain2.cterminus",
+    )
+    world.Add(graph, "titin")
+    return world
+
+
+pdb_world = build_pdb_world()
+
+
+def pdb_curve(values, q_values):
+    linker_rg, tail_rg8, scale, background = values
+    parameters = construct_polymer_parameters(linker_rg, tail_rg8)
+    form_factor = np.asarray(
+        pdb_world.EvaluateFormFactor(
+            "titin", parameters, q_values.tolist()
+        )
+    )
+    return scale * form_factor + background
+
+
+def pdb_residual(values):
+    return (pdb_curve(values, fit_q) - fit_intensity) / fit_uncertainty
+
+
+pdb_fit = least_squares(
+    pdb_residual,
+    x0=[5.0, 5.0, 0.033, 0.0002],
+    bounds=(
+        [0.1, 0.1, 0.0, 0.0],
+        [25.0, 30.0, 1.0, 0.01],
+    ),
+    x_scale="jac",
+)
+
+pdb_names = [
+    "linker Rg [A]",
+    "terminal-chain Rg8 [A]",
+    "scale",
+    "background",
+]
+for name, value in zip(pdb_names, pdb_fit.x):
+    print(f"{name:31s} = {value:.6g}")
+print_derived_tail_radii(pdb_fit.x[1])
+print(
+    "reduced chi^2                 = "
+    f"{reduced_chi_squared(pdb_fit.fun, pdb_fit.x.size):.3f}"
+)
+```
+
+## Round 3: a larger heavy-atom ensemble
+
+The C-alpha representation discards almost all atomic coordinates. For the
+third round, the local PDB extract retains 688 non-hydrogen atoms from each of
+four representative models (1, 7, 13, and 19) in the 1TIU NMR ensemble. That
+is more than seven times as many scatterers per domain and adds a small amount
+of conformational averaging.
+
+Carbon, nitrogen, oxygen, and sulfur receive their atomic electron counts as
+relative weights. Their radii are zero, so these remain illustrative
+point-atom weights rather than solvent-corrected SAXS contrasts. The deposited
+coordinates are never rescaled. We normalize the resulting domain to the same
+total weight of 89 used in the first two rounds.
+
+### Precompute the expensive cloud terms
+
+A 688-point Debye cloud contains 236,328 distinct scatterer pairs. Rebuilding
+those pairs inside every optimizer call would make this example unnecessarily
+slow. Instead, evaluate each PDB model once on a dense q grid, average the
+normalized form factors and terminal amplitudes, and interpolate those cached
+curves during fitting.
+
+```{python}
+ensemble_path = data_directory / "1TIU-heavy-ensemble.pdb"
+ensemble_models = (1, 7, 13, 19)
+cache_q = np.linspace(0.0, q.max(), 1201)
+
+heavy_profile = pyseb.AtomParameterProfile()
+for element, electron_count in {
+    "C": 6.0,
+    "N": 7.0,
+    "O": 8.0,
+    "S": 16.0,
+}.items():
+    heavy_profile.set_element(element, radius=0.0, beta=electron_count)
+
+cached_form_factors = []
+cached_n_amplitudes = []
+cached_c_amplitudes = []
+cached_nc_phases = []
+cached_rg2 = []
+cached_n_sigma2 = []
+cached_c_sigma2 = []
+cached_nc_sigma2 = []
+
+for model_number in ensemble_models:
+    parse_options = pyseb.StructureParseOptions()
+    parse_options.model_number = model_number
+    atoms = pyseb.PDBParser().parse_file(
+        str(ensemble_path), parse_options
+    )
+    alpha_carbons = [atom for atom in atoms if atom.atom_name == "CA"]
+
+    build_options = pyseb.AtomCloudBuildOptions()
+    build_options.reference_atom_serials = {
+        "nterminus": alpha_carbons[0].serial,
+        "cterminus": alpha_carbons[-1].serial,
+    }
+    cloud = pyseb.AtomCloudBuilder.build(
+        atoms, heavy_profile, build_options
+    )
+
+    cloud_world = pyseb.World(f"I27Model{model_number}")
+    cloud_world.Add(cloud, "domain")
+    q_values = cache_q.tolist()
+    cached_form_factors.append(
+        cloud_world.EvaluateFormFactor("domain", {}, q_values)
+    )
+    cached_n_amplitudes.append(
+        cloud_world.EvaluateFormFactorAmplitude(
+            "domain.nterminus", {}, q_values
+        )
+    )
+    cached_c_amplitudes.append(
+        cloud_world.EvaluateFormFactorAmplitude(
+            "domain.cterminus", {}, q_values
+        )
+    )
+    cached_nc_phases.append(
+        cloud_world.EvaluatePhaseFactor(
+            "domain.nterminus", "domain.cterminus", {}, q_values
+        )
+    )
+    cached_rg2.append(
+        cloud_world.EvaluateRadiusOfGyration2("domain", {})
+    )
+    cached_n_sigma2.append(
+        cloud_world.EvaluateSMSDRef2Scat("domain.nterminus", {})
+    )
+    cached_c_sigma2.append(
+        cloud_world.EvaluateSMSDRef2Scat("domain.cterminus", {})
+    )
+    cached_nc_sigma2.append(
+        cloud_world.EvaluateSMSDRef2Ref(
+            "domain.nterminus", "domain.cterminus", {}
+        )
+    )
+
+print(f"NMR conformations retained: {len(ensemble_models)}")
+print(f"Heavy-atom scatterers per cloud: {cloud.scattererCount()}")
+```
+
+The averaged form factor describes one domain selected from the four-model
+ensemble. The two terminal amplitudes and their phase factor retain distinct
+N- and C-terminal reference points. Averaging these quantities separately
+means the two I27 copies are independently selected from that ensemble when
+pySEB constructs their interference terms.
+
+```{python}
+ensemble_form_factor = CubicSpline(
+    cache_q, np.mean(cached_form_factors, axis=0)
+)
+ensemble_n_amplitude = CubicSpline(
+    cache_q, np.mean(cached_n_amplitudes, axis=0)
+)
+ensemble_c_amplitude = CubicSpline(
+    cache_q, np.mean(cached_c_amplitudes, axis=0)
+)
+ensemble_nc_phase = CubicSpline(
+    cache_q, np.mean(cached_nc_phases, axis=0)
+)
+
+ensemble_rg2 = np.mean(cached_rg2)
+ensemble_n_sigma2 = np.mean(cached_n_sigma2)
+ensemble_c_sigma2 = np.mean(cached_c_sigma2)
+ensemble_nc_sigma2 = np.mean(cached_nc_sigma2)
+
+
+def ensemble_domain():
+    domain = pyseb.NumericalSubunit(pyseb.NormalizationMode.Normalized)
+    domain.addReferencePoint("nterminus")
+    domain.addReferencePoint("cterminus")
+    domain.setTotalBeta(domain_beta)
+    domain.setFormFactorFunction(
+        lambda q_value, parameters: float(
+            ensemble_form_factor(q_value)
+        )
+    )
+    domain.setFormFactorAmplitudeFunction(
+        "nterminus",
+        lambda q_value, parameters: float(
+            ensemble_n_amplitude(q_value)
+        ),
+    )
+    domain.setFormFactorAmplitudeFunction(
+        "cterminus",
+        lambda q_value, parameters: float(
+            ensemble_c_amplitude(q_value)
+        ),
+    )
+    domain.setPhaseFactorFunction(
+        "nterminus",
+        "cterminus",
+        lambda q_value, parameters: float(
+            ensemble_nc_phase(q_value)
+        ),
+    )
+    domain.setRadiusOfGyration2Provider(
+        lambda parameters: ensemble_rg2
+    )
+    domain.setSigmaMSDRef2ScatProvider(
+        "nterminus",
+        lambda parameters: ensemble_n_sigma2,
+    )
+    domain.setSigmaMSDRef2ScatProvider(
+        "cterminus",
+        lambda parameters: ensemble_c_sigma2,
+    )
+    domain.setSigmaMSDRef2RefProvider(
+        "nterminus",
+        "cterminus",
+        lambda parameters: ensemble_nc_sigma2,
+    )
+    domain.ValidateNumerically({})
+    return domain
+
+
+heavy_domain1 = ensemble_domain()
+heavy_domain2 = ensemble_domain()
+
+heavy_world = pyseb.World("TitinHeavyAtomEnsemble")
+heavy_graph = heavy_world.Add(heavy_domain1, "domain1")
+heavy_world.Link(
+    "GaussianPolymer",
+    "ntail.end2",
+    "domain1.nterminus",
+)
+heavy_world.Link(
+    "GaussianPolymer",
+    "linker.end1",
+    "domain1.cterminus",
+)
+heavy_world.Link(
+    heavy_domain2,
+    "domain2.nterminus",
+    "linker.end2",
+)
+heavy_world.Link(
+    "GaussianPolymer",
+    "ctail.end1",
+    "domain2.cterminus",
+)
+heavy_world.Add(heavy_graph, "titin")
+```
+
+### Fit the cached ensemble
+
+The four fitted variables match round 2: linker $R_g$, terminal-chain
+$R_{g,8}$, intensity scale, and background. The PDB coordinates remain fixed.
+The optimizer sees an ordinary linked pySEB structure; only the numerical
+domain callbacks now read from ensemble-averaged curves.
+
+```{python}
+def heavy_curve(values, q_values):
+    linker_rg, tail_rg8, scale, background = values
+    parameters = construct_polymer_parameters(linker_rg, tail_rg8)
+    form_factor = np.asarray(
+        heavy_world.EvaluateFormFactor(
+            "titin", parameters, q_values.tolist()
+        )
+    )
+    return scale * form_factor + background
+
+
+def heavy_residual(values):
+    return (
+        heavy_curve(values, fit_q) - fit_intensity
+    ) / fit_uncertainty
+
+
+heavy_fit = least_squares(
+    heavy_residual,
+    x0=[5.0, 5.0, 0.033, 0.0002],
+    bounds=(
+        [0.1, 0.1, 0.0, 0.0],
+        [25.0, 30.0, 1.0, 0.01],
+    ),
+    x_scale="jac",
+)
+
+heavy_names = [
+    "linker Rg [A]",
+    "terminal-chain Rg8 [A]",
+    "scale",
+    "background",
+]
+for name, value in zip(heavy_names, heavy_fit.x):
+    print(f"{name:31s} = {value:.6g}")
+print_derived_tail_radii(heavy_fit.x[1])
+print(
+    "reduced chi^2                 = "
+    f"{reduced_chi_squared(heavy_fit.fun, heavy_fit.x.size):.3f}"
+)
+```
+
+## Compare the rounds
+
+```{python}
+#| label: fig-linked-titin-fits
+#| fig-cap: "Three linked pySEB models fitted to the same experimental titin SAXS curve. Residuals use the reported experimental uncertainty."
+
+spheroid_model = spheroid_curve(spheroid_fit.x, q)
+ca_model = pdb_curve(pdb_fit.x, q)
+heavy_model = heavy_curve(heavy_fit.x, q)
+
+figure, (axis, residual_axis) = plt.subplots(
+    2,
+    1,
+    figsize=(7.2, 7.0),
+    sharex=True,
+    gridspec_kw={"height_ratios": [3, 1]},
+)
+
+axis.errorbar(
+    q,
+    intensity,
+    yerr=uncertainty,
+    fmt=".",
+    markersize=3,
+    color="black",
+    alpha=0.65,
+    label="SASDKC2 experiment",
+)
+axis.plot(q, spheroid_model, label="Spheroid--polymer--spheroid")
+axis.plot(q, ca_model, label="89-point C-alpha clouds")
+axis.plot(q, heavy_model, label="688-point heavy-atom ensemble")
+axis.set_yscale("log")
+axis.set_ylabel("Intensity [a.u.]")
+axis.legend()
+
+residual_axis.axhline(0.0, color="0.5", linewidth=1)
+residual_axis.plot(
+    q,
+    (spheroid_model - intensity) / uncertainty,
+    label="spheroid residual",
+)
+residual_axis.plot(
+    q,
+    (ca_model - intensity) / uncertainty,
+    label="C-alpha residual",
+)
+residual_axis.plot(
+    q,
+    (heavy_model - intensity) / uncertainty,
+    label="heavy-atom residual",
+)
+residual_axis.set_xlabel(r"$q\;[\mathrm{\AA}^{-1}]$")
+residual_axis.set_ylabel(r"$(I_{model}-I)/\sigma$")
+residual_axis.legend(fontsize="small")
+plt.tight_layout()
+plt.show()
+```
+
+With the deposited coordinates fixed, adding the terminal construct polymers
+improves the C-alpha cloud from reduced $\chi^2=206.7$ to 79.4 and the
+heavy-atom ensemble from 147.3 to 46.1. The heavy-atom representation is the
+better cloud, but both remain far behind the smooth analytical models in this
+deliberately limited comparison. More coordinates do **not** automatically
+make a better solution model: the PDB rounds still need realistic atom or
+residue contrasts, hydration, explicit conformations for the construct
+residues, and broader domain-orientation averaging. Their long apparent
+linker and N-tail sizes, backgrounds at the lower bound, and structured
+residuals show how strongly the simplified clouds compensate for omitted
+physics even when the deposited coordinates are held fixed.
+
+This is the main lesson of the three rounds. A PDB cloud is a more detailed
+representation, but only a better scattering model when its solution-state
+assumptions are also better. The [deposited SASBDB fit](https://www.sasbdb.org/data/SASDKC2/)
+reports $\chi^2=1.068$; that result is a useful benchmark, not a value these
+three pedagogical pySEB models are expected to reproduce.
+
+## Why the clouds do not automatically win
+
+### SAXS measures contrast, not a bare atom list
+
+X-rays interact with electrons, but a solution SAXS curve measures the
+electron-density **difference between the particle and its displaced solvent**.
+An accurate atomistic calculation therefore needs atomic form factors,
+excluded-solvent subtraction, the hydration layer, coordinates for every
+construct residue, and the solution conformational ensemble. The equal
+C-alpha weights and point-atom electron counts above omit most of that forward
+model. This is a limitation of these particular clouds, not evidence that
+coordinate clouds are unsuitable for SAXS. Modern atomistic SAXS programs
+devote substantial effort to solvent and hydration terms for precisely this
+reason; see the
+[solution-SAXS methods review](https://pmc.ncbi.nlm.nih.gov/articles/PMC8244429/)
+and an [explicit comparison of hydration models](https://pmc.ncbi.nlm.nih.gov/articles/PMC3192974/).
+
+### The measured q range sets the useful length scale
+
+The smallest nominal real-space scale in a scattering curve is roughly
+
+$$
+d_{\min}\sim\frac{2\pi}{q_{\max}}.
+$$
+
+Here $q_{\max}=0.30\;\mathrm{\AA}^{-1}$, so
+$d_{\min}\approx21\;\mathrm{\AA}$. Atomic spacings of a few ångströms are far
+below that nominal resolution. Reaching 5 Å would require approximately
+$q=1.26\;\mathrm{\AA}^{-1}$ and enters the wide-angle regime, where solvent,
+atomic form factors, flexibility, and experimental corrections become even
+more important. Biological SAXS is consequently strongest for overall shape,
+domain arrangement, and conformational ensembles rather than atomic
+structure, as summarized in this
+[review of solution scattering](https://doi.org/10.1016/S0959-440X(02)00363-9).
+
+That does not mean a cloud should be fitted only at high q. Low q constrains
+total contrast and $R_g$; intermediate q constrains the envelope and domain
+separations; higher q adds progressively finer internal information. A sound
+atomistic or coarse-grained cloud should be tested over every q value for
+which its forward model and the experimental corrections are trustworthy.
+Restricting it to high q would discard the strongest size and assembly
+constraints.
+
+### Orientational averaging loses direction, not all structure
+
+For point scatterers, the orientationally averaged Debye intensity contains
+terms of the form
+
+$$
+I(q)\propto\sum_{i,j} b_i b_j\,\operatorname{sinc}(q r_{ij}).
+$$
+
+The directions of the pair vectors disappear, but their distances $r_{ij}$
+remain. A cloud and an analytical subunit therefore differ whenever their
+weighted pair-distance distributions differ on length scales sampled by the
+measured q range. The loss of direction and phase makes the inverse problem
+non-unique: distinct three-dimensional structures can have very similar
+one-dimensional curves. It does **not** make every cloud equivalent to a
+sphere, spheroid, or cylinder. Solution SAXS records a time- and
+rotation-averaged pair-distance distribution, as discussed in a recent
+[biological SAXS perspective](https://pubs.rsc.org/en/content/articlehtml/2024/cp/d4cp02001d).
+
+For this dataset, the analytical screen and cloud fits together suggest a
+specific interpretation: the curve strongly identifies an elongated smooth
+envelope, weakly identifies the linker model, and does not contain enough
+well-modelled high-q information for the simple PDB clouds to benefit from
+their extra atomic coordinates.
+
+## What to try next
+
+- Replace equal C-alpha weights with a validated coarse-grained SAXS profile.
+- Replace the point-atom electron counts with solvent-corrected atomic
+  contrasts and finite excluded volumes.
+- Refit low-, intermediate-, and high-q windows separately, then test each
+  fitted model against the held-out q values.
+- Replace the analytical terminal polymers with explicit complete-construct
+  conformations, including the three domain substitutions.
+- Fit several linker/domain conformations globally instead of one mean model.
+- Reserve a q interval from optimization and use it for validation.

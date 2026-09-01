@@ -1,0 +1,761 @@
+---
+title: "Fit a Structure to Real SANS Data"
+subtitle: "Simultaneously fit a two-subunit core–shell model at three contrasts"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+This tutorial fits a connected pySEB structure to three real SANS datasets.
+The sample is a water-in-cyclohexane microemulsion stabilized by an Aerosol
+OT (AOT) surfactant layer. Isotopic substitution highlights the water core,
+the complete droplet, or the surfactant shell while leaving the underlying
+geometry unchanged.
+
+The measurements are official
+[SasData example data](https://www.sasview.org/docs/old_docs/6.1.0/user/example_data/testdata_help.html)
+collected on the LOQ instrument at ISIS. The
+[SasView simultaneous-fitting tutorial](https://www.sasview.org/downloads/simultaneous_1d_fitting_in_sasview_v6.pdf)
+documents the sample, contrasts, scattering-length densities, and a more
+complete analysis.
+
+This is a baseline fit, not a publication-ready analysis. The model below is
+monodisperse and unsmeared. The final residuals deliberately show why real SAS
+analysis must test those assumptions.
+
+## What you will fit
+
+The structure contains two linked subunits:
+
+```text
+SolidSphere core.center = shell.center SolidSphericalShell
+
+core radius = R
+shell inner radius = R
+shell outer radius = R + thickness
+```
+
+The three datasets share the core radius, shell thickness, and droplet volume
+fraction. Their known contrasts change `beta_core` and `beta_shell`, and each
+measurement receives its own flat background.
+
+## Install the fitting dependency
+
+Continue in the environment used for the introductory tutorials and add
+SciPy:
+
+```bash
+python -m pip install scipy
+```
+
+pySEB evaluates the scattering structure. SciPy's
+[`least_squares`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html)
+adjusts bounded parameters to minimize the uncertainty-weighted residuals.
+
+## 1. Load the measured data
+
+The CSV files contain q in Å⁻¹, intensity in cm⁻¹, and the measured intensity
+uncertainty. They are three-column extracts of the upstream CanSAS XML files;
+no intensities have been synthesized or altered.
+
+- [Core contrast data](data/aot-core-contrast.csv){download="aot-core-contrast.csv"}
+- [Drop contrast data](data/aot-drop-contrast.csv){download="aot-drop-contrast.csv"}
+- [Shell contrast data](data/aot-shell-contrast.csv){download="aot-shell-contrast.csv"}
+- [SasData BSD-3-Clause license](data/SASDATA-LICENSE.txt){download="SASDATA-LICENSE.txt"}
+
+```{python}
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+import sympy
+from numpy.polynomial.hermite import hermgauss
+from scipy.optimize import least_squares
+from scipy.special import ndtr, ndtri
+
+
+data_directory = Path("data")
+data_files = {
+    "Core": data_directory / "aot-core-contrast.csv",
+    "Drop": data_directory / "aot-drop-contrast.csv",
+    "Shell": data_directory / "aot-shell-contrast.csv",
+}
+
+datasets = {}
+for name, path in data_files.items():
+    q, intensity, uncertainty = np.loadtxt(
+        path, delimiter=",", skiprows=3, unpack=True
+    )
+    datasets[name] = {
+        "q": q,
+        "intensity": intensity,
+        "uncertainty": uncertainty,
+    }
+
+print({name: data["q"].size for name, data in datasets.items()})
+```
+
+Each original dataset has 137 points. We use q ≤ 0.25 Å⁻¹ and require a
+positive uncertainty. This removes the final high-q points where intensities
+fluctuate around zero and one reported uncertainty is zero.
+
+```{python}
+for name, data in datasets.items():
+    selected = (data["q"] <= 0.25) & (data["uncertainty"] > 0)
+    for key in ("q", "intensity", "uncertainty"):
+        data[key] = data[key][selected]
+
+print({name: data["q"].size for name, data in datasets.items()})
+```
+
+## 2. Build the two-subunit structure
+
+The shell and core are connected through their fixed `center` references.
+Setting the shell's inner radius equal to the core radius makes the two
+subunits occupy adjacent, non-overlapping volumes.
+
+```{python}
+world = pyseb.World("AOTMicroemulsionFit")
+droplet = world.Add("SolidSphere", "core")
+world.Link(
+    "SolidSphericalShell",
+    "shell.center",
+    "core.center",
+)
+world.Add(droplet, "droplet")
+```
+
+Unlike a single preassembled core–shell function, this is an explicit pySEB
+structure. Its total amplitude and core–shell interference follow from the
+link between two reusable subunits.
+
+### Inspect the generated form factor
+
+`World.FormFactor()` returns the normalized symbolic expression assembled by
+pySEB. Printing it here makes the equation being fitted inspectable rather
+than hiding it behind the numerical evaluator.
+
+```{python}
+form_factor_expression = pyseb.SymPyExpression(
+    str(world.FormFactor("droplet"))
+).expr
+
+print("Normalized pySEB form factor P(q) =")
+print(form_factor_expression)
+```
+
+The printed expression is easier to read in factored form. Define
+$x_c=qR$, $x_i=qR_i$, and $x_o=qR_o$:
+
+$$
+A_c(q)=3\frac{\sin(x_c)-x_c\cos(x_c)}{x_c^3},
+$$
+
+$$
+A_s(q)=3\frac{x_i\cos(x_i)-x_o\cos(x_o)-\sin(x_i)+\sin(x_o)}
+{x_o^3-x_i^3}.
+$$
+
+The normalized form factor generated by the linked structure is
+
+$$
+P(q)=\left[
+\frac{\beta_c A_c(q)+\beta_s A_s(q)}{\beta_c+\beta_s}
+\right]^2.
+$$
+
+Consequently, the unnormalized quantity used for the absolute-intensity fit
+is
+
+$$
+I_{pySEB}(q)=(\beta_c+\beta_s)^2P(q)
+             =[\beta_cA_c(q)+\beta_sA_s(q)]^2.
+$$
+
+::: {.callout-note title="Why use spheres here?"}
+The source analysis treats these AOT droplets as spherical core–shell
+particles, so a sphere is the parsimonious starting hypothesis. It has one
+size coordinate, and pySEB provides an exact non-overlapping
+`SolidSphere`–`SolidSphericalShell` construction.
+
+A spheroid would introduce at least an equatorial radius, a polar radius, and
+their associated distributions. More importantly, pySEB currently provides a
+homogeneous `Spheroid` but no solid spheroidal-shell subunit. Simply linking
+two homogeneous spheroids at their centers would create overlapping volumes
+and would not by itself define a rigid, aligned core–shell spheroid. Testing
+anisotropy properly therefore requires a `SolidSpheroidalShell` model (or an
+equivalent aligned composite) followed by a fit-quality comparison that
+justifies its extra parameters.
+:::
+
+## 3. Convert contrast into excess scattering length
+
+The SLD values below are in units of 10⁻⁶ Å⁻² and are fixed from the SasView
+tutorial. Each tuple contains core, shell, and solvent SLD.
+
+```{python}
+sld = {
+    "Core": (6.39, 0.62, -0.28),
+    "Drop": (-0.55, 0.62, 6.68),
+    "Shell": (6.39, 0.62, 6.68),
+}
+```
+
+For a homogeneous region, its excess scattering length is
+$\beta=(\rho-\rho_{solvent})V$. The measured dilute-particle intensity is
+
+$$
+I(q)=\frac{\phi}{V_{total}} I_{pySEB}(q)10^8 + B,
+$$
+
+where $\phi$ is volume fraction, $I_{pySEB}$ is the unnormalized form factor
+in Å², $10^8$ converts Å⁻¹ to cm⁻¹, and $B$ is a flat background.
+
+```{python}
+def calculate_intensity(
+    contrast,
+    q,
+    core_radius,
+    shell_thickness,
+    volume_fraction,
+    background,
+):
+    outer_radius = core_radius + shell_thickness
+    core_volume = 4.0 * np.pi * core_radius**3 / 3.0
+    total_volume = 4.0 * np.pi * outer_radius**3 / 3.0
+    shell_volume = total_volume - core_volume
+
+    core_sld, shell_sld, solvent_sld = sld[contrast]
+    parameters = {
+        "R_core": core_radius,
+        "Ri_shell": core_radius,
+        "Ro_shell": outer_radius,
+        "beta_core": (
+            (core_sld - solvent_sld) * 1e-6 * core_volume
+        ),
+        "beta_shell": (
+            (shell_sld - solvent_sld) * 1e-6 * shell_volume
+        ),
+    }
+
+    unnormalized = np.asarray(
+        world.EvaluateFormFactorUnnormalized(
+            "droplet", parameters, q.tolist()
+        )
+    )
+    return (
+        volume_fraction / total_volume * unnormalized * 1e8
+        + background
+    )
+```
+
+The signed betas are important. In core contrast, the shell is close to the
+solvent match point, so the core dominates. In shell contrast, the core is
+close to the solvent match point, so the shell dominates. Drop contrast
+retains substantial scattering from both regions.
+
+## 4. Define one simultaneous residual vector
+
+The optimizer sees six independent fit parameters:
+
+1. shared core radius;
+2. shared shell thickness;
+3. shared volume fraction;
+4. core-contrast background;
+5. drop-contrast background;
+6. shell-contrast background.
+
+::: {.callout-note title="This is already a multivariable fit"}
+The radius, thickness, and volume fraction move together during optimization;
+they are not fitted one at a time. The three backgrounds also move, giving six
+fitted variables in total. Sharing the first three variables across all three
+contrasts is what makes this a simultaneous fit.
+:::
+
+Every residual is divided by its measured uncertainty, so a value of two
+means the calculation misses that point by two reported standard deviations.
+
+```{python}
+contrast_order = ("Core", "Drop", "Shell")
+
+
+def residual_vector(values):
+    core_radius, shell_thickness, volume_fraction = values[:3]
+    backgrounds = values[3:]
+    residuals = []
+
+    for contrast, background in zip(contrast_order, backgrounds):
+        data = datasets[contrast]
+        prediction = calculate_intensity(
+            contrast,
+            data["q"],
+            core_radius,
+            shell_thickness,
+            volume_fraction,
+            background,
+        )
+        residuals.append(
+            (prediction - data["intensity"]) / data["uncertainty"]
+        )
+
+    return np.concatenate(residuals)
+```
+
+## 5. Fit with physically useful bounds
+
+The initial values are deliberately approximate. Bounds prevent negative
+sizes, volume fractions, and backgrounds while still leaving a broad search
+region.
+
+```{python}
+initial = np.array([20.0, 10.0, 0.05, 0.1, 0.1, 0.1])
+lower = np.array([5.0, 1.0, 0.001, 0.0, 0.0, 0.0])
+upper = np.array([60.0, 30.0, 0.2, 5.0, 5.0, 5.0])
+
+fit = least_squares(
+    residual_vector,
+    initial,
+    bounds=(lower, upper),
+    x_scale="jac",
+)
+
+parameter_names = (
+    "core radius (Å)",
+    "shell thickness (Å)",
+    "volume fraction",
+    "core background (cm^-1)",
+    "drop background (cm^-1)",
+    "shell background (cm^-1)",
+)
+for name, value in zip(parameter_names, fit.x):
+    print(f"{name:28s} {value:.6g}")
+
+degrees_of_freedom = fit.fun.size - fit.x.size
+reduced_chi_squared = np.sum(fit.fun**2) / degrees_of_freedom
+print(f"reduced chi-squared         {reduced_chi_squared:.3f}")
+```
+
+The shared geometry is close to a 25 Å water core with an 8 Å surfactant
+layer. The fitted volume fraction is close to 0.056. These are plausible
+values, but the large reduced chi-squared warns that plausible parameters do
+not by themselves establish an adequate model.
+
+## 6. Plot data, fit, and normalized residuals
+
+```{python}
+#| label: fig-real-aot-simultaneous-fit
+#| fig-cap: "Simultaneous baseline fit of the linked sphere-and-shell structure to three AOT microemulsion contrasts."
+
+core_radius, shell_thickness, volume_fraction = fit.x[:3]
+backgrounds = fit.x[3:]
+
+figure, axes = plt.subplots(
+    3, 2, figsize=(10, 10), sharex="col",
+    gridspec_kw={"width_ratios": [1.55, 1.0]},
+)
+
+for row, (contrast, background) in enumerate(
+    zip(contrast_order, backgrounds)
+):
+    data = datasets[contrast]
+    prediction = calculate_intensity(
+        contrast,
+        data["q"],
+        core_radius,
+        shell_thickness,
+        volume_fraction,
+        background,
+    )
+    normalized_residual = (
+        data["intensity"] - prediction
+    ) / data["uncertainty"]
+
+    positive = data["intensity"] > 0
+    axes[row, 0].errorbar(
+        data["q"][positive],
+        data["intensity"][positive],
+        yerr=data["uncertainty"][positive],
+        fmt=".",
+        markersize=3,
+        label="measurement",
+    )
+    axes[row, 0].plot(data["q"], prediction, label="pySEB fit")
+    axes[row, 0].set_xscale("log")
+    axes[row, 0].set_yscale("log")
+    axes[row, 0].set_ylabel(f"{contrast}\n$I(q)$ (cm$^{{-1}}$)")
+    axes[row, 0].legend(fontsize="small")
+
+    axes[row, 1].plot(data["q"], normalized_residual, ".", markersize=3)
+    axes[row, 1].axhline(0.0, color="black", linewidth=0.8)
+    axes[row, 1].axhline(2.0, color="grey", linewidth=0.6, linestyle="--")
+    axes[row, 1].axhline(-2.0, color="grey", linewidth=0.6, linestyle="--")
+    axes[row, 1].set_xscale("log")
+    axes[row, 1].set_ylabel("residual / uncertainty")
+
+axes[-1, 0].set_xlabel(r"$q$ (Å$^{-1}$)")
+axes[-1, 1].set_xlabel(r"$q$ (Å$^{-1}$)")
+plt.tight_layout()
+plt.show()
+```
+
+Random residuals scattered mostly between -2 and +2 would support the model.
+Instead, long runs of positive and negative residuals remain, especially for
+drop and shell contrast. The optimizer converged; the physical model is what
+needs improvement.
+
+## 7. Improve the model with size distributions
+
+The baseline assumes that every droplet has exactly the same core radius and
+shell thickness. Real microemulsions contain a distribution of sizes. We now
+fit two more shared variables:
+
+7. relative standard deviation of the core radius;
+8. relative standard deviation of the shell thickness.
+
+The core radius uses a positive log-normal distribution. The shell thickness
+uses a normal distribution truncated at zero, because a negative thickness is
+not physical. Both are number distributions: each sampled droplet contributes
+according to its probability, and the absolute intensity uses the population's
+mean total volume.
+
+Evaluating dozens of sizes through the high-level pySEB API on every optimizer
+step would be unnecessarily slow. Instead, ask pySEB for the structure's
+symbolic form factor once and compile that expression into a NumPy function.
+The fitted equation still comes from the same two-subunit pySEB graph.
+
+```{python}
+normalized_expression = form_factor_expression
+
+(
+    q_symbol,
+    core_radius_symbol,
+    shell_inner_symbol,
+    shell_outer_symbol,
+    beta_core_symbol,
+    beta_shell_symbol,
+) = sympy.symbols(
+    "q R_core Ri_shell Ro_shell beta_core beta_shell"
+)
+
+unnormalized_expression = normalized_expression * (
+    beta_core_symbol + beta_shell_symbol
+) ** 2
+evaluate_form_factor = sympy.lambdify(
+    (
+        q_symbol,
+        core_radius_symbol,
+        shell_inner_symbol,
+        shell_outer_symbol,
+        beta_core_symbol,
+        beta_shell_symbol,
+    ),
+    unnormalized_expression,
+    modules="numpy",
+)
+```
+
+Seven-point Gauss–Hermite quadrature represents the log-normal core
+distribution. Eleven equal-probability samples represent the positive part of
+the shell-thickness distribution. These small deterministic grids make the
+tutorial reproducible and quick; a publication analysis should verify that
+increasing the number of samples no longer changes the result.
+
+```{python}
+hermite_nodes, hermite_weights = hermgauss(7)
+normal_weights = hermite_weights / np.sqrt(np.pi)
+shell_quantiles = (np.arange(11) + 0.5) / 11
+
+
+def lognormal_samples(mean, relative_sd):
+    sigma_log = np.sqrt(np.log1p(relative_sd**2))
+    values = mean * np.exp(
+        np.sqrt(2) * sigma_log * hermite_nodes
+        - 0.5 * sigma_log**2
+    )
+    return values, normal_weights
+
+
+def positive_normal_samples(center, relative_sd):
+    lower_probability = ndtr(-1.0 / relative_sd)
+    probabilities = lower_probability + (
+        1.0 - lower_probability
+    ) * shell_quantiles
+    values = center * (
+        1.0 + relative_sd * ndtri(probabilities)
+    )
+    weights = np.full(shell_quantiles.size, 1.0 / shell_quantiles.size)
+    return values, weights
+```
+
+For each contrast, average the unnormalized intensity over all sampled core
+radii and shell thicknesses before applying volume fraction and background.
+
+```{python}
+def calculate_disperse_intensity(
+    contrast,
+    q,
+    core_radius,
+    shell_thickness,
+    core_relative_sd,
+    shell_relative_sd,
+    volume_fraction,
+    background,
+):
+    core_values, core_weights = lognormal_samples(
+        core_radius, core_relative_sd
+    )
+    shell_values, shell_weights = positive_normal_samples(
+        shell_thickness, shell_relative_sd
+    )
+    core_sld, shell_sld, solvent_sld = sld[contrast]
+
+    averaged_intensity = np.zeros_like(q)
+    mean_total_volume = 0.0
+
+    for radius, radius_weight in zip(core_values, core_weights):
+        for thickness, thickness_weight in zip(
+            shell_values, shell_weights
+        ):
+            sample_weight = radius_weight * thickness_weight
+            outer_radius = radius + thickness
+            core_volume = 4.0 * np.pi * radius**3 / 3.0
+            total_volume = 4.0 * np.pi * outer_radius**3 / 3.0
+            shell_volume = total_volume - core_volume
+            beta_core = (
+                (core_sld - solvent_sld) * 1e-6 * core_volume
+            )
+            beta_shell = (
+                (shell_sld - solvent_sld) * 1e-6 * shell_volume
+            )
+
+            sample_intensity = np.asarray(
+                evaluate_form_factor(
+                    q,
+                    radius,
+                    radius,
+                    outer_radius,
+                    beta_core,
+                    beta_shell,
+                )
+            )
+            averaged_intensity += sample_weight * sample_intensity
+            mean_total_volume += sample_weight * total_volume
+
+    return (
+        volume_fraction / mean_total_volume
+        * averaged_intensity
+        * 1e8
+        + background
+    )
+```
+
+Fit the eight variables simultaneously. The initial geometry, volume fraction,
+and backgrounds come from the monodisperse fit; only the two distribution
+widths are new guesses.
+
+```{python}
+def disperse_residual_vector(values):
+    (
+        core_radius,
+        shell_thickness,
+        core_relative_sd,
+        shell_relative_sd,
+        volume_fraction,
+    ) = values[:5]
+    residuals = []
+
+    for contrast, background in zip(contrast_order, values[5:]):
+        data = datasets[contrast]
+        prediction = calculate_disperse_intensity(
+            contrast,
+            data["q"],
+            core_radius,
+            shell_thickness,
+            core_relative_sd,
+            shell_relative_sd,
+            volume_fraction,
+            background,
+        )
+        residuals.append(
+            (prediction - data["intensity"]) / data["uncertainty"]
+        )
+
+    return np.concatenate(residuals)
+
+
+disperse_initial = np.concatenate(
+    (fit.x[:2], [0.12, 0.42], fit.x[2:])
+)
+disperse_lower = np.array(
+    [5.0, 1.0, 0.01, 0.01, 0.001, 0.0, 0.0, 0.0]
+)
+disperse_upper = np.array(
+    [60.0, 30.0, 0.5, 0.8, 0.2, 5.0, 5.0, 5.0]
+)
+
+disperse_fit = least_squares(
+    disperse_residual_vector,
+    disperse_initial,
+    bounds=(disperse_lower, disperse_upper),
+    x_scale="jac",
+)
+
+disperse_parameter_names = (
+    "core radius (Å)",
+    "shell thickness (Å)",
+    "core relative SD",
+    "shell relative SD",
+    "volume fraction",
+    "core background (cm^-1)",
+    "drop background (cm^-1)",
+    "shell background (cm^-1)",
+)
+for name, value in zip(disperse_parameter_names, disperse_fit.x):
+    print(f"{name:28s} {value:.6g}")
+
+disperse_degrees_of_freedom = (
+    disperse_fit.fun.size - disperse_fit.x.size
+)
+disperse_reduced_chi_squared = (
+    np.sum(disperse_fit.fun**2) / disperse_degrees_of_freedom
+)
+print(f"baseline reduced chi-squared {reduced_chi_squared:.3f}")
+print(
+    "disperse reduced chi-squared "
+    f"{disperse_reduced_chi_squared:.3f}"
+)
+```
+
+| Quantity | Monodisperse fit | Size-distribution fit | SasView tutorial |
+| --- | ---: | ---: | ---: |
+| Core radius | 24.75 Å | 23.74 Å | about 23.5 Å |
+| Shell thickness | 8.29 Å | 6.93 Å | about 7.3 Å |
+| Core relative SD | — | 0.105 | about 0.12 |
+| Shell relative SD | — | 0.503 | about 0.42 |
+| Reduced chi-squared | 29.50 | 20.30 | not reported |
+
+The fitted distribution widths are genuine optimizer variables, not values
+copied from the [SasView tutorial](https://www.sasview.org/downloads/simultaneous_1d_fitting_in_sasview_v6.pdf).
+Their proximity to that independent analysis is a useful check, not proof that
+the model is complete.
+
+## 8. Compare the improved fit
+
+```{python}
+#| label: fig-real-aot-disperse-fit
+#| fig-cap: "Adding fitted core-radius and shell-thickness distributions improves all three contrasts. The dashed line is the monodisperse baseline."
+
+(
+    core_radius,
+    shell_thickness,
+    core_relative_sd,
+    shell_relative_sd,
+    volume_fraction,
+) = disperse_fit.x[:5]
+backgrounds = disperse_fit.x[5:]
+
+figure, axes = plt.subplots(
+    3, 2, figsize=(10, 10), sharex="col",
+    gridspec_kw={"width_ratios": [1.55, 1.0]},
+)
+
+for row, (contrast, background) in enumerate(
+    zip(contrast_order, backgrounds)
+):
+    data = datasets[contrast]
+    prediction = calculate_disperse_intensity(
+        contrast,
+        data["q"],
+        core_radius,
+        shell_thickness,
+        core_relative_sd,
+        shell_relative_sd,
+        volume_fraction,
+        background,
+    )
+    baseline_prediction = calculate_intensity(
+        contrast,
+        data["q"],
+        fit.x[0],
+        fit.x[1],
+        fit.x[2],
+        fit.x[3 + row],
+    )
+    normalized_residual = (
+        data["intensity"] - prediction
+    ) / data["uncertainty"]
+
+    positive = data["intensity"] > 0
+    axes[row, 0].errorbar(
+        data["q"][positive],
+        data["intensity"][positive],
+        yerr=data["uncertainty"][positive],
+        fmt=".",
+        markersize=3,
+        label="measurement",
+    )
+    axes[row, 0].plot(
+        data["q"], baseline_prediction,
+        color="grey", linestyle="--", label="monodisperse",
+    )
+    axes[row, 0].plot(
+        data["q"], prediction, label="with size distributions"
+    )
+    axes[row, 0].set_xscale("log")
+    axes[row, 0].set_yscale("log")
+    axes[row, 0].set_ylabel(f"{contrast}\n$I(q)$ (cm$^{{-1}}$)")
+    axes[row, 0].legend(fontsize="small")
+
+    axes[row, 1].plot(data["q"], normalized_residual, ".", markersize=3)
+    axes[row, 1].axhline(0.0, color="black", linewidth=0.8)
+    axes[row, 1].axhline(2.0, color="grey", linewidth=0.6, linestyle="--")
+    axes[row, 1].axhline(-2.0, color="grey", linewidth=0.6, linestyle="--")
+    axes[row, 1].set_xscale("log")
+    axes[row, 1].set_ylabel("residual / uncertainty")
+
+axes[-1, 0].set_xlabel(r"$q$ (Å$^{-1}$)")
+axes[-1, 1].set_xlabel(r"$q$ (Å$^{-1}$)")
+plt.tight_layout()
+plt.show()
+```
+
+The extra variables reduce the systematic mismatch and bring the geometry
+close to the more complete SasView analysis. They do not make the residuals
+random or reduce the reduced chi-squared to approximately one. The official
+analysis also applies an approximate 10% $dQ/Q$ LOQ resolution smearing
+correction and still describes its result as imperfect.
+
+This is the useful stopping point for an introductory fit: the improvement is
+visible and statistically measurable, but the tutorial does not disguise the
+remaining model error. Optimization answers “what parameters best satisfy
+this model?” Residual analysis asks the more important question, “is this
+model adequate for the experiment?”
+
+## What this demonstrates
+
+- A fit can use an explicit linked pySEB structure rather than a single
+  preassembled subunit.
+- Contrast variation changes signed scattering weights while sharing the same
+  structure geometry.
+- `EvaluateFormFactorUnnormalized` connects subunit betas to absolute-scale
+  intensity.
+- The generated symbolic form factor can be compiled once for efficient
+  averaging over fitted size distributions.
+- Simultaneous residuals enforce shared physical parameters across datasets.
+- A successful optimizer and plausible parameters do not guarantee a good
+  scattering model.
+
+## Next steps
+
+- [Parameter sweeps](parameter-sweeps.qmd)
+- [Scattering quantities](scattering-quantities.qmd)
+- [Sphere–polymer micelle](micelle.qmd)
+- [Original SasData files](https://github.com/SasView/sasdata/tree/master/sasdata/example_data/1d_data)

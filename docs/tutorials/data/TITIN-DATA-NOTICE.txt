@@ -1,0 +1,44 @@
+Data provenance for the linked-titin fitting tutorial
+=====================================================
+
+SASDKC2-titin.csv
+-----------------
+Source: SASBDB entry SASDKC2, "Two titin I27 domains linked with GGG linker"
+Entry: https://www.sasbdb.org/data/SASDKC2/
+Original curve: https://www.sasbdb.org/media/intensities_files/SASDKC2.dat
+Primary article: Joshi et al., Biochemical and Biophysical Research
+Communications 550 (2021) 43-48, DOI 10.1016/j.bbrc.2021.02.114
+
+The tutorial copy contains every fourth point from the deposited curve through
+q = 0.30 inverse angstrom. q, intensity, and uncertainty values are unchanged.
+Please cite the original investigators and SASBDB when reusing these data.
+
+1TIT-ca.pdb
+------------
+Source: Protein Data Bank entry 1TIT, "TITIN, IG REPEAT 27, NMR, MINIMIZED
+AVERAGE STRUCTURE"
+Entry: https://www.rcsb.org/structure/1TIT
+PDB DOI: https://doi.org/10.2210/pdb1TIT/pdb
+Primary article: Improta, Politou, and Pastore, Structure 4 (1996) 323-337,
+DOI 10.1016/S0969-2126(96)00036-6
+
+This derived file retains the 89 C-alpha ATOM records from 1TIT and does not
+alter their coordinates. PDB archive data files are available under the CC0
+1.0 Universal Public Domain Dedication. The original structure authors and
+RCSB PDB should nevertheless be attributed where possible:
+https://www.rcsb.org/pages/usage-policy
+
+1TIU-heavy-ensemble.pdb
+-----------------------
+Source: Protein Data Bank entry 1TIU, "TITIN I27 DOMAIN, NMR, 24 STRUCTURES"
+Entry: https://www.rcsb.org/structure/1TIU
+PDB DOI: https://doi.org/10.2210/pdb1TIU/pdb
+Primary article: Improta, Politou, and Pastore, Structure 4 (1996) 323-337,
+DOI 10.1016/S0969-2126(96)00036-6
+
+This derived file retains models 1, 7, 13, and 19 from the deposited 24-model
+NMR ensemble. Hydrogen records are omitted; the 688 retained heavy-atom
+coordinates in each model are unchanged. PDB archive data files are available
+under the CC0 1.0 Universal Public Domain Dedication. The original structure
+authors and RCSB PDB should nevertheless be attributed where possible:
+https://www.rcsb.org/pages/usage-policy

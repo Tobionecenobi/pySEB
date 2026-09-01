@@ -35,12 +35,12 @@ are covered by the
 
 ::: {.grid}
 ::: {.g-col-12 .g-col-md-6}
-### First model
+### New to pySEB?
 
-Create a Python environment, install pySEB, and build the same Gaussian
-diblock in Python and C++.
+Start with the scattering ideas and pySEB vocabulary, then install the package
+and evaluate your first model step by step.
 
-[Build a diblock](tutorials/diblock-copolymer.qmd){.btn .btn-primary}
+[Start the introduction](tutorials/introduction.qmd){.btn .btn-primary}
 :::
 
 ::: {.g-col-12 .g-col-md-6}

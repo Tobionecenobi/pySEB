@@ -1,0 +1,192 @@
+---
+title: "Your First Scattering Model"
+subtitle: "Install pySEB, evaluate a solid sphere, and understand the result"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+This tutorial starts from a new Python environment and produces a scattering
+curve for one homogeneous sphere. Every line is explained, and no previous
+pySEB experience is assumed.
+
+Read [Introduction to pySEB](introduction.qmd) first if subunits, reference
+points, q, or form factors are unfamiliar.
+
+## 1. Create a Python environment
+
+An isolated environment keeps pySEB and the plotting packages separate from
+other Python projects.
+
+On Linux or macOS:
+
+```bash
+python3 -m venv .venv-pyseb
+source .venv-pyseb/bin/activate
+python -m pip install --upgrade pip
+python -m pip install pyseb numpy matplotlib
+```
+
+On Windows PowerShell:
+
+```powershell
+py -3 -m venv .venv-pyseb
+.venv-pyseb\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install pyseb numpy matplotlib
+```
+
+The environment is active when the terminal prompt begins with
+`(.venv-pyseb)`. Activate it again whenever you return to the project.
+
+Confirm that pySEB imports:
+
+```bash
+python -c "import pyseb; print(type(pyseb.World()).__name__)"
+```
+
+The command should print `World`.
+
+## 2. Import the packages
+
+`pyseb` builds and evaluates the model. NumPy creates a range of q values, and
+Matplotlib plots the result.
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+```
+
+## 3. Create a world
+
+A `World` holds the model topology. Its name is only a helpful label.
+
+```{python}
+world = pyseb.World("FirstSphereTutorial")
+```
+
+## 4. Add and name a sphere
+
+`Add` creates a `SolidSphere` instance named `sphere` and returns the graph
+that contains it. The second `Add` gives the complete graph the public name
+`sphereModel`; scattering calculations use that structure name.
+
+```{python}
+graph = world.Add("SolidSphere", "sphere")
+world.Add(graph, "sphereModel")
+```
+
+At this point pySEB knows what the model contains, but not the sphere's radius
+or contrast.
+
+## 5. Supply physical parameters
+
+The instance name `sphere` appears as the suffix of both generated parameters.
+Here lengths are in ångström, so q will be in inverse ångström.
+
+```{python}
+parameters = {
+    "beta_sphere": 1.0,
+    "R_sphere": 50.0,
+}
+```
+
+`R_sphere` is the sphere radius. `beta_sphere` is its excess scattering
+length. A normalized single-sphere form factor does not change when this beta
+is rescaled, but composite structures use beta to weight subunits and their
+interference terms.
+
+## 6. Choose q values
+
+The logarithmic grid samples several length scales efficiently. Roughly
+speaking, a feature at q corresponds to a real-space scale of order $1/q$.
+
+```{python}
+q = np.geomspace(1e-3, 0.5, 180)
+```
+
+## 7. Evaluate the form factor
+
+Pass the structure name, parameter dictionary, and q grid to
+`EvaluateFormFactor`. The returned value at each q is the normalized form
+factor $F(q)$.
+
+```{python}
+form_factor = np.asarray(
+    world.EvaluateFormFactor("sphereModel", parameters, q.tolist())
+)
+
+print(f"number of q values: {form_factor.size}")
+print(f"F({q[0]:.3g}) = {form_factor[0]:.8f}")
+print(f"F({q[-1]:.3g}) = {form_factor[-1]:.8f}")
+```
+
+At small q the whole sphere scatters coherently, so the normalized result is
+close to one. At larger q, oscillations appear as the sphere is spatially
+resolved.
+
+## 8. Plot the curve
+
+```{python}
+#| label: fig-first-solid-sphere
+#| fig-cap: "Normalized form factor of a homogeneous sphere with radius 50 Å."
+
+plt.loglog(q, form_factor)
+plt.xlabel(r"$q$ (Å$^{-1}$)")
+plt.ylabel(r"$F(q)$")
+plt.show()
+```
+
+The horizontal position of the oscillations is controlled by the radius. A
+larger particle produces features at smaller q.
+
+## 9. Reuse the graph with other radii
+
+The topology does not change when a parameter changes. Reuse the same
+`sphereModel` and evaluate three radii.
+
+```{python}
+#| label: fig-first-sphere-radius-comparison
+#| fig-cap: "Changing the sphere radius shifts its form-factor features along q."
+
+for radius in (25.0, 50.0, 100.0):
+    trial_parameters = {
+        "beta_sphere": 1.0,
+        "R_sphere": radius,
+    }
+    values = world.EvaluateFormFactor(
+        "sphereModel", trial_parameters, q.tolist()
+    )
+    plt.loglog(q, values, label=f"R = {radius:g} Å")
+
+plt.xlabel(r"$q$ (Å$^{-1}$)")
+plt.ylabel(r"$F(q)$")
+plt.legend()
+plt.show()
+```
+
+This separation between a reusable structure graph and replaceable parameter
+values is central to parameter sweeps and fitting workflows.
+
+## Common problems
+
+| Symptom | Likely cause | Check |
+| --- | --- | --- |
+| `ModuleNotFoundError: pyseb` | The environment is inactive or pySEB was not installed there | Activate `.venv-pyseb` and run `python -m pip show pyseb` |
+| Missing-parameter error | A generated parameter name is absent | Use `R_sphere` and `beta_sphere`, including the instance suffix |
+| Curve features appear at unexpected q | Length and reciprocal-length units do not match | Pair Å with Å⁻¹, or nm with nm⁻¹ |
+| The structure name is unknown | The graph was not given a public name | Run `world.Add(graph, "sphereModel")` before evaluation |
+
+## Next steps
+
+- [Connect two subunits in a diblock](diblock-copolymer.qmd)
+- [Explore the bundled subunits and YAML models](custom-yaml-workflow.qmd)
+- [Solid Sphere reference](https://github.com/Tobionecenobi/pySEB/wiki/Subunit-Solid-Sphere)

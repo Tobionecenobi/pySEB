@@ -54,7 +54,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pybind11 jupyter numpy matplotlib plotly pyyaml usd-core "sympy>=1.12"
+          python -m pip install pybind11 jupyter numpy matplotlib plotly pyyaml scipy usd-core "sympy>=1.12"
 
       - name: Configure pySEB and tutorials
         run: |

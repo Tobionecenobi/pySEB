@@ -165,7 +165,11 @@ class TestFileDefinedSubunits(unittest.TestCase):
         )
         self.assertEqual(definition.integration.workspace_size, 1000)
         self.assertEqual(definition.integration.qag_rule, 61)
-        self.assertEqual(len(definition.integrals), 14)
+        self.assertEqual(len(definition.integrals), 18)
+        self.assertEqual(
+            set(definition.specific_references),
+            {"center", "top", "bottom"},
+        )
         variants = definition.visualization.references["ends"].variants
         self.assertEqual(set(variants), {"top", "bottom"})
         self.assertEqual(variants["top"].geometry, "ends_top")
@@ -191,6 +195,52 @@ class TestFileDefinedSubunits(unittest.TestCase):
         )
         self.assertEqual(
             len(spheroid.integrals["surfaceSurfacePhase"].dimensions), 3
+        )
+
+    def test_solid_cylinder_has_fixed_cap_center_references(self):
+        world = pyseb.World("cylinder-cap-centers")
+        world.add_subunit_file(
+            str(MODELS / "SolidCylinder.pyseb.yaml"), "cylinder"
+        )
+        parameters = {
+            "beta_cylinder": 1.0,
+            "R_cylinder": 1.0,
+            "L_cylinder": 1.5,
+        }
+        q = 0.2
+
+        top = world.EvaluateFormFactorAmplitude(
+            "cylinder.top", parameters, q
+        )
+        bottom = world.EvaluateFormFactorAmplitude(
+            "cylinder.bottom", parameters, q
+        )
+        self.assertAlmostEqual(top, bottom, places=12)
+        self.assertAlmostEqual(
+            world.EvaluatePhaseFactor(
+                "cylinder.top", "cylinder.bottom", parameters, q
+            ),
+            math.sin(q * 1.5) / (q * 1.5),
+            places=12,
+        )
+        self.assertAlmostEqual(
+            world.EvaluatePhaseFactor(
+                "cylinder.center", "cylinder.top", parameters, q
+            ),
+            math.sin(q * 1.5 / 2.0) / (q * 1.5 / 2.0),
+            places=12,
+        )
+        self.assertAlmostEqual(
+            world.EvaluateSMSDRef2Scat("cylinder.top", parameters),
+            1.25,
+            places=12,
+        )
+        self.assertAlmostEqual(
+            world.EvaluateSMSDRef2Ref(
+                "cylinder.top", "cylinder.bottom", parameters
+            ),
+            2.25,
+            places=12,
         )
 
     def test_schema_and_expression_errors_include_context(self):

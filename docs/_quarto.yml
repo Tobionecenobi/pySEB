@@ -3,15 +3,23 @@ project:
   output-dir: _site
   resources:
     - tutorials/models/*.pyseb.yaml
+    - tutorials/data/*.csv
+    - tutorials/data/*.pdb
+    - tutorials/data/SASDATA-LICENSE.txt
+    - tutorials/data/TITIN-DATA-NOTICE.txt
   render:
     - index.qmd
     - about.qmd
     - tutorials/index.qmd
+    - tutorials/introduction.qmd
+    - tutorials/first-model.qmd
     - tutorials/diblock-copolymer.qmd
     - tutorials/micelle.qmd
     - tutorials/nested-structures.qmd
     - tutorials/random-walk-rods.qmd
     - tutorials/parameter-sweeps.qmd
+    - tutorials/fit-real-sans-data.qmd
+    - tutorials/fit-linked-titin.qmd
     - tutorials/pdb-polymer.qmd
     - tutorials/mixed-model-evaluation.qmd
     - tutorials/symbolic-expressions.qmd
@@ -49,13 +57,19 @@ website:
       search: true
       contents:
         - tutorials/index.qmd
+        - section: "Start here"
+          contents:
+            - tutorials/introduction.qmd
+            - tutorials/first-model.qmd
+            - tutorials/diblock-copolymer.qmd
         - section: "Task tutorials"
           contents:
-            - tutorials/diblock-copolymer.qmd
             - tutorials/micelle.qmd
             - tutorials/nested-structures.qmd
             - tutorials/random-walk-rods.qmd
             - tutorials/parameter-sweeps.qmd
+            - tutorials/fit-real-sans-data.qmd
+            - tutorials/fit-linked-titin.qmd
             - tutorials/pdb-polymer.qmd
             - tutorials/custom-yaml-workflow.qmd
         - section: "Advanced tutorials"

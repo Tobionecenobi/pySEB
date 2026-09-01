@@ -1,6 +1,6 @@
 ---
 title: "Diblock Copolymer"
-subtitle: "Your first pySEB model in Python and C++"
+subtitle: "Your first composite model in Python and C++"
 jupyter: python3
 format:
   html:
@@ -15,6 +15,11 @@ execute:
 
 This tutorial joins two Gaussian polymers end to end, names the resulting
 structure `diblock`, and evaluates its normalized form factor.
+
+If this is your first time using pySEB, begin with
+[Introduction to pySEB](introduction.qmd) and
+[Your First Scattering Model](first-model.qmd). This page repeats the
+installation commands so it can also be used independently.
 
 ## Install the Python package
 
