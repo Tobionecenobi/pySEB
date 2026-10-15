@@ -10,7 +10,13 @@ _SymbolicSubunit = _extension.SymbolicSubunit
 _NumericalSubunit = _extension.NumericalSubunit
 _FileDefinedSubunit = _extension.FileDefinedSubunit
 _DebyeSphereCloud = _extension.DebyeSphereCloud
+_AtomicSAXSCloud = _extension.AtomicSAXSCloud
 SphereScatterer = _extension.SphereScatterer
+AtomicSAXSScatterer = _extension.AtomicSAXSScatterer
+CromerMannCoefficients = _extension.CromerMannCoefficients
+AtomicSAXSOptions = _extension.AtomicSAXSOptions
+AtomicSAXSHydrationModel = _extension.AtomicSAXSHydrationModel
+AtomicSAXSHydrationWaterModel = _extension.AtomicSAXSHydrationWaterModel
 CartesianPoint3D = _extension.CartesianPoint3D
 NormalizationMode = _extension.NormalizationMode
 
@@ -35,12 +41,23 @@ class DebyeSphereCloud(_DebyeSphereCloud):
     pass
 
 
+class AtomicSAXSCloud(_AtomicSAXSCloud):
+    """An atomic solution-SAXS cloud with q-dependent form factors."""
+    pass
+
+
 __all__ = [
     "SymbolicSubunit",
     "NumericalSubunit",
     "FileDefinedSubunit",
     "DebyeSphereCloud",
+    "AtomicSAXSCloud",
     "SphereScatterer",
+    "AtomicSAXSScatterer",
+    "CromerMannCoefficients",
+    "AtomicSAXSOptions",
+    "AtomicSAXSHydrationModel",
+    "AtomicSAXSHydrationWaterModel",
     "CartesianPoint3D",
     "NormalizationMode",
 ]

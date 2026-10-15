@@ -688,6 +688,52 @@ class TestUSDExport(unittest.TestCase):
                 'def Mesh "envelope"', without_envelope.read_text(encoding="utf-8")
             )
 
+    def test_atomic_saxs_cloud_exports_atom_metadata_and_reference(self):
+        with tempfile.TemporaryDirectory() as directory:
+            atom = pyseb.AtomRecord()
+            atom.serial = 1
+            atom.atom_name = "CB"
+            atom.residue_name = "ALA"
+            atom.element = "C"
+            atom.coordinate = pyseb.CartesianPoint3D(1.0, 2.0, 3.0)
+            profile = pyseb.AtomicSAXSParameterProfile.protein_defaults()
+            build_options = pyseb.AtomicSAXSCloudBuildOptions()
+            build_options.reference_atom_serials = {"join": 1}
+            cloud = pyseb.AtomicSAXSCloudBuilder.build(
+                [atom],
+                profile,
+                pyseb.AtomicSAXSOptions(),
+                build_options,
+            )
+
+            world = pyseb.World("atomic_cloud")
+            world.Add(cloud, "protein")
+            output = Path(directory) / "atomic.usda"
+            options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+            world.export_usd("protein", str(output), {}, options)
+            document = output.read_text(encoding="utf-8")
+
+            self.assertIn('custom string pyseb:model_id = "pyseb/AtomicSAXSCloud"', document)
+            self.assertIn('custom string[] pyseb:element = ["C", ]', document)
+            self.assertIn("custom int[] pyseb:implicit_hydrogens = [3, ]", document)
+            self.assertIn("custom double pyseb:solvent_electron_density = 0.334", document)
+            self.assertEqual(_reference(document, "protein", "join"), (1.0, 2.0, 3.0))
+            shell_options = pyseb.AtomicSAXSOptions()
+            shell_options.hydration_model = pyseb.AtomicSAXSHydrationModel.SpatialShell
+            shell_options.include_hydration = True
+            shell_options.hydration_shell_contrast = 0.0167
+            shell_options.hydration_water_model = pyseb.AtomicSAXSHydrationWaterModel.BondedWater
+            shell = pyseb.AtomicSAXSCloudBuilder.build([atom], profile, shell_options, build_options)
+            shell_world = pyseb.World('spatial-export')
+            shell_world.Add(shell, 'protein')
+            shell_world.export_usd('protein', str(output), {}, options)
+            document = output.read_text(encoding='utf-8')
+            self.assertIn('custom string pyseb:hydration_model = "spatial_shell"', document)
+            self.assertIn('custom float[] pyseb:hydration_volume', document)
+            self.assertIn('"water"', document)
+            self.assertIn('custom string pyseb:hydration_water_model = "bonded_water"',document)
+            self.assertEqual(_reference(document, 'protein', 'join'), (1., 2., 3.))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -21,7 +21,8 @@ enum subunittypes{
     SOLIDCYLINDER,       // Reserved legacy slot; SolidCylinder is now FILEDEFINEDSUBUNIT.
     NUMERICALSUBUNIT,
     DEBYESPHERECLOUD,
-    FILEDEFINEDSUBUNIT
+    FILEDEFINEDSUBUNIT,
+    ATOMICSAXSCLOUD
 };
 
 #endif

@@ -540,6 +540,80 @@ TEST(DebyeSphereCloudTest, TwoPointScatterersAndReferencesUseDebyeDistances)
     );
 }
 
+// Verify that the atomic cloud uses q-dependent Cromer--Mann amplitudes in
+// the same Debye distance sum and remains compatible with named references.
+TEST(AtomicSAXSCloudTest, TwoCarbonAtomsUseAtomicFormFactors)
+{
+    const CromerMannCoefficients carbon(
+        {{2.3100, 1.0200, 1.5886, 0.8650}},
+        {{20.8439, 10.2075, 0.5687, 51.6512}},
+        0.2156
+    );
+    AtomicSAXSOptions options;
+    options.includeExcludedSolvent = false;
+    AtomicSAXSCloud* cloud = new AtomicSAXSCloud({
+        AtomicSAXSScatterer(
+            CartesianPoint3D(0.0, 0.0, 0.0), carbon, 20.0),
+        AtomicSAXSScatterer(
+            CartesianPoint3D(2.0, 0.0, 0.0), carbon, 20.0)
+    }, options);
+    cloud->addReferencePoint("left", 0.0, 0.0, 0.0);
+    cloud->addReferencePoint("right", 2.0, 0.0, 0.0);
+
+    World world;
+    world.Add(cloud, "carbonPair");
+    const ParameterList parameters;
+    const double q = 0.3;
+    const double fq = carbon.evaluate(q);
+    const double f0 = carbon.valueAtZero();
+    const double phase = sinc(2.0 * q);
+
+    EXPECT_NEAR(
+        world.EvaluateFormFactorUnnormalized("carbonPair", parameters, q),
+        fq * fq * (2.0 + 2.0 * phase),
+        1e-11
+    );
+    EXPECT_NEAR(
+        world.EvaluateFormFactorAmplitude(
+            "carbonPair.left", parameters, q),
+        fq * (1.0 + phase) / (2.0 * f0),
+        1e-11
+    );
+    EXPECT_NEAR(
+        world.EvaluatePhaseFactor(
+            "carbonPair.left", "carbonPair.right", parameters, q),
+        phase,
+        1e-12
+    );
+}
+
+// Verify the Fraser Gaussian displaced-solvent term directly for one atom.
+TEST(AtomicSAXSCloudTest, SubtractsExcludedSolventAmplitude)
+{
+    const double pi = 3.14159265358979323846;
+    const CromerMannCoefficients carbon(
+        {{2.3100, 1.0200, 1.5886, 0.8650}},
+        {{20.8439, 10.2075, 0.5687, 51.6512}},
+        0.2156
+    );
+    const double baseVolume = 20.0;
+    AtomicSAXSOptions options;
+    options.solventElectronDensity = 0.334;
+    options.excludedVolumeScale = 0.9;
+    AtomicSAXSCloud cloud({
+        AtomicSAXSScatterer(
+            CartesianPoint3D(0.0, 0.0, 0.0), carbon, baseVolume)
+    }, options);
+
+    const double q = 0.25;
+    const double volume = options.excludedVolumeScale * baseVolume;
+    const double expected = carbon.evaluate(q) -
+        options.solventElectronDensity * volume * std::exp(
+            -q * q * std::pow(volume, 2.0 / 3.0) / (4.0 * pi)
+        );
+    EXPECT_NEAR(cloud.atomicAmplitude(0, q), expected, 1e-12);
+}
+
 // Verify the zero-contrast edge case. The raw Debye intensity remains defined
 // when the particle betas cancel, but normalized scattering and Rg^2 must fail
 // because they require division by the total beta.

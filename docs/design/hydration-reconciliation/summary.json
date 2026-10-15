@@ -1,0 +1,612 @@
+{
+  "C": {
+    "input_sha256": "1a8122d3fb6ca34704ef096d74135da710c12b14a4c39897e2f90732bceb65e0",
+    "atoms": 1,
+    "pepsi": {
+      "forward_ratio": 1.0000774860485786,
+      "shape_rms_absolute": 0.00016559579697059912,
+      "normalized_relative_rms": 0.000689125109351893,
+      "relative_rms": 0.0006336897142907183,
+      "relative_max": 0.0018238685875714422
+    },
+    "pepsi_total": {
+      "forward_ratio": 0.9994190748489418,
+      "shape_rms_absolute": 0.0003988398789421494,
+      "normalized_relative_rms": 0.001100423591310657,
+      "relative_rms": 0.0015800891466757748,
+      "relative_max": 0.003033037310592568
+    },
+    "pepsi_shell_points": 24,
+    "pyseb_shell_points": 24,
+    "pepsi_shell_rg": 4.97494,
+    "pyseb_shell_rg": 4.9749371855331,
+    "pepsi_contrast_transfer": {
+      "2": {
+        "forward_ratio": 1.0000774857640953,
+        "shape_rms_absolute": 0.000165595858131488,
+        "normalized_relative_rms": 0.0006891252691695969,
+        "relative_rms": 0.000633690073310872,
+        "relative_max": 0.0018238688160280292
+      },
+      "10": {
+        "forward_ratio": 1.0000774871865132,
+        "shape_rms_absolute": 0.0001655962589033861,
+        "normalized_relative_rms": 0.0006891258484696022,
+        "relative_rms": 0.0006336896119594589,
+        "relative_max": 0.001823867673744206
+      }
+    },
+    "foxs": {
+      "default_fast": {
+        "forward_ratio": 0.9999999999999999,
+        "shape_rms_absolute": 3.858597319369448e-16,
+        "normalized_relative_rms": 4.11273908133992e-16,
+        "relative_rms": 3.555735278331253e-16,
+        "relative_max": 8.881784197001252e-16
+      },
+      "reciprocal": {
+        "forward_ratio": 0.9999999999999997,
+        "shape_rms_absolute": 6.961446445424245e-16,
+        "normalized_relative_rms": 7.045091355995552e-16,
+        "relative_rms": 8.954993532193216e-16,
+        "relative_max": 1.9984014443252818e-15
+      }
+    },
+    "foxs_independent_exposure": {
+      "default_fast": {
+        "forward_ratio": 0.9999999999999999,
+        "shape_rms_absolute": 3.858597319369448e-16,
+        "normalized_relative_rms": 4.11273908133992e-16,
+        "relative_rms": 3.555735278331253e-16,
+        "relative_max": 8.881784197001252e-16
+      },
+      "reciprocal": {
+        "forward_ratio": 0.9999999999999997,
+        "shape_rms_absolute": 6.961446445424245e-16,
+        "normalized_relative_rms": 7.045091355995552e-16,
+        "relative_rms": 8.954993532193216e-16,
+        "relative_max": 1.9984014443252818e-15
+      }
+    }
+  },
+  "O": {
+    "input_sha256": "a7e827a2798717e61c924646a70ea57fe68535d53261b78f21e0573d0ee7d5a4",
+    "atoms": 1,
+    "pepsi": {
+      "forward_ratio": 1.0000774860485786,
+      "shape_rms_absolute": 0.00016559579697059912,
+      "normalized_relative_rms": 0.000689125109351893,
+      "relative_rms": 0.0006336897142907183,
+      "relative_max": 0.0018238685875714422
+    },
+    "pepsi_total": {
+      "forward_ratio": 1.0056790536313422,
+      "shape_rms_absolute": 0.0003030408566145653,
+      "normalized_relative_rms": 0.0005194957249899582,
+      "relative_rms": 0.006069661441743628,
+      "relative_max": 0.0068761068791276525
+    },
+    "pepsi_shell_points": 24,
+    "pyseb_shell_points": 24,
+    "pepsi_shell_rg": 4.97494,
+    "pyseb_shell_rg": 4.9749371855331,
+    "pepsi_contrast_transfer": {},
+    "foxs": {
+      "default_fast": {
+        "forward_ratio": 1.000000000000001,
+        "shape_rms_absolute": 1.0947813701740314e-15,
+        "normalized_relative_rms": 1.1048236647263305e-15,
+        "relative_rms": 4.900744824735764e-16,
+        "relative_max": 1.7763568394002505e-15
+      },
+      "reciprocal": {
+        "forward_ratio": 0.9999999999999997,
+        "shape_rms_absolute": 7.854347699394647e-16,
+        "normalized_relative_rms": 8.024963947718361e-16,
+        "relative_rms": 9.537072926390089e-16,
+        "relative_max": 2.7755575615628914e-15
+      }
+    },
+    "foxs_independent_exposure": {
+      "default_fast": {
+        "forward_ratio": 1.000000000000001,
+        "shape_rms_absolute": 1.0947813701740314e-15,
+        "normalized_relative_rms": 1.1048236647263305e-15,
+        "relative_rms": 4.900744824735764e-16,
+        "relative_max": 1.7763568394002505e-15
+      },
+      "reciprocal": {
+        "forward_ratio": 0.9999999999999997,
+        "shape_rms_absolute": 7.854347699394647e-16,
+        "normalized_relative_rms": 8.024963947718361e-16,
+        "relative_rms": 9.537072926390089e-16,
+        "relative_max": 2.7755575615628914e-15
+      }
+    }
+  },
+  "CH3": {
+    "input_sha256": "b6326ee972601392ad75d8286a765bd507bfd575f76340c93de68c8d04d260f7",
+    "atoms": 1,
+    "pepsi": {
+      "forward_ratio": 1.0000774860485786,
+      "shape_rms_absolute": 0.00016559579697059912,
+      "normalized_relative_rms": 0.000689125109351893,
+      "relative_rms": 0.0006336897142907183,
+      "relative_max": 0.0018238685875714422
+    },
+    "pepsi_total": {
+      "forward_ratio": 1.0517710537229303,
+      "shape_rms_absolute": 0.0026786622980397978,
+      "normalized_relative_rms": 0.008309124796144334,
+      "relative_rms": 0.05886886281725083,
+      "relative_max": 0.06668204971588954
+    },
+    "pepsi_shell_points": 24,
+    "pyseb_shell_points": 24,
+    "pepsi_shell_rg": 4.97494,
+    "pyseb_shell_rg": 4.9749371855331,
+    "pepsi_contrast_transfer": {},
+    "foxs": {
+      "default_fast": {
+        "forward_ratio": 0.9999999999999999,
+        "shape_rms_absolute": 5.532396641363908e-16,
+        "normalized_relative_rms": 5.888235343985906e-16,
+        "relative_rms": 5.387105342381846e-16,
+        "relative_max": 1.6653345369377348e-15
+      },
+      "reciprocal": {
+        "forward_ratio": 0.9999999999999997,
+        "shape_rms_absolute": 8.034842700695827e-16,
+        "normalized_relative_rms": 8.132219988407946e-16,
+        "relative_rms": 9.60719471960263e-16,
+        "relative_max": 2.6645352591003757e-15
+      }
+    },
+    "foxs_independent_exposure": {
+      "default_fast": {
+        "forward_ratio": 0.9999999999999999,
+        "shape_rms_absolute": 5.532396641363908e-16,
+        "normalized_relative_rms": 5.888235343985906e-16,
+        "relative_rms": 5.387105342381846e-16,
+        "relative_max": 1.6653345369377348e-15
+      },
+      "reciprocal": {
+        "forward_ratio": 0.9999999999999997,
+        "shape_rms_absolute": 8.034842700695827e-16,
+        "normalized_relative_rms": 8.132219988407946e-16,
+        "relative_rms": 9.60719471960263e-16,
+        "relative_max": 2.6645352591003757e-15
+      }
+    }
+  },
+  "CC2": {
+    "input_sha256": "19c13daa4b26c5c0338c8c2adcddf32107e405b06be416e33e4c3ffb38abbc05",
+    "atoms": 2,
+    "pepsi": {
+      "forward_ratio": 1.0000774866175457,
+      "shape_rms_absolute": 0.00012680378376067806,
+      "normalized_relative_rms": 0.0007119730339988392,
+      "relative_rms": 0.0006577823288537048,
+      "relative_max": 0.00264100085299801
+    },
+    "pepsi_total": {
+      "forward_ratio": 0.9991473933248514,
+      "shape_rms_absolute": 0.00043260054394819914,
+      "normalized_relative_rms": 0.001290326594046811,
+      "relative_rms": 0.002007084124431279,
+      "relative_max": 0.003675323351645665
+    },
+    "pepsi_shell_points": 32,
+    "pyseb_shell_points": 32,
+    "pepsi_shell_rg": 5.61249,
+    "pyseb_shell_rg": 5.612486080160912,
+    "pepsi_contrast_transfer": {
+      "2": {
+        "forward_ratio": 1.000077483097063,
+        "shape_rms_absolute": 0.00012680250259426546,
+        "normalized_relative_rms": 0.0007119702868907666,
+        "relative_rms": 0.0006577821450037803,
+        "relative_max": 0.0026410031188698335
+      },
+      "10": {
+        "forward_ratio": 1.0000774878977219,
+        "shape_rms_absolute": 0.00012680428233543178,
+        "normalized_relative_rms": 0.0007119739446468528,
+        "relative_rms": 0.000657782301558869,
+        "relative_max": 0.0026410023635786706
+      }
+    },
+    "foxs": {
+      "default_fast": {
+        "forward_ratio": 1.0000000000000002,
+        "shape_rms_absolute": 1.4762742696192263e-08,
+        "normalized_relative_rms": 1.5437713172737543e-08,
+        "relative_rms": 1.543771316207469e-08,
+        "relative_max": 4.417553078894798e-08
+      },
+      "reciprocal": {
+        "forward_ratio": 1.0000000000000002,
+        "shape_rms_absolute": 1.1028335874611904e-15,
+        "normalized_relative_rms": 1.1432580770644292e-15,
+        "relative_rms": 9.38356162785683e-16,
+        "relative_max": 2.3314683517128287e-15
+      }
+    },
+    "foxs_independent_exposure": {
+      "default_fast": {
+        "forward_ratio": 0.9586149419013635,
+        "shape_rms_absolute": 7.933174431317909e-06,
+        "normalized_relative_rms": 8.773262221642543e-06,
+        "relative_rms": 0.041391288191605285,
+        "relative_max": 0.0414038734208384
+      },
+      "reciprocal": {
+        "forward_ratio": 0.9586149419013634,
+        "shape_rms_absolute": 8.05035383043711e-06,
+        "normalized_relative_rms": 8.77202445049967e-06,
+        "relative_rms": 0.04139128733830392,
+        "relative_max": 0.04140388799572581
+      }
+    }
+  },
+  "CO2": {
+    "input_sha256": "4c3aa85943287334898da07c83983e5aca943caca21cf5d26ab2d04a915eb013",
+    "atoms": 2,
+    "pepsi": {
+      "forward_ratio": 1.0000774866175457,
+      "shape_rms_absolute": 0.00012680378376067806,
+      "normalized_relative_rms": 0.0007119730339988392,
+      "relative_rms": 0.0006577823288537048,
+      "relative_max": 0.00264100085299801
+    },
+    "pepsi_total": {
+      "forward_ratio": 1.0044760769691792,
+      "shape_rms_absolute": 0.0002612992633539512,
+      "normalized_relative_rms": 0.0005090162813034432,
+      "relative_rms": 0.004861103474608441,
+      "relative_max": 0.005629541325717247
+    },
+    "pepsi_shell_points": 32,
+    "pyseb_shell_points": 32,
+    "pepsi_shell_rg": 5.61249,
+    "pyseb_shell_rg": 5.612486080160912,
+    "pepsi_contrast_transfer": {},
+    "foxs": {
+      "default_fast": {
+        "forward_ratio": 1.0000000000000002,
+        "shape_rms_absolute": 1.4538694009816029e-08,
+        "normalized_relative_rms": 1.5196893461354983e-08,
+        "relative_rms": 1.5196893447953757e-08,
+        "relative_max": 4.3504897462298686e-08
+      },
+      "reciprocal": {
+        "forward_ratio": 1.0000000000000004,
+        "shape_rms_absolute": 1.2093960953256367e-15,
+        "normalized_relative_rms": 1.2490100629256892e-15,
+        "relative_rms": 1.0103748226302453e-15,
+        "relative_max": 2.55351295663786e-15
+      }
+    },
+    "foxs_independent_exposure": {
+      "default_fast": {
+        "forward_ratio": 1.0060887533466896,
+        "shape_rms_absolute": 0.0002091275052462807,
+        "normalized_relative_rms": 0.00023105869278515384,
+        "relative_rms": 0.005918591242846891,
+        "relative_max": 0.006088753346689568
+      },
+      "reciprocal": {
+        "forward_ratio": 1.0060887533466902,
+        "shape_rms_absolute": 0.00021224773745322312,
+        "normalized_relative_rms": 0.00023105748707515027,
+        "relative_rms": 0.005918592101401904,
+        "relative_max": 0.006088753346690234
+      }
+    }
+  },
+  "CC10": {
+    "input_sha256": "9e2aee19db37560b0606479e46ccfdb3a1834d027ac2b3592dcb4d678d64a052",
+    "atoms": 2,
+    "pepsi": {
+      "forward_ratio": 1.0000774871865126,
+      "shape_rms_absolute": 8.085777925070109e-05,
+      "normalized_relative_rms": 0.0006875879895350296,
+      "relative_rms": 0.0006321291350361137,
+      "relative_max": 0.0017527596306053939
+    },
+    "pepsi_total": {
+      "forward_ratio": 0.9994190704814001,
+      "shape_rms_absolute": 0.00018515390433365567,
+      "normalized_relative_rms": 0.0011735070287988204,
+      "relative_rms": 0.00165142629381126,
+      "relative_max": 0.003147718217528128
+    },
+    "pepsi_shell_points": 48,
+    "pyseb_shell_points": 48,
+    "pepsi_shell_rg": 7.36122,
+    "pyseb_shell_rg": 7.361215932167728,
+    "pepsi_contrast_transfer": {},
+    "foxs": {
+      "default_fast": {
+        "forward_ratio": 0.9999999999999999,
+        "shape_rms_absolute": 1.3965575861360755e-08,
+        "normalized_relative_rms": 2.2364025899959965e-08,
+        "relative_rms": 2.2364025970609713e-08,
+        "relative_max": 6.266057328563335e-08
+      },
+      "reciprocal": {
+        "forward_ratio": 0.9999999999999997,
+        "shape_rms_absolute": 4.691130487386525e-16,
+        "normalized_relative_rms": 6.793761634502624e-16,
+        "relative_rms": 8.359402076892868e-16,
+        "relative_max": 2.1094237467877974e-15
+      }
+    },
+    "foxs_independent_exposure": {
+      "default_fast": {
+        "forward_ratio": 0.9999999999999999,
+        "shape_rms_absolute": 1.3965575861360755e-08,
+        "normalized_relative_rms": 2.2364025899959965e-08,
+        "relative_rms": 2.2364025970609713e-08,
+        "relative_max": 6.266057328563335e-08
+      },
+      "reciprocal": {
+        "forward_ratio": 0.9999999999999997,
+        "shape_rms_absolute": 4.691130487386525e-16,
+        "normalized_relative_rms": 6.793761634502624e-16,
+        "relative_rms": 8.359402076892868e-16,
+        "relative_max": 2.1094237467877974e-15
+      }
+    }
+  },
+  "triad": {
+    "input_sha256": "8ed709ae0adab7bb7e2e70eeb4cddeb3a6595b679e12f33070e43eacd41da2a0",
+    "atoms": 3,
+    "pepsi": {
+      "forward_ratio": 1.000078972261385,
+      "shape_rms_absolute": 0.00010535581308576903,
+      "normalized_relative_rms": 0.0007993217675451243,
+      "relative_rms": 0.0007491137807636008,
+      "relative_max": 0.004575607410757465
+    },
+    "pepsi_total": {
+      "forward_ratio": 1.0011863908167546,
+      "shape_rms_absolute": 0.00012774187419866851,
+      "normalized_relative_rms": 0.00022859425022118387,
+      "relative_rms": 0.001018484885378737,
+      "relative_max": 0.0012115269487766867
+    },
+    "pepsi_shell_points": 38,
+    "pyseb_shell_points": 38,
+    "pepsi_shell_rg": 6.07074,
+    "pyseb_shell_rg": 6.070739503251931,
+    "pepsi_contrast_transfer": {},
+    "foxs": {
+      "default_fast": {
+        "forward_ratio": 1.0000000000000018,
+        "shape_rms_absolute": 1.4965962163283257e-06,
+        "normalized_relative_rms": 1.6842137994482218e-06,
+        "relative_rms": 1.684213799422986e-06,
+        "relative_max": 4.492285243129501e-06
+      },
+      "reciprocal": {
+        "forward_ratio": 0.9999999999999991,
+        "shape_rms_absolute": 9.887028839661802e-16,
+        "normalized_relative_rms": 1.0583936555501734e-15,
+        "relative_rms": 1.1839516003281714e-15,
+        "relative_max": 3.1086244689504383e-15
+      }
+    },
+    "foxs_independent_exposure": {
+      "default_fast": {
+        "forward_ratio": 1.0183737178568049,
+        "shape_rms_absolute": 0.00041177540978753926,
+        "normalized_relative_rms": 0.0004767219367603569,
+        "relative_rms": 0.018016299582767327,
+        "relative_max": 0.01837371785680486
+      },
+      "reciprocal": {
+        "forward_ratio": 1.0183737178568022,
+        "shape_rms_absolute": 0.00041783133245800266,
+        "normalized_relative_rms": 0.00047670279311456005,
+        "relative_rms": 0.018016332839891562,
+        "relative_max": 0.018373717856802196
+      }
+    }
+  },
+  "glycine": {
+    "input_sha256": "e9f5ee8f78db4201d11d89a2be73f6cbd2182c6ea12ae66af5c618a7e91b7fdc",
+    "atoms": 4,
+    "pepsi": {
+      "forward_ratio": 1.000077999247855,
+      "shape_rms_absolute": 0.00010605948350729661,
+      "normalized_relative_rms": 0.0007575024388483726,
+      "relative_rms": 0.000705632196783035,
+      "relative_max": 0.0037695214763618923
+    },
+    "pepsi_total": {
+      "forward_ratio": 0.9915387294673403,
+      "shape_rms_absolute": 0.00042009678116843746,
+      "normalized_relative_rms": 0.0006029095400617369,
+      "relative_rms": 0.008959633256119925,
+      "relative_max": 0.009380616040422396
+    },
+    "pepsi_shell_points": 30,
+    "pyseb_shell_points": 30,
+    "pepsi_shell_rg": 6.0407,
+    "pyseb_shell_rg": 6.040695324215582,
+    "pepsi_contrast_transfer": {
+      "2": {
+        "forward_ratio": 1.0000780007092493,
+        "shape_rms_absolute": 0.0001060599976151027,
+        "normalized_relative_rms": 0.000757503436329299,
+        "relative_rms": 0.0007056321911403652,
+        "relative_max": 0.003769523660207441
+      },
+      "10": {
+        "forward_ratio": 1.0000780007092493,
+        "shape_rms_absolute": 0.00010606000308323329,
+        "normalized_relative_rms": 0.0007575031649257488,
+        "relative_rms": 0.0007056319171168272,
+        "relative_max": 0.0037695229322580737
+      }
+    },
+    "foxs": {
+      "default_fast": {
+        "forward_ratio": 0.9999999999999952,
+        "shape_rms_absolute": 0.0002520190350881875,
+        "normalized_relative_rms": 0.00028964627889263003,
+        "relative_rms": 0.000289646278889144,
+        "relative_max": 0.0006656165748233356
+      },
+      "reciprocal": {
+        "forward_ratio": 1.000000000000002,
+        "shape_rms_absolute": 2.204851887628596e-09,
+        "normalized_relative_rms": 2.4887849227087818e-09,
+        "relative_rms": 2.488786328874132e-09,
+        "relative_max": 5.502480249219843e-09
+      }
+    },
+    "foxs_independent_exposure": {
+      "default_fast": {
+        "forward_ratio": 1.0194273661753732,
+        "shape_rms_absolute": 0.0009103588014741809,
+        "normalized_relative_rms": 0.0010443046531222338,
+        "relative_rms": 0.02022743898756196,
+        "relative_max": 0.021815598522746837
+      },
+      "reciprocal": {
+        "forward_ratio": 1.0194273661753799,
+        "shape_rms_absolute": 0.0006681613949867338,
+        "normalized_relative_rms": 0.0007544145205685144,
+        "relative_rms": 0.020005502847124757,
+        "relative_max": 0.021135919152331706
+      }
+    }
+  },
+  "1TIU": {
+    "input_sha256": "d473bfb8d65ad191bb606bf3d572050692ca8a58820613a94c16befc4c933367",
+    "atoms": 688,
+    "pepsi": {
+      "forward_ratio": 1.000078550241856,
+      "shape_rms_absolute": 8.284975872023167e-05,
+      "normalized_relative_rms": 0.0006871747913371693,
+      "relative_rms": 0.0006320017614166405,
+      "relative_max": 0.0014983953533416194
+    },
+    "pepsi_total": {
+      "forward_ratio": 0.98877049997811,
+      "shape_rms_absolute": 0.0007142085473650026,
+      "normalized_relative_rms": 0.006358445225371075,
+      "relative_rms": 0.014153201587599916,
+      "relative_max": 0.021383543142987516
+    },
+    "pepsi_shell_points": 344,
+    "pyseb_shell_points": 344,
+    "pepsi_shell_rg": 20.3353,
+    "pyseb_shell_rg": 20.335335637093106,
+    "pepsi_contrast_transfer": {
+      "2": {
+        "forward_ratio": 1.0000785549973978,
+        "shape_rms_absolute": 8.284972105047919e-05,
+        "normalized_relative_rms": 0.0006871782257444395,
+        "relative_rms": 0.0006320017611537878,
+        "relative_max": 0.0014983983480785223
+      },
+      "10": {
+        "forward_ratio": 1.0000785540462895,
+        "shape_rms_absolute": 8.284958792593978e-05,
+        "normalized_relative_rms": 0.0006871776598536111,
+        "relative_rms": 0.0006320018587026429,
+        "relative_max": 0.0014983946046566166
+      }
+    },
+    "foxs": {
+      "default_fast": {
+        "forward_ratio": 1.0000000000000269,
+        "shape_rms_absolute": 5.519511038929034e-06,
+        "normalized_relative_rms": 0.0004991467458811165,
+        "relative_rms": 0.000499146745865201,
+        "relative_max": 0.001521711938636372
+      },
+      "reciprocal": {
+        "forward_ratio": 0.9999999999999384,
+        "shape_rms_absolute": 4.593726154160161e-10,
+        "normalized_relative_rms": 1.433681161516369e-08,
+        "relative_rms": 1.4336832446085055e-08,
+        "relative_max": 3.1467938588214395e-08
+      }
+    },
+    "foxs_independent_exposure": {
+      "default_fast": {
+        "forward_ratio": 0.9936609298291091,
+        "shape_rms_absolute": 0.00025972015370600307,
+        "normalized_relative_rms": 0.010014005451340765,
+        "relative_rms": 0.011915971049904533,
+        "relative_max": 0.024276378909342422
+      },
+      "reciprocal": {
+        "forward_ratio": 0.9936609298290212,
+        "shape_rms_absolute": 0.00026049951986578267,
+        "normalized_relative_rms": 0.009759917380677439,
+        "relative_rms": 0.011546330867176512,
+        "relative_max": 0.022956592995559633
+      }
+    }
+  },
+  "1CRN": {
+    "input_sha256": "ec2b59b70737979f72d22fae3c1845cdfc89332c4fbf43a5cf7e75295c5d675a",
+    "atoms": 327,
+    "pepsi": {
+      "forward_ratio": 1.0000768073312853,
+      "shape_rms_absolute": 5.453873420551618e-05,
+      "normalized_relative_rms": 0.0006898310254529996,
+      "relative_rms": 0.0006354215100578534,
+      "relative_max": 0.0017888591816496158
+    },
+    "pepsi_total": {
+      "forward_ratio": 1.0280538992203405,
+      "shape_rms_absolute": 0.0012552784382893211,
+      "normalized_relative_rms": 0.01862951222074756,
+      "relative_rms": 0.02617294812677786,
+      "relative_max": 0.03543490141848049
+    },
+    "pepsi_shell_points": 190,
+    "pyseb_shell_points": 190,
+    "pepsi_shell_rg": 16.3171,
+    "pyseb_shell_rg": 16.317082291734494,
+    "pepsi_contrast_transfer": {},
+    "foxs": {
+      "default_fast": {
+        "forward_ratio": 1.0000000000000075,
+        "shape_rms_absolute": 8.585097298888945e-06,
+        "normalized_relative_rms": 0.00030046385676359665,
+        "relative_rms": 0.0003004638567690434,
+        "relative_max": 0.000532530429925071
+      },
+      "reciprocal": {
+        "forward_ratio": 1.00000000000003,
+        "shape_rms_absolute": 1.6773824227384466e-09,
+        "normalized_relative_rms": 2.258247517304194e-08,
+        "relative_rms": 2.2582500271165538e-08,
+        "relative_max": 3.835194428702948e-08
+      }
+    },
+    "foxs_independent_exposure": {
+      "default_fast": {
+        "forward_ratio": 1.0025224619724782,
+        "shape_rms_absolute": 0.0004756783119611475,
+        "normalized_relative_rms": 0.013821886168343737,
+        "relative_rms": 0.013005254651963748,
+        "relative_max": 0.02513083544892747
+      },
+      "reciprocal": {
+        "forward_ratio": 1.0025224619725008,
+        "shape_rms_absolute": 0.00048172748518277616,
+        "normalized_relative_rms": 0.014016477082575666,
+        "relative_rms": 0.013172288067242544,
+        "relative_max": 0.025533883965384918
+      }
+    }
+  }
+}

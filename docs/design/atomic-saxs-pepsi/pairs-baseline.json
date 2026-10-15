@@ -1,0 +1,22 @@
+{
+  "CC_2A": {
+    "vacuum_pair_identity_max_relative": 1.9013046039795256e-06,
+    "excluded_pair_identity_max_relative": 1.8964920819319886e-06,
+    "solution_pair_identity_max_relative": 8.526823310539555e-06
+  },
+  "CC_10A": {
+    "vacuum_pair_identity_max_relative": 5.3031301350037197e-05,
+    "excluded_pair_identity_max_relative": 4.7528247278605384e-05,
+    "solution_pair_identity_max_relative": 8.101018266781779e-05
+  },
+  "CO_2A": {
+    "vacuum_pair_identity_max_relative": 1.8606881764249295e-06,
+    "excluded_pair_identity_max_relative": 1.7454827407892282e-06,
+    "solution_pair_identity_max_relative": 4.904114474291177e-06
+  },
+  "CO_10A": {
+    "vacuum_pair_identity_max_relative": 5.050928587269077e-05,
+    "excluded_pair_identity_max_relative": 4.3749724663921796e-05,
+    "solution_pair_identity_max_relative": 2.339521275041001e-05
+  }
+}

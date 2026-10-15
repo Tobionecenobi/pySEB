@@ -1,0 +1,40 @@
+{
+  "input_sha256": "19c13daa4b26c5c0338c8c2adcddf32107e405b06be416e33e4c3ffb38abbc05",
+  "pepsi_sha256": "65fb5640325213a458279d1b73707cb80d25516635b0519b95c2dee26b97a98f",
+  "atom_records": 2,
+  "cases": {
+    "hydration_0pct": {
+      "shell_contrast_e_per_A3": 0.0,
+      "normalized_curve_relative_rms": 0.0004594410806819825,
+      "normalized_curve_relative_max": 0.0009053409236217114,
+      "vacuum_normalized_relative_rms": 0.00023391836894617621,
+      "vacuum_normalized_relative_max": 0.0005017330444163637,
+      "pyseb_I0_electrons_squared": 1.0332315903999956,
+      "pepsi_I0_cm_inverse": 3.49402293e-07,
+      "shell_points": 974,
+      "shell_volume_A3": 974.0,
+      "shell_spacing_A": 1.0
+    },
+    "hydration_5pct": {
+      "shell_contrast_e_per_A3": 0.016700000000000003,
+      "normalized_curve_relative_rms": 0.196729127263495,
+      "normalized_curve_relative_max": 0.4987996722047331,
+      "vacuum_normalized_relative_rms": 0.00023391836894617621,
+      "vacuum_normalized_relative_max": 0.0005017330444163637,
+      "pyseb_I0_electrons_squared": 298.67720199840005,
+      "pepsi_I0_cm_inverse": 1.14657008e-05,
+      "shell_points": 974,
+      "shell_volume_A3": 974.0,
+      "shell_spacing_A": 1.0
+    }
+  },
+  "hydration_I0_ratio": {
+    "pyseb": 289.07091573029913,
+    "pepsi": 32.815184758962076
+  },
+  "forward_hydration_ratio_matched": {
+    "contrast_e_per_A3": 0.004934680575070085,
+    "normalized_relative_rms": 0.14543649412458232,
+    "normalized_relative_max": 0.32997637978513494
+  }
+}

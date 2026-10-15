@@ -90,6 +90,13 @@ NumericalSubunit = _pyseb.NumericalSubunit
 CartesianPoint3D = _pyseb.CartesianPoint3D
 SphereScatterer = _pyseb.SphereScatterer
 DebyeSphereCloud = _pyseb.DebyeSphereCloud
+CromerMannCoefficients = _pyseb.CromerMannCoefficients
+AtomicSAXSScatterer = _pyseb.AtomicSAXSScatterer
+AtomicSAXSOptions = _pyseb.AtomicSAXSOptions
+AtomicSAXSHydrationModel = _pyseb.AtomicSAXSHydrationModel
+AtomicSAXSHydrationWaterModel = _pyseb.AtomicSAXSHydrationWaterModel
+AtomicSAXSHydrationShellConvention = _pyseb.AtomicSAXSHydrationShellConvention
+AtomicSAXSCloud = _pyseb.AtomicSAXSCloud
 AtomRecord = _pyseb.AtomRecord
 AlternateLocationPolicy = _pyseb.AlternateLocationPolicy
 StructureParseOptions = _pyseb.StructureParseOptions
@@ -100,6 +107,12 @@ AtomParameterProfile = _pyseb.AtomParameterProfile
 AtomCloudBuildOptions = _pyseb.AtomCloudBuildOptions
 AtomCloudBuilder = _pyseb.AtomCloudBuilder
 StructureCloudLoader = _pyseb.StructureCloudLoader
+AtomicSAXSParameters = _pyseb.AtomicSAXSParameters
+AtomicSAXSVolumeModel = _pyseb.AtomicSAXSVolumeModel
+AtomicSAXSParameterProfile = _pyseb.AtomicSAXSParameterProfile
+AtomicSAXSCloudBuildOptions = _pyseb.AtomicSAXSCloudBuildOptions
+AtomicSAXSCloudBuilder = _pyseb.AtomicSAXSCloudBuilder
+AtomicSAXSStructureLoader = _pyseb.AtomicSAXSStructureLoader
 SubunitDefinition = _pyseb.SubunitDefinition
 SubunitIntegralDefinition = _pyseb.SubunitIntegralDefinition
 SubunitIntegrationOptions = _pyseb.SubunitIntegrationOptions
@@ -180,6 +193,13 @@ __all__ = [
     'CartesianPoint3D',
     'SphereScatterer',
     'DebyeSphereCloud',
+    'CromerMannCoefficients',
+    'AtomicSAXSScatterer',
+    'AtomicSAXSOptions',
+    'AtomicSAXSHydrationModel',
+    'AtomicSAXSHydrationWaterModel',
+    'AtomicSAXSHydrationShellConvention',
+    'AtomicSAXSCloud',
     'AtomRecord',
     'AlternateLocationPolicy',
     'StructureParseOptions',
@@ -190,6 +210,12 @@ __all__ = [
     'AtomCloudBuildOptions',
     'AtomCloudBuilder',
     'StructureCloudLoader',
+    'AtomicSAXSParameters',
+    'AtomicSAXSVolumeModel',
+    'AtomicSAXSParameterProfile',
+    'AtomicSAXSCloudBuildOptions',
+    'AtomicSAXSCloudBuilder',
+    'AtomicSAXSStructureLoader',
     'SubunitDefinition',
     'SubunitIntegralDefinition',
     'SubunitIntegrationOptions',

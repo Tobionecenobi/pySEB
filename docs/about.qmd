@@ -18,7 +18,8 @@ same `World`, `Add`, `Link`, names, tags, and reference-point concepts.
 ## What pySEB provides
 
 - Analytic YAML subunits, callback-defined numerical subunits, Debye sphere
-  clouds, and PDB-derived atom clouds.
+  clouds, PDB-derived atom clouds, and atomic SAXS clouds with Fraser/Pontius
+  displaced volumes and bundled FreeSASA solvent accessibility.
 - Reusable nested structures for chains, stars, micelles, dendrimers, and other
   connected models.
 - Normalized and unnormalized form factors, amplitudes, phase factors, and size

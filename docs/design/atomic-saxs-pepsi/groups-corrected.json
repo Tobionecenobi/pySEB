@@ -1,0 +1,352 @@
+{
+  "C": {
+    "pyseb_f0": 5.9992,
+    "pepsi_f0": 5.997198351915133,
+    "pyseb_volume": 16.44,
+    "pepsi_effective_volume": 16.43000098904935,
+    "comparison": {
+      "input_sha256": "1a8122d3fb6ca34704ef096d74135da710c12b14a4c39897e2f90732bceb65e0",
+      "pepsi_sha256": "65fb5640325213a458279d1b73707cb80d25516635b0519b95c2dee26b97a98f",
+      "atom_records": 1,
+      "cases": {
+        "hydration_0pct": {
+          "shell_contrast_e_per_A3": 0.0,
+          "normalized_curve_relative_rms": 0.0004593359976351138,
+          "normalized_curve_relative_max": 0.0009053393954170375,
+          "vacuum_normalized_relative_rms": 0.00023393362814201293,
+          "vacuum_normalized_relative_max": 0.0005017323570087884,
+          "pyseb_I0_electrons_squared": 0.2583078975999989,
+          "pepsi_I0_cm_inverse": 1.74701146e-07
+        },
+        "hydration_5pct": {
+          "shell_contrast_e_per_A3": 0.016700000000000003,
+          "normalized_curve_relative_rms": 3.246677994710531,
+          "normalized_curve_relative_max": 9.713127975795613,
+          "vacuum_normalized_relative_rms": 0.00023393362814201293,
+          "vacuum_normalized_relative_max": 0.0005017323570087884,
+          "pyseb_I0_electrons_squared": 1.018565377599998,
+          "pepsi_I0_cm_inverse": 1.14414374e-05
+        }
+      },
+      "hydration_I0_ratio": {
+        "pyseb": 3.9432219729390203,
+        "pepsi": 65.49148452638084
+      }
+    }
+  },
+  "CH": {
+    "pyseb_f0": 6.999153,
+    "pepsi_f0": 6.997151416565755,
+    "pyseb_volume": 21.590000000000003,
+    "pepsi_effective_volume": 21.690001275972786,
+    "comparison": {
+      "input_sha256": "aa0dbe902bb966388ce884cfa6dc68604065418eef0a476af179f4c07e338afc",
+      "pepsi_sha256": "65fb5640325213a458279d1b73707cb80d25516635b0519b95c2dee26b97a98f",
+      "atom_records": 1,
+      "cases": {
+        "hydration_0pct": {
+          "shell_contrast_e_per_A3": 0.0,
+          "normalized_curve_relative_rms": 11.504323006818389,
+          "normalized_curve_relative_max": 107.81031379062973,
+          "vacuum_normalized_relative_rms": 0.0006089313790667904,
+          "vacuum_normalized_relative_max": 0.001319937391236925,
+          "pyseb_I0_electrons_squared": 0.04490457664900078,
+          "pepsi_I0_cm_inverse": 4.11485236e-08
+        },
+        "hydration_5pct": {
+          "shell_contrast_e_per_A3": 0.016700000000000003,
+          "normalized_curve_relative_rms": 22.695163709341944,
+          "normalized_curve_relative_max": 76.45568089273382,
+          "vacuum_normalized_relative_rms": 0.0006089313790667904,
+          "vacuum_normalized_relative_max": 0.001319937391236925,
+          "pyseb_I0_electrons_squared": 0.083574762648999,
+          "pepsi_I0_cm_inverse": 7.62696336e-06
+        }
+      },
+      "hydration_I0_ratio": {
+        "pyseb": 1.86116358032425,
+        "pepsi": 185.35205379762397
+      }
+    }
+  },
+  "CH2": {
+    "pyseb_f0": 7.999105999999999,
+    "pepsi_f0": 7.9971024132327635,
+    "pyseb_volume": 26.740000000000002,
+    "pepsi_effective_volume": 26.519994748846788,
+    "comparison": {
+      "input_sha256": "b696d0cd4a4fcd8662aa985c504eef06980424e55f31b0c8d0d3ff4edc34e39a",
+      "pepsi_sha256": "65fb5640325213a458279d1b73707cb80d25516635b0519b95c2dee26b97a98f",
+      "atom_records": 1,
+      "cases": {
+        "hydration_0pct": {
+          "shell_contrast_e_per_A3": 0.0,
+          "normalized_curve_relative_rms": 40.13903905975246,
+          "normalized_curve_relative_max": 402.8023333629243,
+          "vacuum_normalized_relative_rms": 0.0008930563069843362,
+          "vacuum_normalized_relative_max": 0.0019420239988209298,
+          "pyseb_I0_electrons_squared": 0.8687246589160048,
+          "pepsi_I0_cm_inverse": 6.2075873e-07
+        },
+        "hydration_5pct": {
+          "shell_contrast_e_per_A3": 0.016700000000000003,
+          "normalized_curve_relative_rms": 3.406681284308403,
+          "normalized_curve_relative_max": 14.768751051025392,
+          "vacuum_normalized_relative_rms": 0.0008930563069843362,
+          "vacuum_normalized_relative_max": 0.0019420239988209298,
+          "pyseb_I0_electrons_squared": 0.18580755091600215,
+          "pepsi_I0_cm_inverse": 6.35589984e-06
+        }
+      },
+      "hydration_I0_ratio": {
+        "pyseb": 0.2138854342500798,
+        "pepsi": 10.238921392213042
+      }
+    }
+  },
+  "CH3": {
+    "pyseb_f0": 8.999058999999999,
+    "pepsi_f0": 8.997057530850308,
+    "pyseb_volume": 31.89,
+    "pepsi_effective_volume": 32.0300018929999,
+    "comparison": {
+      "input_sha256": "b6326ee972601392ad75d8286a765bd507bfd575f76340c93de68c8d04d260f7",
+      "pepsi_sha256": "65fb5640325213a458279d1b73707cb80d25516635b0519b95c2dee26b97a98f",
+      "atom_records": 1,
+      "cases": {
+        "hydration_0pct": {
+          "shell_contrast_e_per_A3": 0.0,
+          "normalized_curve_relative_rms": 0.06674246380412094,
+          "normalized_curve_relative_max": 0.3374665433388191,
+          "vacuum_normalized_relative_rms": 0.0011169259314327432,
+          "vacuum_normalized_relative_max": 0.002434388859679948,
+          "pyseb_I0_electrons_squared": 2.7297681444010053,
+          "pepsi_I0_cm_inverse": 1.94654366e-06
+        },
+        "hydration_5pct": {
+          "shell_contrast_e_per_A3": 0.016700000000000003,
+          "normalized_curve_relative_rms": 0.5297529837424464,
+          "normalized_curve_relative_max": 0.9999211692721808,
+          "vacuum_normalized_relative_rms": 0.0011169259314327432,
+          "vacuum_normalized_relative_max": 0.002434388859679948,
+          "pyseb_I0_electrons_squared": 1.3252637424010034,
+          "pepsi_I0_cm_inverse": 2.46289345e-06
+        }
+      },
+      "hydration_I0_ratio": {
+        "pyseb": 0.4854858260102551,
+        "pepsi": 1.265264941450119
+      }
+    }
+  },
+  "N": {
+    "pyseb_f0": 6.9946,
+    "pepsi_f0": 6.99636200763718,
+    "pyseb_volume": 2.49,
+    "pepsi_effective_volume": 2.489999644411937,
+    "comparison": {
+      "input_sha256": "060b737de8c79bf2f05d03c7033d9109fe397f4cb7ba1f64037f642e492311cd",
+      "pepsi_sha256": "65fb5640325213a458279d1b73707cb80d25516635b0519b95c2dee26b97a98f",
+      "atom_records": 1,
+      "cases": {
+        "hydration_0pct": {
+          "shell_contrast_e_per_A3": 0.0,
+          "normalized_curve_relative_rms": 0.00012647632011602103,
+          "normalized_curve_relative_max": 0.00027607861685119417,
+          "vacuum_normalized_relative_rms": 0.00011112343426336817,
+          "vacuum_normalized_relative_max": 0.00024269005562782553,
+          "pyseb_I0_electrons_squared": 37.9818294436,
+          "pepsi_I0_cm_inverse": 1.87130631e-05
+        },
+        "hydration_5pct": {
+          "shell_contrast_e_per_A3": 0.016700000000000003,
+          "normalized_curve_relative_rms": 0.40230063989907777,
+          "normalized_curve_relative_max": 0.9283783636544167,
+          "vacuum_normalized_relative_rms": 0.00011112343426336817,
+          "vacuum_normalized_relative_max": 0.00024269005562782553,
+          "pyseb_I0_electrons_squared": 44.408096323600006,
+          "pepsi_I0_cm_inverse": 4.70876948e-05
+        }
+      },
+      "hydration_I0_ratio": {
+        "pyseb": 1.1691931898525978,
+        "pepsi": 2.516300754631667
+      }
+    }
+  },
+  "NH": {
+    "pyseb_f0": 7.994553,
+    "pepsi_f0": 7.996316467612969,
+    "pyseb_volume": 7.640000000000001,
+    "pepsi_effective_volume": 7.606000451112416,
+    "comparison": {
+      "input_sha256": "0671749b06d05824ef53ff9428a514a705a9d17457509a66aeae04ecbed430ed",
+      "pepsi_sha256": "65fb5640325213a458279d1b73707cb80d25516635b0519b95c2dee26b97a98f",
+      "atom_records": 1,
+      "cases": {
+        "hydration_0pct": {
+          "shell_contrast_e_per_A3": 0.0,
+          "normalized_curve_relative_rms": 0.0001443336977127205,
+          "normalized_curve_relative_max": 0.0003059150405270161,
+          "vacuum_normalized_relative_rms": 0.0002619357168376235,
+          "vacuum_normalized_relative_max": 0.0005695053829125607,
+          "pyseb_I0_electrons_squared": 29.623995640849,
+          "pepsi_I0_cm_inverse": 2.00266878e-05
+        },
+        "hydration_5pct": {
+          "shell_contrast_e_per_A3": 0.016700000000000003,
+          "normalized_curve_relative_rms": 0.4519411219262269,
+          "normalized_curve_relative_max": 1.0532849310590455,
+          "vacuum_normalized_relative_rms": 0.0002619357168376235,
+          "vacuum_normalized_relative_max": 0.0005695053829125607,
+          "pyseb_I0_electrons_squared": 35.328675226849,
+          "pepsi_I0_cm_inverse": 5.53486225e-05
+        }
+      },
+      "hydration_I0_ratio": {
+        "pyseb": 1.1925695525735809,
+        "pepsi": 2.76374321369308
+      }
+    }
+  },
+  "O": {
+    "pyseb_f0": 7.9994000000000005,
+    "pepsi_f0": 7.99970647457451,
+    "pyseb_volume": 9.13,
+    "pepsi_effective_volume": 9.203000544085269,
+    "comparison": {
+      "input_sha256": "a7e827a2798717e61c924646a70ea57fe68535d53261b78f21e0573d0ee7d5a4",
+      "pepsi_sha256": "65fb5640325213a458279d1b73707cb80d25516635b0519b95c2dee26b97a98f",
+      "atom_records": 1,
+      "cases": {
+        "hydration_0pct": {
+          "shell_contrast_e_per_A3": 0.0,
+          "normalized_curve_relative_rms": 0.0006878641416040744,
+          "normalized_curve_relative_max": 0.0014905369261326573,
+          "vacuum_normalized_relative_rms": 1.9780687733111298e-05,
+          "vacuum_normalized_relative_max": 4.2704975807161816e-05,
+          "pyseb_I0_electrons_squared": 24.5023020004,
+          "pepsi_I0_cm_inverse": 1.63247411e-05
+        },
+        "hydration_5pct": {
+          "shell_contrast_e_per_A3": 0.016700000000000003,
+          "normalized_curve_relative_rms": 0.5005114876220623,
+          "normalized_curve_relative_max": 1.1731656035873383,
+          "vacuum_normalized_relative_rms": 1.9780687733111298e-05,
+          "vacuum_normalized_relative_max": 4.2704975807161816e-05,
+          "pyseb_I0_electrons_squared": 29.713182960400005,
+          "pepsi_I0_cm_inverse": 4.90691208e-05
+        }
+      },
+      "hydration_I0_ratio": {
+        "pyseb": 1.2126690365629702,
+        "pepsi": 3.0058131090360756
+      }
+    }
+  },
+  "OH": {
+    "pyseb_f0": 8.999353000000001,
+    "pepsi_f0": 8.999656999860687,
+    "pyseb_volume": 14.280000000000001,
+    "pepsi_effective_volume": 14.139996884716718,
+    "comparison": {
+      "input_sha256": "57bb65943f7df116862f6d78b2b9ab39004fc0dc9d0b666f32ee4b93c2a68259",
+      "pepsi_sha256": "65fb5640325213a458279d1b73707cb80d25516635b0519b95c2dee26b97a98f",
+      "atom_records": 1,
+      "cases": {
+        "hydration_0pct": {
+          "shell_contrast_e_per_A3": 0.0,
+          "normalized_curve_relative_rms": 0.0018864765163533182,
+          "normalized_curve_relative_max": 0.004015975764069424,
+          "vacuum_normalized_relative_rms": 0.00030064824553279254,
+          "vacuum_normalized_relative_max": 0.0006547693290419598,
+          "pyseb_I0_electrons_squared": 17.891487207889,
+          "pepsi_I0_cm_inverse": 1.00453025e-05
+        },
+        "hydration_5pct": {
+          "shell_contrast_e_per_A3": 0.016700000000000003,
+          "normalized_curve_relative_rms": 0.5835648800377208,
+          "normalized_curve_relative_max": 1.3788954703571696,
+          "vacuum_normalized_relative_rms": 0.00030064824553279254,
+          "vacuum_normalized_relative_max": 0.0006547693290419598,
+          "pyseb_I0_electrons_squared": 22.380780873889005,
+          "pepsi_I0_cm_inverse": 3.41970133e-05
+        }
+      },
+      "hydration_I0_ratio": {
+        "pyseb": 1.250917859082196,
+        "pepsi": 3.4042790946315455
+      }
+    }
+  },
+  "S": {
+    "pyseb_f0": 15.999799999999999,
+    "pepsi_f0": 15.999632675012384,
+    "pyseb_volume": 19.86,
+    "pepsi_effective_volume": 19.860010791458222,
+    "comparison": {
+      "input_sha256": "1d3d5deebb8123ef15fa7f7660eb2be7fba6ef60e0c3584f1e4743195af20d5b",
+      "pepsi_sha256": "65fb5640325213a458279d1b73707cb80d25516635b0519b95c2dee26b97a98f",
+      "atom_records": 1,
+      "cases": {
+        "hydration_0pct": {
+          "shell_contrast_e_per_A3": 0.0,
+          "normalized_curve_relative_rms": 1.961495427643671e-05,
+          "normalized_curve_relative_max": 4.175793450444942e-05,
+          "vacuum_normalized_relative_rms": 1.129827617231721e-05,
+          "vacuum_normalized_relative_max": 2.4006709001711535e-05,
+          "pyseb_I0_electrons_squared": 87.7324462336,
+          "pepsi_I0_cm_inverse": 3.1977836e-05
+        },
+        "hydration_5pct": {
+          "shell_contrast_e_per_A3": 0.016700000000000003,
+          "normalized_curve_relative_rms": 0.28084824770045586,
+          "normalized_curve_relative_max": 0.6138359669558362,
+          "vacuum_normalized_relative_rms": 1.129827617231721e-05,
+          "vacuum_normalized_relative_max": 2.4006709001711535e-05,
+          "pyseb_I0_electrons_squared": 97.36874035359999,
+          "pepsi_I0_cm_inverse": 6.14184114e-05
+        }
+      },
+      "hydration_I0_ratio": {
+        "pyseb": 1.1098372897792226,
+        "pepsi": 1.9206556503698373
+      }
+    }
+  },
+  "SH": {
+    "pyseb_f0": 16.999753,
+    "pepsi_f0": 16.999582148518492,
+    "pyseb_volume": 25.009999999999998,
+    "pepsi_effective_volume": 24.840007478628028,
+    "comparison": {
+      "input_sha256": "fbae2f54dab82bf108ed6b2551065e443a52ab38b0a65e946b6db5d07021a7f3",
+      "pepsi_sha256": "65fb5640325213a458279d1b73707cb80d25516635b0519b95c2dee26b97a98f",
+      "atom_records": 1,
+      "cases": {
+        "hydration_0pct": {
+          "shell_contrast_e_per_A3": 0.0,
+          "normalized_curve_relative_rms": 0.009703148512041149,
+          "normalized_curve_relative_max": 0.020676442274667917,
+          "vacuum_normalized_relative_rms": 0.004267561848844269,
+          "vacuum_normalized_relative_max": 0.009419577845721339,
+          "pyseb_I0_electrons_squared": 74.76045776656898,
+          "pepsi_I0_cm_inverse": 3.5118185e-05
+        },
+        "hydration_5pct": {
+          "shell_contrast_e_per_A3": 0.016700000000000003,
+          "normalized_curve_relative_rms": 0.3187604356248708,
+          "normalized_curve_relative_max": 0.69853123995436,
+          "vacuum_normalized_relative_rms": 0.004267561848844269,
+          "vacuum_normalized_relative_max": 0.009419577845721339,
+          "pyseb_I0_electrons_squared": 83.67516459256898,
+          "pepsi_I0_cm_inverse": 7.03433123e-05
+        }
+      },
+      "hydration_I0_ratio": {
+        "pyseb": 1.1192436094203055,
+        "pepsi": 2.003045211476618
+      }
+    }
+  }
+}

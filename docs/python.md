@@ -236,6 +236,218 @@ analytic subunits, such as connecting `GaussianPolymer.end1` to a terminal
 protein atom. The combined structure is evaluated by the same numerical
 `World` traversal.
 
+## Atomic solution-SAXS clouds
+
+`AtomicSAXSCloud` replaces constant point weights with q-dependent
+Cromer--Mann atomic form factors and can subtract a Fraser-style Gaussian for
+the solvent displaced by every atomic group:
+
+```python
+import pyseb
+
+profile = pyseb.AtomicSAXSParameterProfile.protein_defaults()
+
+options = pyseb.AtomicSAXSOptions()
+options.solvent_electron_density = 0.334  # electrons / A^3
+options.excluded_volume_scale = 1.0
+options.include_excluded_solvent = True
+
+references = pyseb.AtomicSAXSCloudBuildOptions()
+references.use_implicit_hydrogens = True
+references.calculate_solvent_accessibility = True
+references.sasa_probe_radius = 1.4       # A
+references.sasa_point_count = 960
+references.reference_atom_serials = {
+    "nterminus": 1,
+    "cterminus": 684,
+}
+
+cloud = pyseb.AtomicSAXSStructureLoader.load_pdb(
+    "protein.pdb",
+    profile,
+    pyseb.StructureParseOptions(),
+    options,
+    references,
+)
+world = pyseb.World("solution-saxs")
+world.Add(cloud, "protein")
+intensity = world.EvaluateFormFactor(
+    "protein", {}, [0.0, 0.05, 0.1, 0.2]
+)
+```
+
+The bundled protein profile supplies neutral-atom Cromer--Mann coefficients
+for H, C, N, O, P, and S and places standard implicit protein hydrogens on
+their bonded heavy-atom groups. Their contribution is spherically averaged
+as `n*f_H(q)*sinc(q*d)`, using the C-H, N-H, and O-H distances in Table 1
+of [Grudinin et al. (2017)](https://doi.org/10.1107/S2059798317005745),
+equation (8). The profile's `implicit_hydrogen_distance` is in Angstroms;
+zero recovers coincident hydrogens. That table supplies no S-H distance,
+so thiols retain the coincident approximation. Explicit hydrogens retain
+their actual coordinates and should not also be counted implicitly.
+`protein_defaults()` uses the Fraser 1978 displaced
+atomic-volume convention. Select the Pontius 1996 protein-core group means or
+the legacy Bondi element spheres explicitly:
+
+```python
+fraser = pyseb.AtomicSAXSParameterProfile.protein_defaults()
+pontius = pyseb.AtomicSAXSParameterProfile.protein_defaults(
+    pyseb.AtomicSAXSVolumeModel.Pontius1996
+)
+bondi = pyseb.AtomicSAXSParameterProfile.protein_defaults(
+    pyseb.AtomicSAXSVolumeModel.BondiElement
+)
+```
+
+The 20 standard amino acids are resolved by residue and atom name so their
+implicit hydrogens use the corresponding chemical group. The Pontius source
+does not tabulate every group in the compact comparison table; carbonyl C, P,
+S, and isolated-H fallbacks therefore remain explicitly Fraser-valued.
+Unsupported atom names resolve only when the profile has an explicit element
+rule. Add custom atoms with `set_atom`; their `sasa_radius` is used when the
+FreeSASA protein classifier cannot assign a radius.
+
+If the parsed structure contains explicit hydrogen records, set
+`build_options.use_implicit_hydrogens = False` to avoid counting hydrogens
+twice. The bundled group map represents standard internal amino-acid groups;
+terminal protonation and nonstandard residues should be supplied explicitly
+when they matter for the construct.
+
+The implementation is self-contained: FoXS is neither imported nor executed.
+The builder uses the bundled FreeSASA 2.1.3 ProtOr radii and one-thread
+Shrake--Rupley calculation by default. Positive-occupancy atoms are full
+geometric occluders; zero-occupancy atoms are omitted. Each atomic SASA is
+stored as the exposure fraction
+$A_i/[4\pi(r_i+r_{probe})^2]$. Explicit hydrogen records participate when
+present, while implicit hydrogens remain part of their bonded heavy-atom
+group.
+
+Hydration remains opt-in. It uses the stored exposure, 30 A3 of hydration
+volume per fully exposed group, the requested shell-density contrast in
+electrons/A3, and a normalized water form factor for q dependence:
+
+```python
+options.include_hydration = True
+options.hydration_shell_contrast = 0.0135  # electrons / A^3
+```
+
+The default `AtomCentered` model is an exposure-weighted approximation: it has no
+separate spatial shell coordinates. It is not equivalent to Pepsi-SAXS's
+surrounding hydration shell, and the same density contrast is not a calibrated
+mapping between the two models. A fixed-coordinate comparison on titin and
+crambin found roughly 0.6–1.9% RMS differences in normalized solution scattering
+without hydration, increasing to 7.5–9.5% at 5% shell contrast. See the
+[comparison report](design/atomic-saxs-pepsi.md) and reproducible benchmark
+before interpreting hydration parameters as physical shell properties.
+
+### Spatial hydration shell
+
+Select a separate spatial shell when building the cloud:
+
+```python
+options.hydration_model = pyseb.AtomicSAXSHydrationModel.SpatialShell
+options.include_hydration = True
+options.hydration_shell_contrast = 0.0167  # excess electrons / A^3
+build = pyseb.AtomicSAXSCloudBuildOptions()
+build.hydration_shell_inner_radius = 3.0   # A from any active atomic center
+build.hydration_shell_thickness = 3.0      # A
+build.hydration_shell_spacing = 3.0        # A; refine to check convergence
+cloud = pyseb.AtomicSAXSStructureLoader.load_pdb(
+    "protein.pdb", profile, pyseb.StructureParseOptions(), options, build
+)
+```
+
+Grid points lie outside every inner-radius atomic sphere and within an
+outer-radius sphere of at least one atom. Each retained point represents one
+voxel of volume `spacing**3`, counted once even where outer spheres overlap.
+Positive-occupancy atoms are full geometric occluders; zero-occupancy atoms
+are omitted from shell construction. The grid is centered on the active
+atomic centroid, so translating the input translates the same grid. Grid
+orientation can affect finite-resolution results; refine spacing to assess
+discretization error. Enclosed cavities that satisfy the same distance rule
+are included; the model does not classify solvent connectivity.
+
+A point contributes `contrast * voxel_volume * normalized_water_form_factor(q)`.
+The shell participates in atom-shell and shell-shell interference and in
+attachment amplitudes and Guinier moments. Atomic SASA and
+`hydration_volume_per_exposed_atom` are not used by this model. Shell points
+are included in `get_scatterers()`/`scatterer_count()` and have positive
+`hydration_volume`; atomic entries have zero. The reserved `center` reference
+remains the atomic centroid, independent of shell sampling.
+
+Choosing `SpatialShell` builds points even when `include_hydration` is false,
+allowing contrast and hydration toggles without rebuilding distances. Switching
+an atom-only cloud to enabled spatial hydration raises an error: rebuild with
+`SpatialShell` first. Changing shell radii or spacing also requires rebuilding.
+Custom spatial quadrature can be supplied as zero-vacuum/zero-excluded-volume
+scatterers with positive `hydration_volume`. OpenUSD records that volume and
+the hydration model alongside the coordinates.
+
+This is a volume-weighted shell, not a calibrated reproduction of Pepsi's
+shell normalization. See the [validation and comparison report](design/spatial-hydration.md).
+
+### Reference hydration conventions
+
+The staged [hydration reconciliation](design/hydration-reconciliation.md)
+separates shell geometry, water weights, and surface sampling. To reproduce
+the Pepsi 3 convention without fitting a molecular scale:
+
+```python
+options.hydration_model = pyseb.AtomicSAXSHydrationModel.SpatialShell
+options.hydration_water_model = pyseb.AtomicSAXSHydrationWaterModel.BondedWater
+options.include_hydration = True
+options.hydration_shell_contrast = 0.0167  # Pepsi --dro 5 at bulk density 0.334
+build = pyseb.AtomicSAXSCloudBuildOptions()
+build.hydration_shell_convention = pyseb.AtomicSAXSHydrationShellConvention.Pepsi3
+cloud = pyseb.AtomicSAXSStructureLoader.load_pdb(
+    "protein.pdb", profile, pyseb.StructureParseOptions(), options, build
+)
+```
+
+This convention uses a bounding-box grid with half-cell offset and the
+profile's atomic surface radii in the inner exclusion boundary. Point weights
+include the reference's bulk-density factor; `hydration_volume` therefore
+contains effective reference weights, not geometric voxel volumes. The
+`VolumeDensity` default preserves the physical volume-weighted interpretation.
+`BondedWater` adds the finite O-H distance to the water form factor and its
+Guinier moment. The remaining small discrepancy with Pepsi uses different
+four- versus five-Gaussian atomic factors.
+
+FoXS uses an atom-centered hydration contribution with a *solution-water*
+form factor. Select `hydration_water_model =
+pyseb.AtomicSAXSHydrationWaterModel.FoXSReciprocal` for its full q-dependent
+water factor, or `FoXSFast` for its shared Gaussian approximation. The mapping
+is `hydration_shell_contrast * hydration_volume_per_exposed_atom = c2 * fw(0)`;
+at default density, `fw(0)` is about 3.50968 electrons. This specifies hydration
+weights only, not FoXS's protein form factors or displaced-solvent convention.
+The validation adapter uses native exposure fractions as one control and
+independent FreeSASA fractions as another.
+
+For surface geometry consistent with FoXS, a profile may supply radii
+`(3*excluded_volume/(4*pi))**(1/3)` with `build.sasa_use_profile_radii = True`
+and `build.sasa_probe_radius = 1.8`. This bypasses the usual ProtOr classifier;
+the default remains ProtOr with a 1.4 A probe. Independent surface quadrature
+need not match FoXS's coarser dot sampling exactly, even with identical radii.
+
+SASA is calculated once while constructing the cloud. Changing displaced
+solvent or hydration parameters reuses both the exposure and pair-distance
+caches.
+
+The solution parameters can be changed without rebuilding pair distances:
+
+```python
+cloud.set_solvent_electron_density(0.330)
+cloud.set_excluded_volume_scale(0.98)
+cloud.set_include_excluded_solvent(False)  # vacuum-only control
+```
+
+The current backend evaluates the exact Debye pair sum and therefore scales
+quadratically with atom count. This is the reference implementation for
+correctness. Adaptive multipole methods such as Pepsi-SAXS can have a much
+smaller computational prefactor; a future pySEB fast backend can implement
+that strategy behind the same `AtomicSAXSCloud` interface without making
+Pepsi-SAXS a runtime dependency.
+
 ## Examples
 
 Packaged examples live in `pyseb/examples/python/`:

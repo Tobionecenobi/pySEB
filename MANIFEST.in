@@ -275,11 +275,13 @@ recursive-include seb *.cpp *.hpp
 recursive-include seb-symbolic *.cpp *.hpp
 recursive-include seb-symbolic-ginac *.cpp *.hpp
 recursive-include Tests *.cpp *.pdb
+recursive-include Tests/data/hydration_reference *.json README.md
 recursive-include docs *.md *.qmd
 recursive-include pyseb/bindings *.cpp *.hpp
 recursive-include pyseb/examples/python *.py
 recursive-include pyseb/tests/python *.py
 include work/README
+include seb/SubunitIO/BundledModels.cpp.in
 
 prune _cmake_test_compile
 prune _skbuild
@@ -290,3 +292,4 @@ prune Tests/build-ninja
 global-exclude __pycache__/*
 global-exclude *.py[cod]
 exclude MANIFEST.in
+recursive-include third_party/freesasa-2.1.3 *.c *.h LICENSE README.pyseb.md

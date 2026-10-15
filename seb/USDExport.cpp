@@ -2,6 +2,7 @@
 #include "World.hpp"
 #include "Subunits/FileDefined.hpp"
 #include "Subunits/DebyeSphereCloud.hpp"
+#include "Subunits/AtomicSAXSCloud.hpp"
 #include "Exceptions.hpp"
 #include "SubunitIO/ExpressionParser.hpp"
 
@@ -739,6 +740,46 @@ GeometryProxy localProxy(const DebyeSphereCloud& cloud) {
     return proxy;
 }
 
+double atomicDisplayedRadius(
+    const AtomicSAXSScatterer& scatterer,
+    double zeroRadiusMarkerSize)
+{
+    if (scatterer.excludedVolume <= 0.0) {
+        return zeroRadiusMarkerSize;
+    }
+    constexpr double piValue = 3.141592653589793238462643383279502884;
+    return std::cbrt(3.0 * scatterer.excludedVolume / (4.0 * piValue));
+}
+
+GeometryProxy localProxy(const AtomicSAXSCloud& cloud) {
+    GeometryProxy proxy;
+    const auto& scatterers = cloud.getScatterers();
+    constexpr std::size_t maxPoints = 64;
+    const std::size_t pointCount = std::min(maxPoints, scatterers.size());
+    for (std::size_t index = 0; index < pointCount; ++index) {
+        const std::size_t source = pointCount == 1
+            ? 0 : index * (scatterers.size() - 1) / (pointCount - 1);
+        const auto& center = scatterers[source].center;
+        proxy.points.push_back({center.x, center.y, center.z});
+    }
+    if (!proxy.points.empty()) {
+        for (const Vec3& point : proxy.points) proxy.centroid = proxy.centroid + point;
+        proxy.centroid = proxy.centroid *
+            (1.0 / static_cast<double>(proxy.points.size()));
+        for (const auto& scatterer : scatterers) {
+            const Vec3 center{
+                scatterer.center.x,
+                scatterer.center.y,
+                scatterer.center.z};
+            proxy.radius = std::max(
+                proxy.radius,
+                length(center - proxy.centroid) +
+                    atomicDisplayedRadius(scatterer, 0.1));
+        }
+    }
+    return proxy;
+}
+
 struct TriangleMesh {
     std::vector<Vec3> points;
     std::vector<std::array<std::size_t,3>> triangles;
@@ -1292,6 +1333,112 @@ void writeCloudPrim(
            << "    }\n";
 }
 
+void writeAtomicCloudPrim(
+    std::ostream& output,
+    const std::string& structure,
+    const std::string& name,
+    const AtomicSAXSCloud& cloud,
+    const USDExportOptions& options,
+    const std::map<std::string, Vec3>& references)
+{
+    std::array<double, 3> color{{0.45, 0.65, 0.85}};
+    const auto colorOverride = options.colorOverrides.find(name);
+    if (colorOverride != options.colorOverrides.end()) {
+        color = colorOverride->second;
+    }
+    double opacity = 1.0;
+    const auto opacityOverride = options.opacityOverrides.find(name);
+    if (opacityOverride != options.opacityOverrides.end()) {
+        opacity = opacityOverride->second;
+    }
+
+    const auto& scatterers = cloud.getScatterers();
+    output << "        def PointInstancer \"cloud\" {\n"
+           << "            rel prototypes = [<"
+           << usdPrimPath(structure, name, "spherePrototype") << ">]\n"
+           << "            point3f[] positions = [";
+    for (const auto& scatterer : scatterers) {
+        output << "(" << number(scatterer.center.x) << ", "
+               << number(scatterer.center.y) << ", "
+               << number(scatterer.center.z) << "), ";
+    }
+    output << "]\n            int[] protoIndices = [";
+    for (std::size_t index = 0; index < scatterers.size(); ++index) {
+        output << "0, ";
+    }
+    output << "]\n            float3[] scales = [";
+    for (const auto& scatterer : scatterers) {
+        const double radius = atomicDisplayedRadius(
+            scatterer, options.zeroRadiusMarkerSize);
+        output << "(" << number(radius) << ", "
+               << number(radius) << ", " << number(radius) << "), ";
+    }
+    output << "]\n            custom float[] pyseb:excluded_volume = [";
+    for (const auto& scatterer : scatterers) {
+        output << number(scatterer.excludedVolume) << ", ";
+    }
+    output << "]\n            custom float[] pyseb:occupancy = [";
+    for (const auto& scatterer : scatterers) {
+        output << number(scatterer.occupancy) << ", ";
+    }
+    output << "]\n            custom int[] pyseb:implicit_hydrogens = [";
+    for (const auto& scatterer : scatterers) {
+        output << scatterer.implicitHydrogens << ", ";
+    }
+    output << "]\n            custom float[] pyseb:implicit_hydrogen_distance = [";
+    for (const auto& scatterer : scatterers) {
+        output << number(scatterer.implicitHydrogenDistance) << ", ";
+    }
+    output << "]\n            custom float[] pyseb:hydration_volume = [";
+    for (const auto& scatterer : scatterers) {
+        output << number(scatterer.hydrationVolume) << ", ";
+    }
+    output << "]\n            custom string[] pyseb:element = [";
+    for (const auto& scatterer : scatterers) {
+        output << quote(scatterer.element) << ", ";
+    }
+    output << "]\n            color3f[] primvars:displayColor = [";
+    for (std::size_t index = 0; index < scatterers.size(); ++index) {
+        output << "(" << number(color[0]) << ", "
+               << number(color[1]) << ", " << number(color[2]) << "), ";
+    }
+    output << "]\n            float[] primvars:displayOpacity = [";
+    for (std::size_t index = 0; index < scatterers.size(); ++index) {
+        output << number(opacity) << ", ";
+    }
+    output << "]\n        }\n"
+           << "        def Sphere \"spherePrototype\" {\n"
+           << "            float radius = 1\n"
+           << "        }\n";
+    for (const auto& reference : references) {
+        writeReferencePrim(output, reference.first, reference.second);
+    }
+    const AtomicSAXSOptions saxsOptions = cloud.getOptions();
+    const char* waterModel = "neutral_water";
+    if (saxsOptions.hydrationWaterModel == AtomicSAXSHydrationWaterModel::BondedWater)
+        waterModel = "bonded_water";
+    else if (saxsOptions.hydrationWaterModel == AtomicSAXSHydrationWaterModel::FoXSReciprocal)
+        waterModel = "foxs_reciprocal";
+    else if (saxsOptions.hydrationWaterModel == AtomicSAXSHydrationWaterModel::FoXSFast)
+        waterModel = "foxs_fast";
+    output << "        custom string pyseb:model_id = "
+           << quote("pyseb/AtomicSAXSCloud") << "\n"
+           << "        custom string pyseb:instance_path = " << quote(name)
+           << "\n"
+           << "        custom double pyseb:solvent_electron_density = "
+           << number(saxsOptions.solventElectronDensity) << "\n"
+           << "        custom double pyseb:excluded_volume_scale = "
+           << number(saxsOptions.excludedVolumeScale) << "\n"
+           << "        custom string pyseb:hydration_model = "
+           << quote(saxsOptions.hydrationModel == AtomicSAXSHydrationModel::SpatialShell
+                    ? "spatial_shell" : "atom_centered") << "\n"
+           << "        custom double pyseb:hydration_shell_contrast = "
+           << number(saxsOptions.hydrationShellContrast) << "\n"
+           << "        custom string pyseb:hydration_water_model = " << quote(waterModel) << "\n"
+           << "        custom uint64 pyseb:seed = " << options.seed << "\n"
+           << "    }\n";
+}
+
 void writeFileInstanceBody(
     std::ostream& output,
     const InstanceScene& instance,
@@ -1515,8 +1662,13 @@ void World::ExportUSD(const std::string& structure,
         const auto catalog=nameCatalog.find(source->second);
         const DebyeSphereCloud* cloud=catalog == nameCatalog.end()
             ? nullptr : dynamic_cast<const DebyeSphereCloud*>(catalog->second);
-        if (!cloud) continue;
-        for (const auto& reference : cloud->getReferenceCoordinates()) {
+        const AtomicSAXSCloud* atomicCloud=catalog == nameCatalog.end()
+            ? nullptr : dynamic_cast<const AtomicSAXSCloud*>(catalog->second);
+        if (!cloud && !atomicCloud) continue;
+        const auto references = cloud
+            ? cloud->getReferenceCoordinates()
+            : atomicCloud->getReferenceCoordinates();
+        for (const auto& reference : references) {
             numericalReferences[name][reference.first]={
                 reference.second.x,reference.second.y,reference.second.z};
         }
@@ -1535,6 +1687,9 @@ void World::ExportUSD(const std::string& structure,
         const DebyeSphereCloud* cloud=catalog == nameCatalog.end()
             ? nullptr : dynamic_cast<const DebyeSphereCloud*>(catalog->second);
         if (cloud) localProxies.emplace(name,localProxy(*cloud));
+        const AtomicSAXSCloud* atomicCloud=catalog == nameCatalog.end()
+            ? nullptr : dynamic_cast<const AtomicSAXSCloud*>(catalog->second);
+        if (atomicCloud) localProxies.emplace(name,localProxy(*atomicCloud));
     }
     std::map<std::string,GeometryProxy> placedProxies;
     const auto rootProxy=localProxies.find(poses.begin()->first);
@@ -1761,6 +1916,22 @@ void World::ExportUSD(const std::string& structure,
                         ? emptyReferences
                         : references->second);
             } else {
+                const AtomicSAXSCloud* atomicCloud =
+                    dynamic_cast<const AtomicSAXSCloud*>(sub);
+                if (atomicCloud) {
+                    const auto references = numericalReferences.find(node.path);
+                    const std::map<std::string, Vec3> emptyReferences;
+                    writeAtomicCloudPrim(
+                        output,
+                        structure,
+                        node.path,
+                        *atomicCloud,
+                        options,
+                        references == numericalReferences.end()
+                            ? emptyReferences
+                            : references->second);
+                    continue;
+                }
                 const auto instance = instances.find(node.path);
                 if (instance != instances.end()) {
                     writeFileInstanceBody(output, instance->second, options.seed);
