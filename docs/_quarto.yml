@@ -7,6 +7,7 @@ project:
     - tutorials/data/*.pdb
     - tutorials/data/SASDATA-LICENSE.txt
     - tutorials/data/TITIN-DATA-NOTICE.txt
+    - tutorials/data/titin-results/
   render:
     - index.qmd
     - about.qmd

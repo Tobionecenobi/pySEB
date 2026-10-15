@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "generated_utc": "2026-10-15T12:28:21.103174+00:00",
+  "generation_sha256": "c66414806b2d97949faa7cd24ed577c96d6eba235651a855b256a3c30f23f034",
+  "generator_sha256": "e2e62c98b3c69a3f5c57d7d29d6812373871ecc79f221ca0b185200964010698",
+  "git_commit": "bc2f852c44e5580cb38cfd6b3c2a1156a3ded3e6",
+  "python": "3.11.2 (main, May 12 2026, 05:17:27) [GCC 12.2.0]",
+  "versions": {
+    "numpy": "2.4.2",
+    "scipy": "1.17.1",
+    "matplotlib": "3.11.0",
+    "plotly": "6.8.0",
+    "usd-core": "26.8",
+    "pyseb": "0.3.0"
+  },
+  "inputs": {
+    "SASDKC2-titin.csv": "b5eb03da7c8303521b7e0ccbb17b60c2b480665ba1be843ed4aee570b796e76d",
+    "1TIU-heavy-ensemble.pdb": "a5bb707ca30aa8b168682da4d4d9e212b9678f1fae898c21f72c4718835b12d6"
+  },
+  "files": {
+    "curves.npz": "b166d4865fc338f8c41dcca930a2762ee60bd17065a00049511386f9273f6968",
+    "results.json": "2a2c2f7165ef5b645a755a449056b9843aa8abc697ae2be0d6466048856e0eb0",
+    "scenes/analytical-collapsed.usda": "bec27fd7fa714fd06e87f6eb856a0240291907cdafcd769d2750f30ae8fb3514",
+    "scenes/analytical-constrained.usda": "943904216db913cb148790b32086c83b228995008c523f007f3bc49dee618dbb",
+    "scenes/atomic-displaced-solvent.usda": "1d380a3559cee22a429fe70717482c167c87016a67d8491d2c68ba05b646d091",
+    "scenes/atomic-hydrated.usda": "373e653ba4b3986105b46fe0e42f3787b376f981cce36c3bc1962ec76b994a85",
+    "scenes/atomic-weighted-hybrid.usda": "a906c6cf47b1de30d6ff8caa7e6a4071e3636d627f2e2ae174cbaa64e57015bf",
+    "scenes/debye-domains.usda": "6d8a948de1ed8c19baca1c0a662fdd90effcdc1c092af1d33a695af6d50b3a91"
+  },
+  "generation_seconds": 769.7903416480003,
+  "note": "Generation-cell hash identifies the working-tree calculation; git commit alone does not."
+}
