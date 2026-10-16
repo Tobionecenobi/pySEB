@@ -1,0 +1,8 @@
+{
+  "pepsi_sha256": "65fb5640325213a458279d1b73707cb80d25516635b0519b95c2dee26b97a98f",
+  "pyseb_extension_sha256": "5bafb31e811f9094921dd93439edc5b50602d647f1f560c376a774fc901c6dcc",
+  "contrast_e_per_A3": 0.0167,
+  "pepsi_point_weight": "3^3 * 0.334, before multiplying by contrast",
+  "foxs_mapping": "unit c2, native water forward amplitude per unit exposure",
+  "molecule_specific_fitting": false
+}

@@ -7,6 +7,12 @@ project:
     - tutorials/data/*.pdb
     - tutorials/data/SASDATA-LICENSE.txt
     - tutorials/data/TITIN-DATA-NOTICE.txt
+    - tutorials/data/titin-results/
+    - tutorials/data/f127/F127_0_merged_1.txt
+    - tutorials/data/f127/LICENSE
+    - tutorials/generated/f127-corona/*.usda
+    - tutorials/generated/f127-corona/*.html
+    - tutorials/generated/f127-corona/plotly.min.js
   render:
     - index.qmd
     - about.qmd
@@ -20,6 +26,7 @@ project:
     - tutorials/parameter-sweeps.qmd
     - tutorials/fit-real-sans-data.qmd
     - tutorials/fit-linked-titin.qmd
+    - tutorials/fit-f127-corona.qmd
     - tutorials/pdb-polymer.qmd
     - tutorials/mixed-model-evaluation.qmd
     - tutorials/symbolic-expressions.qmd
@@ -33,6 +40,7 @@ project:
     - tutorials/cpp_tutorials.qmd
     - file-defined-subunits.qmd
     - visualization.qmd
+    - sasmodels.qmd
 
 website:
   title: "pySEB"
@@ -70,6 +78,7 @@ website:
             - tutorials/parameter-sweeps.qmd
             - tutorials/fit-real-sans-data.qmd
             - tutorials/fit-linked-titin.qmd
+            - tutorials/fit-f127-corona.qmd
             - tutorials/pdb-polymer.qmd
             - tutorials/custom-yaml-workflow.qmd
         - section: "Advanced tutorials"
@@ -77,6 +86,7 @@ website:
             - tutorials/mixed-model-evaluation.qmd
             - tutorials/symbolic-expressions.qmd
             - tutorials/scattering-quantities.qmd
+            - sasmodels.qmd
         - section: "Published structures"
           contents:
             - tutorials/figure10-linear-chains.qmd

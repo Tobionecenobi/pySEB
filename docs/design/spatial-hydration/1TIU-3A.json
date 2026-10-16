@@ -1,0 +1,40 @@
+{
+  "input_sha256": "f590aa29287ebcf0d822dbf438dd68897af2f5f026b979ea24d41c3d781557ab",
+  "pepsi_sha256": "65fb5640325213a458279d1b73707cb80d25516635b0519b95c2dee26b97a98f",
+  "atom_records": 688,
+  "cases": {
+    "hydration_0pct": {
+      "shell_contrast_e_per_A3": 0.0,
+      "normalized_curve_relative_rms": 0.0059401371829414535,
+      "normalized_curve_relative_max": 0.008968206030216308,
+      "vacuum_normalized_relative_rms": 0.0007775509677969638,
+      "vacuum_normalized_relative_max": 0.0016450361481149534,
+      "pyseb_I0_electrons_squared": 1231645.6456362556,
+      "pepsi_I0_cm_inverse": 0.00610376947,
+      "shell_points": 667,
+      "shell_volume_A3": 18009.0,
+      "shell_spacing_A": 3.0
+    },
+    "hydration_5pct": {
+      "shell_contrast_e_per_A3": 0.016700000000000003,
+      "normalized_curve_relative_rms": 0.32382954382285767,
+      "normalized_curve_relative_max": 0.4445162541221337,
+      "vacuum_normalized_relative_rms": 0.0007775509677969638,
+      "vacuum_normalized_relative_max": 0.0016450361481149534,
+      "pyseb_I0_electrons_squared": 1989638.9376452104,
+      "pepsi_I0_cm_inverse": 0.0066833951,
+      "shell_points": 667,
+      "shell_volume_A3": 18009.0,
+      "shell_spacing_A": 3.0
+    }
+  },
+  "hydration_I0_ratio": {
+    "pyseb": 1.6154313090737906,
+    "pepsi": 1.0949619137565496
+  },
+  "forward_hydration_ratio_matched": {
+    "contrast_e_per_A3": 0.0028596396693413083,
+    "normalized_relative_rms": 0.012314773101482048,
+    "normalized_relative_max": 0.02234896639529471
+  }
+}

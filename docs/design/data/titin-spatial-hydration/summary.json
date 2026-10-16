@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-15",
+  "implementation_commit": "bc2f852c",
+  "dataset": "SASDKC2",
+  "training_points": 75,
+  "held_points": 75,
+  "hydration_model": "SpatialShell",
+  "shell_convention": "Pepsi3",
+  "water_model": "BondedWater",
+  "fixed_hydration_contrast": 0.0135,
+  "max_nfev": 30,
+  "excluded_bounds": [
+    0.8573749999999999,
+    1.1576250000000001
+  ],
+  "hydration_bounds": [
+    -0.027,
+    0.054
+  ],
+  "fixed": {
+    "vacuum": {
+      "training_reduced_chi2": 49.737,
+      "held_mean_squared_standardized_residual": 45.703
+    },
+    "fraser_excluded": {
+      "training_reduced_chi2": 55.213,
+      "held_mean_squared_standardized_residual": 50.761
+    },
+    "pontius_excluded": {
+      "training_reduced_chi2": 91.765,
+      "held_mean_squared_standardized_residual": 84.587
+    },
+    "hydration_only": {
+      "training_reduced_chi2": 47.322,
+      "held_mean_squared_standardized_residual": 43.468
+    },
+    "fraser_complete": {
+      "training_reduced_chi2": 43.953,
+      "held_mean_squared_standardized_residual": 40.339
+    },
+    "pontius_complete": {
+      "training_reduced_chi2": 68.271,
+      "held_mean_squared_standardized_residual": 62.887
+    }
+  },
+  "refined": {
+    "fraser": {
+      "training_reduced_chi2": 23.711,
+      "held_mean_squared_standardized_residual": 21.658,
+      "volume_multiplier": 1.141298,
+      "hydration_contrast": 0.053991
+    },
+    "pontius": {
+      "training_reduced_chi2": 25.636,
+      "held_mean_squared_standardized_residual": 22.992,
+      "volume_multiplier": 1.157625,
+      "hydration_contrast": 0.054
+    }
+  },
+  "precision": "Numbers transcribed from rendered tables, rounded to displayed precision.",
+  "optimizer_status": "Both reached max_nfev; neither refinement accepted.",
+  "input_sha256": {
+    "SASDKC2-titin.csv": "b5eb03da7c8303521b7e0ccbb17b60c2b480665ba1be843ed4aee570b796e76d",
+    "1TIU-heavy-ensemble.pdb": "a5bb707ca30aa8b168682da4d4d9e212b9678f1fae898c21f72c4718835b12d6"
+  }
+}

@@ -110,6 +110,94 @@ TEST(AtomCloudBuilderTest, AppliesProfileOccupancyAndReferences)
     );
 }
 
+// Verify that the atomic SAXS builder resolves protein atom groups, carries
+// occupancy and B factors, and preserves terminal reference coordinates.
+TEST(AtomicSAXSCloudBuilderTest, BuildsProteinCloudWithImplicitHydrogens)
+{
+    std::istringstream input(pdbModel);
+    const PDBParser parser;
+    const std::vector<AtomRecord> atoms =
+        parser.Parse(input, StructureParseOptions(), "example.pdb");
+
+    const AtomicSAXSParameterProfile profile =
+        AtomicSAXSParameterProfile::ProteinDefaults();
+    AtomicSAXSCloudBuildOptions buildOptions;
+    buildOptions.referenceAtomSerials["n_term"] = 1;
+    std::unique_ptr<AtomicSAXSCloud> cloud = AtomicSAXSCloudBuilder::Build(
+        atoms,
+        profile,
+        AtomicSAXSOptions(),
+        buildOptions
+    );
+
+    ASSERT_EQ(cloud->scattererCount(), 2u);
+    const auto& scatterers = cloud->getScatterers();
+    EXPECT_EQ(scatterers[0].implicitHydrogens, 1);
+    EXPECT_DOUBLE_EQ(scatterers[0].occupancy, 0.5);
+    EXPECT_DOUBLE_EQ(scatterers[0].temperatureFactor, 20.0);
+    EXPECT_EQ(scatterers[1].implicitHydrogens, 1);
+
+    const std::map<refPoint, CartesianPoint3D> references =
+        cloud->getReferenceCoordinates();
+    ASSERT_NE(references.find("n_term"), references.end());
+    EXPECT_NEAR(references.at("n_term").x, 11.104, 1e-12);
+
+    World world;
+    world.Add(cloud.release(), "protein");
+    EXPECT_NEAR(
+        world.EvaluateFormFactor("protein", ParameterList(), 0.0),
+        1.0,
+        1e-12
+    );
+    EXPECT_TRUE(std::isfinite(
+        world.EvaluateFormFactor("protein", ParameterList(), 0.2)
+    ));
+}
+
+TEST(AtomicSAXSCloudBuilderTest, UsesLiteratureVolumesAndFreeSASAExposure)
+{
+    AtomRecord first;
+    first.serial = 1;
+    first.residueName = "ALA";
+    first.atomName = "CA";
+    first.element = "C";
+    first.coordinate = CartesianPoint3D(-1.0, 0.0, 0.0);
+
+    AtomRecord second = first;
+    second.serial = 2;
+    second.coordinate = CartesianPoint3D(1.0, 0.0, 0.0);
+
+    const AtomicSAXSParameterProfile fraser =
+        AtomicSAXSParameterProfile::ProteinDefaults(
+            AtomicSAXSVolumeModel::Fraser1978
+        );
+    const AtomicSAXSParameterProfile pontius =
+        AtomicSAXSParameterProfile::ProteinDefaults(
+            AtomicSAXSVolumeModel::Pontius1996
+        );
+
+    EXPECT_NEAR(fraser.Resolve(first).excludedVolume, 21.59, 1e-12);
+    EXPECT_NEAR(pontius.Resolve(first).excludedVolume, 11.8, 1e-12);
+    EXPECT_NEAR(fraser.Resolve(first).sasaRadius, 1.7, 1e-12);
+
+    std::unique_ptr<AtomicSAXSCloud> cloud = AtomicSAXSCloudBuilder::Build(
+        {first, second}, fraser
+    );
+    const auto& scatterers = cloud->getScatterers();
+    ASSERT_EQ(scatterers.size(), 2u);
+    EXPECT_NEAR(
+        scatterers[0].solventAccessibility,
+        0.6541666666666667,
+        1e-12
+    );
+    EXPECT_NEAR(scatterers[1].solventAccessibility, 0.65, 1e-12);
+
+    second.occupancy = 0.0;
+    cloud = AtomicSAXSCloudBuilder::Build({first, second}, fraser);
+    EXPECT_NEAR(cloud->getScatterers()[0].solventAccessibility, 1.0, 1e-12);
+    EXPECT_NEAR(cloud->getScatterers()[1].solventAccessibility, 0.0, 1e-12);
+}
+
 // Verify that malformed fixed-column numeric fields produce an actionable
 // parser exception containing the source filename and line number.
 TEST(PDBParserTest, ReportsSourceAndLineForMalformedCoordinates)

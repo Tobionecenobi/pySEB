@@ -1,0 +1,14 @@
+{
+  "CC10": {
+    "default_fast-vacuum": 6.266057317461105e-08,
+    "default_fast-solution": 6.266063390381049e-08,
+    "reciprocal-vacuum": 2.220446049250313e-16,
+    "reciprocal-solution": 8.548717289613705e-14
+  },
+  "CO2": {
+    "default_fast-vacuum": 4.3283405082306103e-08,
+    "default_fast-solution": 1.4921980318050032e-08,
+    "reciprocal-vacuum": 2.220446049250313e-16,
+    "reciprocal-solution": 5.329070518200751e-15
+  }
+}

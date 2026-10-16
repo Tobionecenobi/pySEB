@@ -1,0 +1,30 @@
+{
+  "parameters": {
+    "linker Rg [A]": 8.999999999999998,
+    "terminal-chain Rg8 [A]": 18.292044012543457,
+    "scale": 0.044424344857966584,
+    "background": 9.14574500493592e-05,
+    "chain/domain multiplier r": 2.7517416504734196
+  },
+  "active_mask": [
+    1,
+    0,
+    0,
+    0,
+    0
+  ],
+  "success": true,
+  "message": "`ftol` termination condition is satisfied.",
+  "nfev": 11,
+  "training_reduced_chi2": 2.465640620504164,
+  "held_score": 2.3942464747235186,
+  "fixed_metrics": [
+    43.95276282371875,
+    40.3388758353582
+  ],
+  "solvent": "Fraser, volume multiplier 1, Pepsi3/BondedWater contrast 0.0135",
+  "ratio_bounds": [
+    0.25,
+    4.0
+  ]
+}

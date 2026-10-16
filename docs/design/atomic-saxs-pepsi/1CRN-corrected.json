@@ -1,0 +1,29 @@
+{
+  "input_sha256": "5fad92791cf60689536bd0a1e66a31c4dd58dbf2848c1dec65aec29ecfedd6a3",
+  "pepsi_sha256": "65fb5640325213a458279d1b73707cb80d25516635b0519b95c2dee26b97a98f",
+  "atom_records": 327,
+  "cases": {
+    "hydration_0pct": {
+      "shell_contrast_e_per_A3": 0.0,
+      "normalized_curve_relative_rms": 0.019360207201603582,
+      "normalized_curve_relative_max": 0.04080834454278004,
+      "vacuum_normalized_relative_rms": 0.0019349192508233252,
+      "vacuum_normalized_relative_max": 0.005432139749098064,
+      "pyseb_I0_electrons_squared": 342104.9299235669,
+      "pepsi_I0_cm_inverse": 0.0033679696
+    },
+    "hydration_5pct": {
+      "shell_contrast_e_per_A3": 0.016700000000000003,
+      "normalized_curve_relative_rms": 0.07474911937050792,
+      "normalized_curve_relative_max": 0.11483137686294564,
+      "vacuum_normalized_relative_rms": 0.0019349192508233252,
+      "vacuum_normalized_relative_max": 0.005432139749098064,
+      "pyseb_I0_electrons_squared": 356610.4989572615,
+      "pepsi_I0_cm_inverse": 0.00371060467
+    }
+  },
+  "hydration_I0_ratio": {
+    "pyseb": 1.042400935399953,
+    "pepsi": 1.10173342122803
+  }
+}

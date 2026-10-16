@@ -283,6 +283,70 @@ PYBIND11_MODULE(_pyseb, m) {
         .def_readwrite("radius", &SphereScatterer::radius)
         .def_readwrite("beta", &SphereScatterer::beta);
 
+    py::class_<CromerMannCoefficients>(m, "CromerMannCoefficients")
+        .def(py::init<>())
+        .def(py::init<
+                 const std::array<double, 4>&,
+                 const std::array<double, 4>&,
+                 double>(),
+             py::arg("a"), py::arg("b"), py::arg("c"))
+        .def_readwrite("a", &CromerMannCoefficients::a)
+        .def_readwrite("b", &CromerMannCoefficients::b)
+        .def_readwrite("c", &CromerMannCoefficients::c)
+        .def("evaluate", &CromerMannCoefficients::evaluate, py::arg("q"))
+        .def("value_at_zero", &CromerMannCoefficients::valueAtZero)
+        .def("second_moment", &CromerMannCoefficients::secondMoment);
+
+    py::class_<AtomicSAXSScatterer>(m, "AtomicSAXSScatterer")
+        .def(py::init<>())
+        .def_readwrite("center", &AtomicSAXSScatterer::center)
+        .def_readwrite("vacuum", &AtomicSAXSScatterer::vacuum)
+        .def_readwrite("excluded_volume", &AtomicSAXSScatterer::excludedVolume)
+        .def_readwrite("occupancy", &AtomicSAXSScatterer::occupancy)
+        .def_readwrite("temperature_factor", &AtomicSAXSScatterer::temperatureFactor)
+        .def_readwrite(
+            "solvent_accessibility",
+            &AtomicSAXSScatterer::solventAccessibility)
+        .def_readwrite("implicit_hydrogens", &AtomicSAXSScatterer::implicitHydrogens)
+        .def_readwrite("implicit_hydrogen_distance", &AtomicSAXSScatterer::implicitHydrogenDistance)
+        .def_readwrite("hydration_volume", &AtomicSAXSScatterer::hydrationVolume)
+        .def_readwrite("hydration_uses_solvent_density", &AtomicSAXSScatterer::hydrationUsesSolventDensity)
+        .def_readwrite("element", &AtomicSAXSScatterer::element);
+
+    py::enum_<AtomicSAXSHydrationModel>(m, "AtomicSAXSHydrationModel")
+        .value("AtomCentered", AtomicSAXSHydrationModel::AtomCentered)
+        .value("SpatialShell", AtomicSAXSHydrationModel::SpatialShell);
+
+    py::enum_<AtomicSAXSHydrationWaterModel>(m, "AtomicSAXSHydrationWaterModel")
+        .value("NeutralWater", AtomicSAXSHydrationWaterModel::NeutralWater)
+        .value("BondedWater", AtomicSAXSHydrationWaterModel::BondedWater)
+        .value("FoXSReciprocal", AtomicSAXSHydrationWaterModel::FoXSReciprocal)
+        .value("FoXSFast", AtomicSAXSHydrationWaterModel::FoXSFast);
+
+    py::class_<AtomicSAXSOptions>(m, "AtomicSAXSOptions")
+        .def(py::init<>())
+        .def_readwrite(
+            "solvent_electron_density",
+            &AtomicSAXSOptions::solventElectronDensity)
+        .def_readwrite(
+            "excluded_volume_scale",
+            &AtomicSAXSOptions::excludedVolumeScale)
+        .def_readwrite(
+            "include_excluded_solvent",
+            &AtomicSAXSOptions::includeExcludedSolvent)
+        .def_readwrite(
+            "use_temperature_factors",
+            &AtomicSAXSOptions::useTemperatureFactors)
+        .def_readwrite("include_hydration", &AtomicSAXSOptions::includeHydration)
+        .def_readwrite("hydration_model", &AtomicSAXSOptions::hydrationModel)
+        .def_readwrite("hydration_water_model", &AtomicSAXSOptions::hydrationWaterModel)
+        .def_readwrite(
+            "hydration_shell_contrast",
+            &AtomicSAXSOptions::hydrationShellContrast)
+        .def_readwrite(
+            "hydration_volume_per_exposed_atom",
+            &AtomicSAXSOptions::hydrationVolumePerExposedAtom);
+
     py::class_<AtomRecord>(m, "AtomRecord")
         .def(py::init<>())
         .def_readwrite("record_type", &AtomRecord::recordType)
@@ -365,6 +429,48 @@ PYBIND11_MODULE(_pyseb, m) {
         .def("resolve", &AtomParameterProfile::Resolve,
              py::arg("atom"));
 
+    py::enum_<AtomicSAXSVolumeModel>(m, "AtomicSAXSVolumeModel")
+        .value("BondiElement", AtomicSAXSVolumeModel::BondiElement)
+        .value("Fraser1978", AtomicSAXSVolumeModel::Fraser1978)
+        .value("Pontius1996", AtomicSAXSVolumeModel::Pontius1996)
+        .export_values();
+
+    py::class_<AtomicSAXSParameters>(m, "AtomicSAXSParameters")
+        .def(py::init<
+                 const CromerMannCoefficients&,
+                 double,
+                 int,
+                 double>(),
+             py::arg("vacuum") = CromerMannCoefficients(),
+             py::arg("excluded_volume") = 0.0,
+             py::arg("implicit_hydrogens") = 0,
+             py::arg("sasa_radius") = 0.0)
+        .def_readwrite("vacuum", &AtomicSAXSParameters::vacuum)
+        .def_readwrite("excluded_volume", &AtomicSAXSParameters::excludedVolume)
+        .def_readwrite("implicit_hydrogens", &AtomicSAXSParameters::implicitHydrogens)
+        .def_readwrite("atomic_excluded_volume", &AtomicSAXSParameters::atomicExcludedVolume)
+        .def_readwrite("implicit_hydrogen_distance", &AtomicSAXSParameters::implicitHydrogenDistance)
+        .def_readwrite("sasa_radius", &AtomicSAXSParameters::sasaRadius);
+
+    py::class_<AtomicSAXSParameterProfile>(m, "AtomicSAXSParameterProfile")
+        .def(py::init<>())
+        .def("set_element", &AtomicSAXSParameterProfile::SetElement,
+             py::arg("element"), py::arg("parameters"))
+        .def("set_atom", &AtomicSAXSParameterProfile::SetAtom,
+             py::arg("residue_name"), py::arg("atom_name"),
+             py::arg("parameters"))
+        .def("has_parameters", &AtomicSAXSParameterProfile::HasParameters,
+             py::arg("atom"))
+        .def("resolve", &AtomicSAXSParameterProfile::Resolve,
+             py::arg("atom"))
+        .def_static(
+            "element_defaults",
+            &AtomicSAXSParameterProfile::ElementDefaults)
+        .def_static(
+            "protein_defaults",
+            &AtomicSAXSParameterProfile::ProteinDefaults,
+            py::arg("volume_model") = AtomicSAXSVolumeModel::Fraser1978);
+
     py::class_<AtomCloudBuildOptions>(m, "AtomCloudBuildOptions")
         .def(py::init<>())
         .def_readwrite(
@@ -412,6 +518,77 @@ PYBIND11_MODULE(_pyseb, m) {
             py::arg("profile"),
             py::arg("parse_options") = StructureParseOptions(),
             py::arg("build_options") = AtomCloudBuildOptions(),
+             py::return_value_policy::reference
+        );
+
+    py::enum_<AtomicSAXSHydrationShellConvention>(m, "AtomicSAXSHydrationShellConvention")
+        .value("VolumeDensity", AtomicSAXSHydrationShellConvention::VolumeDensity)
+        .value("Pepsi3", AtomicSAXSHydrationShellConvention::Pepsi3);
+
+    py::class_<AtomicSAXSCloudBuildOptions>(m, "AtomicSAXSCloudBuildOptions")
+        .def(py::init<>())
+        .def_readwrite("hydration_shell_convention", &AtomicSAXSCloudBuildOptions::hydrationShellConvention)
+        .def_readwrite("sasa_use_profile_radii", &AtomicSAXSCloudBuildOptions::sasaUseProfileRadii)
+        .def_readwrite("hydration_shell_inner_radius", &AtomicSAXSCloudBuildOptions::hydrationShellInnerRadius)
+        .def_readwrite("hydration_shell_thickness", &AtomicSAXSCloudBuildOptions::hydrationShellThickness)
+        .def_readwrite("hydration_shell_spacing", &AtomicSAXSCloudBuildOptions::hydrationShellSpacing)
+        .def_readwrite(
+            "scale_by_occupancy",
+            &AtomicSAXSCloudBuildOptions::scaleByOccupancy)
+        .def_readwrite(
+            "use_implicit_hydrogens",
+            &AtomicSAXSCloudBuildOptions::useImplicitHydrogens)
+        .def_readwrite(
+            "calculate_solvent_accessibility",
+            &AtomicSAXSCloudBuildOptions::calculateSolventAccessibility)
+        .def_readwrite(
+            "sasa_probe_radius",
+            &AtomicSAXSCloudBuildOptions::sasaProbeRadius)
+        .def_readwrite(
+            "sasa_point_count",
+            &AtomicSAXSCloudBuildOptions::sasaPointCount)
+        .def_readwrite(
+            "reference_atom_serials",
+            &AtomicSAXSCloudBuildOptions::referenceAtomSerials);
+
+    py::class_<AtomicSAXSCloudBuilder>(m, "AtomicSAXSCloudBuilder")
+        .def_static(
+            "build",
+            [](const std::vector<AtomRecord>& atoms,
+               const AtomicSAXSParameterProfile& profile,
+               const AtomicSAXSOptions& saxsOptions,
+               const AtomicSAXSCloudBuildOptions& buildOptions) {
+                return AtomicSAXSCloudBuilder::Build(
+                    atoms, profile, saxsOptions, buildOptions).release();
+            },
+            py::arg("atoms"),
+            py::arg("profile"),
+            py::arg("saxs_options") = AtomicSAXSOptions(),
+            py::arg("build_options") = AtomicSAXSCloudBuildOptions(),
+            py::return_value_policy::reference
+        );
+
+    py::class_<AtomicSAXSStructureLoader>(m, "AtomicSAXSStructureLoader")
+        .def_static(
+            "load_pdb",
+            [](const std::string& filename,
+               const AtomicSAXSParameterProfile& profile,
+               const StructureParseOptions& parseOptions,
+               const AtomicSAXSOptions& saxsOptions,
+               const AtomicSAXSCloudBuildOptions& buildOptions) {
+                return AtomicSAXSStructureLoader::LoadPDB(
+                    filename,
+                    profile,
+                    parseOptions,
+                    saxsOptions,
+                    buildOptions
+                ).release();
+            },
+            py::arg("filename"),
+            py::arg("profile"),
+            py::arg("parse_options") = StructureParseOptions(),
+            py::arg("saxs_options") = AtomicSAXSOptions(),
+            py::arg("build_options") = AtomicSAXSCloudBuildOptions(),
             py::return_value_policy::reference
         );
 
@@ -447,6 +624,52 @@ PYBIND11_MODULE(_pyseb, m) {
         .def("scattererCount", &DebyeSphereCloud::scattererCount)
         .def_static("sinc", &DebyeSphereCloud::sinc)
         .def_static("sphereAmplitude", &DebyeSphereCloud::sphereAmplitude);
+
+    py::class_<
+        AtomicSAXSCloud,
+        NumericalSubunit,
+        std::unique_ptr<AtomicSAXSCloud, py::nodelete>
+    >(m, "AtomicSAXSCloud")
+        .def(py::init<>())
+        .def(py::init<
+                 const std::vector<AtomicSAXSScatterer>&,
+                 const AtomicSAXSOptions&>(),
+             py::arg("scatterers"),
+             py::arg("options") = AtomicSAXSOptions())
+        .def("add_scatterer", &AtomicSAXSCloud::addScatterer,
+             py::arg("scatterer"))
+        .def("add_reference_point",
+             py::overload_cast<const refPoint&, const CartesianPoint3D&>(
+                 &AtomicSAXSCloud::addReferencePoint),
+             py::arg("name"), py::arg("coordinate"))
+        .def("add_reference_point",
+             py::overload_cast<const refPoint&, double, double, double>(
+                 &AtomicSAXSCloud::addReferencePoint),
+             py::arg("name"), py::arg("x"), py::arg("y"), py::arg("z"))
+        .def("get_scatterers", &AtomicSAXSCloud::getScatterers,
+             py::return_value_policy::reference_internal)
+        .def("get_reference_coordinates",
+             &AtomicSAXSCloud::getReferenceCoordinates)
+        .def("scatterer_count", &AtomicSAXSCloud::scattererCount)
+        .def("get_options", &AtomicSAXSCloud::getOptions)
+        .def("set_options", &AtomicSAXSCloud::setOptions, py::arg("options"))
+        .def("set_solvent_electron_density",
+             &AtomicSAXSCloud::setSolventElectronDensity, py::arg("value"))
+        .def("set_excluded_volume_scale",
+             &AtomicSAXSCloud::setExcludedVolumeScale, py::arg("value"))
+        .def("set_include_excluded_solvent",
+             &AtomicSAXSCloud::setIncludeExcludedSolvent, py::arg("value"))
+        .def("set_use_temperature_factors",
+             &AtomicSAXSCloud::setUseTemperatureFactors, py::arg("value"))
+        .def("set_hydration", &AtomicSAXSCloud::setHydration,
+             py::arg("enabled"), py::arg("shell_contrast") = 0.0,
+             py::arg("volume_per_exposed_atom") = 30.0)
+        .def("atomic_amplitude", &AtomicSAXSCloud::atomicAmplitude,
+             py::arg("index"), py::arg("q"))
+        .def_static("sinc", &AtomicSAXSCloud::sinc)
+        .def_static(
+            "hydrogen_coefficients",
+            &AtomicSAXSCloud::hydrogenCoefficients);
 
     // Expose World class - basic structure only, symbolic methods are registered in backend-specific files
     py::class_<World> world(m, "World");

@@ -25,6 +25,7 @@ No prior pySEB experience is required. Follow these three tutorials in order:
 | [Parameter sweeps](parameter-sweeps.qmd) | Reuse one graph with several parameter sets | Intermediate |
 | [Fit real contrast-variation SANS data](fit-real-sans-data.qmd) | Fit a linked sphere-and-shell structure simultaneously to three experimental datasets | Intermediate |
 | [Fit a linked titin doublet](fit-linked-titin.qmd) | Stress-test analytical domain/linker choices, then compare C-alpha and heavy-atom clouds using real SAXS data | Intermediate |
+| [Build and fit a polymer corona](fit-f127-corona.qmd) | Connect subunits, view OpenUSD structures, and compare fitted corona models | Intermediate |
 | [PDB cloud with an attached polymer](pdb-polymer.qmd) | Combine coordinate-based numerical scattering with an analytic subunit | Advanced |
 | [Subunits and YAML models](custom-yaml-workflow.qmd) | Understand and explore bundled subunits, then define, validate, and visualize your own | Intermediate |
 

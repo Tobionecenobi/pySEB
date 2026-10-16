@@ -10,6 +10,7 @@
 #include "Numerical.hpp"
 #include "Integrated.hpp"
 #include "DebyeSphereCloud.hpp"
+#include "AtomicSAXSCloud.hpp"
 #include "FileDefined.hpp"
 
 /*

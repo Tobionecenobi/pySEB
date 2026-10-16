@@ -105,10 +105,29 @@ add_library(SEB::symbolic ALIAS seb-symbolic)
 
 # Add the SEB library
 add_library(seb STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/classifier.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/classifier_protor.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/classifier_oons.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/classifier_naccess.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/coord.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/pdb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/log.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/sasa_lr.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/sasa_sr.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/structure.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/node.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/freesasa.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/nb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/util.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/rsa.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/selection.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/lexer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src/parser.c
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/NumericalIntegration.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SpecialFunctions.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SpecialFunctionsWrapper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/Subunit.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/Subunits/AtomicSAXSCloud.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/ExpressionParser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/SubunitDefinition.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SubunitIO/SubunitRegistry.cpp
@@ -122,6 +141,8 @@ add_library(seb STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/StructureIO/PDBParser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/StructureIO/AtomParameterProfile.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/StructureIO/AtomCloudBuilder.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/StructureIO/AtomicSAXSParameterProfile.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/StructureIO/AtomicSAXSCloudBuilder.cpp
 )
 
 if(SEB_ENABLE_GINAC_BACKEND)
@@ -153,6 +174,14 @@ target_include_directories(seb PUBLIC
 
 target_include_directories(seb PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/src
+)
+
+target_compile_definitions(seb PRIVATE
+    USE_THREADS=0
+    USE_JSON=0
+    USE_XML=0
+    HAVE_CONFIG_H=0
 )
 
 # Link libraries to SEB
@@ -272,6 +301,9 @@ install(FILES
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fkYAML/LICENSE.txt
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/pyseb
         RENAME fkYAML-LICENSE.txt)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/third_party/freesasa-2.1.3/LICENSE
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/pyseb
+        RENAME FreeSASA-LICENSE.txt)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/pyseb)
 

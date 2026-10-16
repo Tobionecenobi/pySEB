@@ -1,0 +1,210 @@
+---
+title: "Use pySEB with sasmodels in Python"
+---
+
+The optional adapter exposes a complete pySEB particle to sasmodels. pySEB
+calculates the particle scattering, including cloud hydration and interference
+between linked subunits. sasmodels handles declared size distributions,
+structure factors, and instrument resolution. Fitting can use SciPy or Bumps.
+
+```bash
+python -m pip install "pyseb[sasmodels]"
+```
+
+This integration is tested with sasmodels 1.1.0. Ordinary pySEB imports do not
+require it. See the [real-SANS fitting tutorial](tutorials/fit-real-sans-data.qmd)
+for a complete experimental example.
+
+## Declare a particle
+
+```python
+import numpy as np
+import pyseb
+from pyseb.sasmodels import Parameter, ModelSpec, make_model_info
+from sasmodels.core import build_model
+from sasmodels.direct_model import call_kernel
+
+
+def build_particle():
+    world = pyseb.World("example")
+    world.Add("SolidSphere", "sphere")
+    return world
+
+
+spec = ModelSpec(
+    name="pyseb_sphere",
+    parameters=[Parameter("radius", 20., (1., 100.), "Ang", "Radius", True)],
+    world_factory=build_particle,
+    structure="sphere",
+    bind=lambda world, p: {"R_sphere": p["radius"], "beta_sphere": 1.},
+    intensity_factor=1.,
+)
+model = build_model(make_model_info(spec))
+q = np.geomspace(.001, .3, 100)
+kernel = model.make_kernel([q])
+try:
+    intensity = call_kernel(kernel, dict(radius=25., background=0.))
+finally:
+    kernel.release()
+    model.release()
+```
+
+This example returns relative scattering: volume is one and scale does not
+represent volume fraction. `intensity_factor` explicitly converts the
+unnormalized pySEB intensity to the chosen convention. q is in Å⁻¹ and model
+geometry must use compatible units.
+
+For absolute volume-fraction scaling, declare `volume(values)` and the conversion
+factor for intensity in cm⁻¹. The result is
+`scale * intensity_factor * <I_raw> / <volume> + background`. For betas in Å,
+the factor is `1e8`. Atomic amplitudes in electrons require an additional
+classical electron-radius conversion; all analytical amplitudes in a hybrid
+must use the same convention before interference is calculated.
+
+## Interface and capabilities
+
+| Capability | Requirement |
+|---|---|
+| Complete particle intensity | Any structure the native vector evaluator can evaluate |
+| Numerical clouds and hybrids | Runtime backend; factory retains cloud handles needed by bindings |
+| Hydration and solvent changes | Complete updates in `bind(context, values)` |
+| Resolution | Apply sasmodels resolution to the complete intensity on `q_calc` |
+| Size distributions | Parameters explicitly declared `polydisperse=True` |
+| Absolute volume fraction | Positive particle-volume callback and explicit unit conversion |
+| Hard-sphere decoupling | Volume plus `InteractionSpec` with reference and effective radius |
+| Compiled analytical kernels | Explicit `SymbolicSpec` and compilable analytical expressions |
+| 2-D, magnetic scattering, universal interaction physics | Outside this adapter's first release |
+
+`ModelSpec.world_factory()` returns a new `World`, or a context object with a
+`world` attribute and any required cloud handles. Each evaluation thread gets
+its own context. `bind(context, values)` must set every mutable model option
+and return the complete native parameter dictionary. Topology stays fixed;
+changing atom counts or links means constructing a different model.
+
+Parameter names, defaults, bounds, units, descriptions, and dispersity flags
+become sasmodels metadata. `q`, `scale`, and `background` are reserved. Volume
+and effective-radius callbacks receive the parameters listed in
+`volume_parameters`, plus any dispersible parameters; omitting that list passes
+all parameters. Callbacks must not depend on parameters outside that list.
+
+`make_model_info(spec, backend="runtime")` is the default. It calls the C++
+vector evaluator and does not require a symbolic expression or a compiler.
+The compiled backend uses `SymbolicSpec(parameters=..., volume=...,
+amplitude=..., effective_radius=...)` to declare equivalent expressions. Its
+parameter mapping replaces native symbols with expressions in public parameters.
+Volume is required for absolute scaling; amplitude and radius are required for
+compiled interaction support. Unsupported callbacks, integrals, or functions
+raise an error. There is no automatic backend fallback.
+
+The compiled adapter checks the declared expressions against native evaluation
+at default parameters. That check is a useful guard, not proof for every
+parameter set; model authors should test their parameter domain. It generates
+intensity independently of reference amplitude and handles the finite zero-q
+limit explicitly.
+
+## Distributions, interactions, and resolution
+
+Use sasmodels' `_pd`, `_pd_type`, `_pd_n`, and `_pd_nsigma` parameters for declared
+size distributions. Lognormal centers are medians and widths are log-space
+standard deviations. Convert other conventions explicitly. The
+`positive_gaussian()` helper registers a smooth positive-thickness Gaussian
+quadrature distribution; it returns the registered distribution name. Check
+sampling convergence relative to experimental uncertainties.
+
+For interactions, declare:
+
+```python
+from pyseb.sasmodels import InteractionSpec, with_hardsphere
+
+# Set spec.volume and the unit convention before enabling this.
+interaction = InteractionSpec(
+    reference="particle:core.center",
+    effective_radius=lambda p: p["radius"] + p["thickness"],
+    approximation="decoupling",
+)
+# Construct a ModelSpec with interaction=interaction, then:
+# info = with_hardsphere(spec, backend="runtime")
+```
+
+`with_hardsphere` uses sasmodels' beta/decoupling mode. It evaluates the signed
+reference amplitude and the complete intensity separately. This is an explicit
+approximation about the particle and its surroundings, not a claim that any
+structure behaves as hard spheres.
+
+sasmodels normally uses `volfraction` for both interaction packing fraction
+and intensity scaling. To retain independent `phi` and `eta`, use
+`volfraction=eta, scale=phi/eta`; at eta=0 evaluate the particle alone.
+The default effective-radius mode averages the declared radius over the
+population. Use `radius_effective_mode=0` and provide `radius_effective` if
+another convention, such as the radius from mean volume, is intended.
+
+Use `Perfect1D` or `Pinhole1D` from sasmodels for measurement resolution.
+Evaluate the complete particle-plus-interaction theory at its `q_calc`, then
+call `resolution.apply(theory)`. Use measured widths when available; an assumed
+width remains an assumption even when the calculation comes from a library.
+
+## Fit in Python
+
+Use the same model with SciPy's `least_squares`. Evaluate at the resolution
+object's `q_calc`, smear the complete prediction, then divide the residuals by
+the measured intensity uncertainties. The fit adjusts the declared particle
+parameters, scale, and background.
+
+```python
+from scipy.optimize import least_squares
+from sasmodels.resolution import Perfect1D, Pinhole1D
+
+
+def fit_sphere(spec, measured_q, measured_intensity, uncertainty, q_width=None):
+    # Use measured resolution widths when available; otherwise leave the
+    # predicted curve unsmeared. Widths here are one-standard-deviation values.
+    resolution = (Perfect1D(measured_q) if q_width is None
+                  else Pinhole1D(measured_q, q_width))
+    model = build_model(make_model_info(spec))
+    fit_kernel = model.make_kernel([resolution.q_calc])
+
+    def residual(values):
+        # pySEB supplies the particle; sasmodels applies the requested scale.
+        theory = call_kernel(fit_kernel, dict(radius=values[0],
+                                             scale=values[1], background=0.))
+        # Apply measurement resolution to the whole particle, then add the
+        # constant background and weight the residuals by measured uncertainty.
+        predicted = resolution.apply(theory) + values[2]
+        return (predicted - measured_intensity) / uncertainty
+
+    try:
+        # These bounds are choices for this example, not adapter requirements.
+        return least_squares(residual, [20., 1., 0.],
+                             bounds=([1., 0., 0.], [100., np.inf, np.inf]))
+    finally:
+        fit_kernel.release()
+        model.release()
+
+```
+
+The [AOT tutorial](tutorials/fit-real-sans-data.qmd) runs the full simultaneous
+fit at three contrasts. This workflow uses pySEB, sasmodels, and SciPy directly
+in Python. It requires no SasView application, plugin export, or GUI setup.
+
+## Examples and performance
+
+The source examples `Examples/sasmodels_aot.py` and
+`Examples/sasmodels_hybrid.py` are independent Python model builders. The hybrid script
+produces hydrated/dry curves, a changed sphere radius, size averaging, resolution,
+and a benchmark report. It also generates reproducible synthetic measurements
+and uses SciPy to fit sphere radius, hydration contrast, and flat background.
+The number density, analytical beta, and solvent density are held fixed.
+`fit.png` shows the data, initial guess, fitted curve, and normalized residuals;
+`fit.csv` and `fit.json` record the data and fitted parameters. This demonstrates
+the workflow, not validation against an experimental sample. Run it with:
+
+```bash
+python Examples/sasmodels_hybrid.py --output /tmp/pyseb-hybrid
+```
+
+On the development machine, a 101-point two-atom hybrid took about **8.0 ms**
+for native vector evaluation and **9.0 ms** through the runtime adapter
+(about **12%** overhead). Averaging 21 radius samples took about **133 ms**.
+These are illustrative timings, not a cross-machine performance guarantee.
+The expensive cloud calculation already runs in C++; a direct compiled bridge
+should be justified by profiling larger representative models.

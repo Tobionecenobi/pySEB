@@ -28,6 +28,9 @@ dependencies = [
     "sympy>=1.12",
 ]
 
+[project.optional-dependencies]
+sasmodels = ["sasmodels==1.1.0"]
+
 [project.scripts]
 pyseb-subunit = "pyseb.cli:subunit_main"
 pyseb-world = "pyseb.cli:world_main"

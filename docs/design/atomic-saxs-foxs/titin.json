@@ -1,0 +1,50 @@
+{
+  "imp_version": "2.25.0",
+  "atoms": 688,
+  "input_sha256": "f590aa29287ebcf0d822dbf438dd68897af2f5f026b979ea24d41c3d781557ab",
+  "foxs_c2": 0.14274805680289943,
+  "foxs_water_f0": 3.50968,
+  "hydration_mapping": "equal forward amplitude per unit exposure; native SASA retained",
+  "modes": {
+    "default_fast": {
+      "vacuum": {
+        "normalized_relative_rms": 0.0020737094331778035,
+        "normalized_relative_max": 0.004420834133898488,
+        "pyseb_I0": 27299849.793175023,
+        "foxs_I0": 27310299.735476155
+      },
+      "solution": {
+        "normalized_relative_rms": 0.20392116844367164,
+        "normalized_relative_max": 0.34773490045097866,
+        "pyseb_I0": 1231645.6456362556,
+        "foxs_I0": 1230042.5866075754
+      },
+      "hydrated": {
+        "normalized_relative_rms": 0.19825182462812513,
+        "normalized_relative_max": 0.3406358627827635,
+        "pyseb_I0": 1286420.9284340118,
+        "foxs_I0": 1273610.207275079
+      }
+    },
+    "reciprocal": {
+      "vacuum": {
+        "normalized_relative_rms": 0.003964455198916981,
+        "normalized_relative_max": 0.008073207229098878,
+        "pyseb_I0": 27299849.793175023,
+        "foxs_I0": 27310300.153572027
+      },
+      "solution": {
+        "normalized_relative_rms": 0.18973976504141402,
+        "normalized_relative_max": 0.3105752638416739,
+        "pyseb_I0": 1231645.6456362556,
+        "foxs_I0": 1230047.7326876
+      },
+      "hydrated": {
+        "normalized_relative_rms": 0.18417845895702614,
+        "normalized_relative_max": 0.30376713173109016,
+        "pyseb_I0": 1286420.9284340118,
+        "foxs_I0": 1273615.5188280684
+      }
+    }
+  }
+}

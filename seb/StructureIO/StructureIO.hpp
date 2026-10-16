@@ -6,5 +6,7 @@
 #include "PDBParser.hpp"
 #include "AtomParameterProfile.hpp"
 #include "AtomCloudBuilder.hpp"
+#include "AtomicSAXSParameterProfile.hpp"
+#include "AtomicSAXSCloudBuilder.hpp"
 
 #endif

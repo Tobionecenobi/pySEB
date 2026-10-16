@@ -1,6 +1,6 @@
 ---
 title: "Fit a Linked Titin Doublet"
-subtitle: "Compare spheroids, C-alpha clouds, and a heavy-atom ensemble using real SAXS data"
+subtitle: "Discover a collapsed linker, connect coordinate clouds, and test hydration"
 jupyter: python3
 format:
   html:
@@ -13,47 +13,84 @@ execute:
   error: false
 ---
 
-This tutorial fits a genuinely side-by-side structure to experimental SAXS
-data in three rounds:
+We will build a model of two titin I27 domains joined by a short linker,
+fit it to the same measured SAXS curve at each step, and ask what the fit
+actually tells us about the structure.
 
-```text
-Round 1: Spheroid -- GaussianPolymer -- Spheroid
-Round 2: 89-point C-alpha cloud -- GaussianPolymer -- C-alpha cloud
-Round 3: 688-point heavy-atom ensemble -- GaussianPolymer -- heavy-atom ensemble
-```
+1. Start with two analytical spheroids joined by a Gaussian chain. Let the
+   fit reveal why a good curve can come with an implausibly small linker.
+2. Add a physical linker constraint, then replace the spheroids with
+   coordinate-based `DebyeSphereCloud` domains attached at their termini.
+3. Use `AtomicSAXSCloud` to ask whether displaced solvent and hydration improve
+   the fit, including predictions at points excluded from optimization.
+4. Keep the atomic–analytical hybrid and test whether its relative chain
+   scattering weights contribute to the remaining residuals.
 
-The measurement is [SASBDB entry SASDKC2](https://www.sasbdb.org/data/SASDKC2/),
-two titin I27 domains joined by a short glycine-rich linker. The experiment
-reports a 23 kDa monomer with an $R_g$ of about 2.9 nm. Unlike the concentric
-core--shell example, the subunits here are connected terminal to terminal.
+Each stage has an interactive view read from an **OpenUSD** scene. All Python,
+including the viewer adapter, fitting calculations, and scene-export code,
+is shown below. Expensive blocks are displayed without execution during a
+website build; tables, plots, and interactive views use saved numerical
+results and OpenUSD scenes. Utility code can be expanded when needed.
 
-This is a model-comparison lesson, not a publication-quality reanalysis. The
-small structural ensemble and simple scattering weights used below do not
-include the disordered residues, hydration layer, atom-specific solvent
-contrast, or the full solution ensemble used in a protein SAXS analysis.
+The measurement is [SASBDB entry SASDKC2](https://www.sasbdb.org/data/SASDKC2/).
+The local [data notice](data/TITIN-DATA-NOTICE.txt) records the experimental
+and coordinate sources. This is a model-comparison exercise: the domains have
+coordinate templates, but the disordered linker and tails remain Gaussian
+polymers throughout.
 
-## Install the fitting dependency
+## Reproduce the saved calculations
 
-Continue in the environment from the introductory tutorials and install
-SciPy if needed:
+A normal website build only loads the bundled results; it does not rerun the
+fits or export scenes. To regenerate all stages, run from the repository root:
 
 ```bash
-python -m pip install scipy
+python Examples/generate_linked_titin.py
 ```
+
+The generator executes the Python cells tagged `titin-generation` in this
+QMD, in their displayed order. These are the same cells marked `eval: false`
+when they perform expensive work. There is no separate copy of the fitting
+or OpenUSD-export implementation. Results are saved under
+`docs/tutorials/data/titin-results/`: numerical curves in NPZ, fit parameters
+and optimizer status in JSON, and self-contained USDA scenes. A manifest
+records input, generating-code, and output hashes plus software versions.
+The loader stops with a regeneration message if these no longer match.
+
+- [Fit parameters and settings](data/titin-results/results.json)
+- [Numerical curves](data/titin-results/curves.npz)
+- [Provenance manifest](data/titin-results/manifest.json)
+
+Scene generation still appears at each stage, including the complete
+`world.export_usd(...)` example. The interactive views below open those saved
+scenes through OpenUSD. They are seeded illustrative realizations, not unique
+structures inferred from the scattering data.
+
+## Install dependencies
+
+To regenerate the calculations, use the pySEB environment from the introductory
+tutorials and install the fitting and viewing dependencies:
+
+```bash
+python -m pip install scipy matplotlib plotly usd-core
+```
+
+Rendering saved results only requires NumPy, Matplotlib, Plotly, and
+`usd-core`; it does not import pySEB or SciPy.
 
 ## Load the measured curve
 
 The local file contains every fourth deposited point through
 $q=0.30\;\mathrm{\AA}^{-1}$. Its q, intensity, and uncertainty columns are
-otherwise unchanged. We fit every second local point to keep this executable
-tutorial quick, then evaluate the fitted curves at every stored q value.
+otherwise unchanged. The saved calculation fits every second local point,
+then evaluates the fitted curves at every stored q value.
 
 - [Experimental curve](data/SASDKC2-titin.csv){download="SASDKC2-titin.csv"}
-- [C-alpha extract of PDB 1TIT](data/1TIT-ca.pdb){download="1TIT-ca.pdb"}
 - [Four-model heavy-atom extract of PDB 1TIU](data/1TIU-heavy-ensemble.pdb){download="1TIU-heavy-ensemble.pdb"}
 - [Data provenance and reuse notice](data/TITIN-DATA-NOTICE.txt){download="TITIN-DATA-NOTICE.txt"}
 
 ```{python}
+#| tags: [titin-generation]
+#| eval: false
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -65,17 +102,6 @@ from scipy.optimize import least_squares
 
 
 data_directory = Path("data")
-cylinder_model_path = Path(
-    "../../models/SolidCylinder.pyseb.yaml"
-).resolve()
-if not cylinder_model_path.is_file():
-    raise FileNotFoundError(
-        "The tutorial needs the repository copy of "
-        f"SolidCylinder.pyseb.yaml, but it was not found at "
-        f"{cylinder_model_path}. Run this tutorial from the pySEB "
-        "source checkout."
-    )
-
 q, intensity, uncertainty = np.loadtxt(
     data_directory / "SASDKC2-titin.csv",
     delimiter=",",
@@ -86,10 +112,62 @@ q, intensity, uncertainty = np.loadtxt(
 fit_q = q[::2]
 fit_intensity = intensity[::2]
 fit_uncertainty = uncertainty[::2]
+held_q = q[1::2]
+held_intensity = intensity[1::2]
+held_uncertainty = uncertainty[1::2]
 
 print(f"Stored points: {q.size}")
 print(f"Points used by the optimizer: {fit_q.size}")
+print(f"Alternating points held out: {held_q.size}")
 print(f"q range: {q.min():.4f}--{q.max():.4f} A^-1")
+```
+
+```{python}
+#| code-fold: true
+#| code-summary: "Load saved results and verify their provenance"
+import hashlib
+import json
+import re
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+from IPython.display import Markdown, display
+
+result_directory = Path("data/titin-results")
+results = json.loads((result_directory / "results.json").read_text())
+manifest = json.loads((result_directory / "manifest.json").read_text())
+# Fail clearly if inputs or saved outputs no longer match this calculation.
+for relative, digest in manifest["files"].items():
+    path = result_directory / relative
+    if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+        raise ValueError(f"Changed titin asset: {path}; regenerate the results.")
+for filename, digest in manifest["inputs"].items():
+    if hashlib.sha256((Path("data") / filename).read_bytes()).hexdigest() != digest:
+        raise ValueError(f"Changed titin input: {filename}; regenerate the results.")
+generation_cells = [block for block in re.findall(
+    r"```\{python\}\n(.*?)\n```", Path("fit-linked-titin.qmd").read_text(), re.S
+) if block.splitlines()[0] == "#| tags: [titin-generation]"]
+if hashlib.sha256("\n".join(generation_cells).encode()).hexdigest() != manifest["generation_sha256"]:
+    raise ValueError("Titin calculation code changed; regenerate the saved results.")
+with np.load(result_directory / "curves.npz", allow_pickle=False) as saved:
+    curves = {key: saved[key] for key in saved.files}
+q, intensity, uncertainty = (curves[key] for key in ("q", "intensity", "uncertainty"))
+fit_q, held_q = q[::2], q[1::2]
+print(f"Loaded {q.size} measured points, {fit_q.size} training and {held_q.size} held points.")
+print(f"Results generated: {manifest['generated_utc']}")
+
+
+def fit_table(key):
+    fit = results["fits"][key]
+    rows = ["| Parameter | Value |", "| --- | ---: |"]
+    rows.extend(f"| {name} | {value:.6g} |"
+                for name, value in zip(fit["parameter_names"], fit["x"]))
+    rows.append(f"| Training reduced chi² | {fit['training_reduced_chi2']:.3f} |")
+    rows.append(f"| Held-point score | {fit['held_score']:.3f} |")
+    display(Markdown("\n".join(rows)))
+    print(f"Optimizer: {fit['message']}")
+
 ```
 
 The SASBDB graph displays reciprocal nanometres, whereas the numeric source
@@ -118,7 +196,13 @@ $R_{g,\mathrm{tail}}=R_{g,8}\sqrt{N_\mathrm{tail}/8}$. This avoids forcing the
 terminal conformations to follow the central linker while using only one
 additional parameter for both tails.
 
+We will initially allow the linker to become almost point-like. This is a
+**diagnostic fit**, not a claim that such a conformation is physical. Do not
+add the physical linker bound yet: first see what the optimizer does with the
+freedom we give it.
+
 ```{python}
+#| tags: [titin-generation]
 n_tail_sequence = "MHHHHHHDYDIPTTENLYLQGGGG"
 linker_sequence = "GGGSGGGG"
 c_tail_sequence = "LPETGSS"
@@ -126,6 +210,7 @@ domain_beta = 89.0
 linker_beta = float(len(linker_sequence))
 n_tail_beta = float(len(n_tail_sequence))
 c_tail_beta = float(len(c_tail_sequence))
+diagnostic_linker_bounds = (0.5, 9.0)
 
 
 def construct_tail_parameters(tail_rg8):
@@ -159,13 +244,15 @@ def reduced_chi_squared(residual, number_of_parameters):
     return np.sum(residual**2) / degrees_of_freedom
 ```
 
-## Round 1: spheroid--polymer--spheroid
+## Step 1: start with a purely analytical model
 
 The first structure connects two spheroids through the central Gaussian
 polymer and attaches the N- and C-terminal Gaussian polymers to their exposed
 opposite poles. The domains are therefore adjacent rather than superimposed.
 
 ```{python}
+#| tags: [titin-generation]
+#| eval: false
 spheroid_world = pyseb.World("TitinSpheroids")
 spheroid_graph = spheroid_world.Add("Spheroid", "domain1")
 spheroid_world.Link(
@@ -203,6 +290,8 @@ intensity scale, and the background. Sharing the domain dimensions enforces
 the fact that the construct contains two copies of I27.
 
 ```{python}
+#| tags: [titin-generation]
+#| eval: false
 def spheroid_curve(values, q_values):
     (
         equatorial_radius,
@@ -235,341 +324,382 @@ def spheroid_residual(values):
     ) / fit_uncertainty
 
 
-spheroid_fit = least_squares(
+unconstrained_fit = least_squares(
     spheroid_residual,
     x0=[14.0, 22.0, 5.0, 5.0, 0.033, 0.0002],
     bounds=(
-        [5.0, 10.0, 0.5, 0.1, 0.0, 0.0],
-        [30.0, 50.0, 25.0, 30.0, 1.0, 0.01],
+        [5.0, 10.0, diagnostic_linker_bounds[0], 0.1, 0.0, 0.0],
+        [30.0, 50.0, diagnostic_linker_bounds[1], 30.0, 1.0, 0.01],
     ),
     x_scale="jac",
 )
 
-spheroid_names = [
-    "equatorial semi-axis a [A]",
-    "polar semi-axis c [A]",
-    "linker Rg [A]",
-    "terminal-chain Rg8 [A]",
-    "scale",
-    "background",
-]
-for name, value in zip(spheroid_names, spheroid_fit.x):
-    print(f"{name:31s} = {value:.6g}")
-print_derived_tail_radii(spheroid_fit.x[3])
-print(
-    "reduced chi^2                 = "
-    f"{reduced_chi_squared(spheroid_fit.fun, spheroid_fit.x.size):.3f}"
+spheroid_names = ["equatorial a [A]", "polar c [A]", "linker Rg [A]",
+                  "tail Rg8 [A]", "scale", "background"]
+for name, value in zip(spheroid_names, unconstrained_fit.x):
+    print(f"{name:24s} = {value:.6g}")
+print("Reduced chi-squared:",
+      reduced_chi_squared(unconstrained_fit.fun, 6))
+```
+
+```{python}
+fit_table("analytical_collapsed")
+```
+
+### Stop and inspect the linker
+
+The diagnostic fit drives the linker down to approximately **0.5 Å**, its
+numerical lower bound. That is not a measured linker size. The optimizer would
+like a still smaller chain, because the smooth domain shapes and chain sizes
+can compensate for each other.
+
+For a Gaussian chain, the root-mean-square end-to-end distance is
+$\sqrt{6}R_g$. A 0.5 Å radius therefore implies only about 1.2 Å between its
+ends on average. An eight-residue peptide cannot reasonably be represented by
+that almost point-like chain. A single folded-back conformation can have nearby
+ends; that is different from assigning the whole chain ensemble this tiny size.
+
+```{python}
+#| tags: [titin-generation]
+#| eval: false
+print(f"Linker Rg = {unconstrained_fit.x[2]:.3f} A")
+print(f"RMS end-to-end distance = {np.sqrt(6)*unconstrained_fit.x[2]:.3f} A")
+```
+
+```{python}
+linker_rg = results["fits"]["analytical_collapsed"]["x"][2]
+print(f"Linker Rg = {linker_rg:.3f} A")
+print(f"RMS end-to-end distance = {np.sqrt(6)*linker_rg:.3f} A")
+```
+
+### Add physical information and fit again
+
+We now use $4 \le R_g \le 9$ Å as a deliberately broad working constraint for
+the eight-residue linker. For scale, an ideal chain with eight 3.8 Å steps
+would have $R_g \approx 3.8\sqrt{8/6}=4.4$ Å. This estimate motivates the
+order of magnitude; it does not derive exact bounds for a short peptide.
+The Gaussian model also lacks excluded volume and a strict contour-length
+limit, so the constraint improves plausibility without making it atomistic.
+
+```{python}
+#| tags: [titin-generation]
+#| eval: false
+linker_rg_bounds = (4.0, 9.0)
+spheroid_fit = least_squares(
+    spheroid_residual,
+    x0=[14.0, 22.0, 5.0, 5.0, 0.033, 0.0002],
+    bounds=([5.0, 10.0, 4.0, 0.1, 0.0, 0.0],
+            [30.0, 50.0, 9.0, 30.0, 1.0, 0.01]),
+    x_scale="jac",
 )
-```
-
-The interdomain linker reaches its lower bound near $R_g=0.5$ Å, while the
-independent terminal-chain scale is $R_{g,8}\approx10.6$ Å. This implies N-
-and C-terminal $R_g$ values near 18.3 and 9.9 Å. The contrast between a nearly
-collapsed central linker and expanded terminal chains is a warning about
-parameter identifiability, not a literal conformational assignment.
-
-## Stress-test the analytical fit
-
-Was the spheroid result unusually lucky, or can almost any analytical model
-fit this curve? To test that, cross four domain shapes with three linker models
-while keeping the two domain copies identical:
-
-Every combination includes the same Gaussian N- and C-terminal polymers as
-the detailed fits. Their shared $R_{g,8}$ is independent of the central linker
-size, so changing the central linker from a Gaussian chain to a rod or cylinder
-does not silently change the terminal-chain conformations.
-
-| Domain model | Shared size variables | Attachment |
-| --- | --- | --- |
-| `SolidSphere` | radius | surface |
-| `Spheroid` | equatorial and polar semi-axes | north/south poles |
-| `SolidCylinder` | radius and length | fixed cap centers |
-| `ThinDisk` | radius | rim distribution |
-
-The linker choices are a Gaussian polymer, a thin rigid rod, and a solid
-cylinder. All three have fixed terminal references: the cylinder uses the
-centers of its bottom and top end-cap disks. This preserves the same
-terminal-to-terminal topology across the linker comparison.
-
-Each fit shares the domain dimensions, fixes the same 24:89:8:89:7 relative
-weights, fits one common terminal-chain scale, and fits scale and background.
-The screen uses every fourth stored point to keep its twelve fits quick; all
-models see exactly the same points. Corrected Akaike information criterion
-(AICc) is included because the models contain five to seven fitted variables.
-Only differences within this table are meaningful.
-
-```{python}
-domain_screen = {
-    "Sphere": {
-        "model": "SolidSphere",
-        "left_reference": "surface#join",
-        "right_reference": "surface#join",
-        "left_outer_reference": "surface#ntail",
-        "right_outer_reference": "surface#ctail",
-        "parameters": ("R",),
-        "initial": (18.0,),
-        "lower": (5.0,),
-        "upper": (50.0,),
-    },
-    "Spheroid": {
-        "model": "Spheroid",
-        "left_reference": "north",
-        "right_reference": "south",
-        "left_outer_reference": "south",
-        "right_outer_reference": "north",
-        "parameters": ("a", "c"),
-        "initial": (14.0, 22.0),
-        "lower": (5.0, 10.0),
-        "upper": (30.0, 60.0),
-    },
-    "Cylinder": {
-        "model": "SolidCylinder",
-        "left_reference": "top",
-        "right_reference": "bottom",
-        "left_outer_reference": "bottom",
-        "right_outer_reference": "top",
-        "parameters": ("R", "L"),
-        "initial": (12.0, 30.0),
-        "lower": (3.0, 5.0),
-        "upper": (35.0, 80.0),
-    },
-    "Thin disk": {
-        "model": "ThinDisk",
-        "left_reference": "rim#join",
-        "right_reference": "rim#join",
-        "left_outer_reference": "rim#ntail",
-        "right_outer_reference": "rim#ctail",
-        "parameters": ("R",),
-        "initial": (24.0,),
-        "lower": (5.0,),
-        "upper": (60.0,),
-    },
-}
-
-linker_screen = {
-    "Gaussian": {
-        "model": "GaussianPolymer",
-        "left_reference": "end1",
-        "right_reference": "end2",
-        "parameters": ("Rg",),
-        "initial": (5.0,),
-        "lower": (0.1,),
-        "upper": (30.0,),
-    },
-    "Rod": {
-        "model": "ThinRod",
-        "left_reference": "end1",
-        "right_reference": "end2",
-        "parameters": ("L",),
-        "initial": (10.0,),
-        "lower": (0.1,),
-        "upper": (60.0,),
-    },
-    "Cylinder": {
-        "model": "SolidCylinder",
-        "left_reference": "bottom",
-        "right_reference": "top",
-        "parameters": ("R", "L"),
-        "initial": (1.5, 10.0),
-        "lower": (0.2, 0.1),
-        "upper": (8.0, 60.0),
-    },
-}
-
-screen_q = q[::4]
-screen_intensity = intensity[::4]
-screen_uncertainty = uncertainty[::4]
+for name, value in zip(spheroid_names, spheroid_fit.x):
+    print(f"{name:24s} = {value:.6g}")
+print_derived_tail_radii(spheroid_fit.x[3])
+print("Reduced chi-squared:", reduced_chi_squared(spheroid_fit.fun, 6))
 ```
 
 ```{python}
-def add_screen_subunit(world, model, name):
-    if model == "SolidCylinder":
-        return world.add_subunit_file(
-            str(cylinder_model_path), name=name
+fit_table("analytical_constrained")
+```
+
+A result at 4 or 9 Å means the fit is constrained, rather than the linker size
+being identified by these data. Compare both the residuals and the geometry.
+
+```{python}
+#| tags: [titin-generation]
+def compare_curves(curves):
+    figure, (axis, residual_axis) = plt.subplots(
+        2, 1, figsize=(8, 6), sharex=True,
+        gridspec_kw={"height_ratios": [3, 1]})
+    axis.errorbar(q, intensity, uncertainty, fmt=".", color="black",
+                  alpha=0.5, label="SASDKC2")
+    for label, curve in curves.items():
+        axis.plot(q, curve, label=label)
+        residual_axis.plot(q, (curve-intensity)/uncertainty)
+    axis.set(yscale="log", ylabel="Intensity [a.u.]")
+    axis.legend(fontsize="small")
+    residual_axis.axhline(0, color="gray", linewidth=1)
+    residual_axis.set(xlabel=r"$q$ [$\mathrm{\AA}^{-1}$]",
+                      ylabel=r"$(I_\mathrm{model}-I)/\sigma$")
+    figure.tight_layout()
+    plt.show()
+
+```
+
+```{python}
+#| tags: [titin-generation]
+#| eval: false
+compare_curves({
+    "Weak bound: Rg >= 0.5 A": spheroid_curve(unconstrained_fit.x, q),
+    "Physical working bound: Rg >= 4 A": spheroid_curve(spheroid_fit.x, q),
+})
+```
+
+```{python}
+compare_curves({
+    "Weak bound: Rg >= 0.5 A": curves["analytical_collapsed"],
+    "Physical working bound: Rg >= 4 A": curves["analytical_constrained"],
+})
+```
+
+### Look at the analytical structure with OpenUSD
+
+The blue and orange objects are the two domains; green is the central linker,
+and gray marks the terminal chains. Drag to rotate and scroll to zoom.
+These are seeded illustrative realizations of an averaged scattering model,
+not structures recovered uniquely from SAXS. The readable layout adjusts
+orientations for display; it does not add excluded volume to the fit.
+
+The following adapter opens the exported file with `pxr.Usd`, applies its world
+transforms, and displays its meshes, polymer curves and cloud points in Plotly.
+Cloud marker sizes are display sizes, not fitted atomic radii.
+
+```{python}
+#| tags: [titin-generation]
+#| code-fold: true
+#| code-summary: "OpenUSD reader and interactive display (all Python)"
+
+def _usd_traces(path):
+    """Convert the pySEB geometry in a USDA file to Plotly traces.
+
+    This documentation-only adapter deliberately lives outside the pyseb
+    package. OpenUSD resolves the scene hierarchy and transforms.
+    """
+    import plotly.graph_objects as go
+    from pxr import Usd, UsdGeom
+
+    stage = Usd.Stage.Open(str(path))
+    if stage is None:
+        raise ValueError(f"OpenUSD could not open {path}")
+    transform_cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+    traces = []
+
+    def transformed_points(prim, points):
+        matrix = transform_cache.GetLocalToWorldTransform(prim)
+        return [tuple(float(value) for value in matrix.Transform(point)) for point in points]
+
+    def display_style(prim):
+        gprim = UsdGeom.Gprim(prim)
+        colors = gprim.GetDisplayColorPrimvar().ComputeFlattened()
+        opacities = gprim.GetDisplayOpacityPrimvar().ComputeFlattened()
+        color = colors[0] if colors else (0.55, 0.65, 0.8)
+        opacity = float(opacities[0]) if opacities else 1.0
+        rgb = "rgb({},{},{})".format(
+            *(round(255 * float(channel)) for channel in color)
         )
-    return world.Add(model, name)
+        return rgb, opacity
+
+    for prim in stage.Traverse():
+        name = str(prim.GetPath())
+
+        if prim.IsA(UsdGeom.Mesh):
+            mesh = UsdGeom.Mesh(prim)
+            points = transformed_points(prim, mesh.GetPointsAttr().Get() or [])
+            counts = mesh.GetFaceVertexCountsAttr().Get() or []
+            indices = mesh.GetFaceVertexIndicesAttr().Get() or []
+            triangles = []
+            cursor = 0
+            for count in counts:
+                polygon = indices[cursor:cursor + count]
+                cursor += count
+                triangles.extend(
+                    (int(polygon[0]), int(polygon[offset]), int(polygon[offset + 1]))
+                    for offset in range(1, count - 1)
+                )
+            if not points or not triangles:
+                continue
+            x, y, z = zip(*points)
+            i, j, k = zip(*triangles)
+            color, opacity = display_style(prim)
+            traces.append(go.Mesh3d(
+                x=x, y=y, z=z, i=i, j=j, k=k,
+                name=name,
+                color=color,
+                opacity=opacity,
+                flatshading=False,
+                hovertemplate=f"{name}<extra></extra>",
+                showlegend=False,
+            ))
+
+        elif prim.IsA(UsdGeom.BasisCurves):
+            curves = UsdGeom.BasisCurves(prim)
+            points = transformed_points(prim, curves.GetPointsAttr().Get() or [])
+            counts = curves.GetCurveVertexCountsAttr().Get() or []
+            coordinates = [[], [], []]
+            cursor = 0
+            for count in counts:
+                for point in points[cursor:cursor + count]:
+                    for axis in range(3):
+                        coordinates[axis].append(point[axis])
+                cursor += count
+                for axis in range(3):
+                    coordinates[axis].append(None)
+            if not points:
+                continue
+            color, opacity = display_style(prim)
+            traces.append(go.Scatter3d(
+                x=coordinates[0], y=coordinates[1], z=coordinates[2],
+                mode="lines",
+                name=name,
+                line={"color": color, "width": 5},
+                opacity=opacity,
+                hovertemplate=f"{name}<extra></extra>",
+                showlegend=False,
+            ))
+
+        elif prim.IsA(UsdGeom.PointInstancer):
+            instancer = UsdGeom.PointInstancer(prim)
+            points = transformed_points(
+                prim, instancer.GetPositionsAttr().Get() or [])
+            if not points:
+                continue
+            x, y, z = zip(*points)
+            colors = prim.GetAttribute("primvars:displayColor").Get() or []
+            color = colors[0] if colors else (0.65, 0.65, 0.65)
+            rgb = "rgb({},{},{})".format(
+                *(round(255 * float(channel)) for channel in color)
+            )
+            opacities = prim.GetAttribute("primvars:displayOpacity").Get() or []
+            opacity = float(opacities[0]) if opacities else 1.0
+            # pySEB stores hydration-point weights in the OpenUSD scene.
+            # Use those attributes to distinguish shell points from atomic groups.
+            hydration = prim.GetAttribute("pyseb:hydration_volume").Get() or []
+            is_shell = [value > 0 for value in hydration] if len(hydration) == len(points) else [False] * len(points)
+            for shell in (False, True):
+                selected = [point for point, flag in zip(points, is_shell) if flag == shell]
+                if not selected:
+                    continue
+                sx, sy, sz = zip(*selected)
+                label = "hydration shell" if shell else "cloud groups"
+                traces.append(go.Scatter3d(
+                    x=sx, y=sy, z=sz,
+                    mode="markers",
+                    name=f"{name}: {label}",
+                    marker={"color": "#8c6bb1" if shell else rgb,
+                            "size": 3 if shell else 5,
+                            "opacity": 0.35 if shell else opacity},
+                    hovertemplate=f"{name}: {label}<extra></extra>",
+                    showlegend=False,
+                ))
+
+    return traces
 
 
-def link_screen_subunit(
-    world, model, new_reference, old_reference
-):
-    if model == "SolidCylinder":
-        return world.link_subunit_file(
-            str(cylinder_model_path),
-            new_reference,
-            old_reference,
-        )
-    return world.Link(model, new_reference, old_reference)
+def usd_to_plotly(path, *, height=650):
+    """Convert the pySEB geometry in a USDA file to an interactive Plotly figure."""
+    import plotly.graph_objects as go
+
+    figure = go.Figure(_usd_traces(path))
+    figure.update_layout(
+        height=height,
+        margin={"l": 0, "r": 0, "t": 35, "b": 0},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        scene={
+            "aspectmode": "data",
+            "xaxis": {"visible": False},
+            "yaxis": {"visible": False},
+            "zaxis": {"visible": False},
+            "camera": {"eye": {"x": 1.5, "y": 1.5, "z": 1.1}},
+            "bgcolor": "rgba(0,0,0,0)",
+        },
+        title={
+            "text": "Interactive OpenUSD realization — drag to rotate, scroll to zoom",
+            "x": 0.5,
+            "xanchor": "center",
+            "font": {"size": 15},
+        },
+        showlegend=False,
+    )
+    return figure
 
 
-def screen_world(domain, linker):
-    world = pyseb.World(
-        f"{domain['model']}-{linker['model']}"
-    )
-    graph = add_screen_subunit(
-        world, domain["model"], "domain1"
-    )
-    world.Link(
-        "GaussianPolymer",
-        "ntail.end2",
-        f"domain1.{domain['left_outer_reference']}",
-    )
-    link_screen_subunit(
-        world,
-        linker["model"],
-        f"linker.{linker['left_reference']}",
-        f"domain1.{domain['left_reference']}",
-    )
-    link_screen_subunit(
-        world,
-        domain["model"],
-        f"domain2.{domain['right_reference']}",
-        f"linker.{linker['right_reference']}",
-    )
-    world.Link(
-        "GaussianPolymer",
-        "ctail.end1",
-        f"domain2.{domain['right_outer_reference']}",
-    )
-    world.Add(graph, "titin")
-    return world
 
 
-def screen_parameters(values, domain, linker):
-    parameters = {
-        "beta_domain1": domain_beta,
-        "beta_linker": linker_beta,
-        "beta_domain2": domain_beta,
+```
+
+```{python}
+#| tags: [titin-generation]
+#| eval: false
+visual_directory = data_directory / "titin-results" / "scenes"
+visual_directory.mkdir(parents=True, exist_ok=True)
+
+
+def show_structure(world, parameters, name):
+    options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+    options.seed = 42
+    options.layout_mode = pyseb.LayoutMode.Readable
+    options.orientation_trials = 32
+    options.relaxation_sweeps = 2
+    options.zero_radius_marker_size = 0.8
+    options.color_overrides = {
+        "domain1": (0.10, 0.55, 0.78), "domain2": (0.92, 0.43, 0.12),
+        "linker": (0.2, 0.7, 0.3), "ntail": (0.6, 0.6, 0.6),
+        "ctail": (0.6, 0.6, 0.6),
     }
-    offset = 0
-    for name in domain["parameters"]:
-        parameters[f"{name}_domain1"] = values[offset]
-        parameters[f"{name}_domain2"] = values[offset]
-        offset += 1
-    for name in linker["parameters"]:
-        parameters[f"{name}_linker"] = values[offset]
-        offset += 1
-    parameters.update(construct_tail_parameters(values[offset]))
+    path = visual_directory / f"{name}.usda"
+    world.export_usd("titin", str(path), parameters, options)
+    figure = usd_to_plotly(path, height=440)
+    figure.update_layout(title_text=name.replace("-", " "))
+    figure.show(config={"displaylogo": False, "scrollZoom": True})
+```
+
+```{python}
+def show_saved_structure(name):
+    path = result_directory / "scenes" / f"{name}.usda"
+    figure = usd_to_plotly(path, height=440)
+    figure.update_layout(title_text=name.replace("-", " "))
+    figure.show(config={"displaylogo": False, "scrollZoom": True})
+    display(Markdown(f"[Download this OpenUSD scene]({path.as_posix()})"))
+```
+
+
+```{python}
+#| tags: [titin-generation]
+#| eval: false
+def spheroid_parameters(values):
+    a, c, linker_rg, tail_rg8 = values[:4]
+    parameters = construct_polymer_parameters(linker_rg, tail_rg8)
+    for domain in ("domain1", "domain2"):
+        parameters.update({f"a_{domain}": a, f"c_{domain}": c,
+                           f"beta_{domain}": domain_beta})
     return parameters
 
-
-screen_results = []
-
-for domain_name, domain in domain_screen.items():
-    for linker_name, linker in linker_screen.items():
-        world = screen_world(domain, linker)
-        number_of_sizes = (
-            len(domain["parameters"])
-            + len(linker["parameters"])
-            + 1
-        )
-
-        def residual(values):
-            parameters = screen_parameters(values, domain, linker)
-            form_factor = np.asarray(
-                world.EvaluateFormFactor(
-                    "titin", parameters, screen_q.tolist()
-                )
-            )
-            model = values[-2] * form_factor + values[-1]
-            return (model - screen_intensity) / screen_uncertainty
-
-        initial = np.asarray(
-            domain["initial"]
-            + linker["initial"]
-            + (5.0, 0.04, 0.0002)
-        )
-        lower = np.asarray(
-            domain["lower"]
-            + linker["lower"]
-            + (0.1, 0.0, 0.0)
-        )
-        upper = np.asarray(
-            domain["upper"]
-            + linker["upper"]
-            + (30.0, 1.0, 0.01)
-        )
-        fit = least_squares(
-            residual,
-            x0=initial,
-            bounds=(lower, upper),
-            x_scale="jac",
-            max_nfev=60,
-        )
-
-        chi_squared = np.sum(fit.fun**2)
-        parameter_count = fit.x.size
-        point_count = fit.fun.size
-        aicc = (
-            chi_squared
-            + 2 * parameter_count
-            + 2 * parameter_count * (parameter_count + 1)
-            / (point_count - parameter_count - 1)
-        )
-        relative_bound_distance = np.minimum(
-            fit.x - lower, upper - fit.x
-        ) / (upper - lower)
-        screen_results.append(
-            {
-                "domain": domain_name,
-                "linker": linker_name,
-                "parameters": parameter_count,
-                "reduced_chi2": chi_squared
-                / (point_count - parameter_count),
-                "aicc": aicc,
-                "at_bound": np.any(relative_bound_distance < 0.001),
-                "fit": fit.x,
-                "number_of_sizes": number_of_sizes,
-            }
-        )
-
-best_aicc = min(result["aicc"] for result in screen_results)
-table = [
-    "| Domains | Linker | k | Reduced chi-squared | Delta AICc | Boundary? |",
-    "| --- | --- | ---: | ---: | ---: | :---: |",
-]
-for result in screen_results:
-    table.append(
-        "| {domain} | {linker} | {parameters} | {reduced_chi2:.3f} "
-        "| {delta:.1f} | {boundary} |".format(
-            **result,
-            delta=result["aicc"] - best_aicc,
-            boundary="yes" if result["at_bound"] else "no",
-        )
-    )
-display(Markdown("\n".join(table)))
+show_structure(spheroid_world, spheroid_parameters(unconstrained_fit.x),
+               "analytical-collapsed")
+show_structure(spheroid_world, spheroid_parameters(spheroid_fit.x),
+               "analytical-constrained")
 ```
 
-This screen rejects the idea that every analytical subunit fits easily.
-Spheres and thin disks fail badly. The data instead favor elongated domains:
-solid cylinders give reduced $\chi^2$ between 1.45 and 1.92, while spheroids
-give values between 1.61 and 1.67. The cylinder-domain/Gaussian-linker model
-has the lowest AICc. For cylinder domains, the rod and cylinder linkers are
-disfavored by $\Delta\mathrm{AICc}=13.3$ and 16.1; for spheroid domains,
-Gaussian and rod linkers remain effectively tied. Including the terminal
-chains therefore changes the linker comparison rather than merely shifting
-all fits by the same amount.
+```{python}
+show_saved_structure("analytical-collapsed")
+show_saved_structure("analytical-constrained")
+```
 
-The near-equivalence of flexible and rigid linkers, several boundary hits,
-and fitted domain lengths larger than the roughly 43--50 Å PDB extent are
-warnings about identifiability. The analytical models are successfully
-capturing a smooth elongated pair-distance distribution, but that does not
-establish that their fitted geometry is the physical structure. AICc also
-selects only among the models in this table; it is not an absolute validation.
+## Step 2: connect coordinate domains with the same linker
 
-## Round 2: C-alpha cloud--polymer--C-alpha cloud
+We have constrained the chain, but the fitted spheroid dimensions can still
+compensate for errors in the domain shape. Can fixed coordinates help?
 
-Now replace each smooth spheroid by the 89 C-alpha coordinates from
-[PDB 1TIT](https://www.rcsb.org/structure/1TIT). Each coordinate is one equal
-residue scatterer. The first cloud exposes its C-terminal atom and the second
-its N-terminal atom as named references, so the same side-by-side topology is
-explicit in the graph.
+`AtomCloudBuilder` creates a `DebyeSphereCloud` from the 688 heavy-atom
+coordinates of model 1 in the local [PDB 1TIU](https://www.rcsb.org/structure/1TIU)
+extract. Give each atom a zero radius and a constant weight proportional to its
+atomic number. This retains atomic geometry while deliberately postponing
+q-dependent form factors, implicit hydrogens and solvent to step 3.
+The Debye sum retains all pair distances:
 
-The 1TIT template has the same 89-residue length as each construct domain but
-contains three substitutions: F21L, T42V, and A78T when written as
-template-to-construct changes. Equal C-alpha weights are unaffected; the
-heavy-atom round still uses the deposited NMR side-chain coordinates and is
-therefore not yet an exact sequence model.
+$$P(q)=\frac{\sum_{i,j}b_i b_j\operatorname{sinc}(q r_{ij})}
+{(\sum_i b_i)^2}, \qquad \operatorname{sinc}(x)=\sin(x)/x.$$
+
+We normalize the weights to sum to 89 per domain to preserve the same
+24:89:8:89:7 relative subunit weights. These are approximate construct weights,
+not an absolute electron-count calibration. Choose the first and last C-alpha
+atoms as attachment references, so the chain endpoints have a clear structural
+meaning even though every heavy atom scatters.
+
+The template domains have 89 residues but differ from the construct by three
+substitutions (F21L, T42V and A78T, template to construct). We use the deposited
+coordinates without rebuilding those side chains.
 
 The deposited PDB coordinates are kept fixed. The fit varies linker $R_g$,
 the shared terminal-chain scale $R_{g,8}$, intensity scale, and background.
@@ -577,28 +707,39 @@ This prevents the optimizer from improving the curve by unphysically expanding
 or contracting the folded I27 domain.
 
 ```{python}
-pdb_path = data_directory / "1TIT-ca.pdb"
-unscaled_atoms = pyseb.PDBParser().parse_file(str(pdb_path))
-
-print(f"C-alpha scatterers per I27 cloud: {len(unscaled_atoms)}")
-print(
-    "terminal serials:",
-    unscaled_atoms[0].serial,
-    unscaled_atoms[-1].serial,
-)
+#| tags: [titin-generation]
+#| eval: false
+pdb_path = data_directory / "1TIU-heavy-ensemble.pdb"
+parse_options = pyseb.StructureParseOptions()
+parse_options.model_number = 1
+unscaled_atoms = pyseb.PDBParser().parse_file(str(pdb_path), parse_options)
+terminal_atoms = [atom for atom in unscaled_atoms if atom.atom_name == "CA"]
+print(f"Heavy-atom scatterers per I27 cloud: {len(unscaled_atoms)}")
+print("Terminal C-alpha serials:", terminal_atoms[0].serial,
+      terminal_atoms[-1].serial)
 ```
 
 ```{python}
-def build_pdb_world():
-    atoms = pyseb.PDBParser().parse_file(str(pdb_path))
+print(f"Heavy-atom groups per domain: {results['heavy_atom_count']}")
+print("Terminal C-alpha serials:", *results["terminal_serials"])
+```
 
+```{python}
+#| tags: [titin-generation]
+#| eval: false
+def build_pdb_world():
+    atoms = unscaled_atoms
+    atomic_numbers = {"C": 6, "N": 7, "O": 8, "S": 16}
+    total_electrons = sum(atomic_numbers[atom.element] for atom in atoms)
     profile = pyseb.AtomParameterProfile()
-    profile.set_element("C", radius=0.0, beta=1.0)
+    for element, electrons in atomic_numbers.items():
+        profile.set_element(element, radius=0.0,
+                            beta=domain_beta * electrons / total_electrons)
 
     options = pyseb.AtomCloudBuildOptions()
     options.reference_atom_serials = {
-        "nterminus": atoms[0].serial,
-        "cterminus": atoms[-1].serial,
+        "nterminus": terminal_atoms[0].serial,
+        "cterminus": terminal_atoms[-1].serial,
     }
 
     domain1 = pyseb.AtomCloudBuilder.build(atoms, profile, options)
@@ -652,8 +793,8 @@ pdb_fit = least_squares(
     pdb_residual,
     x0=[5.0, 5.0, 0.033, 0.0002],
     bounds=(
-        [0.1, 0.1, 0.0, 0.0],
-        [25.0, 30.0, 1.0, 0.01],
+        [linker_rg_bounds[0], 0.1, 0.0, 0.0],
+        [linker_rg_bounds[1], 30.0, 1.0, 0.01],
     ),
     x_scale="jac",
 )
@@ -673,209 +814,403 @@ print(
 )
 ```
 
-## Round 3: a larger heavy-atom ensemble
+```{python}
+fit_table("debye")
+```
 
-The C-alpha representation discards almost all atomic coordinates. For the
-third round, the local PDB extract retains 688 non-hydrogen atoms from each of
-four representative models (1, 7, 13, and 19) in the 1TIU NMR ensemble. That
-is more than seven times as many scatterers per domain and adds a small amount
-of conformational averaging.
+### Inspect the terminal attachments and the new fit
 
-Carbon, nitrogen, oxygen, and sulfur receive their atomic electron counts as
-relative weights. Their radii are zero, so these remain illustrative
-point-atom weights rather than solvent-corrected SAXS contrasts. The deposited
-coordinates are never rescaled. We normalize the resulting domain to the same
-total weight of 89 used in the first two rounds.
+The named reference points do the work: `domain1.cterminus` attaches to
+`linker.end1`, and `linker.end2` attaches to `domain2.nterminus`. The outer
+termini carry the tails. The cloud coordinates are fixed internally, while
+pySEB averages the relative orientations and Gaussian chain statistics.
+
+```{python}
+#| tags: [titin-generation]
+#| eval: false
+show_structure(pdb_world, construct_polymer_parameters(*pdb_fit.x[:2]),
+               "debye-domains")
+compare_curves({
+    "Constrained spheroids": spheroid_curve(spheroid_fit.x, q),
+    "Heavy-atom Debye clouds": pdb_curve(pdb_fit.x, q),
+})
+```
+
+```{python}
+show_saved_structure("debye-domains")
+compare_curves({
+    "Constrained spheroids": curves["analytical_constrained"],
+    "Heavy-atom Debye clouds": curves["debye"],
+})
+```
+
+A worse fit would not justify stretching the PDB coordinates. It would tell us
+that fixed domain geometry plus this simple chain model and contrast model
+is insufficient. Next we change the domain scattering physics.
+
+## Step 3: do atomic form factors and hydration help?
+
+We now keep the heavy-atom resolution and change the scattering weights.
+The local extract also provides models 7, 13 and 19 of the 1TIU NMR ensemble;
+we average these with model 1 to include a small amount of domain flexibility.
+This changes both the domain sampling and the scattering physics relative to
+step 2. Within the atomic controls below, all six models use the same four
+conformations, so their differences isolate the solvent terms.
+
+`AtomicSAXSCloud` assigns q-dependent Cromer--Mann form factors, standard
+implicit protein hydrogens, and a Gaussian excluded-solvent contribution to
+each heavy-atom group. The default solvent electron density is
+$0.334\;e\,\mathrm{\AA}^{-3}$. We compare the Fraser 1978 displaced volumes
+with the Pontius 1996 protein-core group means. The full FoXS reciprocal
+excluded-solvent convention has a different q dependence and is not selected here.
+Implicit hydrogens contribute both electrons and their group volume without
+adding overlapping hydrogen centres. The deposited coordinates are never
+rescaled.
+
+Hydration uses the validated Pepsi 3 spatial-shell grid and bonded-water
+form factor. The fixed control uses contrast
+$0.0135\;e\,\mathrm{\AA}^{-3}$. Shell points have effective weights
+$h^3\rho_s$ with the default 3 Å grid spacing; fractional atomic exposure
+does not set their weights. pySEB performs these calculations internally;
+FoXS and Pepsi-SAXS remain optional external validation tools, not runtime
+dependencies.
+
+The [saved calculation](data/titin-results/results.json) records the
+results with this convention. Fixed hydration improves the Fraser training
+reduced chi-squared from 55.213 to 43.953. Solvent refinement reaches 23.711,
+but hits the hydration bound and the evaluation limit. This remains a poor
+structural fit despite the independently validated hydration calculation.
+
+### Separate the three scattering contributions
+
+For each heavy-atom group, the amplitude has the schematic form
+
+$$b_i(q)=f_i(q)-\rho_s V_i(q)+\Delta\rho_h H_i(q).$$
+
+The first term scatters in vacuum, the second subtracts displaced bulk water,
+and the third adds the hydration contrast around exposed groups. We will
+switch these terms on in controls before fitting solvent parameters. The
+hydration-only control is diagnostic; the complete solution model includes
+both displaced solvent and hydration.
+
+We use the validated Pepsi 3 spatial hydration convention: a grid of shell
+points around each domain, with bonded-water form factors. Its effective point
+weights include the reference bulk-density prefactor; they are not physical
+water voxel volumes. This matches the hydration component independently of
+fitting this experimental curve. The atomic and displaced-solvent conventions
+still have small differences from Pepsi.
 
 ### Precompute the expensive cloud terms
 
-A 688-point Debye cloud contains 236,328 distinct scatterer pairs. Rebuilding
-those pairs inside every optimizer call would make this example unnecessarily
-slow. Instead, evaluate each PDB model once on a dense q grid, average the
-normalized form factors and terminal amplitudes, and interpolate those cached
-curves during fitting.
+Each domain contains 688 heavy-atom groups plus spatial hydration points.
+Cloud construction calculates exposure, shell geometry, and pair distances once. Fixed
+controls are then evaluated on a dense q grid and interpolated during the
+linker fit. The later solvent refinement changes only amplitudes, reusing the
+same exposure and geometry caches.
 
 ```{python}
+#| tags: [titin-generation]
+#| eval: false
+#| code-fold: true
+#| code-summary: "Build the atomic clouds and evaluate the six controls"
 ensemble_path = data_directory / "1TIU-heavy-ensemble.pdb"
 ensemble_models = (1, 7, 13, 19)
-cache_q = np.linspace(0.0, q.max(), 1201)
+cache_q = np.linspace(0.0, q.max(), 401)
 
-heavy_profile = pyseb.AtomParameterProfile()
-for element, electron_count in {
-    "C": 6.0,
-    "N": 7.0,
-    "O": 8.0,
-    "S": 16.0,
-}.items():
-    heavy_profile.set_element(element, radius=0.0, beta=electron_count)
+atomic_profiles = {
+    "fraser": pyseb.AtomicSAXSParameterProfile.protein_defaults(
+        pyseb.AtomicSAXSVolumeModel.Fraser1978
+    ),
+    "pontius": pyseb.AtomicSAXSParameterProfile.protein_defaults(
+        pyseb.AtomicSAXSVolumeModel.Pontius1996
+    ),
+}
 
-cached_form_factors = []
-cached_n_amplitudes = []
-cached_c_amplitudes = []
-cached_nc_phases = []
-cached_rg2 = []
-cached_n_sigma2 = []
-cached_c_sigma2 = []
-cached_nc_sigma2 = []
 
+def empty_atomic_cache():
+    return {
+        "form_factor": [],
+        "n_amplitude": [],
+        "c_amplitude": [],
+        "nc_phase": [],
+        "rg2": [],
+        "n_sigma2": [],
+        "c_sigma2": [],
+        "nc_sigma2": [],
+    }
+
+
+parsed_ensemble = {}
 for model_number in ensemble_models:
     parse_options = pyseb.StructureParseOptions()
     parse_options.model_number = model_number
-    atoms = pyseb.PDBParser().parse_file(
+    parsed_ensemble[model_number] = pyseb.PDBParser().parse_file(
         str(ensemble_path), parse_options
     )
-    alpha_carbons = [atom for atom in atoms if atom.atom_name == "CA"]
 
-    build_options = pyseb.AtomCloudBuildOptions()
-    build_options.reference_atom_serials = {
-        "nterminus": alpha_carbons[0].serial,
-        "cterminus": alpha_carbons[-1].serial,
-    }
-    cloud = pyseb.AtomCloudBuilder.build(
-        atoms, heavy_profile, build_options
-    )
 
-    cloud_world = pyseb.World(f"I27Model{model_number}")
-    cloud_world.Add(cloud, "domain")
-    q_values = cache_q.tolist()
-    cached_form_factors.append(
-        cloud_world.EvaluateFormFactor("domain", {}, q_values)
-    )
-    cached_n_amplitudes.append(
-        cloud_world.EvaluateFormFactorAmplitude(
-            "domain.nterminus", {}, q_values
+atomic_sources = {name: [] for name in atomic_profiles}
+for profile_name, profile in atomic_profiles.items():
+    for model_number, atoms in parsed_ensemble.items():
+        alpha_carbons = [atom for atom in atoms if atom.atom_name == "CA"]
+
+        build_options = pyseb.AtomicSAXSCloudBuildOptions()
+        build_options.calculate_solvent_accessibility = True
+        build_options.sasa_probe_radius = 1.4
+        build_options.sasa_point_count = 960
+        build_options.reference_atom_serials = {
+            "nterminus": alpha_carbons[0].serial,
+            "cterminus": alpha_carbons[-1].serial,
+        }
+
+        initial_options = pyseb.AtomicSAXSOptions()
+        initial_options.solvent_electron_density = 0.334
+        initial_options.hydration_model = pyseb.AtomicSAXSHydrationModel.SpatialShell
+        initial_options.hydration_water_model = pyseb.AtomicSAXSHydrationWaterModel.BondedWater
+        build_options.hydration_shell_convention = pyseb.AtomicSAXSHydrationShellConvention.Pepsi3
+        cloud = pyseb.AtomicSAXSCloudBuilder.build(
+            atoms, profile, initial_options, build_options
         )
-    )
-    cached_c_amplitudes.append(
-        cloud_world.EvaluateFormFactorAmplitude(
-            "domain.cterminus", {}, q_values
+        cloud_world = pyseb.World(
+            f"I27{profile_name.title()}Model{model_number}"
         )
-    )
-    cached_nc_phases.append(
-        cloud_world.EvaluatePhaseFactor(
-            "domain.nterminus", "domain.cterminus", {}, q_values
+        cloud_world.Add(cloud, "domain")
+        atomic_sources[profile_name].append((cloud, cloud_world))
+
+
+def evaluate_atomic_ensemble(
+    profile_name,
+    q_values,
+    include_excluded_solvent,
+    excluded_volume_scale,
+    include_hydration,
+    hydration_shell_contrast,
+):
+    cache = empty_atomic_cache()
+    q_values = np.asarray(q_values, dtype=float)
+    q_list = q_values.tolist()
+
+    for cloud, cloud_world in atomic_sources[profile_name]:
+        options = cloud.get_options()
+        options.solvent_electron_density = 0.334
+        options.include_excluded_solvent = include_excluded_solvent
+        options.excluded_volume_scale = excluded_volume_scale
+        options.include_hydration = include_hydration
+        options.hydration_shell_contrast = hydration_shell_contrast
+        options.hydration_volume_per_exposed_atom = 30.0
+        cloud.set_options(options)
+
+        cache["form_factor"].append(
+            cloud_world.EvaluateFormFactor("domain", {}, q_list)
         )
-    )
-    cached_rg2.append(
-        cloud_world.EvaluateRadiusOfGyration2("domain", {})
-    )
-    cached_n_sigma2.append(
-        cloud_world.EvaluateSMSDRef2Scat("domain.nterminus", {})
-    )
-    cached_c_sigma2.append(
-        cloud_world.EvaluateSMSDRef2Scat("domain.cterminus", {})
-    )
-    cached_nc_sigma2.append(
-        cloud_world.EvaluateSMSDRef2Ref(
-            "domain.nterminus", "domain.cterminus", {}
+        cache["n_amplitude"].append(
+            cloud_world.EvaluateFormFactorAmplitude(
+                "domain.nterminus", {}, q_list
+            )
         )
+        cache["c_amplitude"].append(
+            cloud_world.EvaluateFormFactorAmplitude(
+                "domain.cterminus", {}, q_list
+            )
+        )
+        cache["nc_phase"].append(
+            cloud_world.EvaluatePhaseFactor(
+                "domain.nterminus", "domain.cterminus", {}, q_list
+            )
+        )
+        cache["rg2"].append(
+            cloud_world.EvaluateRadiusOfGyration2("domain", {})
+        )
+        cache["n_sigma2"].append(
+            cloud_world.EvaluateSMSDRef2Scat("domain.nterminus", {})
+        )
+        cache["c_sigma2"].append(
+            cloud_world.EvaluateSMSDRef2Scat("domain.cterminus", {})
+        )
+        cache["nc_sigma2"].append(
+            cloud_world.EvaluateSMSDRef2Ref(
+                "domain.nterminus", "domain.cterminus", {}
+            )
+        )
+    return cache
+
+
+solvent_controls = {
+    "vacuum": {
+        "label": "vacuum",
+        "profile": "fraser",
+        "excluded": False,
+        "hydration": False,
+    },
+    "fraser_excluded": {
+        "label": "Fraser excluded solvent",
+        "profile": "fraser",
+        "excluded": True,
+        "hydration": False,
+    },
+    "pontius_excluded": {
+        "label": "Pontius excluded solvent",
+        "profile": "pontius",
+        "excluded": True,
+        "hydration": False,
+    },
+    "hydration_only": {
+        "label": "hydration only",
+        "profile": "fraser",
+        "excluded": False,
+        "hydration": True,
+    },
+    "fraser_complete": {
+        "label": "Fraser plus hydration",
+        "profile": "fraser",
+        "excluded": True,
+        "hydration": True,
+    },
+    "pontius_complete": {
+        "label": "Pontius plus hydration",
+        "profile": "pontius",
+        "excluded": True,
+        "hydration": True,
+    },
+}
+
+atomic_caches = {}
+for control_name, control in solvent_controls.items():
+    atomic_caches[control_name] = evaluate_atomic_ensemble(
+        control["profile"],
+        cache_q,
+        control["excluded"],
+        1.0,
+        control["hydration"],
+        0.0135,
     )
 
 print(f"NMR conformations retained: {len(ensemble_models)}")
-print(f"Heavy-atom scatterers per cloud: {cloud.scattererCount()}")
+print(
+    "Atomic plus shell scatterers per cloud: "
+    f"{atomic_sources['fraser'][0][0].scatterer_count()}"
+)
 ```
 
-The averaged form factor describes one domain selected from the four-model
+```{python}
+print(f"NMR conformations retained: {len(results['ensemble_models'])}")
+print(f"Atomic plus shell points per cloud: {results['atomic_scatterer_count']}")
+```
+
+Each averaged form factor describes one domain selected from the four-model
 ensemble. The two terminal amplitudes and their phase factor retain distinct
 N- and C-terminal reference points. Averaging these quantities separately
 means the two I27 copies are independently selected from that ensemble when
 pySEB constructs their interference terms.
 
 ```{python}
-ensemble_form_factor = CubicSpline(
-    cache_q, np.mean(cached_form_factors, axis=0)
-)
-ensemble_n_amplitude = CubicSpline(
-    cache_q, np.mean(cached_n_amplitudes, axis=0)
-)
-ensemble_c_amplitude = CubicSpline(
-    cache_q, np.mean(cached_c_amplitudes, axis=0)
-)
-ensemble_nc_phase = CubicSpline(
-    cache_q, np.mean(cached_nc_phases, axis=0)
-)
+#| tags: [titin-generation]
+#| eval: false
+#| code-fold: true
+#| code-summary: "Connect ensemble-averaged domain callbacks"
+def interpolate_atomic_cache(cache, q_grid=cache_q):
+    return {
+        "form_factor": CubicSpline(
+            q_grid, np.mean(cache["form_factor"], axis=0)
+        ),
+        "n_amplitude": CubicSpline(
+            q_grid, np.mean(cache["n_amplitude"], axis=0)
+        ),
+        "c_amplitude": CubicSpline(
+            q_grid, np.mean(cache["c_amplitude"], axis=0)
+        ),
+        "nc_phase": CubicSpline(
+            q_grid, np.mean(cache["nc_phase"], axis=0)
+        ),
+        "rg2": np.mean(cache["rg2"]),
+        "n_sigma2": np.mean(cache["n_sigma2"]),
+        "c_sigma2": np.mean(cache["c_sigma2"]),
+        "nc_sigma2": np.mean(cache["nc_sigma2"]),
+    }
 
-ensemble_rg2 = np.mean(cached_rg2)
-ensemble_n_sigma2 = np.mean(cached_n_sigma2)
-ensemble_c_sigma2 = np.mean(cached_c_sigma2)
-ensemble_nc_sigma2 = np.mean(cached_nc_sigma2)
+
+atomic_ensembles = {
+    mode: interpolate_atomic_cache(cache)
+    for mode, cache in atomic_caches.items()
+}
 
 
-def ensemble_domain():
+def ensemble_domain(ensemble):
     domain = pyseb.NumericalSubunit(pyseb.NormalizationMode.Normalized)
     domain.addReferencePoint("nterminus")
     domain.addReferencePoint("cterminus")
     domain.setTotalBeta(domain_beta)
     domain.setFormFactorFunction(
         lambda q_value, parameters: float(
-            ensemble_form_factor(q_value)
+            ensemble["form_factor"](q_value)
         )
     )
     domain.setFormFactorAmplitudeFunction(
         "nterminus",
         lambda q_value, parameters: float(
-            ensemble_n_amplitude(q_value)
+            ensemble["n_amplitude"](q_value)
         ),
     )
     domain.setFormFactorAmplitudeFunction(
         "cterminus",
         lambda q_value, parameters: float(
-            ensemble_c_amplitude(q_value)
+            ensemble["c_amplitude"](q_value)
         ),
     )
     domain.setPhaseFactorFunction(
         "nterminus",
         "cterminus",
         lambda q_value, parameters: float(
-            ensemble_nc_phase(q_value)
+            ensemble["nc_phase"](q_value)
         ),
     )
     domain.setRadiusOfGyration2Provider(
-        lambda parameters: ensemble_rg2
+        lambda parameters: ensemble["rg2"]
     )
     domain.setSigmaMSDRef2ScatProvider(
         "nterminus",
-        lambda parameters: ensemble_n_sigma2,
+        lambda parameters: ensemble["n_sigma2"],
     )
     domain.setSigmaMSDRef2ScatProvider(
         "cterminus",
-        lambda parameters: ensemble_c_sigma2,
+        lambda parameters: ensemble["c_sigma2"],
     )
     domain.setSigmaMSDRef2RefProvider(
         "nterminus",
         "cterminus",
-        lambda parameters: ensemble_nc_sigma2,
+        lambda parameters: ensemble["nc_sigma2"],
     )
     domain.ValidateNumerically({})
     return domain
 
 
-heavy_domain1 = ensemble_domain()
-heavy_domain2 = ensemble_domain()
+def atomic_titin_world(ensemble, name):
+    domain1 = ensemble_domain(ensemble)
+    domain2 = ensemble_domain(ensemble)
+    world = pyseb.World(name)
+    graph = world.Add(domain1, "domain1")
+    world.Link(
+        "GaussianPolymer", "ntail.end2", "domain1.nterminus"
+    )
+    world.Link(
+        "GaussianPolymer", "linker.end1", "domain1.cterminus"
+    )
+    world.Link(
+        domain2, "domain2.nterminus", "linker.end2"
+    )
+    world.Link(
+        "GaussianPolymer", "ctail.end1", "domain2.cterminus"
+    )
+    world.Add(graph, "titin")
+    return world
 
-heavy_world = pyseb.World("TitinHeavyAtomEnsemble")
-heavy_graph = heavy_world.Add(heavy_domain1, "domain1")
-heavy_world.Link(
-    "GaussianPolymer",
-    "ntail.end2",
-    "domain1.nterminus",
-)
-heavy_world.Link(
-    "GaussianPolymer",
-    "linker.end1",
-    "domain1.cterminus",
-)
-heavy_world.Link(
-    heavy_domain2,
-    "domain2.nterminus",
-    "linker.end2",
-)
-heavy_world.Link(
-    "GaussianPolymer",
-    "ctail.end1",
-    "domain2.cterminus",
-)
-heavy_world.Add(heavy_graph, "titin")
+
+atomic_worlds = {
+    name: atomic_titin_world(
+        ensemble, f"TitinAtomic{name.title()}"
+    )
+    for (name, ensemble) in atomic_ensembles.items()
+}
 ```
 
 ### Fit the cached ensemble
@@ -886,58 +1221,330 @@ The optimizer sees an ordinary linked pySEB structure; only the numerical
 domain callbacks now read from ensemble-averaged curves.
 
 ```{python}
-def heavy_curve(values, q_values):
+#| tags: [titin-generation]
+#| eval: false
+def atomic_curve(world, values, q_values):
     linker_rg, tail_rg8, scale, background = values
     parameters = construct_polymer_parameters(linker_rg, tail_rg8)
     form_factor = np.asarray(
-        heavy_world.EvaluateFormFactor(
+        world.EvaluateFormFactor(
             "titin", parameters, q_values.tolist()
         )
     )
     return scale * form_factor + background
 
 
-def heavy_residual(values):
-    return (
-        heavy_curve(values, fit_q) - fit_intensity
-    ) / fit_uncertainty
+def fit_atomic_world(world):
+    return least_squares(
+        lambda values: (
+            atomic_curve(world, values, fit_q) - fit_intensity
+        ) / fit_uncertainty,
+        x0=[5.0, 5.0, 0.033, 0.0002],
+        bounds=(
+            [linker_rg_bounds[0], 0.1, 0.0, 0.0],
+            [linker_rg_bounds[1], 30.0, 1.0, 0.01],
+        ),
+        x_scale="jac",
+    )
 
 
-heavy_fit = least_squares(
-    heavy_residual,
-    x0=[5.0, 5.0, 0.033, 0.0002],
-    bounds=(
-        [0.1, 0.1, 0.0, 0.0],
-        [25.0, 30.0, 1.0, 0.01],
-    ),
-    x_scale="jac",
-)
-
-heavy_names = [
+atomic_names = [
     "linker Rg [A]",
     "terminal-chain Rg8 [A]",
     "scale",
     "background",
 ]
-for name, value in zip(heavy_names, heavy_fit.x):
-    print(f"{name:31s} = {value:.6g}")
-print_derived_tail_radii(heavy_fit.x[1])
-print(
-    "reduced chi^2                 = "
-    f"{reduced_chi_squared(heavy_fit.fun, heavy_fit.x.size):.3f}"
-)
+fixed_atomic_fits = {
+    name: fit_atomic_world(world)
+    for name, world in atomic_worlds.items()
+}
+
+
+def atomic_split_chi2(world, values, number_of_parameters):
+    training_residual = (
+        atomic_curve(world, values, fit_q) - fit_intensity
+    ) / fit_uncertainty
+    held_residual = (
+        atomic_curve(world, values, held_q) - held_intensity
+    ) / held_uncertainty
+    return (
+        reduced_chi_squared(training_residual, number_of_parameters),
+        reduced_chi_squared(held_residual, 0),
+    )
+
+
+fixed_metrics = {}
+fixed_rows = [
+    "| Fixed atomic control | training reduced chi^2 | held-out mean squared residual |",
+    "| --- | ---: | ---: |",
+]
+for name, control in solvent_controls.items():
+    fit = fixed_atomic_fits[name]
+    training_chi2, held_chi2 = atomic_split_chi2(
+        atomic_worlds[name], fit.x, fit.x.size
+    )
+    fixed_metrics[name] = (training_chi2, held_chi2)
+    fixed_rows.append(
+        f"| {control['label']} | {training_chi2:.3f} | {held_chi2:.3f} |"
+    )
+
+display(Markdown("\n".join(fixed_rows)))
 ```
+
+```{python}
+rows = ["| Fixed atomic control | Training reduced chi² | Held-point score |",
+        "| --- | ---: | ---: |"]
+for name, control in results["controls"].items():
+    fit = results["fits"][f"fixed_{name}"]
+    rows.append(f"| {control['label']} | {fit['training_reduced_chi2']:.3f} | {fit['held_score']:.3f} |")
+display(Markdown("\n".join(rows)))
+```
+
+These are fixed-physics controls: the excluded-volume multiplier is exactly
+1.0 and the enabled hydration contrast is exactly
+$+0.0135\;e\,\mathrm{\AA}^{-3}$. Only the linker, terminal-chain, intensity
+scale, and background were fitted. The alternating q points were not seen by
+the optimizer.
+
+### Look at an atomic realization before interpreting hydration
+
+The fitted domains above are averages of scattering functions, which have no
+single set of coordinates. For visualization we rebuild the same topology with
+two copies of NMR model 1 and use the fitted chain sizes. This scene illustrates
+one representative geometry, not the full four-model average. Hydration changes
+the explicit shell-point amplitudes, which are included in the hydrated scene
+as smaller purple markers. The dry scene contains atomic groups only.
+
+```{python}
+#| tags: [titin-generation]
+#| eval: false
+def atomic_visual_world(profile_name, hydrated):
+    atoms = parsed_ensemble[1]
+    ca = [atom for atom in atoms if atom.atom_name == "CA"]
+    build = pyseb.AtomicSAXSCloudBuildOptions()
+    build.calculate_solvent_accessibility = True
+    build.sasa_probe_radius = 1.4
+    build.sasa_point_count = 960
+    build.reference_atom_serials = {
+        "nterminus": ca[0].serial, "cterminus": ca[-1].serial}
+    options = pyseb.AtomicSAXSOptions()
+    options.solvent_electron_density = 0.334
+    # A dry scene contains atomic groups only; the hydrated scene adds shell points.
+    options.hydration_model = (
+        pyseb.AtomicSAXSHydrationModel.SpatialShell if hydrated
+        else pyseb.AtomicSAXSHydrationModel.AtomCentered
+    )
+    options.hydration_water_model = pyseb.AtomicSAXSHydrationWaterModel.BondedWater
+    build.hydration_shell_convention = pyseb.AtomicSAXSHydrationShellConvention.Pepsi3
+    options.include_excluded_solvent = True
+    options.include_hydration = hydrated
+    options.hydration_shell_contrast = 0.0135
+    options.hydration_volume_per_exposed_atom = 30.0
+    domains = [pyseb.AtomicSAXSCloudBuilder.build(
+        atoms, atomic_profiles[profile_name], options, build) for _ in range(2)]
+    world = pyseb.World("AtomicVisualization")
+    graph = world.Add(domains[0], "domain1")
+    world.Link("GaussianPolymer", "ntail.end2", "domain1.nterminus")
+    world.Link("GaussianPolymer", "linker.end1", "domain1.cterminus")
+    world.Link(domains[1], "domain2.nterminus", "linker.end2")
+    world.Link("GaussianPolymer", "ctail.end1", "domain2.cterminus")
+    world.Add(graph, "titin")
+    return world
+
+for hydrated, control in [(False, "fraser_excluded"), (True, "fraser_complete")]:
+    show_structure(atomic_visual_world("fraser", hydrated),
+                   construct_polymer_parameters(*fixed_atomic_fits[control].x[:2]),
+                   "atomic-hydrated" if hydrated else "atomic-displaced-solvent")
+
+compare_curves({
+    solvent_controls[name]["label"]: atomic_curve(
+        atomic_worlds[name], fixed_atomic_fits[name].x, q)
+    for name in ("vacuum", "fraser_excluded", "fraser_complete")
+})
+
+for profile in ("fraser", "pontius"):
+    dry = fixed_metrics[f"{profile}_excluded"][1]
+    wet = fixed_metrics[f"{profile}_complete"][1]
+    print(f"{profile.title()}: hydration changes held-out score "
+          f"from {dry:.3f} to {wet:.3f} "
+          f"({'improves' if wet < dry else 'does not improve'}).")
+```
+
+```{python}
+show_saved_structure("atomic-displaced-solvent")
+show_saved_structure("atomic-hydrated")
+compare_curves({results["controls"][name]["label"]: curves[f"fixed_{name}"]
+                for name in ("vacuum", "fraser_excluded", "fraser_complete")})
+for profile in ("fraser", "pontius"):
+    dry = results["fits"][f"fixed_{profile}_excluded"]["held_score"]
+    wet = results["fits"][f"fixed_{profile}_complete"]["held_score"]
+    print(f"{profile.title()}: hydration changes held-point score from {dry:.3f} to {wet:.3f}.")
+```
+
+### Refine the complete solvent models within physical bounds
+
+We now fit the Fraser-plus-hydration and Pontius-plus-hydration models again,
+adding only two tightly bounded solvent variables. The excluded-volume
+multiplier is restricted to $0.95^3$--$1.05^3$ and hydration contrast to
+$-0.027$--$+0.054\;e\,\mathrm{\AA}^{-3}$. Exact Debye profiles are evaluated
+at every solvent trial; a small memoization cache avoids repeating them when
+the optimizer perturbs only linker or intensity parameters.
+
+```{python}
+#| tags: [titin-generation]
+#| eval: false
+excluded_bounds = (0.95**3, 1.05**3)
+hydration_bounds = (-0.027, 0.054)
+solvent_world_cache = {"fraser": {}, "pontius": {}}
+
+
+def solvent_world(profile_name, excluded_scale, hydration_contrast, q_grid):
+    q_grid = np.asarray(q_grid, dtype=float)
+    cache_key = (
+        float(excluded_scale),
+        float(hydration_contrast),
+        q_grid.size,
+        float(q_grid[0]),
+        float(q_grid[-1]),
+    )
+    cached = solvent_world_cache[profile_name].get(cache_key)
+    if cached is not None:
+        return cached
+
+    evaluation_q = np.unique(np.concatenate(([0.0], q_grid)))
+    cache = evaluate_atomic_ensemble(
+        profile_name,
+        evaluation_q,
+        True,
+        excluded_scale,
+        True,
+        hydration_contrast,
+    )
+    ensemble = interpolate_atomic_cache(cache, evaluation_q)
+    world = atomic_titin_world(
+        ensemble,
+        f"TitinAtomicRefined{profile_name.title()}",
+    )
+    solvent_world_cache[profile_name][cache_key] = world
+    return world
+
+
+def refined_atomic_curve(profile_name, values, q_values):
+    excluded_scale, hydration_contrast = values[4:6]
+    world = solvent_world(
+        profile_name, excluded_scale, hydration_contrast, q_values
+    )
+    return atomic_curve(world, values[:4], q_values)
+
+
+def fit_complete_solvent_model(profile_name):
+    fixed = fixed_atomic_fits[f"{profile_name}_complete"]
+    return least_squares(
+        lambda values: (
+            refined_atomic_curve(profile_name, values, fit_q)
+            - fit_intensity
+        ) / fit_uncertainty,
+        x0=np.concatenate((fixed.x, [1.0, 0.0135])),
+        bounds=(
+            [linker_rg_bounds[0], 0.1, 0.0, 0.0,
+             excluded_bounds[0], hydration_bounds[0]],
+            [linker_rg_bounds[1], 30.0, 1.0, 0.01,
+             excluded_bounds[1], hydration_bounds[1]],
+        ),
+        x_scale=[5.0, 5.0, 0.03, 0.001, 0.1, 0.02],
+        max_nfev=30,
+    )
+
+
+refined_fits = {
+    profile_name: fit_complete_solvent_model(profile_name)
+    for profile_name in ("fraser", "pontius")
+}
+
+
+def solvent_parameter_at_bound(values):
+    tolerances = (1.0e-4, 1.0e-4)
+    pairs = (
+        (values[4], excluded_bounds),
+        (values[5], hydration_bounds),
+    )
+    return any(
+        abs(value - lower) <= tolerance
+        or abs(value - upper) <= tolerance
+        for ((value, (lower, upper)), tolerance) in zip(pairs, tolerances)
+    )
+
+
+refined_models = {}
+refined_metrics = {}
+refined_rows = [
+    "| Complete model | volume multiplier | hydration contrast | "
+    "training reduced chi^2 | held-out mean squared residual | accepted improvement? |",
+    "| --- | ---: | ---: | ---: | ---: | :---: |",
+]
+for profile_name, fit in refined_fits.items():
+    final_world = solvent_world(profile_name, fit.x[4], fit.x[5], q)
+    final_curve = atomic_curve(final_world, fit.x[:4], q)
+    refined_models[profile_name] = final_curve
+
+    training_residual = (
+        final_curve[::2] - fit_intensity
+    ) / fit_uncertainty
+    held_residual = (
+        final_curve[1::2] - held_intensity
+    ) / held_uncertainty
+    training_chi2 = reduced_chi_squared(training_residual, fit.x.size)
+    held_chi2 = reduced_chi_squared(held_residual, 0)
+    reached_bound = solvent_parameter_at_bound(fit.x)
+    fixed_held = fixed_metrics[f"{profile_name}_complete"][1]
+    accepted = fit.success and held_chi2 < fixed_held and not reached_bound
+    print(f"{profile_name.title()} optimizer: {fit.message}")
+    refined_metrics[profile_name] = {
+        "training": training_chi2,
+        "held": held_chi2,
+        "reached_bound": reached_bound,
+        "accepted": accepted,
+    }
+    refined_rows.append(
+        f"| {profile_name.title()} plus hydration | {fit.x[4]:.6f} | "
+        f"{fit.x[5]:+.6f} | {training_chi2:.3f} | {held_chi2:.3f} | "
+        f"{'yes' if accepted else 'no'} |"
+    )
+
+display(Markdown("\n".join(refined_rows)))
+```
+
+```{python}
+rows = ["| Complete model | Volume multiplier | Hydration contrast | Training reduced chi² | Held-point score | Accepted improvement? |",
+        "| --- | ---: | ---: | ---: | ---: | :---: |"]
+for profile in ("fraser", "pontius"):
+    fit = results["fits"][f"refined_{profile}"]
+    metrics = results["refined_metrics"][profile]
+    print(f"{profile.title()} optimizer: {fit['message']}")
+    rows.append(f"| {profile.title()} plus hydration | {fit['x'][4]:.6f} | "
+                f"{fit['x'][5]:+.6f} | {fit['training_reduced_chi2']:.3f} | "
+                f"{fit['held_score']:.3f} | {'yes' if metrics['accepted'] else 'no'} |")
+display(Markdown("\n".join(rows)))
+```
+
+“Accepted improvement” is intentionally stricter than a lower training loss:
+the held-out mean squared standardized residual must also improve relative to the matching fixed
+complete model, the optimizer must converge, and neither solvent parameter
+may finish at a bound. This is a practical screening rule, not a formal
+statistical significance test. The table
+uses a $10^{-4}$ bound tolerance and reports the result instead of assuming in
+advance that either published volume convention must fit this dataset better.
 
 ## Compare the rounds
 
 ```{python}
 #| label: fig-linked-titin-fits
-#| fig-cap: "Three linked pySEB models fitted to the same experimental titin SAXS curve. Residuals use the reported experimental uncertainty."
-
-spheroid_model = spheroid_curve(spheroid_fit.x, q)
-ca_model = pdb_curve(pdb_fit.x, q)
-heavy_model = heavy_curve(heavy_fit.x, q)
-
+#| fig-cap: "Analytical and hybrid cloud fits with standardized experimental residuals; curves loaded from saved calculations."
+spheroid_model = curves["analytical_constrained"]
+ca_model = curves["debye"]
+vacuum_model = curves["fixed_vacuum"]
+fraser_model = curves["refined_fraser"]
+pontius_model = curves["refined_pontius"]
 figure, (axis, residual_axis) = plt.subplots(
     2,
     1,
@@ -957,8 +1564,10 @@ axis.errorbar(
     label="SASDKC2 experiment",
 )
 axis.plot(q, spheroid_model, label="Spheroid--polymer--spheroid")
-axis.plot(q, ca_model, label="89-point C-alpha clouds")
-axis.plot(q, heavy_model, label="688-point heavy-atom ensemble")
+axis.plot(q, ca_model, label="688-point heavy-atom Debye clouds")
+axis.plot(q, vacuum_model, label="Atomic ensemble: vacuum form factors")
+axis.plot(q, fraser_model, label="Atomic ensemble: refined Fraser solvent")
+axis.plot(q, pontius_model, label="Atomic ensemble: refined Pontius solvent")
 axis.set_yscale("log")
 axis.set_ylabel("Intensity [a.u.]")
 axis.legend()
@@ -972,12 +1581,22 @@ residual_axis.plot(
 residual_axis.plot(
     q,
     (ca_model - intensity) / uncertainty,
-    label="C-alpha residual",
+    label="Debye-cloud residual",
 )
 residual_axis.plot(
     q,
-    (heavy_model - intensity) / uncertainty,
-    label="heavy-atom residual",
+    (vacuum_model - intensity) / uncertainty,
+    label="atomic-vacuum residual",
+)
+residual_axis.plot(
+    q,
+    (fraser_model - intensity) / uncertainty,
+    label="atomic-Fraser residual",
+)
+residual_axis.plot(
+    q,
+    (pontius_model - intensity) / uncertainty,
+    label="atomic-Pontius residual",
 )
 residual_axis.set_xlabel(r"$q\;[\mathrm{\AA}^{-1}]$")
 residual_axis.set_ylabel(r"$(I_{model}-I)/\sigma$")
@@ -986,100 +1605,280 @@ plt.tight_layout()
 plt.show()
 ```
 
-With the deposited coordinates fixed, adding the terminal construct polymers
-improves the C-alpha cloud from reduced $\chi^2=206.7$ to 79.4 and the
-heavy-atom ensemble from 147.3 to 46.1. The heavy-atom representation is the
-better cloud, but both remain far behind the smooth analytical models in this
-deliberately limited comparison. More coordinates do **not** automatically
-make a better solution model: the PDB rounds still need realistic atom or
-residue contrasts, hydration, explicit conformations for the construct
-residues, and broader domain-orientation averaging. Their long apparent
-linker and N-tail sizes, backgrounds at the lower bound, and structured
-residuals show how strongly the simplified clouds compensate for omitted
-physics even when the deposited coordinates are held fixed.
+The six fixed controls separate vacuum form factors, displaced solvent, and
+hydration instead of attributing every change to one combined correction. The
+two refined models then ask whether a tightly bounded adjustment is supported
+outside the training points. Read the rendered tables for the numerical
+answer: no conclusion about Fraser versus Pontius is inserted before those
+training and held-out values are calculated.
+
+More coordinates do **not** automatically make a better solution model. The
+atomic rounds still omit atomistic conformations for the construct tails and
+linker, and correlations between linker extension and domain orientation.
+Their fitted linker and terminal-chain sizes, backgrounds, and structured
+residuals show how the remaining model compensates for those omissions even
+when the deposited coordinates are held fixed.
 
 This is the main lesson of the three rounds. A PDB cloud is a more detailed
 representation, but only a better scattering model when its solution-state
 assumptions are also better. The [deposited SASBDB fit](https://www.sasbdb.org/data/SASDKC2/)
 reports $\chi^2=1.068$; that result is a useful benchmark, not a value these
-three pedagogical pySEB models are expected to reproduce.
+pedagogical pySEB models are expected to reproduce.
 
-## Why the clouds do not automatically win
+## Step 4: test the relative weights in the hybrid
 
-### SAXS measures contrast, not a bare atom list
+We want to keep the useful hybrid: atomic clouds for the folded domains and
+analytical Gaussian polymers for the linker and tails. Before adding more
+coordinates, ask whether these two descriptions have been combined with
+reasonable relative scattering strengths.
 
-X-rays interact with electrons, but a solution SAXS curve measures the
-electron-density **difference between the particle and its displaced solvent**.
-An accurate atomistic calculation therefore needs atomic form factors,
-excluded-solvent subtraction, the hydration layer, coordinates for every
-construct residue, and the solution conformational ensemble. The equal
-C-alpha weights and point-atom electron counts above omit most of that forward
-model. This is a limitation of these particular clouds, not evidence that
-coordinate clouds are unsuitable for SAXS. Modern atomistic SAXS programs
-devote substantial effort to solvent and hydration terms for precisely this
-reason; see the
-[solution-SAXS methods review](https://pmc.ncbi.nlm.nih.gov/articles/PMC8244429/)
-and an [explicit comparison of hydration models](https://pmc.ncbi.nlm.nih.gov/articles/PMC3192974/).
+A normalized domain curve describes its shape but has forward intensity one.
+The earlier hybrid assigns each domain amplitude weight 89 and each chain its
+residue count. That assumes the same excess scattering amplitude per residue
+in both descriptions. Atomic composition and solvent contrast need not obey
+that assumption. The overall intensity scale cannot correct a wrong ratio
+between parts, because that ratio also changes their interference.
 
-### The measured q range sets the useful length scale
-
-The smallest nominal real-space scale in a scattering curve is roughly
+Here we make a **diagnostic fit**, not a new absolute contrast calculation.
+Keep the Fraser domain profiles, volume multiplier 1, and hydration contrast
++0.0135 e/Å³ fixed. Multiply all three analytical-chain amplitude weights by
+one positive parameter $r$:
 
 $$
-d_{\min}\sim\frac{2\pi}{q_{\max}}.
+\beta_{\mathrm{domain}}=89,\qquad
+\beta_{\mathrm{chain}}=r N_{\mathrm{chain}}.
 $$
 
-Here $q_{\max}=0.30\;\mathrm{\AA}^{-1}$, so
-$d_{\min}\approx21\;\mathrm{\AA}$. Atomic spacings of a few ångströms are far
-below that nominal resolution. Reaching 5 Å would require approximately
-$q=1.26\;\mathrm{\AA}^{-1}$ and enters the wide-angle regime, where solvent,
-atomic form factors, flexibility, and experimental corrections become even
-more important. Biological SAXS is consequently strongest for overall shape,
-domain arrangement, and conformational ensembles rather than atomic
-structure, as summarized in this
-[review of solution scattering](https://doi.org/10.1016/S0959-440X(02)00363-9).
+Thus $r=1$ reproduces the previous hybrid exactly. This changes amplitudes,
+not intensities: chain self-terms contain $r^2$ and domain–chain cross-terms
+contain $r$. Linker and tail conformations remain analytical. Their sizes,
+intensity scale, and background are refitted with the same bounds as before.
+The exploratory interval $0.25\le r\le4$ is a diagnostic range, not a
+measured physical constraint. We use the same four domain conformations and
+the same alternating training and held points.
 
-That does not mean a cloud should be fitted only at high q. Low q constrains
-total contrast and $R_g$; intermediate q constrains the envelope and domain
-separations; higher q adds progressively finer internal information. A sound
-atomistic or coarse-grained cloud should be tested over every q value for
-which its forward model and the experimental corrections are trustworthy.
-Restricting it to high q would discard the strongest size and assembly
-constraints.
+```{python}
+#| tags: [titin-generation]
+#| eval: false
+#| code-summary: "Fit one relative chain-to-domain amplitude multiplier"
+weight_world = atomic_worlds["fraser_complete"]
+weight_ratio_bounds = (0.25, 4.0)
 
-### Orientational averaging loses direction, not all structure
 
-For point scatterers, the orientationally averaged Debye intensity contains
-terms of the form
+def weighted_hybrid_curve(values, q_values):
+    linker_rg, tail_rg8, scale, background, ratio = values
+    parameters = construct_polymer_parameters(linker_rg, tail_rg8)
+    for name in ("ntail", "linker", "ctail"):
+        parameters[f"beta_{name}"] *= ratio
+    form_factor = np.asarray(weight_world.EvaluateFormFactor(
+        "titin", parameters, np.asarray(q_values).tolist()))
+    return scale * form_factor + background
 
-$$
-I(q)\propto\sum_{i,j} b_i b_j\,\operatorname{sinc}(q r_{ij}).
-$$
 
-The directions of the pair vectors disappear, but their distances $r_{ij}$
-remain. A cloud and an analytical subunit therefore differ whenever their
-weighted pair-distance distributions differ on length scales sampled by the
-measured q range. The loss of direction and phase makes the inverse problem
-non-unique: distinct three-dimensional structures can have very similar
-one-dimensional curves. It does **not** make every cloud equivalent to a
-sphere, spheroid, or cylinder. Solution SAXS records a time- and
-rotation-averaged pair-distance distribution, as discussed in a recent
-[biological SAXS perspective](https://pubs.rsc.org/en/content/articlehtml/2024/cp/d4cp02001d).
+fixed_weight_fit = fixed_atomic_fits["fraser_complete"]
+# Check the nested-model limit before interpreting any improvement.
+np.testing.assert_allclose(
+    weighted_hybrid_curve(np.r_[fixed_weight_fit.x, 1.0], q),
+    atomic_curve(weight_world, fixed_weight_fit.x, q),
+    rtol=1e-12, atol=1e-14,
+)
+weight_fit = least_squares(
+    lambda values: (weighted_hybrid_curve(values, fit_q)
+                    - fit_intensity) / fit_uncertainty,
+    x0=np.r_[fixed_weight_fit.x, 1.0],
+    bounds=(
+        [linker_rg_bounds[0], 0.1, 0.0, 0.0, weight_ratio_bounds[0]],
+        [linker_rg_bounds[1], 30.0, 1.0, 0.01, weight_ratio_bounds[1]],
+    ),
+    x_scale=[5.0, 5.0, 0.03, 0.001, 1.0],
+    max_nfev=300,
+)
+weight_model = weighted_hybrid_curve(weight_fit.x, q)
+weight_training = reduced_chi_squared(
+    (weight_model[::2] - fit_intensity) / fit_uncertainty, 5)
+weight_held = reduced_chi_squared(
+    (weight_model[1::2] - held_intensity) / held_uncertainty, 0)
+print(f"Optimizer: {weight_fit.message}")
+for name, value in zip(atomic_names + ["chain/domain multiplier r"], weight_fit.x):
+    print(f"{name:31s} = {value:.6g}")
+print("Active parameter bounds (-1 lower, +1 upper):", weight_fit.active_mask)
+old_training, old_held = fixed_metrics["fraser_complete"]
+display(Markdown(
+    "| Hybrid with fixed solvent | Training reduced chi² | Held-point score |\n"
+    "| --- | ---: | ---: |\n"
+    f"| Residue-count weights, r = 1 | {old_training:.3f} | {old_held:.3f} |\n"
+    f"| Fitted relative chain weight | {weight_training:.3f} | {weight_held:.3f} |"
+))
+compare_curves({
+    "Hybrid, residue-count weights": atomic_curve(weight_world, fixed_weight_fit.x, q),
+    "Hybrid, fitted chain weight": weight_model,
+})
+```
 
-For this dataset, the analytical screen and cloud fits together suggest a
-specific interpretation: the curve strongly identifies an elongated smooth
-envelope, weakly identifies the linker model, and does not contain enough
-well-modelled high-q information for the simple PDB clouds to benefit from
-their extra atomic coordinates.
+```{python}
+fit_table("weighted_hybrid")
+print("Active parameter bounds (-1 lower, +1 upper):",
+      results["fits"]["weighted_hybrid"]["active_mask"])
+rows = ["| Hybrid with fixed solvent | Training reduced chi² | Held-point score |",
+        "| --- | ---: | ---: |"]
+for key, label in (("fixed_fraser_complete", "Residue-count weights, r = 1"),
+                   ("weighted_hybrid", "Fitted relative chain weight")):
+    fit = results["fits"][key]
+    rows.append(f"| {label} | {fit['training_reduced_chi2']:.3f} | {fit['held_score']:.3f} |")
+display(Markdown("\n".join(rows)))
+compare_curves({
+    "Hybrid, residue-count weights": curves["fixed_fraser_complete"],
+    "Hybrid, fitted chain weight": curves["weighted_hybrid"],
+})
+show_saved_structure("atomic-weighted-hybrid")
+```
+
+In the 2026-10-15 execution, the optimizer converges with $r=2.752$.
+Training reduced chi-squared falls from 43.953 to 2.466, while the held-point
+score falls from 40.339 to 2.394. The solvent settings and domain coordinates
+have not changed. This supports investigating relative scattering weights
+before replacing the analytical chains with coordinates.
+
+There is still a warning in the parameters: linker $R_g$ reaches its 9 Å
+upper bound, and terminal-chain $R_{g,8}$ increases to 18.292 Å. The fitted
+multiplier is an empirical correction, not a measured contrast. A much
+better curve therefore does not yet establish the chain conformations.
+The [saved diagnostic results](data/titin-results/results.json)
+record the parameters and optimizer status.
+
+Read the parameter values alongside the curves. Does the held-point score
+improve as well as the training score? Does the multiplier remain inside its
+exploratory interval? Do the chain sizes or background reach a bound? A lower
+score obtained by suppressing the chains or pushing their sizes to a limit
+would still indicate compensation in the model.
+
+Even a successful diagnostic would not mean we have calculated consistent
+physical contrasts. The next physical version would derive domain excess
+amplitudes and sequence-dependent chain contrasts in the same units, while
+retaining analytical chain form factors. Conversely, little improvement
+would tell us that relative weights alone cannot explain the residuals.
+Neither outcome requires replacing the analytical linker with atomic
+coordinates. This is how we continue the fitting story: isolate one
+assumption, test it against the same data, and inspect both the curve and the
+parameters before adding another degree of freedom.
+
+## What have we learned?
+
+The first fit teaches us to inspect parameters as well as curves. A linker
+at 0.5 Å exposes compensation between the analytical domain shape and chain
+size. Adding a physical bound makes that assumption explicit.
+
+The Debye cloud fixes the internal domain geometry and makes the terminal
+attachments concrete. It still uses constant atomic weights without solvent.
+The atomic model adds q-dependent scattering and solvent corrections, but
+retains approximate residue-count weights between domains and polymers.
+Hydration can change a curve without changing the atomic coordinates.
+
+The fourth step keeps that hybrid and tests one more assumption: the relative
+amplitude weights of the domains and analytical chains. Fitting a multiplier
+is a diagnostic for compensation, rather than a substitute for calculating
+physical contrasts from composition and solvent.
+
+Read the fixed-control table first: compare each excluded-solvent model with
+its matching hydrated model. Then read the refined table to see whether extra
+solvent freedom improves predictions. Alternating q points are nearby and may
+be correlated, so this check is weaker than independent experimental data or
+holding out contiguous q intervals. A bound hit or structured residual is a
+reason to revisit the model, even if the score improves.
+
+Our four domain templates are not a complete solution ensemble. Linker/domain
+orientation correlations, excluded volume between subunits, disordered-residue
+coordinates and the exact construct substitutions remain possible sources of
+error. The pictures show model assumptions; the data do not uniquely determine
+any one displayed conformation.
 
 ## What to try next
 
-- Replace equal C-alpha weights with a validated coarse-grained SAXS profile.
-- Replace the point-atom electron counts with solvent-corrected atomic
-  contrasts and finite excluded volumes.
-- Refit low-, intermediate-, and high-q windows separately, then test each
-  fitted model against the held-out q values.
-- Replace the analytical terminal polymers with explicit complete-construct
-  conformations, including the three domain substitutions.
-- Fit several linker/domain conformations globally instead of one mean model.
-- Reserve a q interval from optimization and use it for validation.
+- Vary the linker bounds and record how the domain sizes and fit scores move.
+- Hold out contiguous q blocks to make the predictive check harder.
+- Cross-check the atomic solvent calculation against an independent SAXS program.
+- Add complete-construct conformations with explicit linker and tail coordinates.
+
+## Save the numerical results and final hybrid scene
+
+The generation command finishes with the following export. Rendering the page
+loads these numerical arrays and makes the tables and plots above; no saved
+plot images or HTML outputs are required. The final scene uses one domain
+conformation, with the fitted chain sizes and relative weights. It illustrates
+the topology and dimensions rather than the full four-conformation average.
+
+```{python}
+#| tags: [titin-generation]
+#| eval: false
+weighted_parameters = construct_polymer_parameters(*weight_fit.x[:2])
+for name in ("ntail", "linker", "ctail"):
+    weighted_parameters[f"beta_{name}"] *= weight_fit.x[4]
+show_structure(atomic_visual_world("fraser", True), weighted_parameters,
+               "atomic-weighted-hybrid")
+
+
+def saved_fit(fit, parameter_names, model):
+    return {
+        "parameter_names": parameter_names,
+        "x": fit.x.tolist(),
+        "active_mask": fit.active_mask.tolist(),
+        "success": bool(fit.success),
+        "message": str(fit.message),
+        "nfev": int(fit.nfev),
+        "training_reduced_chi2": float(reduced_chi_squared(
+            (model[::2] - fit_intensity) / fit_uncertainty, fit.x.size)),
+        "held_score": float(np.mean(((model[1::2] - held_intensity) / held_uncertainty)**2)),
+    }
+
+
+result_directory = data_directory / "titin-results"
+all_curves = {
+    "q": q, "intensity": intensity, "uncertainty": uncertainty,
+    "analytical_collapsed": spheroid_curve(unconstrained_fit.x, q),
+    "analytical_constrained": spheroid_curve(spheroid_fit.x, q),
+    "debye": pdb_curve(pdb_fit.x, q),
+    "weighted_hybrid": weight_model,
+    **{f"fixed_{name}": atomic_curve(atomic_worlds[name], fit.x, q)
+       for name, fit in fixed_atomic_fits.items()},
+    **{f"refined_{name}": model for name, model in refined_models.items()},
+}
+fits = {
+    "analytical_collapsed": saved_fit(unconstrained_fit, spheroid_names, all_curves["analytical_collapsed"]),
+    "analytical_constrained": saved_fit(spheroid_fit, spheroid_names, all_curves["analytical_constrained"]),
+    "debye": saved_fit(pdb_fit, pdb_names, all_curves["debye"]),
+    "weighted_hybrid": saved_fit(weight_fit, atomic_names + ["chain/domain multiplier r"], weight_model),
+    **{f"fixed_{name}": saved_fit(fit, atomic_names, all_curves[f"fixed_{name}"])
+       for name, fit in fixed_atomic_fits.items()},
+    **{f"refined_{name}": saved_fit(fit, atomic_names + ["volume multiplier", "hydration contrast [e/A^3]"],
+                                      all_curves[f"refined_{name}"])
+       for name, fit in refined_fits.items()},
+}
+np.savez_compressed(result_directory / "curves.npz", **all_curves)
+import json
+(result_directory / "results.json").write_text(json.dumps({
+    "schema_version": 1,
+    "fits": fits,
+    "controls": solvent_controls,
+    "refined_metrics": refined_metrics,
+    "ensemble_models": list(ensemble_models),
+    "heavy_atom_count": len(unscaled_atoms),
+    "terminal_serials": [atom.serial for atom in terminal_atoms],
+    "atomic_scatterer_count": atomic_sources["fraser"][0][0].scatterer_count(),
+    "settings": {
+        "linker_rg_bounds": list(linker_rg_bounds),
+        "excluded_volume_bounds": list(excluded_bounds),
+        "hydration_contrast_bounds": list(hydration_bounds),
+        "chain_weight_ratio_bounds": list(weight_ratio_bounds),
+        "fixed_excluded_volume_scale": 1.0,
+        "fixed_hydration_contrast": 0.0135,
+        "solvent_electron_density": 0.334,
+        "hydration_model": "SpatialShell",
+        "shell_convention": "Pepsi3",
+        "water_model": "BondedWater",
+        "solvent_refinement_max_nfev": 30,
+        "chain_weight_max_nfev": 300,
+        "scene_seed": 42,
+        "scene_layout": "Readable",
+    },
+}, indent=2) + "\n")
+```

@@ -56,6 +56,34 @@ def main():
         raise AssertionError(f"required bundled models are missing: {sorted(missing_models)!r}")
     gaussian_model = models.joinpath("GaussianPolymer.pyseb.yaml")
 
+    freesasa_license = resources.files("pyseb").joinpath(
+        "share/licenses/pyseb/FreeSASA-LICENSE.txt"
+    )
+    if not freesasa_license.is_file():
+        raise AssertionError("bundled FreeSASA license is missing")
+
+    atom = pyseb.AtomRecord()
+    atom.serial = 1
+    atom.residue_name = "ALA"
+    atom.atom_name = "CA"
+    atom.element = "C"
+    fraser = pyseb.AtomicSAXSParameterProfile.protein_defaults()
+    pontius = pyseb.AtomicSAXSParameterProfile.protein_defaults(
+        pyseb.AtomicSAXSVolumeModel.Pontius1996
+    )
+    if not math.isclose(
+        fraser.resolve(atom).excluded_volume, 21.59, abs_tol=1e-12
+    ):
+        raise AssertionError("Fraser protein-group volume is unavailable")
+    if not math.isclose(
+        pontius.resolve(atom).excluded_volume, 11.8, abs_tol=1e-12
+    ):
+        raise AssertionError("Pontius protein-group volume is unavailable")
+    atomic_cloud = pyseb.AtomicSAXSCloudBuilder.build([atom], fraser)
+    exposure = atomic_cloud.get_scatterers()[0].solvent_accessibility
+    if not math.isclose(exposure, 1.0, abs_tol=1e-12):
+        raise AssertionError(f"unexpected isolated-atom exposure: {exposure!r}")
+
     world = pyseb.World()
     graph_id = world.add_subunit_file(str(gaussian_model), "poly1")
     world.Link("GaussianPolymer", "poly2.end1", "poly1.end2")
