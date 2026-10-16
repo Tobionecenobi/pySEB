@@ -320,6 +320,11 @@ public:
         std::map<std::tuple<string, string, bool>, ReferencePointList> paths;
         std::map<refPoint, ReferencePointList> neighbors;
         std::size_t referenceEntries = 0;
+        // Numeric values are valid only for the current q and parameter set.
+        // Topology survives across q; evaluated values never survive a sample.
+        std::map<refPoint, double> amplitudes;
+        std::map<std::pair<refPoint, refPoint>, double> phases;
+        void beginSample() { amplitudes.clear(); phases.clear(); }
     };
     struct SymbolicEvaluationContext {
         NumericEvaluationContext topology;

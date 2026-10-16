@@ -84,6 +84,39 @@ class TestNumericalOptimization(unittest.TestCase):
                     self.assert_close(values, getattr(fresh, name)(*args, p, q))
                     self.assert_close(values, [method(*args, p, x) for x in q])
 
+    def test_numerical_callbacks_follow_parameter_and_external_state_changes(self):
+        # Numerical subunits can depend on data outside ParameterList. Reuse
+        # must stop at the evaluation boundary even when q/parameters repeat.
+        state = {'width': 2.}
+        unit = pyseb.NumericalSubunit(pyseb.NormalizationMode.Normalized)
+        unit.addReferencePoint('join')
+        unit.setTotalBeta(3.)
+        unit.setFormFactorFunction(lambda q, p: math.exp(-q*q*state['width']**2))
+        unit.setFormFactorAmplitudeFunction(
+            'join', lambda q, p: math.exp(-.5*q*q*state['width']**2))
+        world = pyseb.World()
+        graph = world.Add(unit, 'numeric')
+        for i in range(3):
+            world.Link('GaussianPolymer', f'p{i}.end1', 'numeric.join')
+        world.Add(graph, 'particle')
+        q = [.2, .03, .2, 0., -.2]
+        for width, contrast in [(2., 1.), (5., -2.), (2., 1.)]:
+            state['width'] = width
+            p = {f'Rg_p{i}': 2.+i for i in range(3)}
+            p.update({f'beta_p{i}': contrast*(i+1) for i in range(3)})
+            for name, args in [
+                ('EvaluateFormFactorUnnormalized', ('particle',)),
+                ('EvaluateFormFactorAmplitudeUnnormalized', ('particle:p0.end2',)),
+            ]:
+                method = getattr(world, name)
+                with self.subTest(width=width, contrast=contrast, method=name):
+                    self.assert_close(method(*args, p, q), [method(*args, p, x) for x in q])
+            # Errors must not poison a subsequent successful evaluation.
+            with self.assertRaises(RuntimeError):
+                world.EvaluateFormFactorUnnormalized('particle', p, [.2, math.nan])
+            self.assert_close(world.EvaluateFormFactorUnnormalized('particle', p, q),
+                              [world.EvaluateFormFactorUnnormalized('particle', p, x) for x in q])
+
     @staticmethod
     def make_cloud(density, hydration):
         # Unequal, non-collinear sites with occupancies and signed solution

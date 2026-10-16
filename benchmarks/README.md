@@ -421,3 +421,51 @@ Validation: all 130 Python tests completed successfully (one optional skip and
 one existing expected failure), plus 69 C++ tests across symbolic, structure,
 and numerical-subunit/integration suites. Per-q reuse and pair-loop changes
 remain separate optimization candidates.
+
+## Per-sample reference-value reuse
+
+Numerical vector evaluation now reuses leaf reference amplitudes and phase
+factors within each q sample. Each cache is capped at 4096 entries and falls
+back to evaluation when full. All numeric entries are cleared before the next
+sample, including repeated q values, and the context is discarded at the end
+of the call. Thus external callback state, parameter updates and changes to
+cloud solvent/hydration settings are picked up on subsequent calls. Reference
+names include subunit identity; equal parameter tags do not merge distinct
+subunits. Scalar evaluation remains an uncached reference path.
+
+Link scans also use references to stored links instead of copying both strings
+for every candidate. No summation order, quadrature tolerance, cloud pair loop,
+or hydration model is changed. The callback regression in
+`test_numerical_optimization.py` checks external-state and parameter changes,
+repeated/unordered q values, and successful evaluation following an error.
+
+As with other scattering evaluators, a callback must return a consistent
+mathematical value for fixed q/parameters during one evaluation. Stateful
+callbacks may change between evaluations; callback invocation counts are not
+an API guarantee.
+
+Release timings against commit `929a8a40`, using five interleaved before/after
+runs with three measured 31-q curves per run after warm-up and no concurrent
+builds or profiling:
+
+| Workload | Before | After | Speedup |
+| --- | ---: | ---: | ---: |
+| 16-segment Gaussian chain | 68.34 ms | 19.03 ms | 3.59x |
+| 32-segment Gaussian chain | 565.93 ms | 113.03 ms | 5.01x |
+| Hydrated cloud, 128 atoms | 3.28 ms | 3.43 ms | 0.95x |
+| Hydrated cloud–sphere hybrid, 128 atoms | 5.42 ms | 5.48 ms | 0.99x |
+
+All before/after checksums match exactly. Cloud and small-hybrid timings show
+no meaningful improvement; their repeated-reference work is limited. These
+measurements describe these particular workloads, not a general speedup claim.
+
+Callgrind records 194,821,031 instructions for the warmed 16-segment curve,
+compared with 711,826,723 after direct expression evaluation (72.6% fewer).
+DHAT whole-process allocation drops from 61,019,276 bytes in 1,018,030 blocks
+to 28,607,536 bytes in 330,698 blocks. Peak live requested heap remains
+3,100,004 bytes, and exit heap is zero. Instrumented runtimes are not used for
+speedup claims.
+
+Validation completed: 131 Python tests (one optional skip and the existing
+expected tiny-q sphere failure) and 69 C++ tests passed. The focused eight-test
+numerical optimization suite also passed with that same expected failure.

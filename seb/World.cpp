@@ -1095,7 +1095,7 @@ bool World::isStructure(string n)
 bool World::isLinked(refPoint r1, refPoint r2)
 {
     if (r2<r1) swap(r1,r2);   // We store links alphabetically sorted.
-    for(auto link : links)
+    for(const auto& link : links)
         if(link.first == r1 && link.second == r2)  return true;
 
     return false;
@@ -1293,6 +1293,7 @@ DoubleVector World::EvaluateFormFactor(
     }
     NumericEvaluationContext context;
     for (const double value : q) {
+        context.beginSample();
         result.push_back(GenerateAllToAllNumeric(name, value, values, &context) / (beta * beta));
     }
     return result;
@@ -1315,6 +1316,7 @@ DoubleVector World::EvaluateFormFactorUnnormalized(
     result.reserve(q.size());
     NumericEvaluationContext context;
     for (const double value : q) {
+        context.beginSample();
         result.push_back(GenerateAllToAllNumeric(name, value, values, &context));
     }
     return result;
@@ -1352,6 +1354,7 @@ DoubleVector World::EvaluateFormFactorAmplitude(
     }
     NumericEvaluationContext context;
     for (const double value : q) {
+        context.beginSample();
         result.push_back(GenerateRefToAllNumeric(ref, value, values, &context) / beta);
     }
     return result;
@@ -1374,6 +1377,7 @@ DoubleVector World::EvaluateFormFactorAmplitudeUnnormalized(
     result.reserve(q.size());
     NumericEvaluationContext context;
     for (const double value : q) {
+        context.beginSample();
         result.push_back(GenerateRefToAllNumeric(ref, value, values, &context));
     }
     return result;
@@ -1398,6 +1402,7 @@ DoubleVector World::EvaluatePhaseFactor(
     result.reserve(q.size());
     NumericEvaluationContext context;
     for (const double value : q) {
+        context.beginSample();
         result.push_back(GenerateRefToRefNumeric(r1, r2, value, values, &context));
     }
     return result;
@@ -1798,12 +1803,16 @@ double World::GenerateRefToRefNumeric(
     }
 
     if (isSubunit(myself)) {
-        return getSubunit(getName(r1))->NumericPhaseFactor(
-            getReference(r1),
-            getReference(r2),
-            q,
-            values
-        );
+        const auto key = std::make_pair(r1, r2);
+        if (context) {
+            const auto found = context->phases.find(key);
+            if (found != context->phases.end()) return found->second;
+        }
+        const double result = getSubunit(getName(r1))->NumericPhaseFactor(
+            getReference(r1), getReference(r2), q, values);
+        if (context && context->phases.size() < 4096)
+            context->phases.emplace(key, result);
+        return result;
     }
 
     throw SEBException(
@@ -1842,11 +1851,15 @@ double World::GenerateRefToAllNumeric(
     }
 
     if (isSubunit(myself)) {
-        return getSubunit(myself)->NumericFormFactorAmplitudeUnnormalized(
-            getReference(ref),
-            q,
-            values
-        );
+        if (context) {
+            const auto found = context->amplitudes.find(ref);
+            if (found != context->amplitudes.end()) return found->second;
+        }
+        const double result = getSubunit(myself)->NumericFormFactorAmplitudeUnnormalized(
+            getReference(ref), q, values);
+        if (context && context->amplitudes.size() < 4096)
+            context->amplitudes.emplace(ref, result);
+        return result;
     }
 
     throw SEBException(
