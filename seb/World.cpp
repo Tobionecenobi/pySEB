@@ -532,6 +532,72 @@ try{
             reversesearch=true;                                // sub-unit to reference point, since there are many potential starting points.
          }
 
+    // A generation asks for many targets from the same source. Reuse the
+    // ordered BFS predecessor tree, not a separate search for every pair.
+    // Scalar/public path queries retain the original early-exit search below.
+    if (context) {
+        auto cached = context->searches.find(name1);
+        if (cached == context->searches.end() && context->searches.size() < 64 &&
+            context->referenceEntries < 262144) {
+            cached = context->searches.emplace(name1, PathSearch{}).first;
+            ++context->referenceEntries;
+        }
+        // Full searches pay off only for repeated sources. Leave one-off
+        // phase queries and small blocks on the early-exit algorithm.
+        if (cached != context->searches.end() && !cached->second.attempted &&
+            ++cached->second.uses >= 3) {
+            cached->second.attempted = true;
+            const std::size_t noParent = static_cast<std::size_t>(-1);
+            std::vector<PathSearchNode> tree;
+            std::unordered_set<refPoint> visited;
+            bool complete = true;
+            const auto append = [&](const refPoint& reference, std::size_t parent) {
+                if (tree.size() >= 4096) return false;
+                tree.push_back({reference, prefix(reference), parent});
+                visited.insert(reference);
+                return true;
+            };
+            try {
+                if (hasAPeriod(name1)) complete = append(name1, noParent);
+                else for (const auto& ref : getReferencePoints(prefix(name1)))
+                    if (!append(ref, noParent)) { complete = false; break; }
+                for (std::size_t head = 0; complete && head < tree.size(); ++head) {
+                    // Snapshot filtering and insertion order match the
+                    // original BFS, including any duplicate neighbors.
+                    const auto neighbors = getNeighbors(tree[head].reference, visited, context);
+                    for (const auto& next : neighbors)
+                        if (!append(next, head)) { complete = false; break; }
+                }
+            } catch (const SEBException&) {
+                // An optional full search must not introduce an error beyond
+                // where the original target-specific search would terminate.
+                complete = false;
+            }
+            const std::size_t entries = 2*tree.size();
+            if (complete && entries <= 262144-context->referenceEntries) {
+                context->referenceEntries += entries;
+                cached->second.nodes = std::move(tree);
+            }
+        }
+        if (cached != context->searches.end() && !cached->second.nodes.empty()) {
+            const bool targetIsReference = hasAPeriod(name2);
+            const auto targetObject = prefix(name2);
+            const auto& tree = cached->second.nodes;
+            const std::size_t noParent = static_cast<std::size_t>(-1);
+            for (std::size_t i = 0; i < tree.size(); ++i) {
+                if (tree[i].parent != noParent &&
+                    (targetIsReference ? tree[i].reference == name2 : tree[i].object == targetObject)) {
+                    ReferencePointList path;
+                    for (std::size_t node = i; node != noParent; node = tree[node].parent)
+                        path.push_front(tree[node].reference);
+                    if (reversesearch) path.reverse();
+                    return path;
+                }
+            }
+            // Missing targets use the original search/error reporting.
+        }
+    }
+
     // Store one predecessor per queued reference, rather than copying a
     // complete candidate path whenever BFS visits or branches to a neighbor.
     struct SearchNode { refPoint reference; std::size_t parent; };
@@ -1576,7 +1642,7 @@ Expression World::GenerateRefToRef(refPoint r1, refPoint r2, int depth, int varF
     return memoizedExpression(context->phases, key, [&]() -> Expression {
         const string myself = prefix(r1);
         if (isStructure(myself)) {
-            if (isLinked(r1, r2) || r1 == r2) return constant(1);
+            if (LinkedForEvaluation(r1, r2, &context->topology) || r1 == r2) return constant(1);
             if (depth == 0) return getPsi(myself, postfix(r1), postfix(r2), varForm);
             if (prefix(postfix(r1)) == prefix(postfix(r2)))
                 return GenerateRefToRef(postfix(r1), postfix(r2), depth-1, varForm, context);
@@ -1717,7 +1783,7 @@ Expression World::PhaseFactor(ReferencePointList& path, int depth, string myself
     auto current=path.begin(), next=current;
     ++next;
     for (; next!=path.end(); ++current, ++next) {
-        if (isLinked(*current, *next)) continue;
+        if (LinkedForEvaluation(*current, *next, &context->topology)) continue;
         if (depth == 0) {
             if (hasAColon(*current))
                 factors.push_back(getPsi(prefix(*current), postfix(*current), postfix(*next), varForm));
@@ -1748,6 +1814,30 @@ double World::GenerateTotalBetaNumeric(
         "Unknown sub-unit or structure " + name,
         "World::GenerateTotalBetaNumeric()"
     );
+}
+
+bool World::LinkedForEvaluation(
+    const refPoint& first, const refPoint& second, NumericEvaluationContext* context)
+{
+    if (links.empty()) return false;
+    // Bound optional topology acceleration and retain the original path for
+    // calls without a context or worlds too large for this local cache.
+    if (!context || links.size() > 4096) return isLinked(first, second);
+    if (!context->linksReady) {
+        context->linkedReferences.assign(links.begin(), links.end());
+        std::sort(context->linkedReferences.begin(), context->linkedReferences.end());
+        context->linksReady = true;
+    }
+    const auto& low = second < first ? second : first;
+    const auto& high = second < first ? first : second;
+    // Compare references directly: nested names can exceed string's inline
+    // capacity, so constructing an owning lookup key would allocate per edge.
+    const auto key = std::tie(low, high);
+    const auto found = std::lower_bound(context->linkedReferences.begin(),
+        context->linkedReferences.end(), key, [](const auto& link, const auto& value) {
+            return std::tie(link.first, link.second) < value;
+        });
+    return found != context->linkedReferences.end() && found->first == low && found->second == high;
 }
 
 ReferencePointList World::CachedPath(
@@ -1790,7 +1880,7 @@ double World::GenerateRefToRefNumeric(
     }
 
     if (isStructure(myself)) {
-        if (isLinked(r1, r2) || r1 == r2) {
+        if (LinkedForEvaluation(r1, r2, context) || r1 == r2) {
             return 1.0;
         }
 
@@ -1928,7 +2018,7 @@ double World::PhaseFactorNumeric(
     auto next = current;
     ++next;
     while (next != path.end()) {
-        if (!isLinked(*current, *next)) {
+        if (!LinkedForEvaluation(*current, *next, context)) {
             phase *= GenerateRefToRefNumeric(*current, *next, q, values, context);
         }
         current = next;

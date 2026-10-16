@@ -34,6 +34,26 @@ class TestEvaluation(unittest.TestCase):
                                            rtol=1e-12, atol=1e-12)
                 self.assertEqual(evaluate(*refs, p, []), [])
 
+    def test_many_arm_star_matches_pair_count_reference_beyond_search_cache_limit(self):
+        # Homogeneous independent arms give a quadratic in arm count: a
+        # single-arm contribution plus one identical contribution per pair.
+        # Seventy arms also exercise uncached sources beyond the 64-row limit.
+        def build(count):
+            world = pyseb.World('many_arms')
+            graph = world.Add('SolidSphere', 'core')
+            for i in range(count):
+                world.Link('GaussianPolymer', f'p{i}.end1', f'core.surface#r{i}', 'poly')
+            world.Add(graph, 'particle')
+            return world
+        p = dict(R_core=3., beta_core=2.5, Rg_poly=2., beta_poly=-.5)
+        q = [0., .03, .2]
+        small = [np.array(build(n).EvaluateFormFactorUnnormalized('particle', p, q))
+                 for n in range(3)]
+        n = 70
+        expected = small[0]+n*(small[1]-small[0])+n*(n-1)/2*(small[2]-2*small[1]+small[0])
+        actual = build(n).EvaluateFormFactorUnnormalized('particle', p, q)
+        np.testing.assert_allclose(actual, expected, rtol=2e-11, atol=2e-10)
+
     def test_sympy_evaluate_expression(self):
         world = pyseb.World()
         graph_id = world.Add("GaussianPolymer", "poly1")

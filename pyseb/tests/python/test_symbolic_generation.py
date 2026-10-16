@@ -102,9 +102,9 @@ class TestSymbolicGeneration(unittest.TestCase):
         self.assertEqual(world.EvaluateFormFactorUnnormalized('particle', p, 0.), 0.)
 
     def test_generation_after_world_edit(self):
-        world = chain(2, shared=True)
+        world = chain(8, shared=True)
         old = world.FormFactor_Unnormalized('particle')
-        world.Link('GaussianPolymer', 'p2.end1', 'p1.end2', 'poly')
+        world.Link('GaussianPolymer', 'p8.end1', 'p7.end2', 'poly')
         new = world.FormFactor_Unnormalized('particle')
         p = dict(Rg_poly=3., beta_poly=2.)
         self.assert_curve(new, p, world.EvaluateFormFactorUnnormalized('particle', p, self.q.tolist()))
@@ -141,6 +141,47 @@ class TestSymbolicGeneration(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             converted = pyseb.to_sympy(expression)
         self.assertEqual(converted, 300*sp.Symbol('deep_x'))
+
+    def test_shallow_native_copies_preserve_operation_and_operand_order(self):
+        x, y = pyseb.symbol('copy_x'), pyseb.symbol('copy_y')
+        # Arithmetic copies a root while retaining its children. Distinct
+        # operations on those same children must never share a converted value.
+        a, b = x.sin()+y, x.cos()+2.
+        expressions = [a+b, a-b, b-a, a*b, a/b, b/a, a**b,
+                       a.sin()+a.cos()+a.exp(), -(a*b), (a*b)+(a*b)]
+        for expression in expressions:
+            converted = pyseb.to_sympy(expression)
+            for xv, yv in ((.4, .7), (.8, 1.2)):
+                expected = expression.subs('copy_x', xv).subs('copy_y', yv).eval()
+                actual = float(converted.evalf(subs={'copy_x': xv, 'copy_y': yv}))
+                self.assertAlmostEqual(actual, expected, places=11)
+
+    def test_independently_parameterized_nested_blocks(self):
+        world = pyseb.World('independent_blocks')
+        p = {}
+        for i in range(6):
+            inner = world.Add('GaussianPolymer', f'a{i}')
+            world.Link('GaussianPolymer', f'b{i}.end1', f'a{i}.end2')
+            if i == 0:
+                graph = world.Add(inner, 'block0')
+            else:
+                world.Link(inner, f'block{i}:a{i}.end1', f'block{i-1}:b{i-1}.end2')
+            p.update({f'Rg_a{i}': 3.+i, f'Rg_b{i}': 4.+i,
+                      f'beta_a{i}': 2., f'beta_b{i}': -1.})
+        world.Add(graph, 'particle')
+        first, last = 'particle:block0:a0.end1', 'particle:block5:b5.end2'
+        intensity = world.FormFactor_Unnormalized('particle')
+        amplitude = world.FormFactorAmplitude(first)
+        phase = world.PhaseFactor(first, last)
+        self.assertEqual(pyseb.to_sympy(intensity).free_symbols,
+                         {sp.Symbol(name) for name in [*p, 'q']})
+        for parameters in (p, dict(p, beta_a0=-2., Rg_b1=9.)):
+            self.assert_curve(intensity, parameters,
+                world.EvaluateFormFactorUnnormalized('particle', parameters, self.q.tolist()))
+            self.assert_curve(amplitude, parameters,
+                world.EvaluateFormFactorAmplitude(first, parameters, self.q.tolist()))
+            self.assert_curve(phase, parameters,
+                world.EvaluatePhaseFactor(first, last, parameters, self.q.tolist()))
 
     def test_large_chain_sympy_conversion_and_closed_form(self):
         count = 32

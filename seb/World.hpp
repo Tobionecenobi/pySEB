@@ -316,10 +316,23 @@ public:
     };
 
     // Topology reuse is local to one evaluation/generation call.
+    struct PathSearchNode {
+        refPoint reference;
+        subName object;
+        std::size_t parent;
+    };
+    struct PathSearch {
+        unsigned uses = 0;
+        bool attempted = false;
+        std::vector<PathSearchNode> nodes;
+    };
     struct NumericEvaluationContext {
         std::map<std::tuple<string, string, bool>, ReferencePointList> paths;
         std::map<refPoint, ReferencePointList> neighbors;
         std::size_t referenceEntries = 0;
+        std::map<refPoint, PathSearch> searches;
+        bool linksReady = false;
+        std::vector<std::pair<refPoint, refPoint>> linkedReferences;
         // Numeric values are valid only for the current q and parameter set.
         // Topology survives across q; evaluated values never survive a sample.
         std::map<refPoint, double> amplitudes;
@@ -343,6 +356,8 @@ public:
 
     ReferencePointList findPath(string first, string second, bool check,
                                 NumericEvaluationContext* context);
+    bool LinkedForEvaluation(const refPoint& first, const refPoint& second,
+                             NumericEvaluationContext* context);
     ReferencePointList CachedPath(const string& first, const string& second,
                                   bool check, NumericEvaluationContext* context);
 

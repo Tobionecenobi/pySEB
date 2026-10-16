@@ -163,6 +163,49 @@ class TestNumericalOptimization(unittest.TestCase):
                     self.assert_close(world.EvaluateFormFactorUnnormalized('cloud', {}, q), intensities)
                     self.assert_close(world.EvaluateFormFactorAmplitudeUnnormalized('cloud.join', {}, q), amplitudes)
 
+    def test_large_cloud_vector_lengths_and_hybrid_interference(self):
+        rng = np.random.default_rng(2026)
+        atoms = []
+        for i, xyz in enumerate(rng.normal(0., 10., (257, 3))):
+            atom = pyseb.AtomicSAXSScatterer()
+            atom.center = pyseb.CartesianPoint3D(*xyz)
+            atom.vacuum = pyseb.CromerMannCoefficients([2., 1., 1., 1.], [2., 4., 8., 16.], 1.)
+            atom.excluded_volume = 12. if i % 2 else 30.
+            atom.solvent_accessibility = .5
+            atom.occupancy = .8 if i % 3 else 1.
+            atoms.append(atom)
+        cloud = pyseb.AtomicSAXSCloud(atoms)
+        cloud.add_reference_point('join', 0., 0., 0.)
+        world = pyseb.World()
+        graph = world.Add(cloud, 'cloud')
+        world.Link('SolidSphere', 'sphere.center', 'cloud.join')
+        world.Add(graph, 'hybrid')
+        p = dict(R_sphere=3., beta_sphere=-20.)
+        # Repeated/signed q and lengths around possible tile boundaries guard
+        # future vector kernels while preserving the scalar interference.
+        grid = [0., -.2, .2, .03, .2]+np.geomspace(.001, .7, 28).tolist()
+        for density, hydration in ((.334, .02), (.2, 0.), (.4, -.01)):
+            cloud.set_solvent_electron_density(density)
+            cloud.set_hydration(hydration != 0., hydration, 30.)
+            for count in (1, 3, 4, 15, 16, 17, 31, 32, 33):
+                q = grid[:count]
+                for target in ('cloud', 'hybrid'):
+                    with self.subTest(density=density, hydration=hydration, count=count, target=target):
+                        actual = world.EvaluateFormFactorUnnormalized(target, p, q)
+                        scalar = [world.EvaluateFormFactorUnnormalized(target, p, x) for x in q]
+                        np.testing.assert_array_equal(actual, scalar)
+                        beta2 = world.EvaluateFormFactorUnnormalized(target, p, 0.)
+                        self.assert_close(world.EvaluateFormFactor(target, p, q), np.array(scalar)/beta2)
+            with self.assertRaises(RuntimeError):
+                world.EvaluateFormFactorUnnormalized('hybrid', p, [.1, .2, math.nan, .3])
+        # Inherited callback replacement is public API and must also be
+        # respected in vector curves and when embedded in a hybrid.
+        cloud.setFormFactorFunction(lambda q, parameters: 7.+q*q)
+        q = [.1, .2, .3, .4, .5]
+        self.assert_close(world.EvaluateFormFactorUnnormalized('cloud', {}, q), 7.+np.array(q)**2)
+        self.assert_close(world.EvaluateFormFactorUnnormalized('hybrid', p, q),
+                          [world.EvaluateFormFactorUnnormalized('hybrid', p, x) for x in q])
+
     @staticmethod
     def make_cloud(density, hydration):
         # Unequal, non-collinear sites with occupancies and signed solution

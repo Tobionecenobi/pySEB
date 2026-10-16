@@ -571,3 +571,125 @@ missing/rebound parameters, invalid inputs, and preparation without SciPy.
 Validation: all eight prepared-expression tests pass; the complete Python suite
 runs 140 tests successfully with one optional skip and the existing expected
 tiny-q sphere failure. No C++ engine changes are introduced by this helper.
+
+## Large-cloud q-blocking experiment (not retained)
+
+An experiment evaluated exact Debye sums in blocks of 4, 8 and 16 q values,
+sharing geometry reads while retaining each q's original pair order, sinc
+function and compensated summation. Both q-major and atom-major amplitude
+layouts were tested. A prototype's apparent improvement did not translate into
+consistent gains with the production Release flags (`-O3 -DNDEBUG -fPIC`).
+
+Nine interleaved runs of five warmed 31-q curves, alternating scalar/vector
+execution order, gave these results for the eight-q, atom-major variant:
+
+| Workload | Scalar reference | Experimental q blocks | Speedup |
+| --- | ---: | ---: | ---: |
+| Synthetic grid, 512 atoms | 37.71 ms | 42.04 ms | 0.90x |
+| 1TIU model 1, 688 heavy atoms | 85.93 ms | 85.36 ms | 1.01x |
+| Same protein linked to a sphere | 88.93 ms | 87.04 ms | 1.02x |
+
+Every returned curve value matched the scalar reference exactly. The synthetic
+regression and negligible protein gain did not justify keeping the engine/API
+changes, so they were removed. This is a negative experiment, not a delivered
+speedup. It does not rule out SIMD sine implementations or parallel evaluation,
+which would need separate accuracy, portability and threading work.
+
+`profile_cloud_batch.cpp` retains a baseline workload for future experiments.
+It loads the checked-in protein file explicitly as model 1, without merging NMR
+conformations, and includes implicit hydrogens, solvent subtraction and hydration.
+Construction/SASA and warm-up are outside the measurement. Run from the repo root:
+
+```bash
+g++ -O3 -std=c++14 -DSPECIALFUNCTIONS_IMPL -I. -Iseb -Iseb-symbolic \
+  benchmarks/profile_cloud_batch.cpp build-python/libseb.a build-python/libseb-symbolic.a \
+  -lgsl -lgslcblas -lpthread -o /tmp/pyseb-cloud-baseline
+/tmp/pyseb-cloud-baseline scalar protein 5
+/tmp/pyseb-cloud-baseline vector protein 5
+/tmp/pyseb-cloud-baseline vector protein 5 hybrid
+/tmp/pyseb-cloud-baseline vector 512 5
+```
+
+These commands measure the retained native evaluator, not the discarded q-block
+implementation. The experimental patch and timing JSON are under `/tmp` for
+this session. The new large-cloud test checks scalar/vector equality around
+potential block boundaries, normalization, solvent/hydration updates, signed
+contrasts, invalid q, custom callbacks and hybrid interference.
+
+After removing the experiment and rebuilding, all 141 Python tests complete
+successfully (one optional skip and the existing expected tiny-q sphere
+failure). The focused ten-test numerical regression suite passes with that
+same expected failure. Baseline scalar/vector curves agree exactly for both
+512 synthetic points and 688 protein atoms, including their sphere hybrids.
+
+## Independently parameterized analytical structures
+
+`profile_symbolic_stages.cpp` embeds Python solely to call the production
+converter, separating native equation generation from SymPy conversion without
+adding profiling hooks to the public API. Models have different Rg and signed
+beta parameters per polymer. It checks intensity, normalized reference amplitude
+and phase against native evaluation at q=0.03, 0.1 and 0.3. Nested cases contain
+two distinct polymers per block; no parameters are shared between blocks.
+
+Profiling identified repeated BFS searches and linear link scans as significant
+native-generation costs. Evaluation contexts now retain ordered BFS predecessor
+trees for repeatedly queried sources and a sorted index of actual links. The
+first two queries from a source keep the original early-exit search; subsequent
+queries can reuse a full search. Seed order, neighbor order, reversed searches,
+coalesced empty paths and error fallback remain unchanged. Public scalar path
+queries still use the original algorithm.
+
+Search reuse is limited to 64 sources and 4096 nodes per search. Its stored
+reference/object strings share the existing 262144-entry path/adjacency budget.
+Link indexing is limited to worlds with at most 4096 links. All caches belong
+to one generation/vector-evaluation call; larger requests fall back to the
+existing search, and later World edits get a fresh context. No expression
+algebra, scattering weights or expression representation is changed.
+
+Native intensity-generation timings against `99a5b4f7`, portable Release
+backend, median of seven calls after warm-up, with no concurrent builds/tests:
+
+| Structure | Before | After | Speedup |
+| --- | ---: | ---: | ---: |
+| Chain, 32 independent polymers | 10.48 ms | 6.54 ms | 1.60x |
+| Chain, 64 independent polymers | 109.45 ms | 40.62 ms | 2.69x |
+| Sphere + 32 independent arms | 17.20 ms | 8.78 ms | 1.96x |
+| Sphere + 64 independent arms | 160.69 ms | 38.35 ms | 4.19x |
+| 16 nested blocks / 32 polymers | 4.97 ms | 3.61 ms | 1.38x |
+| 32 nested blocks / 64 polymers | 34.00 ms | 19.67 ms | 1.73x |
+
+Amplitude generation also improved on larger models (e.g. 5.68 to 2.35 ms for
+64 arms); phase generation was roughly unchanged. These are native-stage
+measurements, not end-to-end Python speedups. First-call SymPy canonicalization
+can still dominate the public call. Conversion is measured separately and is
+not optimized by this change. Extra converter memoization and shared-root
+experiments were not retained because their timings were inconsistent.
+
+Build and run from the repository root (match python3-config to the Python
+version in the selected environment):
+
+```bash
+g++ -O3 -DNDEBUG -std=c++14 -DSPECIALFUNCTIONS_IMPL \
+  -I. -Iseb -Iseb-symbolic -Ipyseb/bindings \
+  $(.venv-sympy/bin/python -m pybind11 --includes) \
+  benchmarks/profile_symbolic_stages.cpp pyseb/bindings/bindingsSymbolic.cpp \
+  build-python/libseb.a build-python/libseb-symbolic.a \
+  -lgsl -lgslcblas -lpthread $(python3-config --embed --ldflags) \
+  -o /tmp/pyseb-symbolic-stages
+OPENBLAS_NUM_THREADS=1 /tmp/pyseb-symbolic-stages chain 64 \
+  /home/tobi/pySEB/.venv-sympy/lib/python3.11/site-packages 7
+# Also use 'star 64' and 'nested 32' for comparable large structures.
+```
+
+JSON lines record both first-call and warmed timings. Compile with
+`PYSEB_CALLGRIND` and the Valgrind include directory to isolate native generation
+using Callgrind's `--instr-atstart=no`; instrumented elapsed times must not be
+used as speedup claims. Reports are stored under `/tmp/pyseb-symbolic-final-*`.
+The new tests exercise independently parameterized nested blocks, native
+operation/operand order, topology edits after repeated searches, and a 70-arm
+star beyond the 64-source cache limit using an independent pair-count reference.
+
+Validation: the full Python suite passes all 144 tests with one optional skip
+and the existing expected tiny-q sphere failure. All 69 C++ tests across the
+GiNaC-enabled symbolic, structure and numerical/integration suites pass. No
+converter-cache or expression-root-sharing changes remain in the implementation.
