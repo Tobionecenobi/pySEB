@@ -1,5 +1,9 @@
 # Investigating a sasmodels adapter for pySEB
 
+This records the initial proof of concept. The reusable interface is now
+`pyseb.sasmodels`; see `docs/sasmodels.qmd`, `Examples/sasmodels_aot.py`, and
+`Examples/sasmodels_hybrid.py` for maintained integration examples.
+
 Run `python Examples/sasmodels_pyseb_adapter.py` in a pySEB environment with
 `sasmodels==1.1.0`. This is a proof of concept, not a public SASAssembly API.
 
@@ -43,8 +47,8 @@ Important boundaries:
 - Hydrated atomic/analytical hybrid models, correlated parameter distributions,
   and automatic parameter mapping have not been tested by this prototype.
 
-The AOT tutorial now embeds a compiled adapter generated from the same pySEB
-expression. It delegates population averaging, volume normalization, the
+The AOT tutorial now uses the optional `pyseb.sasmodels` adapter, with a
+compiled kernel generated from the same pySEB expression. It delegates population averaging, volume normalization, the
 hard-sphere product with beta correction, and resolution to sasmodels; SciPy
 remains the fitter. Its custom `PositiveGaussian` dispersion supplies smooth
 positive-thickness quadrature nodes through sasmodels' extension interface.

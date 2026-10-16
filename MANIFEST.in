@@ -263,6 +263,9 @@ include pyseb/__init__.py
 include pyseb/subunits.py
 include pyseb/symbolic.py
 include pyseb/utils.py
+include pyseb/sasmodels.py
+include Examples/sasmodels_aot.py
+include Examples/sasmodels_hybrid.py
 include setup.py
 include pyseb/bindings/bindings.cpp
 include pyseb/bindings/bindingsTypes.cpp

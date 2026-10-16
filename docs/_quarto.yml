@@ -40,6 +40,7 @@ project:
     - tutorials/cpp_tutorials.qmd
     - file-defined-subunits.qmd
     - visualization.qmd
+    - sasmodels.qmd
 
 website:
   title: "pySEB"
@@ -85,6 +86,7 @@ website:
             - tutorials/mixed-model-evaluation.qmd
             - tutorials/symbolic-expressions.qmd
             - tutorials/scattering-quantities.qmd
+            - sasmodels.qmd
         - section: "Published structures"
           contents:
             - tutorials/figure10-linear-chains.qmd

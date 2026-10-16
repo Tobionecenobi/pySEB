@@ -52,7 +52,7 @@ Continue in the environment used for the introductory tutorials and add
 SciPy and sasmodels:
 
 ```bash
-python -m pip install scipy "sasmodels==1.1.0"
+python -m pip install "pyseb[sasmodels]" scipy
 ```
 
 pySEB evaluates the scattering structure. SciPy's
@@ -121,14 +121,15 @@ Setting the shell's inner radius equal to the core radius makes the two
 subunits occupy adjacent, non-overlapping volumes.
 
 ```{python}
-world = pyseb.World("AOTMicroemulsionFit")
-droplet = world.Add("SolidSphere", "core")
-world.Link(
-    "SolidSphericalShell",
-    "shell.center",
-    "core.center",
-)
-world.Add(droplet, "droplet")
+def build_particle():
+    world = pyseb.World("AOTMicroemulsionFit")
+    droplet = world.Add("SolidSphere", "core")
+    world.Link("SolidSphericalShell", "shell.center", "core.center")
+    world.Add(droplet, "droplet")
+    return world
+
+
+world = build_particle()
 ```
 
 Unlike a single preassembled core–shell function, this is an explicit pySEB
@@ -460,93 +461,76 @@ The particle expression still comes from pySEB. For this spherical particle,
 the squared center amplitude equals its form factor; this does not hold in
 general for anisotropic or flexible structures.
 
-The adapter below generates a small CPU kernel from that expression to keep
-repeated fitting evaluations fast. A C compiler is needed on first use;
+The optional `pyseb.sasmodels` adapter generates a CPU kernel from that
+expression to keep repeated fitting evaluations fast. A C compiler is needed on first use;
 OpenCL and the SasView desktop application are not required.
 
 ```{python}
 #| code-fold: true
 #| code-summary: "Connect the pySEB expression to sasmodels"
 from functools import lru_cache
-from types import ModuleType
 
-from sasmodels.core import build_model, load_model_info
+from sasmodels.core import build_model
 from sasmodels.direct_model import call_Fq, call_kernel
-from sasmodels.modelinfo import make_model_info
-from sasmodels.product import make_product_info
 from sasmodels.resolution import Perfect1D, Pinhole1D
-from sasmodels.weights import Dispersion, DISTRIBUTIONS
-from scipy.special import roots_legendre
-
-signed_expression = sympy.sympify(
-    str(world.FormFactorAmplitude("droplet:core.center"))
+from pyseb.sasmodels import (
+    Parameter, ModelSpec, InteractionSpec, SymbolicSpec,
+    make_model_info, with_hardsphere, positive_gaussian,
 )
-signed_expression = sympy.cancel(
-    signed_expression * (beta_core_symbol + beta_shell_symbol)
-)
-assert sympy.cancel(signed_expression**2 - unnormalized_expression) == 0
 
+
+def bind_particle(world, values):
+    radius, thickness = values["radius"], values["thickness"]
+    vc = 4 * np.pi * radius**3 / 3
+    vo = 4 * np.pi * (radius + thickness)**3 / 3
+    return dict(
+        R_core=radius, Ri_shell=radius, Ro_shell=radius + thickness,
+        beta_core=(values["sld_core"] - values["sld_solvent"]) * 1e-6 * vc,
+        beta_shell=(values["sld_shell"] - values["sld_solvent"]) * 1e-6 * (vo - vc),
+    )
+
+
+# These substitutions declare the same parameter mapping for the optional
+# generated analytical backend. Runtime clouds/hybrids need only bind_particle.
 radius, thickness, rc, rs, solvent = sympy.symbols(
     "radius thickness sld_core sld_shell sld_solvent"
 )
 vc = 4 * sympy.pi * radius**3 / 3
 vo = 4 * sympy.pi * (radius + thickness)**3 / 3
-particle_amplitude = sympy.simplify(signed_expression.subs({
-    core_radius_symbol: radius, shell_inner_symbol: radius,
-    shell_outer_symbol: radius + thickness,
-    beta_core_symbol: (rc - solvent) * sympy.Rational(1, 10**6) * vc,
-    beta_shell_symbol: (rs - solvent) * sympy.Rational(1, 10**6) * (vo - vc),
-}))
+signed_expression = sympy.cancel(sympy.sympify(
+    str(world.FormFactorAmplitude("droplet:core.center"))
+) * (beta_core_symbol + beta_shell_symbol))
 
-adapter = ModuleType("pyseb_aot")
-adapter.__file__ = str(Path.cwd() / "pyseb_aot_adapter.py")
-adapter.name = "pyseb_aot"
-adapter.parameters = [
-    ["radius", "Ang", 25., [0.0, np.inf], "volume", "Core radius"],
-    ["thickness", "Ang", 8., [0.0, np.inf], "volume", "Shell thickness"],
-    ["sld_core", "1e-6/Ang^2", 6.39, [-np.inf, np.inf], "sld", "Core SLD"],
-    ["sld_shell", "1e-6/Ang^2", .62, [-np.inf, np.inf], "sld", "Shell SLD"],
-    ["sld_solvent", "1e-6/Ang^2", -.28, [-np.inf, np.inf], "sld", "Solvent SLD"],
-]
-adapter.have_Fq = True
-adapter.form_volume = "return 4.0*M_PI/3.0*pow(radius+thickness, 3);"
-common_terms, (reduced_amplitude,) = sympy.cse(particle_amplitude)
-common_code = "\n".join(
-    f"double {symbol} = {sympy.ccode(expression)};"
-    for symbol, expression in common_terms
+particle_spec = ModelSpec(
+    name="pyseb_aot", world_factory=build_particle, structure="droplet",
+    bind=bind_particle, intensity_factor=1e8,
+    parameters=[
+        Parameter("radius", 25., (0., np.inf), "Ang", "Core radius", True),
+        Parameter("thickness", 8., (0., np.inf), "Ang", "Shell thickness", True),
+        Parameter("sld_core", 6.39, units="1e-6/Ang^2"),
+        Parameter("sld_shell", .62, units="1e-6/Ang^2"),
+        Parameter("sld_solvent", -.28, units="1e-6/Ang^2"),
+    ],
+    volume=lambda p: 4 * np.pi * (p["radius"] + p["thickness"])**3 / 3,
+    volume_parameters=("radius", "thickness"),
+    interaction=InteractionSpec(
+        "droplet:core.center", lambda p: p["radius"] + p["thickness"],
+    ),
+    symbolic=SymbolicSpec(
+        parameters=dict(R_core=radius, Ri_shell=radius, Ro_shell=radius+thickness,
+                        beta_core=(rc-solvent)*sympy.Rational(1, 10**6)*vc,
+                        beta_shell=(rs-solvent)*sympy.Rational(1, 10**6)*(vo-vc)),
+        volume=vo, amplitude=signed_expression, effective_radius=radius+thickness,
+    ),
 )
-adapter.c_code = """
-static void Fq(double q, double *F1, double *F2, double radius,
-               double thickness, double sld_core, double sld_shell,
-               double sld_solvent) {
-    %s
-    *F1 = 1.0e4 * (%s);
-    *F2 = (*F1)*(*F1);
-}
-""" % (common_code, sympy.ccode(reduced_amplitude))
-particle_info = make_model_info(adapter)
+particle_info = make_model_info(particle_spec, backend="compiled")
 particle_model = build_model(particle_info, platform="dll", dtype="double")
+positive_thickness_distribution = positive_gaussian()
 
 
 @lru_cache(maxsize=16)
 def particle_kernel(q_values):
     return particle_model.make_kernel([np.asarray(q_values)])
-
-
-class PositiveGaussian(Dispersion):
-    # Sample a fixed positive interval smoothly as the width changes.
-    # sasmodels normalizes these weights and performs the population average.
-    type = "pyseb_positive_gaussian"
-
-    def _weights(self, center, sigma, lb, ub):
-        nodes, weights = roots_legendre(self.npts)
-        lower = max(lb, center - self.nsigmas * sigma)
-        upper = min(ub, center + self.nsigmas * sigma)
-        values = lower + (nodes + 1) * (upper - lower) / 2
-        return values, weights * np.exp(-0.5 * ((values - center) / sigma)**2)
-
-
-DISTRIBUTIONS[PositiveGaussian.type] = PositiveGaussian
 
 
 def population_parameters(contrast, radius, thickness, radius_sd, thickness_sd,
@@ -559,7 +543,7 @@ def population_parameters(contrast, radius, thickness, radius_sd, thickness_sd,
         radius_pd_type="lognormal", radius_pd_n=population_points,
         radius_pd_nsigma=8.0,
         thickness=thickness, thickness_pd=thickness_sd,
-        thickness_pd_type=PositiveGaussian.type, thickness_pd_n=population_points,
+        thickness_pd_type=positive_thickness_distribution, thickness_pd_n=population_points,
         thickness_pd_nsigma=8.0,
         sld_core=core_sld, sld_shell=shell_sld, sld_solvent=solvent_sld,
     )
@@ -585,7 +569,8 @@ underlying normal distribution, truncated at positive thickness. sasmodels
 samples both distributions on finite grids. A small custom dispersion class
 uses smooth positive-thickness nodes: the built-in Gaussian drops grid points
 at zero thickness, which can introduce jumps while fitting broad distributions.
-The extension supplies nodes and weights; sasmodels performs the averaging.
+The adapter's `positive_gaussian()` extension supplies nodes and weights;
+sasmodels performs the averaging.
 We check both grids for convergence below.
 Its kernel uses amplitudes multiplied by $10^4$ and squared amplitudes by
 $10^8$, so a volume-fraction scale gives intensity in cm⁻¹.
@@ -773,7 +758,8 @@ correction and still describes its result as imperfect.
 This is an optional extension to the basic pySEB fitting workflow. pySEB
 supplies the linked particle's scattering expression; sasmodels supplies
 interactions and resolution, and SciPy fits the parameters. sasmodels also averages the particle population. The adapter connects these
-components; it is tutorial code, not a public pySEB fitting API. See the
+components through the optional `pyseb.sasmodels` interface. The fitting
+choices remain explicit in this tutorial. See the
 [sasmodels resolution API](https://www.sasview.org/docs/dev/sasmodels-api/resolution.html)
 for the measurement interface.
 
@@ -826,7 +812,7 @@ The effective radius is calculated from the library's averaged particle volume,
 preserving the radius convention used above.
 
 ```{python}
-interaction_info = make_product_info(particle_info, load_model_info("hardsphere"))
+interaction_info = with_hardsphere(particle_spec, backend="compiled")
 interaction_model = build_model(interaction_info, platform="dll", dtype="double")
 
 
@@ -861,7 +847,7 @@ def interacting_intensity(contrast, q, values, background,
         theory = call_kernel(interaction_kernel(tuple(resolution.q_calc)), dict(
             parameters, radius_effective=(3 * mean_volume / (4 * np.pi))**(1/3),
             volfraction=eta, scale=phi/eta, background=0.0,
-            structure_factor_mode=1,
+            structure_factor_mode=1, radius_effective_mode=0,
         ))
     return resolution.apply(theory) + background
 ```

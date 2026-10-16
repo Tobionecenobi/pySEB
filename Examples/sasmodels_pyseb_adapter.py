@@ -17,6 +17,9 @@ from sasmodels.modelinfo import make_model_info
 from sasmodels.weights import get_weights
 
 
+# This original proof of concept keeps its mapping explicit. The maintained
+# reusable implementation and examples now live in pyseb.sasmodels and the
+# sasmodels_aot.py / sasmodels_hybrid.py scripts.
 def make_adapter():
     world = pyseb.World("SasmodelsAdapter")
     graph = world.Add("SolidSphere", "core")
@@ -56,6 +59,8 @@ def make_adapter():
         return f, f**2
 
     Fq.vectorized = True
+    # Describe a Python sasmodels model in memory. Its Fq callback uses the
+    # expressions generated above; sasmodels will perform the distribution loops.
     module = ModuleType("pyseb_core_shell")
     module.__file__ = __file__
     module.name = "Linked pySEB core-shell adapter"
@@ -88,6 +93,8 @@ def check_adapter():
                       radius_pd_nsigma=8., thickness=8., thickness_pd=.36,
                       thickness_pd_type="gaussian", thickness_pd_n=81,
                       thickness_pd_nsigma=8.)
+    # Obtain identical library sampling nodes for an independent explicit
+    # average. This isolates adapter correctness from quadrature differences.
     radii, rw = get_weights("lognormal", 81, sigma_log, 8., median_radius,
                            (.01, np.inf), True)
     thicknesses, tw = get_weights("gaussian", 81, .36, 8., 8., (.01, np.inf), True)
