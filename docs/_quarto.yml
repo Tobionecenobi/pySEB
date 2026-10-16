@@ -8,6 +8,11 @@ project:
     - tutorials/data/SASDATA-LICENSE.txt
     - tutorials/data/TITIN-DATA-NOTICE.txt
     - tutorials/data/titin-results/
+    - tutorials/data/f127/F127_0_merged_1.txt
+    - tutorials/data/f127/LICENSE
+    - tutorials/generated/f127-corona/*.usda
+    - tutorials/generated/f127-corona/*.html
+    - tutorials/generated/f127-corona/plotly.min.js
   render:
     - index.qmd
     - about.qmd
@@ -21,6 +26,7 @@ project:
     - tutorials/parameter-sweeps.qmd
     - tutorials/fit-real-sans-data.qmd
     - tutorials/fit-linked-titin.qmd
+    - tutorials/fit-f127-corona.qmd
     - tutorials/pdb-polymer.qmd
     - tutorials/mixed-model-evaluation.qmd
     - tutorials/symbolic-expressions.qmd
@@ -71,6 +77,7 @@ website:
             - tutorials/parameter-sweeps.qmd
             - tutorials/fit-real-sans-data.qmd
             - tutorials/fit-linked-titin.qmd
+            - tutorials/fit-f127-corona.qmd
             - tutorials/pdb-polymer.qmd
             - tutorials/custom-yaml-workflow.qmd
         - section: "Advanced tutorials"
