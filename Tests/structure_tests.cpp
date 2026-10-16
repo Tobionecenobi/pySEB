@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "World.hpp"
+#include "Symbolic.hpp"
 #include "GiNaCSymbolic.hpp"
 #include "SEB.hpp"
 #include "Exceptions.hpp"
@@ -13,6 +14,38 @@ struct SymbolicFactoryInitializer {
 } g_initializer;
 
 // Test Complex Structure Creation
+TEST(StructureTest, GeneratedEquationsMatchNumericalTraversalAcrossBackends) {
+    const std::string original = sebsym::active_backend();
+    for (const auto& backend : sebsym::available_backends()) {
+        ASSERT_TRUE(sebsym::set_backend(backend));
+        World world("equationParity");
+        GraphID graph = world.Add("GaussianPolymer", "p0");
+        for (int i=1; i<4; ++i)
+            world.Link("GaussianPolymer", "p"+std::to_string(i)+".end1",
+                       "p"+std::to_string(i-1)+".end2");
+        world.Add(graph, "particle");
+        ParameterList parameters;
+        for (int i=0; i<4; ++i) {
+            parameters["Rg_p"+std::to_string(i)] = 3.+i;
+            parameters["beta_p"+std::to_string(i)] = i%2 ? -1. : 2.;
+        }
+        const auto intensity = world.FormFactor_Unnormalized("particle");
+        const auto amplitude = world.FormFactorAmplitude("particle:p0.end1");
+        const auto phase = world.PhaseFactor("particle:p0.end1", "particle:p3.end2");
+        // Numerical traversal is an independent reference for the generated
+        // equation; do not pin a particular printer layout or factorization.
+        for (double q : {.02, .08, .2, .5}) {
+            const double native = world.EvaluateFormFactorUnnormalized("particle", parameters, q);
+            EXPECT_NEAR(world.Evaluate(intensity, parameters, q), native, 1e-9*(1.+std::abs(native)));
+            EXPECT_NEAR(world.Evaluate(amplitude, parameters, q),
+                        world.EvaluateFormFactorAmplitude("particle:p0.end1", parameters, q), 1e-9);
+            EXPECT_NEAR(world.Evaluate(phase, parameters, q),
+                        world.EvaluatePhaseFactor("particle:p0.end1", "particle:p3.end2", parameters, q), 1e-10);
+        }
+    }
+    ASSERT_TRUE(sebsym::set_backend(original));
+}
+
 TEST(StructureTest, CrossTermStructure) {
     World world;
     

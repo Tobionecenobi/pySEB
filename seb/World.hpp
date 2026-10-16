@@ -10,6 +10,7 @@
 #include <cmath>
 #include <utility>
 #include <tuple>
+#include <unordered_set>
 
 #include "Types.hpp"
 #include "Constants.hpp"
@@ -314,17 +315,27 @@ public:
             : constant(c0), q2Coefficient(c2) {}
     };
 
-    // These three methods does all the traversal used in all scattering expressions above.
-    sebsym::Expression GenerateRefToRef( refPoint r1, refPoint r2, int depth, int varForm );
-    sebsym::Expression GenerateRefToAll( refPoint r,               int depth, int varForm );
-    sebsym::Expression GenerateAllToAll( string name,              int depth, int varForm );
-
-    // Paths depend on topology, not q. Keep reuse local to one vector call.
+    // Topology reuse is local to one evaluation/generation call.
     struct NumericEvaluationContext {
         std::map<std::tuple<string, string, bool>, ReferencePointList> paths;
         std::size_t pathReferences = 0;
     };
-    ReferencePointList NumericPath(const string& first, const string& second,
+    struct SymbolicEvaluationContext {
+        NumericEvaluationContext topology;
+        std::map<std::tuple<string, int, int>, sebsym::Expression> intensities;
+        std::map<std::tuple<string, int, int>, sebsym::Expression> amplitudes;
+        std::map<std::tuple<string, string, int, int>, sebsym::Expression> phases;
+    };
+
+    // Depth and expression mode are part of each memoization key.
+    sebsym::Expression GenerateRefToRef(refPoint r1, refPoint r2, int depth, int varForm,
+                                      SymbolicEvaluationContext* context);
+    sebsym::Expression GenerateRefToAll(refPoint ref, int depth, int varForm,
+                                      SymbolicEvaluationContext* context);
+    sebsym::Expression GenerateAllToAll(string name, int depth, int varForm,
+                                      SymbolicEvaluationContext* context);
+
+    ReferencePointList CachedPath(const string& first, const string& second,
                                   bool check, NumericEvaluationContext* context);
 
     // Parallel numerical traversal.
@@ -344,7 +355,7 @@ public:
     static GuinierTerm ScaleGuinier(double scale, const GuinierTerm& term);
 
     // Makes a list of all neighbors, that is link partners, and reference points inside the same structure / sub-unit
-    ReferencePointList getNeighbors( refPoint last, ReferencePointList& VisitedAlready);
+    ReferencePointList getNeighbors(refPoint last, const std::unordered_set<refPoint>& visited);
 
     // Returns a list of all reference points contained in structure / subunit.
     ReferencePointList getReferencePoints( refPoint structure );
@@ -353,13 +364,12 @@ public:
     void addStructureReferences( refPoint r, ReferencePointList& ret );
 
     // is r in VisitedAlready?
-    bool isVisited( refPoint& r, ReferencePointList& VisitedAlready);
 
     // Generate a link between the two reference points
     LinkPair generateLink(refPoint r1, refPoint r2);
 
     // Helper to generate product of phase factors along a given path.
-    sebsym::Expression PhaseFactor(ReferencePointList& path, int depth, string, int varForm, bool doCheck=true);
+    sebsym::Expression PhaseFactor(ReferencePointList& path, int depth, string, int varForm, bool doCheck=true, SymbolicEvaluationContext* context=nullptr);
 
     // Const iterators over subgraphs
     list<string>::const_iterator subgraph_cbegin(GraphID);

@@ -11,6 +11,37 @@
 
 using sebsym::Expression;
 
+namespace {
+
+// Keep sums/products shallow without changing their mathematical content.
+// This also avoids a linear-depth expression tree when many pairs contribute.
+Expression combineExpressions(std::vector<Expression> terms, bool product)
+{
+    if (terms.empty()) return constant(product ? 1 : 0);
+    while (terms.size() > 1) {
+        std::vector<Expression> next;
+        next.reserve((terms.size()+1)/2);
+        for (std::size_t i=0; i<terms.size(); i+=2) {
+            if (i+1 == terms.size()) next.push_back(terms[i]);
+            else next.push_back(product ? terms[i]*terms[i+1] : terms[i]+terms[i+1]);
+        }
+        terms.swap(next);
+    }
+    return terms.front();
+}
+
+template<class Cache, class Key, class Builder>
+Expression memoizedExpression(Cache& cache, const Key& key, Builder build)
+{
+    const auto found = cache.find(key);
+    if (found != cache.end()) return found->second;
+    Expression result = build();
+    cache.emplace(key, result);
+    return result;
+}
+
+} // namespace
+
 /* Adds a new sub unit that is not connected to anything. Thus it receives its own graphID.
 
    Arguments:
@@ -497,7 +528,7 @@ try{
          }
 
     list< ReferencePointList > SearchPaths;                    // These are all the search candidate paths reaching towards the target.
-    ReferencePointList VisitedAlready;                         // Reference point already visited, used to avoid back tracking.
+    std::unordered_set<refPoint> VisitedAlready;                         // Reference point already visited, used to avoid back tracking.
     bool istargetref = hasAPeriod(name2);                      // we are searching for a reference point, or a structure/subunit.
 
     // Seed the search with source point(s)
@@ -506,7 +537,7 @@ try{
           ReferencePointList startPath;                        // Then we add that reference point as the only
           startPath.push_back(name1);                          // source path in our SearchPaths
           SearchPaths.push_back(startPath);
-          VisitedAlready.push_back(name1);                     // Mark starting point has having been visited
+          VisitedAlready.insert(name1);                     // Mark starting point has having been visited
       }
     else                                                       // Starting point of seeach is a structure or sub-unit
      {                                                         // then we seed the search with all reference points within the structure or sub-unit
@@ -516,7 +547,7 @@ try{
                 ReferencePointList startPath;
                 startPath.push_back(r);
                 SearchPaths.push_back(startPath);
-                VisitedAlready.push_back(r);
+                VisitedAlready.insert(r);
              }
      }
 
@@ -538,7 +569,7 @@ try{
                        return path;                                         // and return it.
                     }
 
-                 VisitedAlready.push_back(next);                            // mark next has baving been visited
+                 VisitedAlready.insert(next);                            // mark next has baving been visited
                  SearchPaths.push_back(path);                               // and send the new grown path back to the search list.
                  path.pop_back();                                           // pop next, so we can reuse this path for adding a new step
              }
@@ -641,7 +672,8 @@ try{
 
     betas.clear(); params.clear();
 
-    return GenerateRefToRef( r1, r2, depth, varForm );
+    SymbolicEvaluationContext context;
+    return GenerateRefToRef(r1, r2, depth, varForm, &context);
 }
 catch (SEBException& e)
 {
@@ -663,7 +695,8 @@ try{
 
    betas.clear(); params.clear();
 
-   return GenerateRefToAll( ref,  depth, varForm )/GenerateRefToAll( ref,  depth, BETA );
+   SymbolicEvaluationContext context;
+   return GenerateRefToAll(ref, depth, varForm, &context)/GenerateRefToAll(ref, depth, BETA, &context);
 }
 catch (SEBException& e)
 {
@@ -684,7 +717,8 @@ try{
    if(isStructure(myself)) testPathSyntax(ref);
    betas.clear(); params.clear();
 
-   return GenerateRefToAll( ref,  depth, varForm );
+   SymbolicEvaluationContext context;
+   return GenerateRefToAll(ref, depth, varForm, &context);
 }
 catch (SEBException& e)
 {
@@ -703,7 +737,8 @@ try{
    if (depth<0)            throw SEBException("Depth can not be negative.");
    betas.clear(); params.clear();
 
-   return GenerateAllToAll( myself, depth, varForm)/GenerateAllToAll( myself, depth, BETA);
+   SymbolicEvaluationContext context;
+   return GenerateAllToAll(myself, depth, varForm, &context)/GenerateAllToAll(myself, depth, BETA, &context);
 }
 catch (SEBException& e)
 {
@@ -722,7 +757,8 @@ try{
    if (depth<0)            throw SEBException("Depth can not be negative.");
    betas.clear(); params.clear();
 
-   return GenerateAllToAll( myself, depth, varForm);
+   SymbolicEvaluationContext context;
+   return GenerateAllToAll(myself, depth, varForm, &context);
 }
 catch (SEBException& e)
 {
@@ -1539,35 +1575,26 @@ void World::printList(ReferencePointList path, string prefix, string postfix)
      since there is no need to keep test input at every recursion.
 
 */
-Expression World::GenerateRefToRef( refPoint r1, refPoint r2, int depth, int varForm)
+Expression World::GenerateRefToRef(refPoint r1, refPoint r2, int depth, int varForm,
+                                         SymbolicEvaluationContext* context)
 {
-    string myself=prefix(r1);
-
-    // If we have two paths to a reference point inside a structure:
-    if (isStructure(myself))
-      {
-        // Trivial case
-        if(isLinked(r1, r2) || r1 == r2 ) return constant(1);
-
-        // We are still in a structure, so return GENERIC expression for psi.
-        if(depth == 0) return getPsi( myself, postfix(r1), postfix(r2), varForm);
-
-        // depth>0   hence we could have XX:YY... XX:ZZ...  or  XX:YY... XX:YY...  in the second case the yy-yo-yy path would be empty, so we have to handle thus case
-        if (prefix(postfix(r1)) == prefix(postfix(r2)))   // XX:YY.. and XX:yy..
-               return GenerateRefToRef( postfix(r1) , postfix(r2), depth - 1, varForm);
-         else
-           {                                                                                    // The two points have different second prefix, hence the path will not be empty.
-               ReferencePointList  path = findpath(r1, r2, false);                              // Find path, don't check arguments.
-               return PhaseFactor(path, depth-1, myself, varForm);                            // Use helper to geneerate product of Psi terms.
-         }
-    }
-    else
-     if (isSubunit(myself))     // r1,r2 must have the form   r1=subunit.ref1  r2=subunitname.ref2
-        return getSubunit(getName(r1))->PhaseFactor(getReference(r1), getReference(r2), betas, params,  varForm);
-
-    throw SEBException("Internal error.",
-                        "World::GenerateRefToRef( refPoint r1=\""+r1+"\", refPoint r2=\""+r2+"\", int depth="+to_string(depth)+", int varForm="+to_string(varForm)+")");
-
+    const auto key = std::make_tuple(r1, r2, depth, varForm);
+    return memoizedExpression(context->phases, key, [&]() -> Expression {
+        const string myself = prefix(r1);
+        if (isStructure(myself)) {
+            if (isLinked(r1, r2) || r1 == r2) return constant(1);
+            if (depth == 0) return getPsi(myself, postfix(r1), postfix(r2), varForm);
+            if (prefix(postfix(r1)) == prefix(postfix(r2)))
+                return GenerateRefToRef(postfix(r1), postfix(r2), depth-1, varForm, context);
+            ReferencePointList path = CachedPath(r1, r2, false, &context->topology);
+            return PhaseFactor(path, depth-1, myself, varForm, true, context);
+        }
+        if (isSubunit(myself))
+            return getSubunit(getName(r1))->PhaseFactor(
+                getReference(r1), getReference(r2), betas, params, varForm);
+        throw SEBException("Unknown object in symbolic reference-to-reference traversal",
+                           "World::GenerateRefToRef()");
+    });
 }
 
 
@@ -1622,131 +1649,88 @@ Expression World::GenerateRefToRef( refPoint r1, refPoint r2, int depth, int var
 
 
 */
-Expression World::GenerateRefToAll( refPoint ref, int depth, int varForm )
+Expression World::GenerateRefToAll(refPoint ref, int depth, int varForm,
+                                         SymbolicEvaluationContext* context)
 {
-   string myself=prefix(ref);
-   if(isStructure(myself))
-    {
-        // Depth 0 reached, but we are still in structure, so return a GENERIC expression.
-        if(depth == 0) return getFFA( myself, postfix(ref), varForm);
-
-        Expression A = constant(0);
-        Structure *sptr = getStructure(myself);
-        GraphID gid = sptr->getGraphID();
-
-        for (auto child =subgraph_cbegin(gid) ; child!= subgraph_cend(gid) ; ++child)                          // Loop over all children
-           {
-               ReferencePointList  path = findpath(ref, myself+":"+*child);                             // Find path from child to reference point, don't check arguments again.
-
-               Expression term = constant(1);
-               if (path.empty())                                                                               // CASE: ref is within myself:child
-                     term = GenerateRefToAll(postfix(ref), depth-1, varForm);                     // hence return form factor amplitude of child relative to ref
-                 else                                                                                          // CASE: ref is not within myself:child, so we have a path.
-                     term = PhaseFactor(path, depth-1, myself, varForm)                              // Make product of psi terms for jumps along path
-                           *GenerateRefToAll( path.back(), depth-1, varForm);                      // times form factor amplitude relative to last ref point in path.
-
-               A = A + term;                                                                                         // Each child contribute a form factor amplitude term
-           }
-
-        return A;
-    }
-    else if (isSubunit(myself))                                                                                // We have reached a sub-unit. Just return the equation.
-        return getSubunit(myself)->FormFactorAmplitude(getReference(ref), betas, params, varForm);
-    else
-    throw SEBException("Something wrong with the object given", "Expression World::GenerateRefToAll( refPoint "+ref+", int "+to_string(depth)+",..)");
+    const auto key = std::make_tuple(ref, depth, varForm);
+    return memoizedExpression(context->amplitudes, key, [&]() -> Expression {
+        const string myself = prefix(ref);
+        if (isStructure(myself)) {
+            if (depth == 0) return getFFA(myself, postfix(ref), varForm);
+            std::vector<Expression> terms;
+            const GraphID gid = getStructure(myself)->getGraphID();
+            for (auto child=subgraph_cbegin(gid); child!=subgraph_cend(gid); ++child) {
+                ReferencePointList path = CachedPath(ref, myself+":"+*child, true, &context->topology);
+                if (path.empty()) terms.push_back(GenerateRefToAll(postfix(ref), depth-1, varForm, context));
+                else terms.push_back(PhaseFactor(path, depth-1, myself, varForm, true, context) *
+                                     GenerateRefToAll(path.back(), depth-1, varForm, context));
+            }
+            return combineExpressions(std::move(terms), false);
+        }
+        if (isSubunit(myself))
+            return getSubunit(myself)->FormFactorAmplitude(getReference(ref), betas, params, varForm);
+        throw SEBException("Unknown object in symbolic reference-to-all traversal",
+                           "World::GenerateRefToAll()");
+    });
 }
 
 
 /*    Calculates form factor of a structure or sub-unit within the world.
 
 */
-Expression World::GenerateAllToAll( structName myself, int depth , int varForm)
+Expression World::GenerateAllToAll(string myself, int depth, int varForm,
+                                         SymbolicEvaluationContext* context)
 {
-   if(isStructure(myself))
-    {
-        // Depth 0 reached, but we are still in structure, so return a GENERIC expression.
-        if(depth == 0) return getFF( myself, varForm );
-
-        Expression F = constant(0);
-        Structure *sptr = getStructure(myself);
-        GraphID gid = sptr->getGraphID();
-
-        for (auto child1=subgraph_cbegin(gid) ; child1!= subgraph_cend(gid) ; ++child1)                    // Loop over pairs of children
-           {
-              for (auto child2=child1 ; child2!=subgraph_cend(gid) ; ++child2)
-               {
-                    string child1name = *child1;
-                    string child2name = *child2;
-
-                    Expression Fterm = constant(0);
-                    if (child1==child2)                                                                                  // Diagonal term
-{
-                             Fterm=GenerateAllToAll( child1name, depth-1, varForm);                                         // Add form factor of child.
-
-}
-                      else
-                        {                                                                                                // Add interference term between the two children.
-                             ReferencePointList  path = findpath(myself+":"+child1name, myself+":"+child2name, false);   // find path connecting the two children
-
-                             Expression A1 = GenerateRefToAll( path.front(), depth-1, varForm);                      // Amplitude of child1 relative to first step in path
-                             Expression Psi = PhaseFactor(      path        , depth-1, myself, varForm);              // phase factors due to path
-                             Expression A2 = GenerateRefToAll( path.back() , depth-1, varForm);                      // Amplitude of child2 relative to last step in path
-
-                             Fterm = constant(2) * A1 * Psi * A2;
-
-                        }
-
-
-                    F = F + Fterm;
-               }
-
-           }
-        return F;
-    }
-    else if (isSubunit(myself))                                                                                // We have reached a sub-unit. Just return the equation.
-    {
-        return getSubunit(myself)->FormFactor(betas, params, varForm);
-    }
-    else
-    throw SEBException("Something wrong with the object given", "Expression World::GenerateAllToAll( structName "+myself+", int depth , int varForm)");
+    const auto key = std::make_tuple(myself, depth, varForm);
+    return memoizedExpression(context->intensities, key, [&]() -> Expression {
+        if (isStructure(myself)) {
+            if (depth == 0) return getFF(myself, varForm);
+            std::vector<Expression> terms;
+            const GraphID gid = getStructure(myself)->getGraphID();
+            for (auto first=subgraph_cbegin(gid); first!=subgraph_cend(gid); ++first) {
+                for (auto second=first; second!=subgraph_cend(gid); ++second) {
+                    if (first == second) {
+                        terms.push_back(GenerateAllToAll(*first, depth-1, varForm, context));
+                    } else {
+                        ReferencePointList path = CachedPath(
+                            myself+":"+*first, myself+":"+*second, false, &context->topology);
+                        Expression a1 = GenerateRefToAll(path.front(), depth-1, varForm, context);
+                        Expression phase = PhaseFactor(path, depth-1, myself, varForm, true, context);
+                        Expression a2 = GenerateRefToAll(path.back(), depth-1, varForm, context);
+                        terms.push_back(constant(2)*a1*phase*a2);
+                    }
+                }
+            }
+            return combineExpressions(std::move(terms), false);
+        }
+        if (isSubunit(myself)) return getSubunit(myself)->FormFactor(betas, params, varForm);
+        throw SEBException("Unknown object in symbolic all-to-all traversal",
+                           "World::GenerateAllToAll()");
+    });
 }
 
-
-
-
-
-Expression World::PhaseFactor(ReferencePointList& path, int depth, string myself, int varForm, bool doCheck)
+Expression World::PhaseFactor(ReferencePointList& path, int depth, string myself,
+                              int varForm, bool doCheck, SymbolicEvaluationContext* context)
 {
-// Iterate through all steps in the path, the path is alternating 1) steps across a link, 2) steps across a structure/subunit.
-//    1) we have not moved in space, so we do not need to do anything.
-//    2) recursively drill down noting that the step is always within the same sibling structure or sub-unit.
-// Currently we do no checks, since we assume this is a private function.
-
-    if (depth<0)  throw SEBException("Depth can not be negative.",
-                           "World::getPhaseFactor( path,"+to_string(depth)+", int varForm="+to_string(varForm)+")");
-
-//    cout << "getPhaseFactor called with path: ";
-//    printList(path); cout << "\n";
-
-    Expression Psi = constant(1);
-    auto it=path.begin();
-    auto its=it; its++;
-    while (its != path.end())
-       {                                                                                                           // Is this a step across a sub-unit or via a link?
-          if(!isLinked(*it, *its))                                                                                 // steps across links contribute no phase
-               if (depth==0)                                                                                       // GENERIC expression
-               {
-                   if (hasAColon(*it))
-                               Psi = Psi * getPsi(prefix(*it), postfix(*it), postfix(*its), varForm);                    // it = XX:yy.r1  its = XX:zz.r2   Psi_XX:yy.r1,zz.r2
-                          else
-                               Psi = Psi * getPsi(getName(*it), getReference(*it), getReference(*its), varForm );        // it = XX.r1     its = XX.r2      Psi_XX:r1,r2
-               }
-               else            Psi = Psi * GenerateRefToRef(*it, *its, depth, varForm);                          // otherwise recurse down
-            it=its;
-            its++;
-         }
-
-    return Psi;
+    if (depth < 0) throw SEBException("Depth can not be negative.", "World::PhaseFactor(path)");
+    // Also support existing callers of this helper without a supplied context.
+    if (!context) {
+        SymbolicEvaluationContext local;
+        return PhaseFactor(path, depth, myself, varForm, doCheck, &local);
+    }
+    std::vector<Expression> factors;
+    if (path.empty()) return constant(1);
+    auto current=path.begin(), next=current;
+    ++next;
+    for (; next!=path.end(); ++current, ++next) {
+        if (isLinked(*current, *next)) continue;
+        if (depth == 0) {
+            if (hasAColon(*current))
+                factors.push_back(getPsi(prefix(*current), postfix(*current), postfix(*next), varForm));
+            else factors.push_back(getPsi(getName(*current), getReference(*current), getReference(*next), varForm));
+        } else factors.push_back(GenerateRefToRef(*current, *next, depth, varForm, context));
+    }
+    return combineExpressions(std::move(factors), true);
 }
 
 double World::GenerateTotalBetaNumeric(
@@ -1772,7 +1756,7 @@ double World::GenerateTotalBetaNumeric(
     );
 }
 
-ReferencePointList World::NumericPath(
+ReferencePointList World::CachedPath(
     const string& first, const string& second, bool check,
     NumericEvaluationContext* context)
 {
@@ -1819,7 +1803,7 @@ double World::GenerateRefToRefNumeric(
             return GenerateRefToRefNumeric(postfix(r1), postfix(r2), q, values, context);
         }
 
-        ReferencePointList path = NumericPath(r1, r2, false, context);
+        ReferencePointList path = CachedPath(r1, r2, false, context);
         return PhaseFactorNumeric(path, q, values, context);
     }
 
@@ -1854,7 +1838,7 @@ double World::GenerateRefToAllNumeric(
         const GraphID gid = getStructure(myself)->getGraphID();
 
         for (auto child = subgraph_cbegin(gid); child != subgraph_cend(gid); ++child) {
-            ReferencePointList path = NumericPath(ref, myself + ":" + *child, true, context);
+            ReferencePointList path = CachedPath(ref, myself + ":" + *child, true, context);
             double term = 0.0;
             if (path.empty()) {
                 term = GenerateRefToAllNumeric(postfix(ref), q, values, context);
@@ -1906,7 +1890,7 @@ double World::GenerateAllToAllNumeric(
                     continue;
                 }
 
-                ReferencePointList path = NumericPath(
+                ReferencePointList path = CachedPath(
                     name + ":" + *child1,
                     name + ":" + *child2,
                     false, context
@@ -2377,15 +2361,6 @@ string World::getReferenceAfterHash(string n)
 
 
 
-// Helper to check if r is in VisitedAlready
-bool World::isVisited( refPoint& r, ReferencePointList& VisitedAlready)
-{
-   for (auto v : VisitedAlready)
-       if (v==r) return true;
-
-   return false;
-}
-
 /*
    Returns all the non-visited neighbours of the last reference point, that is
 
@@ -2395,7 +2370,7 @@ bool World::isVisited( refPoint& r, ReferencePointList& VisitedAlready)
       or we can jump to any reference point inside this structure.
 */
 
-ReferencePointList World::getNeighbors( refPoint last, ReferencePointList& VisitedAlready)
+ReferencePointList World::getNeighbors(refPoint last, const std::unordered_set<refPoint>& visited)
 {
    ReferencePointList neighbors;
 
@@ -2407,14 +2382,14 @@ ReferencePointList World::getNeighbors( refPoint last, ReferencePointList& Visit
         if (itr.second == last) next = itr.first;
 
         if (next.empty()) continue;
-        if (isVisited(next, VisitedAlready)) continue;
+        if (visited.count(next) != 0) continue;
 
         neighbors.push_back(next);
      }
 
 // Then traverse inside the structure and find all reference points below prefix. (not already known)
    for (auto it : getReferencePoints(prefix(last)) )
-         if (!isVisited(it, VisitedAlready) && it!=last)
+         if (visited.count(it) == 0 && it!=last)
                neighbors.push_back(it);
 
    return neighbors;

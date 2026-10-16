@@ -124,11 +124,10 @@ at 4,096 paths and 262,144 reference entries; uncached paths use the original
 search when that budget is exhausted. Pair enumeration and long-chain phase
 products remain, so this does not remove all growth with structure size.
 
-A separate exploratory test found that the Python symbolic conversion of the
-32-segment chain exceeds the string parser's nesting limit. The native vector
-benchmark avoids that conversion. Reusing or compiling a complete symbolic
-expression is therefore not yet a reliable general workaround for large
-structures; that conversion limitation remains separate work.
+The baseline Python symbolic conversion of a 32-segment chain exceeded the
+string parser's nesting limit. The numerical benchmark avoids that conversion.
+The subsequent symbolic-generation work below removes that failure for the
+portable backend by transferring its expression tree directly to SymPy.
 
 The after profile reduced `findpath` calls from 61,504 to 1,984, exactly one
 search per pair per vector call. All six native benchmark curves matched the
@@ -156,3 +155,69 @@ chain and 10403.04 ms for the 32-arm star; separate-run timing variation is why
 the same-build scalar comparison is also recorded. No full optimizer timing
 was measured. This optimization applies automatically to native vector calls;
 it does not require a generated kernel or a change of symbolic backend.
+
+## Analytical equation generation
+
+Regression tests were added before optimization. The original code failed the
+32-segment Python conversion test by returning one unparsed symbol; the smaller
+chain, nested, signed-contrast, distributed-reference, and world-edit checks
+passed. The final tests also cover a 300-level native expression, expression
+modes, parameter tracking, zero-q limits, and shared versus independent sampled
+attachment points. Tests compare mathematical results with numerical traversal
+and a Gaussian-chain closed form, rather than fixing a printed equation layout.
+
+Generation now memoizes intensities, attachment amplitudes, and phase factors
+within one call, including depth and expression mode in the keys. Long sums and
+products are built as balanced trees. Path searches retain their original
+neighbor order while using a hash set for visited-reference membership. The
+portable Python bridge transfers native nodes directly to SymPy, batches
+associative sums/products, and reuses converted symbols, constants, and shared
+subexpressions. All caches are local to one generation/conversion call. Other
+symbolic backends retain their existing conversion path.
+
+Run the public Python benchmark:
+
+```bash
+OPENBLAS_NUM_THREADS=1 .venv-sympy/bin/python benchmarks/profile_symbolic.py \
+  --output /tmp/pyseb-symbolic
+OPENBLAS_NUM_THREADS=1 .venv-sympy/bin/python benchmarks/profile_symbolic.py \
+  --sizes 64 --output /tmp/pyseb-symbolic-64
+```
+
+Each successful conversion is evaluated and compared with native traversal.
+The report explicitly records failed conversions instead of treating their
+shorter runtimes as valid measurements. Warmed medians of three repeats on
+this machine, before (`7f1c2f2d`) and after:
+
+| Equation | Before: generation + Python conversion | After | Status |
+|---|---:|---:|---|
+| 8-segment chain | 28.20 ms | 2.24 ms | Equivalent |
+| 16-segment chain | 134.28 ms | 8.19 ms | Equivalent |
+| 32-segment chain | Failed conversion | 63.98 ms | Now valid |
+| Sphere + 8 arms | 24.15 ms | 2.47 ms | Equivalent |
+| Sphere + 16 arms | 90.57 ms | 10.63 ms | Equivalent |
+| Sphere + 32 arms | Failed conversion | 76.25 ms | Now valid |
+
+The additional 64-segment chain and 64-arm star both converted successfully
+and matched native traversal; generation plus Python conversion took 736 ms
+and 1515 ms respectively. No before/after speedup is claimed for those cases.
+
+To separate native construction and native string rendering from Python costs:
+
+```bash
+g++ -O3 -std=c++14 -DSPECIALFUNCTIONS_IMPL -I. -Iseb -Iseb-symbolic \
+  benchmarks/profile_symbolic.cpp build-python/libseb.a build-python/libseb-symbolic.a \
+  -lgsl -lgslcblas -lpthread -o /tmp/pyseb-profile-symbolic
+/tmp/pyseb-profile-symbolic 32
+```
+
+For 32 segments, native generation changed from 79.88 ms to 52.14 ms (about
+1.5x faster); native rendering remained around 9 ms. The generated expression
+at q=0.1 agreed to approximately 2e-15 relative precision. The larger Python
+speedups therefore include improvements in conversion and SymPy construction,
+not just the C++ traversal. No scattering approximation or backend switch was
+introduced. Timings are observations on this machine, not performance guarantees.
+
+Validation: 123 Python tests passed with one opt-in network test skipped;
+all 35 C++ structure/symbolic tests passed in the GiNaC-enabled build, including
+new equation-versus-numerical comparisons across both available backends.
