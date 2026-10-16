@@ -309,7 +309,11 @@ FreeSASA protein classifier cannot assign a radius.
 
 If the parsed structure contains explicit hydrogen records, set
 `build_options.use_implicit_hydrogens = False` to avoid counting hydrogens
-twice. The bundled group map represents standard internal amino-acid groups;
+twice. This also selects the bundled profile's bare-atom excluded volumes,
+so explicit H atoms contribute their own displaced solvent only once.
+Custom grouped parameters can declare `atomic_excluded_volume` for this mode;
+the default `-1` keeps their supplied `excluded_volume` unchanged.
+The bundled group map represents standard internal amino-acid groups;
 terminal protonation and nonstandard residues should be supplied explicitly
 when they matter for the construct.
 
@@ -406,9 +410,10 @@ cloud = pyseb.AtomicSAXSStructureLoader.load_pdb(
 
 This convention uses a bounding-box grid with half-cell offset and the
 profile's atomic surface radii in the inner exclusion boundary. Point weights
-include the reference's bulk-density factor; `hydration_volume` therefore
-contains effective reference weights, not geometric voxel volumes. The
-`VolumeDensity` default preserves the physical volume-weighted interpretation.
+include the current bulk-density factor during evaluation; `hydration_volume`
+stores geometric voxel volumes, and `hydration_uses_solvent_density` marks
+Pepsi shell points. Changing solvent density therefore agrees with rebuilding.
+The `VolumeDensity` default preserves the physical volume-weighted interpretation.
 `BondedWater` adds the finite O-H distance to the water form factor and its
 Guinier moment. The remaining small discrepancy with Pepsi uses different
 four- versus five-Gaussian atomic factors.

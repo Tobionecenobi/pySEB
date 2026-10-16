@@ -43,6 +43,8 @@ struct AtomicSAXSScatterer {
     double implicitHydrogenDistance = 0.0;
     // Positive for spatial hydration quadrature points, zero for atoms.
     double hydrationVolume = 0.0;
+    // Pepsi shell convention multiplies geometric volume by the current bulk density.
+    bool hydrationUsesSolventDensity = false;
     std::string element;
 
     AtomicSAXSScatterer() {}

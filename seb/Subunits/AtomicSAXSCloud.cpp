@@ -462,7 +462,8 @@ double AtomicSAXSCloud::atomicAmplitude(std::size_t index, double q) const
          (!spatial && atom.solventAccessibility > 0.0))) {
         const double volume = spatial ? atom.hydrationVolume :
             options.hydrationVolumePerExposedAtom * atom.solventAccessibility;
-        result += options.hydrationShellContrast * volume * normalizedWaterAmplitude(q);
+        const double density = atom.hydrationUsesSolventDensity ? options.solventElectronDensity : 1.0;
+        result += options.hydrationShellContrast * volume * density * normalizedWaterAmplitude(q);
     }
     return atom.occupancy * result;
 }
@@ -500,7 +501,8 @@ AtomicSAXSCloud::AmplitudeMoment AtomicSAXSCloud::amplitudeMoment(
         const AmplitudeMoment water = waterMoment();
         const double volume = spatial ? atom.hydrationVolume :
             options.hydrationVolumePerExposedAtom * atom.solventAccessibility;
-        const double hydrationBeta = options.hydrationShellContrast * volume;
+        const double density = atom.hydrationUsesSolventDensity ? options.solventElectronDensity : 1.0;
+        const double hydrationBeta = options.hydrationShellContrast * volume * density;
         beta += hydrationBeta;
         moment += hydrationBeta * water.secondMoment / water.beta;
     }

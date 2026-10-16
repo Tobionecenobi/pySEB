@@ -77,7 +77,13 @@ class TestAtomicSAXSCloud(unittest.TestCase):
             shell = [p for p in cloud.get_scatterers() if p.hydration_volume > 0]
             self.assertEqual(len(shell),expected_count)
             for point in shell:
-                self.assertAlmostEqual(point.hydration_volume,27*.334,places=12)
+                self.assertAlmostEqual(point.hydration_volume,27,places=12)
+                self.assertTrue(point.hydration_uses_solvent_density)
+            # Moving density out of stored weights preserves the reference curve.
+            for i, point in enumerate(cloud.get_scatterers()):
+                if point.hydration_volume > 0:
+                    self.assertAlmostEqual(cloud.atomic_amplitude(i, 0.),
+                                           .0167*27*.334, places=12)
         # All isolated shell nodes are the 24 permutations of (+/-4.5,
         # +/-1.5,+/-1.5), a geometry independent of any fitted intensity.
         cloud = pyseb.AtomicSAXSCloudBuilder.build([atom],profile,options,build)
@@ -90,6 +96,75 @@ class TestAtomicSAXSCloud(unittest.TestCase):
         profile.set_atom('ALA','C',zero)
         with self.assertRaises(RuntimeError):
             pyseb.AtomicSAXSCloudBuilder.build([atom],profile,options,build)
+
+    def test_pepsi_shell_density_update_matches_rebuild(self):
+        atoms = [atom_record(1, atom_name='C')]
+        profile = pyseb.AtomicSAXSParameterProfile.protein_defaults()
+        build = pyseb.AtomicSAXSCloudBuildOptions()
+        build.hydration_shell_convention = pyseb.AtomicSAXSHydrationShellConvention.Pepsi3
+        options = pyseb.AtomicSAXSOptions()
+        options.hydration_model = pyseb.AtomicSAXSHydrationModel.SpatialShell
+        options.include_hydration = True
+        options.hydration_shell_contrast = .0167
+        cloud = pyseb.AtomicSAXSCloudBuilder.build(atoms, profile, options, build)
+        world = pyseb.World('updated_density')
+        world.Add(cloud, 'cloud')
+        q = [0., 1e-5, .1, .4]
+        for density in (0., .2, .4, .334):
+            cloud.set_solvent_electron_density(density)
+            options.solvent_electron_density = density
+            rebuilt = pyseb.AtomicSAXSCloudBuilder.build(atoms, profile, options, build)
+            reference = pyseb.World('rebuilt_density')
+            reference.Add(rebuilt, 'cloud')
+            np.testing.assert_allclose(
+                world.EvaluateFormFactorUnnormalized('cloud', {}, q),
+                reference.EvaluateFormFactorUnnormalized('cloud', {}, q), rtol=1e-12)
+            self.assertAlmostEqual(world.EvaluateRadiusOfGyration2('cloud', {}),
+                                   reference.EvaluateRadiusOfGyration2('cloud', {}), places=10)
+            for i in range(cloud.scatterer_count()):
+                self.assertAlmostEqual(cloud.atomic_amplitude(i, .2),
+                                       rebuilt.atomic_amplitude(i, .2), places=12)
+
+    def test_explicit_hydrogens_use_atomic_volumes(self):
+        # Fraser's additive H volumes give the same displaced volume and I(0)
+        # with implicit and explicit H; finite-q curves need not coincide.
+        profile = pyseb.AtomicSAXSParameterProfile.protein_defaults()
+        build = pyseb.AtomicSAXSCloudBuildOptions()
+        build.calculate_solvent_accessibility = False
+        options = pyseb.AtomicSAXSOptions()
+        for name, count in [('CA', 1), ('CB', 3), ('N', 1)]:
+            heavy = atom_record(1, atom_name=name, element='N' if name == 'N' else 'C')
+            implicit = pyseb.AtomicSAXSCloudBuilder.build([heavy], profile, options, build)
+            hydrogens = [atom_record(i+2, x=1.+i, element='H', atom_name='H'+str(i))
+                         for i in range(count)]
+            build.use_implicit_hydrogens = False
+            explicit = pyseb.AtomicSAXSCloudBuilder.build([heavy]+hydrogens, profile, options, build)
+            self.assertAlmostEqual(sum(p.excluded_volume for p in implicit.get_scatterers()),
+                                   sum(p.excluded_volume for p in explicit.get_scatterers()), places=12)
+            self.assertAlmostEqual(sum(implicit.atomic_amplitude(i, 0.) for i in range(implicit.scatterer_count())),
+                                   sum(explicit.atomic_amplitude(i, 0.) for i in range(explicit.scatterer_count())), places=12)
+            build.use_implicit_hydrogens = True
+
+    def test_explicit_volume_selection_for_other_profiles_and_custom_groups(self):
+        atom = atom_record(1, atom_name='CB')
+        build = pyseb.AtomicSAXSCloudBuildOptions()
+        build.use_implicit_hydrogens = False
+        build.calculate_solvent_accessibility = False
+        for model in (pyseb.AtomicSAXSVolumeModel.BondiElement,
+                      pyseb.AtomicSAXSVolumeModel.Pontius1996):
+            profile = pyseb.AtomicSAXSParameterProfile.protein_defaults(model)
+            bare = profile.resolve(atom_record(2, residue='UNK', atom_name='C'))
+            cloud = pyseb.AtomicSAXSCloudBuilder.build([atom], profile, pyseb.AtomicSAXSOptions(), build)
+            self.assertAlmostEqual(cloud.get_scatterers()[0].excluded_volume, bare.excluded_volume)
+        custom = pyseb.AtomicSAXSParameters()
+        custom.excluded_volume = 40.
+        custom.implicit_hydrogens = 3
+        profile = pyseb.AtomicSAXSParameterProfile()
+        for atomic_volume, expected in [(-1., 40.), (12., 12.)]:
+            custom.atomic_excluded_volume = atomic_volume
+            profile.set_atom('ALA', 'CB', custom)
+            cloud = pyseb.AtomicSAXSCloudBuilder.build([atom], profile, pyseb.AtomicSAXSOptions(), build)
+            self.assertAlmostEqual(cloud.get_scatterers()[0].excluded_volume, expected)
 
     def test_hydration_water_conventions_and_guinier_moments(self):
         point = pyseb.AtomicSAXSScatterer()

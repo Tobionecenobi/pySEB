@@ -36,6 +36,7 @@ void setProteinHydrogens(
     atom.atomName = atomName;
     atom.element = element;
     AtomicSAXSParameters parameters = elements.Resolve(atom);
+    parameters.atomicExcludedVolume = parameters.excludedVolume;
     parameters.implicitHydrogens = hydrogenCount;
     parameters.implicitHydrogenDistance = 0.0;
     // Allen et al. distances tabulated in Grudinin et al. (2017), Table 1;
@@ -147,6 +148,11 @@ void AtomicSAXSParameterProfile::ValidateParameters(
                 " must be non-negative",
             "AtomicSAXSParameterProfile"
         );
+    }
+    if (!std::isfinite(parameters.atomicExcludedVolume) ||
+        (parameters.atomicExcludedVolume < 0.0 && parameters.atomicExcludedVolume != -1.0)) {
+        throw SEBException("Atomic excluded volume must be non-negative or -1 (unspecified)",
+                           "AtomicSAXSParameterProfile");
     }
     if (!std::isfinite(parameters.implicitHydrogenDistance) ||
         parameters.implicitHydrogenDistance < 0.0) {

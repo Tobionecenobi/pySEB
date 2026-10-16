@@ -163,7 +163,6 @@ void calculateSolventAccessibility(
 void appendHydrationShell(
     const std::vector<AtomRecord>& atoms,
     const std::vector<AtomicSAXSParameters>& parameters,
-    const AtomicSAXSOptions& saxsOptions,
     const AtomicSAXSCloudBuildOptions& options,
     std::vector<AtomicSAXSScatterer>& scatterers)
 {
@@ -252,12 +251,10 @@ void appendHydrationShell(
                 if (inside || !nearby) continue;
                 AtomicSAXSScatterer pointScatterer;
                 pointScatterer.center = point;
-                // Pepsi 3's hydration basis contains the bulk-density factor
-                // before its absolute contrast coefficient is applied.
-                // Preserve that reference convention explicitly, leaving
-                // the physical VolumeDensity convention unchanged.
-                pointScatterer.hydrationVolume = step*step*step *
-                    (pepsi ? saxsOptions.solventElectronDensity : 1.0);
+                // Keep geometry independent of solvent so density updates agree
+                // with rebuilding. Apply Pepsi's density factor during evaluation.
+                pointScatterer.hydrationVolume = step*step*step;
+                pointScatterer.hydrationUsesSolventDensity = pepsi;
                 pointScatterer.element = "water";
                 scatterers.push_back(pointScatterer);
                 if (scatterers.size()-initialSize > 10000) throw SEBException(
@@ -317,7 +314,8 @@ std::unique_ptr<AtomicSAXSCloud> AtomicSAXSCloudBuilder::Build(
         scatterers.emplace_back(
             atom.coordinate,
             parameters.vacuum,
-            parameters.excludedVolume,
+            !buildOptions.useImplicitHydrogens && parameters.atomicExcludedVolume >= 0.0
+                ? parameters.atomicExcludedVolume : parameters.excludedVolume,
             occupancy,
             atom.temperatureFactor,
             0.0,
@@ -343,7 +341,7 @@ std::unique_ptr<AtomicSAXSCloud> AtomicSAXSCloudBuilder::Build(
     }
 
     if (saxsOptions.hydrationModel == AtomicSAXSHydrationModel::SpatialShell) {
-        appendHydrationShell(atoms, resolvedParameters, saxsOptions, buildOptions, scatterers);
+        appendHydrationShell(atoms, resolvedParameters, buildOptions, scatterers);
     }
     std::unique_ptr<AtomicSAXSCloud> cloud(
         new AtomicSAXSCloud(scatterers, saxsOptions)

@@ -11,6 +11,9 @@
 struct AtomicSAXSParameters {
     CromerMannCoefficients vacuum;
     double excludedVolume = 0.0;
+    // Bare-atom volume when grouped hydrogens are disabled; negative means
+    // the supplied excludedVolume already describes an individual atom.
+    double atomicExcludedVolume = -1.0;
     int implicitHydrogens = 0;
     double implicitHydrogenDistance = 0.0;
     double sasaRadius = 0.0;

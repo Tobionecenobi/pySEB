@@ -310,6 +310,7 @@ PYBIND11_MODULE(_pyseb, m) {
         .def_readwrite("implicit_hydrogens", &AtomicSAXSScatterer::implicitHydrogens)
         .def_readwrite("implicit_hydrogen_distance", &AtomicSAXSScatterer::implicitHydrogenDistance)
         .def_readwrite("hydration_volume", &AtomicSAXSScatterer::hydrationVolume)
+        .def_readwrite("hydration_uses_solvent_density", &AtomicSAXSScatterer::hydrationUsesSolventDensity)
         .def_readwrite("element", &AtomicSAXSScatterer::element);
 
     py::enum_<AtomicSAXSHydrationModel>(m, "AtomicSAXSHydrationModel")
@@ -447,6 +448,7 @@ PYBIND11_MODULE(_pyseb, m) {
         .def_readwrite("vacuum", &AtomicSAXSParameters::vacuum)
         .def_readwrite("excluded_volume", &AtomicSAXSParameters::excludedVolume)
         .def_readwrite("implicit_hydrogens", &AtomicSAXSParameters::implicitHydrogens)
+        .def_readwrite("atomic_excluded_volume", &AtomicSAXSParameters::atomicExcludedVolume)
         .def_readwrite("implicit_hydrogen_distance", &AtomicSAXSParameters::implicitHydrogenDistance)
         .def_readwrite("sasa_radius", &AtomicSAXSParameters::sasaRadius);
 
