@@ -469,3 +469,46 @@ speedup claims.
 Validation completed: 131 Python tests (one optional skip and the existing
 expected tiny-q sphere failure) and 69 C++ tests passed. The focused eight-test
 numerical optimization suite also passed with that same expected failure.
+
+## Call-local atomic form factors
+
+Atomic-cloud intensity and reference-amplitude calculations now compute the
+common hydrogen and hydration-water form factors once per operation at each q,
+reusing them across atoms. Geometry/options validation occurs once before the
+internal atom loop. The public single-atom function retains validation and uses
+its own fresh context. Shared factors are evaluated lazily, so unused or
+inactive hydration points do not trigger water normalization. No factors are
+stored on the cloud or shared between calls, and per-atom vacuum coefficients,
+occupancy, temperature factors, solvent displacement and hydrogen distances
+remain independent. The exact pair loop and compensated summation are unchanged.
+
+Release measurements against `07dc5bad`: seven interleaved before/after runs,
+31 q points, with 100 measured curves per run for eight atoms, 30 for 32 atoms,
+10 for 128 atoms and three for 512 atoms. Construction/warm-up are excluded;
+no builds, tests or profilers ran concurrently with timing.
+
+| Workload | Before | After | Speedup |
+| --- | ---: | ---: | ---: |
+| Hydrated cloud, 8 atoms | 0.0493 ms | 0.0314 ms | 1.57x |
+| Hydrated cloud, 32 atoms | 0.3079 ms | 0.2178 ms | 1.41x |
+| Hydrated cloud, 128 atoms | 3.1284 ms | 3.0032 ms | 1.04x |
+| Hydrated cloud, 512 atoms | 45.2525 ms | 45.0645 ms | 1.00x |
+| Hydrated cloud–sphere hybrid, 8 atoms | 1.1180 ms | 1.0676 ms | 1.05x |
+| Hydrated cloud–sphere hybrid, 128 atoms | 4.7311 ms | 4.1478 ms | 1.14x |
+
+All workload checksums match exactly. Gains are strongest where atom amplitude
+work is appreciable; the large-cloud pair sum is unaffected. Small differences
+near 1.00x should not be treated as evidence of a speedup.
+
+Callgrind's warmed 32-atom curve records 3,422,732 instructions before and
+2,373,847 after (30.6% fewer). Profiles and timing JSON are kept under `/tmp`.
+The new regression compares complete-cloud intensity and reference amplitude
+against individually evaluated atoms, exercising every hydration-water model,
+solvent-density changes, occupancy, temperature factors, implicit hydrogens,
+and repeated/near-zero q. Existing independent Debye and hybrid tests remain.
+
+Validation: 132 Python tests completed successfully (one optional skip and the
+existing expected tiny-q sphere failure); all 69 C++ tests passed. Memcheck on
+the hydrated 128-atom cloud–sphere hybrid reports zero errors and zero heap
+blocks at exit. The focused nine-test numerical regression suite also passed
+with the same expected failure.

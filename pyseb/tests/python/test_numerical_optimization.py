@@ -117,6 +117,52 @@ class TestNumericalOptimization(unittest.TestCase):
             self.assert_close(world.EvaluateFormFactorUnnormalized('particle', p, q),
                               [world.EvaluateFormFactorUnnormalized('particle', p, x) for x in q])
 
+    def test_common_atomic_factors_match_individually_evaluated_atoms(self):
+        # Each public atomic_amplitude call starts independently. Comparing
+        # with their Debye sum checks lazy reuse inside the whole-cloud path.
+        points = []
+        coordinates = [(0., 0., 0.), (2., -1., 0.), (-1., 3., 4.)]
+        for i, xyz in enumerate(coordinates):
+            atom = pyseb.AtomicSAXSScatterer()
+            atom.center = pyseb.CartesianPoint3D(*xyz)
+            atom.vacuum = pyseb.CromerMannCoefficients(
+                [2.+i, 1., .5, .2], [2., 4., 8., 16.], .1+i)
+            atom.excluded_volume = 10.+20*i
+            atom.occupancy = 1.-.2*i
+            atom.implicit_hydrogens = i
+            atom.implicit_hydrogen_distance = .9 if i else 0.
+            atom.temperature_factor = 5.*i
+            atom.solvent_accessibility = .4*i
+            points.append(atom)
+        cloud = pyseb.AtomicSAXSCloud(points)
+        cloud.add_reference_point('join', 0., 0., 0.)
+        world = pyseb.World()
+        world.Add(cloud, 'cloud')
+        q = [.3, 0., 1e-10, -.3, .03, .3]
+        models = pyseb.AtomicSAXSHydrationWaterModel
+        for water in (models.NeutralWater, models.BondedWater,
+                      models.FoXSReciprocal, models.FoXSFast, models.NeutralWater):
+            for density, hydrated in ((.2, False), (.334, True), (.4, True)):
+                options = pyseb.AtomicSAXSOptions()
+                options.solvent_electron_density = density
+                options.hydration_water_model = water
+                options.include_hydration = hydrated
+                options.hydration_shell_contrast = -.02
+                options.use_temperature_factors = True
+                cloud.set_options(options)
+                intensities, amplitudes = [], []
+                for x in q:
+                    f = [cloud.atomic_amplitude(i, x) for i in range(len(points))]
+                    intensities.append(math.fsum(
+                        f[i]*f[j]*float(np.sinc(x*math.dist(a, b)/math.pi))
+                        for i, a in enumerate(coordinates) for j, b in enumerate(coordinates)))
+                    amplitudes.append(math.fsum(
+                        value*float(np.sinc(x*math.dist(xyz, (0., 0., 0.))/math.pi))
+                        for value, xyz in zip(f, coordinates)))
+                with self.subTest(water=water, density=density, hydrated=hydrated):
+                    self.assert_close(world.EvaluateFormFactorUnnormalized('cloud', {}, q), intensities)
+                    self.assert_close(world.EvaluateFormFactorAmplitudeUnnormalized('cloud.join', {}, q), amplitudes)
+
     @staticmethod
     def make_cloud(density, hydration):
         # Unequal, non-collinear sites with occupancies and signed solution

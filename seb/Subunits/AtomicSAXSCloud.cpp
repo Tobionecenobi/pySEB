@@ -437,12 +437,25 @@ double AtomicSAXSCloud::atomicAmplitude(std::size_t index, double q) const
             "AtomicSAXSCloud::atomicAmplitude()"
         );
     }
+    AmplitudeFactors factors;
+    return preparedAtomicAmplitude(index, q, factors);
+}
+
+double AtomicSAXSCloud::preparedAtomicAmplitude(
+    std::size_t index, double q, AmplitudeFactors& factors) const
+{
     const AtomicSAXSScatterer& atom = atoms[index];
     const bool spatial = options.hydrationModel == AtomicSAXSHydrationModel::SpatialShell;
     if (atom.hydrationVolume > 0.0 && (!spatial || !options.includeHydration)) return 0.0;
-    const CromerMannCoefficients hydrogen = hydrogenCoefficients();
-    double vacuum = atom.vacuum.evaluate(q) +
-        static_cast<double>(atom.implicitHydrogens) * hydrogen.evaluate(q) *
+    // The atom's own form factor stays independent; hydrogen and water form
+    // factors are identical across atoms for this q and the current options.
+    const double atomicVacuum = atom.vacuum.evaluate(q);
+    if (!factors.hydrogenReady) {
+        factors.hydrogen = hydrogenCoefficients().evaluate(q);
+        factors.hydrogenReady = true;
+    }
+    double vacuum = atomicVacuum +
+        static_cast<double>(atom.implicitHydrogens) * factors.hydrogen *
             sinc(q * atom.implicitHydrogenDistance);
     if (options.useTemperatureFactors && atom.temperatureFactor > 0.0) {
         vacuum *= std::exp(
@@ -463,7 +476,11 @@ double AtomicSAXSCloud::atomicAmplitude(std::size_t index, double q) const
         const double volume = spatial ? atom.hydrationVolume :
             options.hydrationVolumePerExposedAtom * atom.solventAccessibility;
         const double density = atom.hydrationUsesSolventDensity ? options.solventElectronDensity : 1.0;
-        result += options.hydrationShellContrast * volume * density * normalizedWaterAmplitude(q);
+        if (!factors.waterReady) {
+            factors.water = normalizedWaterAmplitude(q);
+            factors.waterReady = true;
+        }
+        result += options.hydrationShellContrast * volume * density * factors.water;
     }
     return atom.occupancy * result;
 }
@@ -594,8 +611,9 @@ double AtomicSAXSCloud::formFactorUnnormalized(double q) const
     ensureGeometryPrepared();
     std::vector<double> amplitudes;
     amplitudes.reserve(atoms.size());
+    AmplitudeFactors factors;
     for (std::size_t index = 0; index < atoms.size(); ++index) {
-        amplitudes.push_back(atomicAmplitude(index, q));
+        amplitudes.push_back(preparedAtomicAmplitude(index, q, factors));
     }
 
     double result = 0.0;
@@ -632,8 +650,9 @@ double AtomicSAXSCloud::amplitudeUnnormalized(
     }
 
     double result = 0.0;
+    AmplitudeFactors factors;
     for (std::size_t index = 0; index < atoms.size(); ++index) {
-        result += atomicAmplitude(index, q) *
+        result += preparedAtomicAmplitude(index, q, factors) *
             sinc(q * distances->second[index]);
     }
     return result;
