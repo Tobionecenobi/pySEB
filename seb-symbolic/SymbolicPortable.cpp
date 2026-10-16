@@ -163,20 +163,35 @@ SymExprPtr PortableExpression::subs(const std::map<SymExprPtr, SymExprPtr>& expr
 
 double PortableExpression::eval() const
 {
+    return evaluateTree(nullptr, 0.0);
+}
+
+double PortableExpression::evaluateNumeric(const ParameterMap& params, double q) const
+{
+    return evaluateTree(&params, q);
+}
+
+double PortableExpression::evaluateTree(const ParameterMap* params, double q) const
+{
     if (_kind == Kind::Constant) {
         return _value;
     }
     if (_kind == Kind::Symbol) {
+        if (params) {
+            const auto found = params->find(_op);
+            if (found != params->end()) return found->second;
+            if (_op == "q") return q;
+        }
         throw std::runtime_error("cannot numerically evaluate unresolved symbol " + _op);
     }
     if (_kind == Kind::Unary) {
-        const double value = as_portable(_args.at(0))->eval();
+        const double value = as_portable(_args.at(0))->evaluateTree(params, q);
         if (_op == "-") return -value;
         throw std::runtime_error("unsupported portable unary operator " + _op);
     }
     if (_kind == Kind::Binary) {
-        const double left = as_portable(_args.at(0))->eval();
-        const double right = as_portable(_args.at(1))->eval();
+        const double left = as_portable(_args.at(0))->evaluateTree(params, q);
+        const double right = as_portable(_args.at(1))->evaluateTree(params, q);
         if (_op == "+") return left + right;
         if (_op == "-") return left - right;
         if (_op == "*") return left * right;
@@ -197,7 +212,7 @@ double PortableExpression::eval() const
             );
         }
 
-        const double value = as_portable(_args.at(0))->eval();
+        const double value = as_portable(_args.at(0))->evaluateTree(params, q);
         if (_op == "exp") return std::exp(value);
         if (_op == "log") return std::log(value);
         if (_op == "sin") return std::sin(value);

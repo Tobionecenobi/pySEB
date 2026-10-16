@@ -71,6 +71,11 @@ public:
     virtual SymExprPtr subs(const ParameterMap& params) const = 0;
     virtual SymExprPtr subs(const std::map<SymExprPtr, SymExprPtr>& exprMap) const = 0;
     virtual double eval() const = 0;
+    // Backends may evaluate immutable trees directly. The default retains the
+    // substitution path, including parameter-map precedence for a supplied q.
+    virtual double evaluateNumeric(const ParameterMap& params, double q) const {
+        return subs(params)->subs("q", constant(q))->evalf()->eval();
+    }
     virtual bool is_numeric() const = 0;
 
     // Series expansion and coefficient extraction

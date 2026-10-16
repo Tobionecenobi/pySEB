@@ -6,6 +6,9 @@
 #include <iomanip>
 #include <iostream>
 #include <vector>
+#ifdef PYSEB_CALLGRIND
+#include <valgrind/callgrind.h>
+#endif
 int main(int argc, char** argv) {
     const int count = argc > 1 ? std::atoi(argv[1]) : 32;
     if (count < 1) return 1;
@@ -21,7 +24,15 @@ int main(int argc, char** argv) {
     double value=0.;
     for (int repeat=0; repeat<4; ++repeat) {
         auto start=std::chrono::steady_clock::now();
+#ifdef PYSEB_CALLGRIND
+        // With --instr-atstart=no, profile generation without construction,
+        // string rendering or evaluation. Ordinary builds need no Valgrind.
+        CALLGRIND_START_INSTRUMENTATION;
+#endif
         auto expression=world.FormFactor_Unnormalized("particle");
+#ifdef PYSEB_CALLGRIND
+        CALLGRIND_STOP_INSTRUMENTATION;
+#endif
         auto generated=std::chrono::steady_clock::now();
         std::string text=expression.to_python();
         auto rendered=std::chrono::steady_clock::now();

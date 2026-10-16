@@ -1301,6 +1301,32 @@ void validateCylinderDataset(
 
 } // namespace
 
+TEST(NumericalIntegrationTest, OptionsCanChangeBeforeFirstUseAndAfterIntegration)
+{
+    NumericalIntegrator integrator;
+    IntegrationOptions options;
+    options.method = IntegrationMethod::QAG;
+    options.workspaceSize = 100;
+    integrator.setOptions(options);
+    options.method = IntegrationMethod::CQUAD;
+    options.workspaceSize = 200;
+    integrator.setOptions(options);
+    int calls = 0;
+    const auto square = [&](double x) { ++calls; return x*x; };
+    EXPECT_DOUBLE_EQ(integrator.integrate(square, 1., 1.).value, 0.);
+    EXPECT_EQ(calls, 0);
+    EXPECT_NEAR(integrator.integrate(square, 0., 1.).value, 1./3., 1e-12);
+    EXPECT_GT(calls, 0);
+    options.method = IntegrationMethod::QAG;
+    options.workspaceSize = 300;
+    integrator.setOptions(options);
+    EXPECT_NEAR(integrator.integrate(square, 1., 0.).value, -1./3., 1e-12);
+    auto invalid = options;
+    invalid.relativeTolerance = -1.;
+    EXPECT_THROW(integrator.setOptions(invalid), SEBException);
+    EXPECT_NEAR(integrator.integrate(square, 0., 1.).value, 1./3., 1e-12);
+}
+
 TEST(NumericalIntegrationTest, QagAndCquadMatchKnownIntegrals)
 {
     IntegrationOptions options;

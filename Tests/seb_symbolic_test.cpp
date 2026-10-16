@@ -394,3 +394,42 @@ TEST_F(SebSymbolicFixture, SymbolInterfaceBuildsExampleExpressionWithGiNaCBacken
     EXPECT_FALSE(expression.to_python().empty());
     EXPECT_FALSE(expression.to_cform().empty());
 }
+
+TEST_F(SebSymbolicFixture, DirectNumericEvaluationMatchesSubstitutionWithoutMutation)
+{
+    // Exercise individual operations so errors cannot cancel in a combined sum.
+    const auto x = sebsym::symbol("x");
+    const auto q = sebsym::symbol("q");
+    const std::vector<Expression> expressions{
+        x+q, x-q, x*q, x/(q+2.), -x, sebsym::pow(x, q+2.),
+        x.exp(), x.log(), x.sin(), x.cos(), x.tan(),
+        x.asin(), x.acos(), x.atan(), x.sinh(), x.cosh(), x.tanh(),
+        x.sqrt(), (-x).abs(), x.bessel_j0(), x.bessel_j1(),
+        x.dawson(), x.erf(), x.erfc(), parity_expression(),
+        special_function_expression()
+    };
+    for (const auto& expression : expressions) {
+        const std::string original = expression.to_string();
+        for (double value : {0.2, 0.7, 0.2}) {
+            const ParameterMap params{{"x", value}, {"y", 2.5}};
+            for (double wavevector : {0.0, 1e-10, -0.2, 0.3}) {
+                const double legacy = expression.subs(params).subs("q", wavevector).evalf().eval();
+                EXPECT_DOUBLE_EQ(expression.evaluateNumeric(params, wavevector), legacy);
+            }
+        }
+        EXPECT_EQ(expression.to_string(), original);
+    }
+    // Preserve the existing substitution order, even if q is in the map.
+    EXPECT_DOUBLE_EQ((x+q).evaluateNumeric({{"x", 1.}, {"q", 7.}}, 2.), 8.);
+    EXPECT_THROW((x+q).evaluateNumeric({}, 0.2), std::runtime_error);
+    EXPECT_THROW(x.eval(), std::runtime_error);
+}
+
+TEST_F(SebSymbolicFixture, OtherBackendsRetainNumericSubstitutionFallback)
+{
+    if (!sebsym::set_backend("ginac")) GTEST_SKIP() << "GiNaC unavailable";
+    const auto expression = parity_expression();
+    const ParameterMap params{{"x", .4}, {"y", 1.2}};
+    EXPECT_DOUBLE_EQ(expression.evaluateNumeric(params, .1),
+                     expression.subs(params).subs("q", .1).evalf().eval());
+}

@@ -60,7 +60,8 @@ NumericalIntegrator::NumericalIntegrator(const IntegrationOptions& options)
 {
     disableGslAbortHandler();
     validateOptions(options_);
-    allocateWorkspace();
+    // Many analytical subunits inherit an integrator but never use quadrature.
+    // Keep validation eager and allocate workspace only for a real integral.
 }
 
 NumericalIntegrator::~NumericalIntegrator()
@@ -146,9 +147,6 @@ void NumericalIntegrator::setOptions(const IntegrationOptions& options)
         freeWorkspaces();
     }
     options_ = options;
-    if (reallocate) {
-        allocateWorkspace();
-    }
 }
 
 IntegrationResult NumericalIntegrator::integrate(
@@ -177,6 +175,8 @@ IntegrationResult NumericalIntegrator::integrate(
         std::swap(lower, upper);
         sign = -1.0;
     }
+
+    if (!qagWorkspace_ && !cquadWorkspace_) allocateWorkspace();
 
     FunctionPayload payload{&function, nullptr, false};
     gsl_function gslFunction;

@@ -14,6 +14,30 @@ struct SymbolicFactoryInitializer {
 } g_initializer;
 
 // Test Complex Structure Creation
+TEST(StructureTest, PathSearchPreservesEndpointsReversalAndBranchOrder) {
+    World world("pathOrder");
+    const GraphID graph = world.Add("GaussianPolymer", "p0");
+    world.Link("GaussianPolymer", "p1.end1", "p0.end2");
+    world.Link("GaussianPolymer", "p2.end1", "p1.end2");
+    world.Add(graph, "particle");
+    EXPECT_EQ(world.findpath("particle:p0", "particle:p2"),
+              (ReferencePointList{"p0.end2", "p1.end1", "p1.end2", "p2.end1"}));
+    EXPECT_EQ(world.findpath("particle:p2", "particle:p0"),
+              (ReferencePointList{"p2.end1", "p1.end2", "p1.end1", "p0.end2"}));
+    EXPECT_EQ(world.findpath("particle:p0", "particle:p2.end2"),
+              (ReferencePointList{"p0.end2", "p1.end1", "p1.end2", "p2.end1", "p2.end2"}));
+    EXPECT_TRUE(world.findpath("particle:p0.end1", "particle:p0.end2").empty());
+    EXPECT_THROW(world.findpath("particle:p0.bad", "particle:p2.end2"), SEBException);
+
+    World star("branchOrder");
+    const GraphID arms = star.Add("Point", "core");
+    for (int i=0; i<3; ++i)
+        star.Link("GaussianPolymer", "a"+std::to_string(i)+".end1", "core.point");
+    star.Add(arms, "particle");
+    EXPECT_EQ(star.findpath("particle:a0.end2", "particle:a2.end2"),
+              (ReferencePointList{"a0.end2", "a0.end1", "core.point", "a2.end1", "a2.end2"}));
+}
+
 TEST(StructureTest, GeneratedEquationsMatchNumericalTraversalAcrossBackends) {
     const std::string original = sebsym::active_backend();
     for (const auto& backend : sebsym::available_backends()) {

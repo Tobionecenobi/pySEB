@@ -318,7 +318,8 @@ public:
     // Topology reuse is local to one evaluation/generation call.
     struct NumericEvaluationContext {
         std::map<std::tuple<string, string, bool>, ReferencePointList> paths;
-        std::size_t pathReferences = 0;
+        std::map<refPoint, ReferencePointList> neighbors;
+        std::size_t referenceEntries = 0;
     };
     struct SymbolicEvaluationContext {
         NumericEvaluationContext topology;
@@ -335,6 +336,8 @@ public:
     sebsym::Expression GenerateAllToAll(string name, int depth, int varForm,
                                       SymbolicEvaluationContext* context);
 
+    ReferencePointList findPath(string first, string second, bool check,
+                                NumericEvaluationContext* context);
     ReferencePointList CachedPath(const string& first, const string& second,
                                   bool check, NumericEvaluationContext* context);
 
@@ -355,7 +358,8 @@ public:
     static GuinierTerm ScaleGuinier(double scale, const GuinierTerm& term);
 
     // Makes a list of all neighbors, that is link partners, and reference points inside the same structure / sub-unit
-    ReferencePointList getNeighbors(refPoint last, const std::unordered_set<refPoint>& visited);
+    ReferencePointList getNeighbors(const refPoint& last, const std::unordered_set<refPoint>& visited,
+                                    NumericEvaluationContext* context);
 
     // Returns a list of all reference points contained in structure / subunit.
     ReferencePointList getReferencePoints( refPoint structure );

@@ -321,6 +321,12 @@ public:
         return expr->eval();
     }
 
+    double evaluateNumeric(const ParameterMap& params, double q) const {
+        if (!expr) throw std::runtime_error("Cannot evaluate null expression");
+        require_numeric_evaluation("numeric evaluation");
+        return expr->evaluateNumeric(params, q);
+    }
+
     bool is_numeric() const {
         if (!expr) return false;
         return expr->is_numeric();

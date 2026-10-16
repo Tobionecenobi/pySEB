@@ -120,9 +120,10 @@ Vector intensity, amplitude, and phase evaluation now reuse topology paths
 within each call. Numeric values are still evaluated at each q and parameter
 set. The cache is discarded on return; it does not require invalidation across
 World edits or introduce shared mutable evaluation state. Storage is bounded
-at 4,096 paths and 262,144 reference entries; uncached paths use the original
-search when that budget is exhausted. Pair enumeration and long-chain phase
-products remain, so this does not remove all growth with structure size.
+at 4,096 paths and 4,096 neighbor lists, sharing a budget of 262,144 reference
+entries; searches fall back to uncached work when that budget is exhausted.
+Pair enumeration and long-chain phase products remain, so this does not remove
+all growth with structure size.
 
 The baseline Python symbolic conversion of a 32-segment chain exceeded the
 string parser's nesting limit. The numerical benchmark avoids that conversion.
@@ -221,3 +222,202 @@ introduced. Timings are observations on this machine, not performance guarantees
 Validation: 123 Python tests passed with one opt-in network test skipped;
 all 35 C++ structure/symbolic tests passed in the GiNaC-enabled build, including
 new equation-versus-numerical comparisons across both available backends.
+
+## Callgrind and heap-allocation profiling
+
+A second investigation used Valgrind 3.19 Callgrind and DHAT on Linux, starting
+from `76880adf`. Callgrind markers in `profile_symbolic.cpp` isolate the four
+native generation calls from model construction, rendering, and evaluation.
+DHAT measures the complete native driver, including those other phases. These
+are different measurement scopes; allocation totals below are not attributed
+solely to generation.
+
+The baseline generation profile recorded 1,822,989,986 instructions, with
+`findpath` and its callees accounting for about 88%. DHAT identified two path
+copying allocation sites totaling about 122 MB across the workload, plus eager
+GSL integration workspaces for subunits that never perform quadrature.
+
+The changes preserve seed and neighbor order while using predecessor indices
+to reconstruct only a successful breadth-first-search path. Adjacency lists
+are reused within the existing call-local context; visited-reference filtering
+is still specific to each search. Iterating links by reference avoids copying
+string pairs. Cached paths and adjacency share the bounded reference budget.
+Integration options are still validated immediately, while workspaces are
+allocated on the first nonempty integral and reused until method or workspace
+size changes. No scattering approximation or relaxed tolerance is involved.
+
+Compile the marked driver with Valgrind headers available (ordinary builds
+without `PYSEB_CALLGRIND` do not need Valgrind):
+
+```bash
+g++ -O3 -g -std=c++14 -DSPECIALFUNCTIONS_IMPL -DPYSEB_CALLGRIND \
+  -I. -Iseb -Iseb-symbolic benchmarks/profile_symbolic.cpp \
+  build-python/libseb.a build-python/libseb-symbolic.a \
+  -lgsl -lgslcblas -lpthread -o /tmp/pyseb-symbolic-callgrind
+valgrind --vgdb=no --tool=callgrind --instr-atstart=no \
+  --callgrind-out-file=/tmp/pyseb-symbolic.callgrind /tmp/pyseb-symbolic-callgrind 32
+callgrind_annotate --inclusive=yes /tmp/pyseb-symbolic.callgrind
+```
+
+For heap profiling, compile the ordinary native driver as above in the
+previous section, then run:
+
+```bash
+valgrind --vgdb=no --tool=dhat --dhat-out-file=/tmp/pyseb-symbolic.dhat \
+  /tmp/pyseb-profile-symbolic 32
+```
+
+Valgrind was downloaded and extracted under `/tmp` for this investigation;
+it is not a package dependency or a system installation requirement. Instrumented
+runtimes are not used to claim speedups. Ordinary release-build warmed medians
+(three repeats, on this machine) changed as follows:
+
+| Measurement | Before | After |
+|---|---:|---:|
+| Native generation, 32-segment chain | 51.05 ms | 13.20 ms |
+| Native generation, 64-segment chain | 627.20 ms | 139.07 ms |
+| Generation + Python conversion, 32-arm star | 78.56 ms | 21.33 ms |
+| Generation + Python conversion, 64-arm star | 978.14 ms | 155.37 ms |
+| Generation instructions, Callgrind, 32 segments | 1,822,989,986 | 472,333,479 |
+| Total allocated bytes, DHAT complete driver | 325,642,163 | 139,271,419 |
+| Allocation count, DHAT complete driver | 4,884,219 | 1,924,700 |
+| Peak live allocated bytes, DHAT complete driver | 43,303,750 | 16,678,982 |
+
+Native string-rendering times were essentially unchanged, and both native
+benchmarks returned exactly the same recorded value at q=0.1 and the same
+output length. All six 16/32/64-segment/arm Python benchmark curves matched
+the saved baseline at `rtol=1e-12, atol=1e-12`. DHAT peak heap describes live
+requested allocations, not process RSS. No full fitting speedup is claimed.
+
+Validation: the full Python suite ran 123 tests successfully with its opt-in
+network test skipped; all 67 C++ structure, symbolic, numerical, and integration
+tests passed. New tests pin endpoint/reversal/branch path ordering and check
+integration-option changes before first use and after integration, zero-width
+bounds, reversed bounds, and rejection of invalid options.
+
+## Numerical evaluation with Valgrind
+
+`profile_numerical.cpp` isolates complete, warmed vector intensity evaluations
+for a Gaussian chain, hydrated atomic cloud, and cloud–sphere hybrid. It uses
+31 q points from 0.001 to 0.5. Pass the case, number of segments/atoms, and
+repeat count. The cloud cases retain excluded solvent and hydration; the hybrid
+retains interference. These synthetic workloads do not cover every subunit or
+quadrature method.
+
+Build an ordinary release driver:
+
+```bash
+g++ -O3 -std=c++14 -DSPECIALFUNCTIONS_IMPL -I. -Iseb -Iseb-symbolic \
+  benchmarks/profile_numerical.cpp build-python/libseb.a build-python/libseb-symbolic.a \
+  -lgsl -lgslcblas -lpthread -o /tmp/pyseb-profile-numerical
+/tmp/pyseb-profile-numerical chain 16 3
+/tmp/pyseb-profile-numerical cloud 128 3
+/tmp/pyseb-profile-numerical hybrid 128 3
+```
+
+For Callgrind, compile with `-DPYSEB_CALLGRIND` and the Valgrind headers
+(add `-I/path/to/valgrind/include` if necessary). Use a different output binary:
+
+```bash
+valgrind --vgdb=no --tool=callgrind --instr-atstart=no \
+  --callgrind-out-file=/tmp/numerical.callgrind /tmp/pyseb-profile-numerical-callgrind chain 16 1
+callgrind_annotate --inclusive=yes /tmp/numerical.callgrind
+valgrind --vgdb=no --tool=dhat --dhat-out-file=/tmp/numerical.dhat \
+  /tmp/pyseb-profile-numerical chain 16 1
+valgrind --vgdb=no --tool=memcheck --leak-check=full \
+  --show-leak-kinds=definite,indirect --errors-for-leak-kinds=definite,indirect \
+  --error-exitcode=99 /tmp/pyseb-profile-numerical hybrid 128 1
+```
+
+Measured with Valgrind 3.19.0, portable Release backend, including the preceding
+uncommitted path-search and lazy-workspace improvements:
+
+| Workload | Evaluation-only instructions | Ordinary median time per curve |
+| --- | ---: | ---: |
+| 16-segment Gaussian chain | 1,177,809,989 | 116.12 ms |
+| Hydrated cloud, 128 atoms | 34,544,546 | 2.85 ms |
+| Hydrated cloud–sphere hybrid, 128 atoms | 56,247,752 | 4.68 ms |
+| Hydrated cloud, 512 atoms | not profiled | 43.52 ms |
+
+Ordinary times are medians of five runs, each measuring three curves after
+warm-up, with no concurrent profiling. They are baselines, not speedup claims.
+Callgrind measures one curve after warm-up, excluding construction.
+
+Findings:
+
+- The chain spends 47.20% of recorded instructions in
+  `evaluateNumericExpression`, including substitution and evaluation of
+  temporary expression trees. `CachedPath` accounts for 1.59% including its
+  callees. These inclusive percentages overlap with parent frames.
+- DHAT reports 202,521,436 cumulative allocated bytes across 3,677,796 blocks
+  for the whole chain process (construction, warm-up, one measured curve,
+  destruction). Peak live requested heap is only 3,100,004 bytes and exit heap
+  is zero. This is allocation churn, not a leak; expression cloning and
+  substitution appear prominently in allocation stacks.
+- In the 128-atom cloud, sine implementation frames account for 52.66% of
+  instructions and the `sinc` wrapper another 11.10% (exclusive counts).
+  This reflects the exact Debye pair sum. The 512-atom timing also shows its
+  approximately quadratic scaling.
+- The hybrid evaluates atomic form factors for both cloud intensity and its
+  reference amplitude: the Cromer–Mann evaluation instruction count doubles
+  relative to the isolated cloud. Reuse within one evaluation is a potential
+  optimization, but must respect solvent, hydration, and parameter changes.
+- Memcheck reports zero errors and zero heap blocks at exit for the tested
+  hydrated hybrid. This result is limited to that workload.
+
+The next candidates are evaluating analytical expressions without creating
+substituted trees, and reusing repeated per-q amplitudes/phases within one
+curve evaluation. Both require parity and parameter-mutation tests. Cloud pair
+sums need separate attention; histogram approximations would change the
+calculation and are not introduced by this profiling work. No additional core
+optimization was made in this numerical profiling pass. Keep raw profiles in
+`/tmp`, outside version control.
+
+## Direct numerical expression evaluation
+
+The portable backend now evaluates immutable expression trees with parameter
+lookups rather than constructing parameter-substituted copies. Subunit numeric
+evaluation uses this path; other backends retain their substitution fallback.
+The existing arithmetic and special-function dispatch are shared with ordinary
+`eval()`. Parameter-map precedence for `q` is retained, and no mutable cache or
+cross-call parameter state is introduced.
+
+For the same 16-segment, 31-q numerical chain workload above:
+
+| Measurement | Before | After |
+| --- | ---: | ---: |
+| Evaluation-only Callgrind instructions | 1,177,809,989 | 711,826,723 |
+| Whole-process DHAT allocated bytes | 202,521,436 | 61,019,276 |
+| Whole-process DHAT allocated blocks | 3,677,796 | 1,018,030 |
+| Peak live requested heap | 3,100,004 bytes | 3,100,004 bytes |
+
+This is 39.6% fewer recorded instructions and 69.9% fewer cumulative allocated
+bytes, with an identical measured intensity checksum. DHAT includes startup,
+construction, warm-up, measurement and destruction; exit heap remains zero.
+Peak heap does not decrease because the transient allocation churn was not the
+peak-memory driver. These figures describe the portable backend, not GiNaC.
+
+Direct evaluation is checked against substitution for individual arithmetic and
+special-function operations in `Tests/seb_symbolic_test.cpp`, including repeated
+parameter changes, missing parameters, and immutability. The numerical Python
+regression tests additionally check signed cloud and hybrid intensities against
+an independent Debye sum. The existing tiny-nonzero-q sphere cancellation defect
+remains an expected failure; this optimization does not change its formula.
+
+Ordinary release timings, five interleaved before/after runs with three curves
+per run after warm-up (no concurrent build, tests or Valgrind):
+
+| Workload | Before | After | Speedup |
+| --- | ---: | ---: | ---: |
+| 16-segment Gaussian chain | 108.89 ms | 71.15 ms | 1.53x |
+| 32-segment Gaussian chain | 898.24 ms | 548.71 ms | 1.64x |
+| Hydrated cloud, 128 atoms | 2.57 ms | 2.65 ms | 0.97x |
+| Hydrated cloud–sphere hybrid, 128 atoms | 4.57 ms | 4.14 ms | 1.10x |
+
+All before/after workload checksums match exactly. The cloud's approximately
+3% timing variation is not evidence of an improvement; its pair loop is
+unchanged. Results are local observations, not guaranteed speedup factors.
+Validation: all 130 Python tests completed successfully (one optional skip and
+one existing expected failure), plus 69 C++ tests across symbolic, structure,
+and numerical-subunit/integration suites. Per-q reuse and pair-loop changes
+remain separate optimization candidates.

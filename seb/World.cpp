@@ -488,9 +488,8 @@ catch (SEBException& e)
 
 
 
-      The search algorithm is a stack based breadth-first search algorithm. We maintain a list of path candidates,
-      we extract the first path candidate in the list, and extract the reference point at the end of the path, and
-      then attempt to grow the path by jumping to all non-visited neighbors of the end.
+      The breadth-first search queues references with predecessor indices and
+      reconstructs the successful path. Neighbors retain their original order.
 
       CASE1: We seed the search with the starting reference point and terminate when we have found the termination point.
 
@@ -503,6 +502,12 @@ catch (SEBException& e)
 */
 
 ReferencePointList World::findpath(string name1, string name2, bool check)
+{
+    return findPath(std::move(name1), std::move(name2), check, nullptr);
+}
+
+ReferencePointList World::findPath(string name1, string name2, bool check,
+                                  NumericEvaluationContext* context)
 {
 try{
 
@@ -527,53 +532,37 @@ try{
             reversesearch=true;                                // sub-unit to reference point, since there are many potential starting points.
          }
 
-    list< ReferencePointList > SearchPaths;                    // These are all the search candidate paths reaching towards the target.
-    std::unordered_set<refPoint> VisitedAlready;                         // Reference point already visited, used to avoid back tracking.
-    bool istargetref = hasAPeriod(name2);                      // we are searching for a reference point, or a structure/subunit.
+    // Store one predecessor per queued reference, rather than copying a
+    // complete candidate path whenever BFS visits or branches to a neighbor.
+    struct SearchNode { refPoint reference; std::size_t parent; };
+    const std::size_t noParent = static_cast<std::size_t>(-1);
+    std::vector<SearchNode> queue;
+    std::unordered_set<refPoint> visited;
+    const bool targetIsReference = hasAPeriod(name2);
+    const auto seed = [&](const refPoint& reference) {
+        queue.push_back({reference, noParent});
+        visited.insert(reference);
+    };
+    if (hasAPeriod(name1)) seed(name1);
+    else for (const auto& reference : getReferencePoints(prefix(name1))) seed(reference);
 
-    // Seed the search with source point(s)
-    if (hasAPeriod(name1))                                     // Starting point of search is a specific reference point.
-      {
-          ReferencePointList startPath;                        // Then we add that reference point as the only
-          startPath.push_back(name1);                          // source path in our SearchPaths
-          SearchPaths.push_back(startPath);
-          VisitedAlready.insert(name1);                     // Mark starting point has having been visited
-      }
-    else                                                       // Starting point of seeach is a structure or sub-unit
-     {                                                         // then we seed the search with all reference points within the structure or sub-unit
-
-          for (auto r : getReferencePoints( prefix(name1) ) )
-             {
-                ReferencePointList startPath;
-                startPath.push_back(r);
-                SearchPaths.push_back(startPath);
-                VisitedAlready.insert(r);
-             }
-     }
-
-    // Stack based recursion, where a path candidate is popped, grown by a single step to a neighbor, checked against target, and pushed back if no target is found.
-    while (!SearchPaths.empty())
-      {
-          ReferencePointList path = SearchPaths.front();                    // Get candidate path from the SearchPaths list
-          SearchPaths.pop_front();                                          // remove this path from the SearchPaths list
-          refPoint last = path.back();                                      // What is the last step, to grow from?
-
-          for (auto next : getNeighbors( last, VisitedAlready) )            // iterate over next possible steps from last, that has not already been visited
-             {
-                 path.push_back(next);                                      // we push the next ref to the path to propose a new search path
-                                                                            // Have we found the target of our search?
-                 if (    ( istargetref &&         next == name2          )  //   case of reference point target
-                      || (!istargetref && prefix(next) == prefix(name2)) )  //   case of substructure / sub-unit target
-                    {
-                       if (reversesearch) path.reverse();                   // In case we were search from target to source reverse path.
-                       return path;                                         // and return it.
-                    }
-
-                 VisitedAlready.insert(next);                            // mark next has baving been visited
-                 SearchPaths.push_back(path);                               // and send the new grown path back to the search list.
-                 path.pop_back();                                           // pop next, so we can reuse this path for adding a new step
-             }
-      }
+    // Preserve seed and neighbor order, including the existing reverse-search
+    // convention. Reconstruct only the successful path from predecessor indices.
+    for (std::size_t head=0; head<queue.size(); ++head) {
+        const ReferencePointList neighbors = getNeighbors(queue[head].reference, visited, context);
+        for (const auto& next : neighbors) {
+            queue.push_back({next, head});
+            if ((targetIsReference && next == name2) ||
+                (!targetIsReference && prefix(next) == prefix(name2))) {
+                ReferencePointList path;
+                for (std::size_t node=queue.size()-1; node!=noParent; node=queue[node].parent)
+                    path.push_front(queue[node].reference);
+                if (reversesearch) path.reverse();
+                return path;
+            }
+            visited.insert(next);
+        }
+    }
 
     throw SEBException("Didn't find a path between "+name1+"  "+name2+"    This should not happen!");
 }
@@ -1760,17 +1749,18 @@ ReferencePointList World::CachedPath(
     const string& first, const string& second, bool check,
     NumericEvaluationContext* context)
 {
-    if (!context) return findpath(first, second, check);
+    if (!context) return findPath(first, second, check, nullptr);
     const auto key = std::make_tuple(first, second, check);
     const auto found = context->paths.find(key);
     if (found != context->paths.end()) return found->second;
-    ReferencePointList path = findpath(first, second, check);
+    ReferencePointList path = findPath(first, second, check, context);
     // Long-chain pair paths can require cubic storage. Bound this optional
-    // acceleration and fall back to the original search when the budget is full.
+    // acceleration and fall back to uncached search when the shared path and
+    // adjacency budget is full.
     if (context->paths.size() < 4096 &&
-        path.size() <= 262144 - context->pathReferences) {
+        path.size() <= 262144 - context->referenceEntries) {
         context->paths.emplace(key, path);
-        context->pathReferences += path.size();
+        context->referenceEntries += path.size();
     }
     return path;
 }
@@ -2370,29 +2360,37 @@ string World::getReferenceAfterHash(string n)
       or we can jump to any reference point inside this structure.
 */
 
-ReferencePointList World::getNeighbors(refPoint last, const std::unordered_set<refPoint>& visited)
+ReferencePointList World::getNeighbors(const refPoint& last,
+                                       const std::unordered_set<refPoint>& visited,
+                                       NumericEvaluationContext* context)
 {
-   ReferencePointList neighbors;
-
-// First go through all links that could connect last out of the current structure
-   for (auto itr : links)
-     {
-        refPoint next;
-        if (itr.first == last) next = itr.second;
-        if (itr.second == last) next = itr.first;
-
-        if (next.empty()) continue;
-        if (visited.count(next) != 0) continue;
-
-        neighbors.push_back(next);
-     }
-
-// Then traverse inside the structure and find all reference points below prefix. (not already known)
-   for (auto it : getReferencePoints(prefix(last)) )
-         if (visited.count(it) == 0 && it!=last)
-               neighbors.push_back(it);
-
-   return neighbors;
+    ReferencePointList uncached;
+    const ReferencePointList* candidates = nullptr;
+    if (context) {
+        const auto found = context->neighbors.find(last);
+        if (found != context->neighbors.end()) candidates = &found->second;
+    }
+    if (!candidates) {
+        // Adjacency depends only on topology. Filtering by this search's visited
+        // references happens afterwards, so the list can serve other pair searches.
+        for (const auto& link : links) {
+            refPoint next;
+            if (link.first == last) next = link.second;
+            if (link.second == last) next = link.first;
+            if (!next.empty()) uncached.push_back(next);
+        }
+        for (const auto& next : getReferencePoints(prefix(last)))
+            if (next != last) uncached.push_back(next);
+        if (context && context->neighbors.size() < 4096 &&
+            uncached.size() <= 262144 - context->referenceEntries) {
+            context->referenceEntries += uncached.size();
+            candidates = &context->neighbors.emplace(last, std::move(uncached)).first->second;
+        } else candidates = &uncached;
+    }
+    ReferencePointList neighbors;
+    for (const auto& next : *candidates)
+        if (visited.count(next) == 0) neighbors.push_back(next);
+    return neighbors;
 }
 
 // Recursive funktion that does the search for structures / sub-units into a structure.
