@@ -69,6 +69,76 @@ def to_cform(expression):
     return SymPyExpression(str(expression)).to_cform()
 
 
+def compile_expression(expression):
+    """Prepare a reusable NumPy/SciPy evaluator for an analytical equation.
+
+    Call the result as ``evaluate(parameters, q_values)``. All free symbols
+    except ``q`` require scalar parameters on every call; extra parameters are
+    ignored and q comes from q_values. Scalar inputs return float; arrays keep
+    their shape, including constants and empty arrays. No World is retained.
+
+    SciPy is optional and enables additional special functions.
+    Common subexpressions are calculated once per call. This prepares Python
+    numerical code, not a machine-code kernel. Unresolved integrals and
+    symbolic functions are rejected: use native World evaluation for numerical
+    quadrature, clouds, and hybrids. Equation singularities are not repaired.
+    Only compile trusted expressions, since SymPy lambdify generates code.
+    """
+    # Import locally to avoid the package's initialization cycle and retain its
+    # native-expression conversion instead of reparsing a printed equation.
+    from . import to_sympy
+    from sympy.core.function import AppliedUndef
+
+    expr = expression if isinstance(expression, sympy.Expr) else to_sympy(expression)
+    if expr.has(sympy.Integral, sympy.Derivative, sympy.Sum, sympy.Product, AppliedUndef):
+        raise ValueError("Unresolved symbolic operation; use native World evaluation")
+    symbols = sorted(expr.free_symbols, key=str)
+    names = [str(symbol) for symbol in symbols]
+    if len(set(names)) != len(names):
+        raise ValueError("Expression has distinct symbols with the same parameter name")
+    modules = ['numpy']
+    try:
+        import scipy.special  # Optional: extend the available special functions.
+    except ImportError:
+        pass
+    else:
+        modules.append('scipy')
+    try:
+        function = sympy.lambdify(symbols, expr, modules=modules,
+                                 cse=True, dummify=True, docstring_limit=0)
+    except (NotImplementedError, TypeError) as error:
+        raise ValueError("Unsupported analytical expression") from error
+
+    def evaluate(parameters, q_values):
+        q_array = np.asarray(q_values, dtype=float)
+        if not np.all(np.isfinite(q_array)):
+            raise ValueError("q must be finite")
+        # Bind every parameter again, allowing fitting to change its values
+        # without retaining mutable parameter or model state in the evaluator.
+        arguments = []
+        for name in names:
+            if name == 'q':
+                arguments.append(q_array)
+            else:
+                if name not in parameters:
+                    raise ValueError(f"Missing parameter: {name}")
+                value = float(parameters[name])
+                if not np.isfinite(value):
+                    raise ValueError(f"Parameter must be finite: {name}")
+                arguments.append(value)
+        try:
+            result = np.asarray(function(*arguments), dtype=float)
+        except NameError as error:
+            raise ValueError("Unsupported numerical function; some functions require SciPy") from error
+        result = np.broadcast_to(result, q_array.shape)
+        if not np.all(np.isfinite(result)):
+            raise ValueError("Equation produced a non-finite value")
+        return float(result) if q_array.ndim == 0 else result.copy()
+
+    evaluate.parameter_names = tuple(name for name in names if name != 'q')
+    return evaluate
+
+
 def evaluate_expression(world, expression, parameters, q_values=None):
     """
     Evaluate a GiNaC expression with the given parameters.

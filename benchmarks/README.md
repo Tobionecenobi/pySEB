@@ -512,3 +512,62 @@ existing expected tiny-q sphere failure); all 69 C++ tests passed. Memcheck on
 the hydrated 128-atom cloud–sphere hybrid reports zero errors and zero heap
 blocks at exit. The focused nine-test numerical regression suite also passed
 with the same expected failure.
+
+## Preparing exported analytical equations for repeated evaluation
+
+The public `evaluate_expression` helper reparses, substitutes parameter values,
+and generates a NumPy function on each call. The optional explicit preparation
+path performs code generation once and accepts new scalar bindings each time:
+
+```python
+# Keep the equation available for inspection/export; prepare it once for a fit.
+equation = world.FormFactor_Unnormalized('particle')
+evaluate = pyseb.compile_expression(equation)
+curve = evaluate(parameters, q)
+# An optimizer may now change parameters without regenerating numerical code.
+next_curve = evaluate(updated_parameters, q)
+```
+
+`compile_expression` generates reusable NumPy code with SymPy common
+subexpression elimination. It is not a machine-code C++ kernel or a replacement
+for native evaluation. Every non-q free symbol is rebound on every call;
+`evaluate.parameter_names` lists required bindings. Extra dictionary entries
+are ignored, and the q argument supplies q. Outputs preserve scalar/array/empty
+shapes, including constant expressions. Missing/non-finite inputs and non-finite
+outputs raise errors. SymPy's generated code must only be prepared from trusted
+expressions. SciPy is optional and extends special-function support.
+
+Unresolved integrals, derivatives, sums/products, and unknown symbolic functions
+are rejected. Use native World evaluation for quadrature, numerical clouds and
+hybrids containing numerical subunits. Generic equations carry no structural
+metadata to resolve removable q=0 singularities; a non-finite result is reported
+rather than silently replaced. The existing one-shot helper is unchanged.
+
+Reproduce the measurement, including generation, one-time preparation, repeated
+parameter changes, and comparison with native vector results:
+
+```bash
+OPENBLAS_NUM_THREADS=1 .venv-sympy/bin/python \
+  benchmarks/profile_equation_evaluation.py --output /tmp/pyseb-equations.json
+```
+
+Observed medians for seven changed-parameter evaluations, 101 q values from
+0.03 to 0.5, portable backend, after warming optional-library imports:
+
+| Analytical model | Existing helper | Prepared evaluator | One-time preparation |
+| --- | ---: | ---: | ---: |
+| Gaussian chain, 8 segments | 69.59 ms | 0.149 ms | 28.14 ms |
+| Gaussian chain, 16 segments | 66.49 ms | 0.161 ms | 32.74 ms |
+| Sphere + 8 Gaussian arms | 14.44 ms | 0.135 ms | 10.85 ms |
+| Sphere + 16 Gaussian arms | 11.54 ms | 0.091 ms | 7.13 ms |
+
+These local timings reflect reused equations with shared polymer parameters,
+not general performance guarantees. Generation is recorded separately in the
+JSON and is not included in preparation or curve times. Every changed-parameter
+curve agrees with native evaluation at rtol=2e-8, atol=1e-8. Tests additionally
+cover scalar/empty/multidimensional shapes, constants, special functions,
+missing/rebound parameters, invalid inputs, and preparation without SciPy.
+
+Validation: all eight prepared-expression tests pass; the complete Python suite
+runs 140 tests successfully with one optional skip and the existing expected
+tiny-q sphere failure. No C++ engine changes are introduced by this helper.
