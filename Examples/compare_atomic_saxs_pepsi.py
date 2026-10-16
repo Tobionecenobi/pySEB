@@ -18,6 +18,29 @@ sys.path.insert(0, str(ROOT))
 import pyseb
 
 
+def hydration_contrast_multiplier(dry_amplitude, wet_amplitude, intensity_ratio):
+    """Match I(0), choosing a target amplitude with the dry amplitude's sign.
+
+    Intensities do not determine the target sign. This diagnostic explicitly
+    stays on the dry-amplitude branch, even if hydration previously crossed zero.
+    """
+    if not np.all(np.isfinite([dry_amplitude, wet_amplitude, intensity_ratio])):
+        raise ValueError('Forward amplitudes and intensity ratio must be finite')
+    if dry_amplitude == 0 or intensity_ratio <= 0:
+        raise ValueError('Matching requires nonzero dry amplitude and positive I(0) ratio')
+    shell_amplitude = wet_amplitude - dry_amplitude
+    if shell_amplitude == 0:
+        raise ValueError('Cannot adjust contrast with zero shell forward amplitude')
+    target_amplitude = dry_amplitude * np.sqrt(intensity_ratio)
+    return (target_amplitude - dry_amplitude) / shell_amplitude
+
+
+def forward_amplitude(cloud):
+    """Sum signed native atomic amplitudes at exactly q=0, including shell points."""
+    return sum(cloud.atomic_amplitude(i, 0.0)
+               for i in range(len(cloud.get_scatterers())))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pepsi', type=Path, required=True)
@@ -41,6 +64,7 @@ def main():
               'pepsi_sha256': hashlib.sha256(args.pepsi.read_bytes()).hexdigest(),
               'atom_records': len(records), 'cases': {}}
     curves = {}
+    forward_amplitudes = {}
     for contrast in (0, 5):
         label = f'hydration_{contrast}pct'
         target = args.output / f'{label}.dat'
@@ -65,6 +89,8 @@ def main():
         world = pyseb.World(label)
         world.Add(cloud, 'protein')
         ours = np.asarray(world.EvaluateFormFactorUnnormalized('protein', {}, q))
+        # Save the signed solution amplitude before switching to vacuum options.
+        forward_amplitudes[label] = forward_amplitude(cloud)
         vacuum_options = pyseb.AtomicSAXSOptions()
         vacuum_options.include_excluded_solvent = False
         cloud.set_options(vacuum_options)
@@ -100,13 +126,17 @@ def main():
         # Sensitivity diagnostic: match the hydration-induced I0 ratio to
         # isolate geometry from each program's shell-volume convention.
         # This is sample-specific and is never a production default.
-        wanted = np.sqrt(dry[0][0]) * (np.sqrt(wet[1][0]/dry[1][0])-1)
-        present = np.sqrt(wet[0][0])-np.sqrt(dry[0][0])
-        options.hydration_shell_contrast *= wanted/present
+        if q[0] != 0:
+            raise ValueError('Forward matching requires Pepsi data starting at q=0')
+        options.hydration_shell_contrast *= hydration_contrast_multiplier(
+            forward_amplitudes['hydration_0pct'],
+            forward_amplitudes['hydration_5pct'], wet[1][0] / dry[1][0])
         cloud.set_options(options)
         matched = np.asarray(world.EvaluateFormFactorUnnormalized('protein', {}, q))
         difference = (matched/matched[0])/(wet[1]/wet[1][0])-1
         result['forward_hydration_ratio_matched'] = {
+            'target_amplitude_sign': 'same_as_dry',
+            'achieved_I0_ratio': float(matched[0] / dry[0][0]),
             'contrast_e_per_A3': options.hydration_shell_contrast,
             'normalized_relative_rms': float(np.sqrt(np.mean(difference**2))),
             'normalized_relative_max': float(np.max(np.abs(difference)))}
