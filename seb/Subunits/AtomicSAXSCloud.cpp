@@ -664,15 +664,20 @@ double AtomicSAXSCloud::radiusOfGyration2() const
     ensureGeometryPrepared();
     const double beta = nonzeroTotalBeta("radius of gyration");
     double internal = 0.0;
+    // Moments depend on the atom and current solvent options, not on its pair.
+    // Reuse them within this evaluation without retaining stale mutable state.
+    std::vector<double> atomBetas;
+    atomBetas.reserve(atoms.size());
     for (const auto& atom : atoms) {
-        internal += amplitudeMoment(atom).secondMoment;
+        const AmplitudeMoment moment = amplitudeMoment(atom);
+        internal += moment.secondMoment;
+        atomBetas.push_back(moment.beta);
     }
     internal /= beta;
 
     double centers = 0.0;
     for (const auto& pair : atomPairDistances) {
-        centers += amplitudeMoment(atoms[pair.first]).beta *
-            amplitudeMoment(atoms[pair.second]).beta * pair.distance2;
+        centers += atomBetas[pair.first] * atomBetas[pair.second] * pair.distance2;
     }
     centers /= beta * beta;
     return internal + centers;

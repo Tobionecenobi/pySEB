@@ -746,6 +746,28 @@ class TestAtomicSAXSCloud(unittest.TestCase):
         finite_difference = 3.0 * (1.0 - form_factor) / (q * q)
         self.assertAlmostEqual(rg2, finite_difference, places=5)
 
+    def test_rg_moments_follow_solvent_changes_with_signed_atomic_contrasts(self):
+        points = []
+        for x, electrons, volume in [(0., 6., 12.), (3., 8., 40.), (7., 9., 8.)]:
+            point = pyseb.AtomicSAXSScatterer()
+            point.center = pyseb.CartesianPoint3D(x, 0., 0.)
+            point.vacuum = pyseb.CromerMannCoefficients([0.]*4, [0.]*4, electrons)
+            point.excluded_volume = volume
+            point.solvent_accessibility = .5
+            points.append(point)
+        cloud = pyseb.AtomicSAXSCloud(points)
+        world = pyseb.World('signed_rg')
+        world.Add(cloud, 'cloud')
+        for density, hydration in [(.334, .02), (.2, 0.), (.4, -.01), (.334, .02)]:
+            cloud.set_solvent_electron_density(density)
+            cloud.set_hydration(hydration != 0., hydration, 30.)
+            # Independent low-q scattering checks the full signed, hydrated
+            # moment calculation and repeated updates, not a duplicate formula.
+            q = 1.e-4
+            finite_difference = 3.*(1.-world.EvaluateFormFactor('cloud', {}, q))/(q*q)
+            self.assertAlmostEqual(world.EvaluateRadiusOfGyration2('cloud', {}),
+                                   finite_difference, delta=2.e-5)
+
     def test_pdb_builder_applies_protein_hydrogens_and_references(self):
         pdb = (
             "ATOM      1  N   ALA A   1      11.104  13.207   9.234  0.50 20.00           N  \n"
