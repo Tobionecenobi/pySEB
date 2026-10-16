@@ -7,6 +7,33 @@ import sympy
 
 
 class TestEvaluation(unittest.TestCase):
+    def test_vector_traversal_matches_scalar_after_parameter_and_topology_changes(self):
+        world = pyseb.World('vector_paths')
+        graph = world.Add('GaussianPolymer', 'p0')
+        for i in range(1, 4):
+            world.Link('GaussianPolymer', f'p{i}.end1', f'p{i-1}.end2')
+        world.Add(graph, 'particle')
+        # Non-monotonic, repeated, zero and negative q values exercise reuse
+        # without allowing evaluation order to affect the results.
+        q = [.2, 0., -.2, .01, .2]
+        for count, contrast in [(4, 1.), (4, -2.), (5, 1.5)]:
+            if count == 5:
+                world.Link('GaussianPolymer', 'p4.end1', 'p3.end2')
+            p = {f'Rg_p{i}': 2.+i for i in range(count)}
+            p.update({f'beta_p{i}': contrast if i % 2 else 3. for i in range(count)})
+            for method, refs in [
+                ('EvaluateFormFactor', ('particle',)),
+                ('EvaluateFormFactorUnnormalized', ('particle',)),
+                ('EvaluateFormFactorAmplitude', ('particle:p0.end1',)),
+                ('EvaluateFormFactorAmplitudeUnnormalized', ('particle:p0.end1',)),
+                ('EvaluatePhaseFactor', ('particle:p0.end1', f'particle:p{count-1}.end2')),
+            ]:
+                evaluate = getattr(world, method)
+                np.testing.assert_allclose(evaluate(*refs, p, q),
+                                           [evaluate(*refs, p, v) for v in q],
+                                           rtol=1e-12, atol=1e-12)
+                self.assertEqual(evaluate(*refs, p, []), [])
+
     def test_sympy_evaluate_expression(self):
         world = pyseb.World()
         graph_id = world.Add("GaussianPolymer", "poly1")

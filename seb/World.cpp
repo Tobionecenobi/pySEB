@@ -1258,8 +1258,17 @@ DoubleVector World::EvaluateFormFactor(
 {
     DoubleVector result;
     result.reserve(q.size());
+    if (q.empty()) return result;
+    const double beta = GenerateTotalBetaNumeric(name, values);
+    if (std::abs(beta) <= 1e-14) {
+        throw SEBException(
+            "Cannot normalize a form factor when the total excess scattering length is zero",
+            "World::EvaluateFormFactor()"
+        );
+    }
+    NumericEvaluationContext context;
     for (const double value : q) {
-        result.push_back(EvaluateFormFactor(name, values, value));
+        result.push_back(GenerateAllToAllNumeric(name, value, values, &context) / (beta * beta));
     }
     return result;
 }
@@ -1279,8 +1288,9 @@ DoubleVector World::EvaluateFormFactorUnnormalized(
 {
     DoubleVector result;
     result.reserve(q.size());
+    NumericEvaluationContext context;
     for (const double value : q) {
-        result.push_back(EvaluateFormFactorUnnormalized(name, values, value));
+        result.push_back(GenerateAllToAllNumeric(name, value, values, &context));
     }
     return result;
 }
@@ -1307,8 +1317,17 @@ DoubleVector World::EvaluateFormFactorAmplitude(
 {
     DoubleVector result;
     result.reserve(q.size());
+    if (q.empty()) return result;
+    const double beta = GenerateTotalBetaNumeric(prefix(ref), values);
+    if (std::abs(beta) <= 1e-14) {
+        throw SEBException(
+            "Cannot normalize a form-factor amplitude when the total excess scattering length is zero",
+            "World::EvaluateFormFactorAmplitude()"
+        );
+    }
+    NumericEvaluationContext context;
     for (const double value : q) {
-        result.push_back(EvaluateFormFactorAmplitude(ref, values, value));
+        result.push_back(GenerateRefToAllNumeric(ref, value, values, &context) / beta);
     }
     return result;
 }
@@ -1328,8 +1347,9 @@ DoubleVector World::EvaluateFormFactorAmplitudeUnnormalized(
 {
     DoubleVector result;
     result.reserve(q.size());
+    NumericEvaluationContext context;
     for (const double value : q) {
-        result.push_back(EvaluateFormFactorAmplitudeUnnormalized(ref, values, value));
+        result.push_back(GenerateRefToAllNumeric(ref, value, values, &context));
     }
     return result;
 }
@@ -1351,8 +1371,9 @@ DoubleVector World::EvaluatePhaseFactor(
 {
     DoubleVector result;
     result.reserve(q.size());
+    NumericEvaluationContext context;
     for (const double value : q) {
-        result.push_back(EvaluatePhaseFactor(r1, r2, values, value));
+        result.push_back(GenerateRefToRefNumeric(r1, r2, value, values, &context));
     }
     return result;
 }
@@ -1751,11 +1772,31 @@ double World::GenerateTotalBetaNumeric(
     );
 }
 
+ReferencePointList World::NumericPath(
+    const string& first, const string& second, bool check,
+    NumericEvaluationContext* context)
+{
+    if (!context) return findpath(first, second, check);
+    const auto key = std::make_tuple(first, second, check);
+    const auto found = context->paths.find(key);
+    if (found != context->paths.end()) return found->second;
+    ReferencePointList path = findpath(first, second, check);
+    // Long-chain pair paths can require cubic storage. Bound this optional
+    // acceleration and fall back to the original search when the budget is full.
+    if (context->paths.size() < 4096 &&
+        path.size() <= 262144 - context->pathReferences) {
+        context->paths.emplace(key, path);
+        context->pathReferences += path.size();
+    }
+    return path;
+}
+
 double World::GenerateRefToRefNumeric(
     refPoint r1,
     refPoint r2,
     double q,
-    const ParameterList& values)
+    const ParameterList& values,
+    NumericEvaluationContext* context)
 {
     if (!std::isfinite(q)) {
         throw SEBException("q must be finite", "World::GenerateRefToRefNumeric()");
@@ -1775,11 +1816,11 @@ double World::GenerateRefToRefNumeric(
         }
 
         if (prefix(postfix(r1)) == prefix(postfix(r2))) {
-            return GenerateRefToRefNumeric(postfix(r1), postfix(r2), q, values);
+            return GenerateRefToRefNumeric(postfix(r1), postfix(r2), q, values, context);
         }
 
-        ReferencePointList path = findpath(r1, r2, false);
-        return PhaseFactorNumeric(path, q, values);
+        ReferencePointList path = NumericPath(r1, r2, false, context);
+        return PhaseFactorNumeric(path, q, values, context);
     }
 
     if (isSubunit(myself)) {
@@ -1800,7 +1841,8 @@ double World::GenerateRefToRefNumeric(
 double World::GenerateRefToAllNumeric(
     refPoint ref,
     double q,
-    const ParameterList& values)
+    const ParameterList& values,
+    NumericEvaluationContext* context)
 {
     if (!std::isfinite(q)) {
         throw SEBException("q must be finite", "World::GenerateRefToAllNumeric()");
@@ -1812,13 +1854,13 @@ double World::GenerateRefToAllNumeric(
         const GraphID gid = getStructure(myself)->getGraphID();
 
         for (auto child = subgraph_cbegin(gid); child != subgraph_cend(gid); ++child) {
-            ReferencePointList path = findpath(ref, myself + ":" + *child);
+            ReferencePointList path = NumericPath(ref, myself + ":" + *child, true, context);
             double term = 0.0;
             if (path.empty()) {
-                term = GenerateRefToAllNumeric(postfix(ref), q, values);
+                term = GenerateRefToAllNumeric(postfix(ref), q, values, context);
             } else {
-                term = PhaseFactorNumeric(path, q, values) *
-                       GenerateRefToAllNumeric(path.back(), q, values);
+                term = PhaseFactorNumeric(path, q, values, context) *
+                       GenerateRefToAllNumeric(path.back(), q, values, context);
             }
             amplitude += term;
         }
@@ -1842,7 +1884,8 @@ double World::GenerateRefToAllNumeric(
 double World::GenerateAllToAllNumeric(
     string name,
     double q,
-    const ParameterList& values)
+    const ParameterList& values,
+    NumericEvaluationContext* context)
 {
     if (!std::isfinite(q)) {
         throw SEBException("q must be finite", "World::GenerateAllToAllNumeric()");
@@ -1859,18 +1902,18 @@ double World::GenerateAllToAllNumeric(
         for (auto child1 = subgraph_cbegin(gid); child1 != subgraph_cend(gid); ++child1) {
             for (auto child2 = child1; child2 != subgraph_cend(gid); ++child2) {
                 if (child1 == child2) {
-                    formFactor += GenerateAllToAllNumeric(*child1, q, values);
+                    formFactor += GenerateAllToAllNumeric(*child1, q, values, context);
                     continue;
                 }
 
-                ReferencePointList path = findpath(
+                ReferencePointList path = NumericPath(
                     name + ":" + *child1,
                     name + ":" + *child2,
-                    false
+                    false, context
                 );
-                const double amplitude1 = GenerateRefToAllNumeric(path.front(), q, values);
-                const double phase = PhaseFactorNumeric(path, q, values);
-                const double amplitude2 = GenerateRefToAllNumeric(path.back(), q, values);
+                const double amplitude1 = GenerateRefToAllNumeric(path.front(), q, values, context);
+                const double phase = PhaseFactorNumeric(path, q, values, context);
+                const double amplitude2 = GenerateRefToAllNumeric(path.back(), q, values, context);
                 formFactor += 2.0 * amplitude1 * phase * amplitude2;
             }
         }
@@ -1886,7 +1929,8 @@ double World::GenerateAllToAllNumeric(
 double World::PhaseFactorNumeric(
     ReferencePointList& path,
     double q,
-    const ParameterList& values)
+    const ParameterList& values,
+    NumericEvaluationContext* context)
 {
     if (path.size() < 2) {
         return 1.0;
@@ -1898,7 +1942,7 @@ double World::PhaseFactorNumeric(
     ++next;
     while (next != path.end()) {
         if (!isLinked(*current, *next)) {
-            phase *= GenerateRefToRefNumeric(*current, *next, q, values);
+            phase *= GenerateRefToRefNumeric(*current, *next, q, values, context);
         }
         current = next;
         ++next;

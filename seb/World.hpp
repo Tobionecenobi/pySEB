@@ -9,6 +9,7 @@
 #include <fstream>
 #include <cmath>
 #include <utility>
+#include <tuple>
 
 #include "Types.hpp"
 #include "Constants.hpp"
@@ -318,12 +319,20 @@ public:
     sebsym::Expression GenerateRefToAll( refPoint r,               int depth, int varForm );
     sebsym::Expression GenerateAllToAll( string name,              int depth, int varForm );
 
+    // Paths depend on topology, not q. Keep reuse local to one vector call.
+    struct NumericEvaluationContext {
+        std::map<std::tuple<string, string, bool>, ReferencePointList> paths;
+        std::size_t pathReferences = 0;
+    };
+    ReferencePointList NumericPath(const string& first, const string& second,
+                                  bool check, NumericEvaluationContext* context);
+
     // Parallel numerical traversal.
     double GenerateTotalBetaNumeric(string name, const ParameterList& values);
-    double GenerateRefToRefNumeric(refPoint r1, refPoint r2, double q, const ParameterList& values);
-    double GenerateRefToAllNumeric(refPoint ref, double q, const ParameterList& values);
-    double GenerateAllToAllNumeric(string name, double q, const ParameterList& values);
-    double PhaseFactorNumeric(ReferencePointList& path, double q, const ParameterList& values);
+    double GenerateRefToRefNumeric(refPoint r1, refPoint r2, double q, const ParameterList& values, NumericEvaluationContext* context = nullptr);
+    double GenerateRefToAllNumeric(refPoint ref, double q, const ParameterList& values, NumericEvaluationContext* context = nullptr);
+    double GenerateAllToAllNumeric(string name, double q, const ParameterList& values, NumericEvaluationContext* context = nullptr);
+    double PhaseFactorNumeric(ReferencePointList& path, double q, const ParameterList& values, NumericEvaluationContext* context = nullptr);
 
     // Guinier traversal using c0 - q^2 c2 + O(q^4).
     GuinierTerm GenerateRefToRefGuinier(refPoint r1, refPoint r2, const ParameterList& values);
