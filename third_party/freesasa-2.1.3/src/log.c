@@ -194,6 +194,8 @@ int freesasa_write_res(FILE *log,
         result = freesasa_node_next(result);
     }
 
+    free(residue_area);
+
     fflush(log);
     if (ferror(log)) {
         return fail_msg(strerror(errno));

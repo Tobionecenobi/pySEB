@@ -83,6 +83,11 @@ add_executable(seb_symbolic_test seb_symbolic_test.cpp)
 add_executable(numerical_subunit_test numerical_subunit_tests.cpp)
 add_executable(pdb_parser_test pdb_parser_tests.cpp)
 add_executable(file_defined_subunit_test file_defined_subunit_tests.cpp)
+add_executable(freesasa_rsa_test freesasa_rsa_test.c)
+target_include_directories(freesasa_rsa_test PRIVATE
+    ${CMAKE_SOURCE_DIR}/../third_party/freesasa-2.1.3/src)
+target_link_libraries(freesasa_rsa_test PRIVATE ${SEB_LIBRARY} m)
+add_test(NAME FreeSASARsaTest COMMAND freesasa_rsa_test)
 
 # Add sample test executables
 add_executable(sample_solid_cylinder_test Sample_SolidCylinder_test.cpp)

@@ -105,22 +105,20 @@ rsa_print_residue(FILE *output,
     return FREESASA_SUCCESS;
 }
 
-int freesasa_write_rsa(FILE *output,
-                       freesasa_node *tree,
-                       int options)
+static void
+rsa_print_structure(FILE *output,
+                    freesasa_node *result_node,
+                    freesasa_node *structure_node,
+                    int options)
 {
-    freesasa_node *residue, *chain, *structure_node, *result_node;
+    freesasa_node *residue, *chain;
     const freesasa_nodearea *abs, *reference;
     freesasa_nodearea rel;
     int res_index, chain_index;
     const freesasa_parameters *parameters;
 
     assert(output);
-    assert(tree);
-
-    result_node = freesasa_node_children(tree);
     parameters = freesasa_node_result_parameters(result_node);
-    structure_node = freesasa_node_children(result_node);
     chain = freesasa_node_children(structure_node);
 
     rsa_print_header(output, freesasa_node_classified_by(result_node),
@@ -164,6 +162,25 @@ int freesasa_write_rsa(FILE *output,
     fprintf(output, "END  Absolute sums over all chains\n");
     fprintf(output, "TOTAL        %10.1f   %10.1f   %10.1f   %10.1f   %10.1f\n",
             abs->total, abs->side_chain, abs->main_chain, abs->apolar, abs->polar);
+}
+
+int freesasa_write_rsa(FILE *output,
+                       freesasa_node *tree,
+                       int options)
+{
+    freesasa_node *result, *structure;
+
+    assert(output);
+    assert(tree);
+
+    /* Each calculation and structure needs its own header and totals. */
+    for (result = freesasa_node_children(tree); result;
+         result = freesasa_node_next(result)) {
+        for (structure = freesasa_node_children(result); structure;
+             structure = freesasa_node_next(structure)) {
+            rsa_print_structure(output, result, structure, options);
+        }
+    }
 
     fflush(output);
     if (ferror(output)) {

@@ -54,7 +54,6 @@ freesasa_err_impl(int err,
         break;
     }
     vfprintf(fp, format, arg);
-    va_end(arg);
     fputc('\n', fp);
     fflush(fp);
 }
@@ -130,7 +129,6 @@ freesasa_thread_error(int error_code)
 
 void freesasa_set_err_out(FILE *fp)
 {
-    assert(fp);
     errlog = fp;
 }
 
