@@ -3,6 +3,7 @@
 #include "SpecialFunctions.hpp"
 #include "SymbolInterface.hpp"
 #include "Types.hpp"
+#include "SEB.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -433,3 +434,55 @@ TEST_F(SebSymbolicFixture, OtherBackendsRetainNumericSubstitutionFallback)
     EXPECT_DOUBLE_EQ(expression.evaluateNumeric(params, .1),
                      expression.subs(params).subs("q", .1).evalf().eval());
 }
+
+class NumericEvaluationErrorTest : public SebSymbolicFixture,
+                                   public ::testing::WithParamInterface<const char*> {
+    void TearDown() override { sebsym::set_backend("portable"); }
+};
+
+TEST_P(NumericEvaluationErrorTest, MissingParametersKeepTheSEBExceptionContract)
+{
+    if (!sebsym::set_backend(GetParam())) GTEST_SKIP() << "Backend unavailable";
+    // Exercise the direct symbolic entry point as well as the structural
+    // boundary. GiNaC must reject an unresolved symbol before numeric casting.
+    const auto expression = sebsym::symbol("missing") + sebsym::symbol("q");
+    EXPECT_THROW(expression.evaluateNumeric({}, .2), std::runtime_error);
+    EXPECT_DOUBLE_EQ(expression.evaluateNumeric({{"missing", 3.}}, .2), 3.2);
+
+    World world;
+    world.Add("SolidSphere", "sphere");
+    const ParameterList complete{{"R_sphere", 3.}, {"beta_sphere", -2.}};
+    const ParameterList missingRadius{{"beta_sphere", -2.}};
+    const std::vector<std::pair<std::function<void()>, std::string>> cases{
+        {[&] { world.EvaluateFormFactorUnnormalized("sphere", missingRadius, .2); },
+         "SubUnit::NumericFormFactorUnnormalized()"},
+        {[&] { world.EvaluateFormFactorUnnormalized("sphere", missingRadius, DoubleVector{.1, .2}); },
+         "SubUnit::NumericFormFactorUnnormalized()"},
+        {[&] { world.EvaluateFormFactorAmplitudeUnnormalized("sphere.center", missingRadius, .2); },
+         "SubUnit::NumericFormFactorAmplitudeUnnormalized()"},
+        {[&] { world.EvaluateRadiusOfGyration2("sphere", missingRadius); },
+         "SubUnit::NumericRadiusOfGyration2()"},
+        {[&] { world.EvaluateFormFactorUnnormalized("sphere", {}, 0.); },
+         "SubUnit::NumericTotalBeta()"},
+    };
+    for (const auto& entry : cases) {
+        SCOPED_TRACE(entry.second);
+        // Warm evaluation first to expose stale values after failed bindings.
+        EXPECT_TRUE(std::isfinite(world.EvaluateFormFactorUnnormalized("sphere", complete, .2)));
+        try {
+            entry.first();
+            FAIL() << "Missing parameters must throw SEBException";
+        } catch (const SEBException& error) {
+            const auto parameter = entry.second == "SubUnit::NumericTotalBeta()"
+                ? "beta_sphere" : "R_sphere";
+            EXPECT_NE(std::string(error.what()).find(parameter), std::string::npos);
+            EXPECT_NE(std::string(error.where()).find(entry.second), std::string::npos);
+        } catch (const std::exception& error) {
+            FAIL() << "Wrong exception type: " << error.what();
+        }
+        EXPECT_DOUBLE_EQ(world.EvaluateFormFactorUnnormalized("sphere", complete, 0.), 4.);
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(Backends, NumericEvaluationErrorTest,
+                        ::testing::Values("portable", "ginac"));

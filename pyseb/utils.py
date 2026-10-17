@@ -82,6 +82,7 @@ def compile_expression(expression):
     numerical code, not a machine-code kernel. Unresolved integrals and
     symbolic functions are rejected: use native World evaluation for numerical
     quadrature, clouds, and hybrids. Equation singularities are not repaired.
+    Evaluated values must be finite and real; imaginary parts are not discarded.
     Only compile trusted expressions, since SymPy lambdify generates code.
     """
     # Import locally to avoid the package's initialization cycle and retain its
@@ -127,9 +128,16 @@ def compile_expression(expression):
                     raise ValueError(f"Parameter must be finite: {name}")
                 arguments.append(value)
         try:
-            result = np.asarray(function(*arguments), dtype=float)
+            result = np.asarray(function(*arguments))
         except NameError as error:
             raise ValueError("Unsupported numerical function; some functions require SciPy") from error
+        # Casting a complex array to float can silently change the equation.
+        # Accept complex storage only when every evaluated value is real.
+        if np.iscomplexobj(result):
+            if np.any(result.imag != 0):
+                raise ValueError("Equation produced a complex value")
+            result = result.real
+        result = np.asarray(result, dtype=float)
         result = np.broadcast_to(result, q_array.shape)
         if not np.all(np.isfinite(result)):
             raise ValueError("Equation produced a non-finite value")

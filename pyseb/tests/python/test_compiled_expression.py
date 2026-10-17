@@ -1,6 +1,7 @@
 """Reusable analytical-equation evaluation must preserve mathematical values."""
 import math
 import unittest
+import warnings
 from unittest.mock import patch
 
 import numpy as np
@@ -78,6 +79,25 @@ class TestCompiledExpression(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Missing parameter: a'):
                 evaluate({}, .1)
             self.assertTrue(math.isfinite(evaluate({'a': 2.}, .1)))
+
+    def test_complex_results_are_checked_before_float_conversion(self):
+        q = sp.Symbol('q')
+        evaluate = pyseb.compile_expression(sp.I*q)
+        # Reject even very small imaginary values, without emitting a cast
+        # warning or accepting the real part as a different fitting curve.
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            for grid in (1., [1., 2.], np.array([[0., 1e-100]])):
+                with self.subTest(grid=grid):
+                    with self.assertRaisesRegex(ValueError, 'complex value'):
+                        evaluate({}, grid)
+            # Check each evaluation rather than rejecting all complex-typed
+            # equations: these inputs yield exactly real values.
+            self.assertEqual(evaluate({}, 0.), 0.)
+            real = pyseb.compile_expression(sp.exp(sp.I*q))
+            self.assertEqual(real({}, 0.), 1.)
+            np.testing.assert_array_equal(real({}, np.zeros((2, 3))), np.ones((2, 3)))
+            self.assertEqual(real({}, np.empty((2, 0))).shape, (2, 0))
 
     def test_parameter_names_and_symbol_assumptions_are_unambiguous(self):
         name = 'beta:domain.end'

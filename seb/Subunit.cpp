@@ -10,7 +10,15 @@ double evaluateNumericExpression(const Expression& expression,
                                  const ParameterList& values,
                                  const string& where)
 {
-    const double value = expression.evaluateNumeric(values, q);
+    double value;
+    try {
+        value = expression.evaluateNumeric(values, q);
+    } catch (SEBException& error) {
+        error.PushCallStack(where);
+        throw;
+    } catch (const std::exception& error) {
+        throw SEBException("Numerical evaluation failed: " + string(error.what()), where);
+    }
     if (!std::isfinite(value)) {
         throw SEBException("Numerical evaluation produced a non-finite value", where);
     }
