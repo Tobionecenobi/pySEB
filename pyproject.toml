@@ -29,6 +29,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+visualization = ["plotly", "usd-core"]
 sasmodels = ["sasmodels==1.1.0"]
 
 [project.scripts]

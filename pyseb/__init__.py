@@ -244,3 +244,8 @@ __all__ = [
     'evaluate_form_factor_amplitude',
     'evaluate_phase_factor'
 ]
+
+# Optional viewer dependencies are imported only when a figure is requested.
+from .visualization import structure_figure, visualize, show_structure
+
+__all__ += ["structure_figure", "visualize", "show_structure"]

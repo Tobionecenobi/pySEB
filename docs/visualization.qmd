@@ -12,6 +12,39 @@ one deterministic realization as OpenUSD. For a complete runnable path from a
 user-authored model through world save/reload to `.usda`, start with
 [Subunits and YAML Models](tutorials/custom-yaml-workflow.qmd).
 
+## One-line interactive 3D display
+
+Install the optional viewer dependencies once:
+
+```bash
+python -m pip install 'pyseb[visualization]'
+```
+
+For an existing world, pass its structure name and numerical parameters:
+
+```python
+pyseb.visualize(world, "assembly", parameters)
+```
+
+Drag to rotate and scroll to zoom. `pyseb.show_structure` is an alias.
+For customization or notebook display, return the figure instead:
+
+```python
+figure = pyseb.structure_figure(world, "assembly", parameters, height=500)
+figure.update_layout(title_text="My structure")
+figure.show()
+```
+
+Both helpers accept an optional `USDExportOptions` as the fourth argument
+(`options=...`) for units, seed, layout, sampling, and colors. The default
+length unit is Angstrom. Parameters may be omitted for parameter-free models.
+`visualize` also accepts Plotly display arguments such as `renderer="browser"`.
+The viewer exports to a temporary scene and removes it before returning.
+To view a saved scene, use `pyseb.visualization.usd_to_plotly(path)`.
+
+These views show representative realizations of the scattering model.
+Cloud marker sizes are display sizes rather than physical particle radii.
+
 ## Geometry and reference mappings
 
 Schema version 1 model files may include a `visualization` block.  Geometry is
