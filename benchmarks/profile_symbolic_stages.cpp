@@ -22,6 +22,7 @@ int main(int argc, char** argv) {
     py::module::import("sys").attr("path").attr("insert")(0, ".");
     py::module::import("pyseb.symbolic");
     auto sp = py::module::import("sympy");
+    const bool profileConversion=argc>5 && std::string(argv[5]) == "profile";
     py::dict globals;
     globals["sp"] = sp;
     // A Python caller frame is required by SymPy's lambdify implementation.
@@ -62,6 +63,8 @@ int main(int argc, char** argv) {
         std::vector<double> generation, conversion;
         double check=0., firstGeneration=0., firstConversion=0.;
         py::object converted;
+        py::object profiler=py::none();
+        if (profileConversion) profiler=py::module::import("cProfile").attr("Profile")();
         for (int repeat=0;repeat<=repeats;++repeat) {
             const auto start=std::chrono::steady_clock::now();
 #ifdef PYSEB_CALLGRIND
@@ -73,8 +76,14 @@ int main(int argc, char** argv) {
             CALLGRIND_STOP_INSTRUMENTATION;
 #endif
             const auto generated=std::chrono::steady_clock::now();
+            if (profileConversion && !repeat) profiler.attr("enable")();
             converted=pyseb_expression_to_sympy(expression).attr("expr");
             const auto finished=std::chrono::steady_clock::now();
+            if (profileConversion && !repeat) {
+                profiler.attr("disable")();
+                profiler.attr("dump_stats")("/tmp/pyseb-conversion-"+topology+"-"+
+                    std::to_string(count)+"-"+operation+".pstats");
+            }
             if (!repeat) {
                 firstGeneration=std::chrono::duration<double>(generated-start).count();
                 firstConversion=std::chrono::duration<double>(finished-generated).count();
@@ -86,7 +95,16 @@ int main(int argc, char** argv) {
         }
         // Validate the final equation outside both timed stages. Preparing one
         // all-parameter function avoids expensive repeated SymPy substitution.
+        const auto prepareStart=std::chrono::steady_clock::now();
         py::object fn=prepare(converted);
+        const auto prepareEnd=std::chrono::steady_clock::now();
+        // Include ordinary downstream uses: a conversion improvement must not
+        // merely postpone expensive work until lambdify or the first printer.
+        const auto textStart=std::chrono::steady_clock::now();
+        const auto text=py::cast<std::string>(py::str(converted));
+        const auto textEnd=std::chrono::steady_clock::now();
+        const auto latex=py::cast<std::string>(sp.attr("latex")(converted));
+        const auto latexEnd=std::chrono::steady_clock::now();
         py::list symbols=py::module::import("builtins").attr("sorted")(
             converted.attr("free_symbols"),py::arg("key")=py::module::import("builtins").attr("str"));
         for (double q : {.03,.1,.3}) {
@@ -100,11 +118,40 @@ int main(int argc, char** argv) {
             check=py::cast<double>(fn(*arguments));
             if (std::abs(check-expected)>1e-8+2e-8*std::abs(expected)) throw std::runtime_error("Equation parity failed");
         }
+        py::tuple curveArguments(py::len(symbols));
+        const auto qValues=py::module::import("numpy").attr("linspace")(.03,.3,31);
+        for (std::size_t i=0;i<py::len(symbols);++i) {
+            const auto name=py::cast<std::string>(py::str(symbols[i]));
+            curveArguments[i]=name == "q" ? qValues : py::cast(p.at(name));
+        }
+        fn(*curveArguments); // Warm numerical dispatch before measuring reuse.
+        const auto evaluateStart=std::chrono::steady_clock::now();
+        for (int i=0;i<100;++i) fn(*curveArguments);
+        const auto evaluateEnd=std::chrono::steady_clock::now();
+        double simplifySeconds=-1.;
+        if (argc>5 && std::string(argv[5]) == "simplify") {
+            // Opt in on small cases: general symbolic simplification has no
+            // practical runtime bound for a large independently tagged graph.
+            const auto start=std::chrono::steady_clock::now();
+            sp.attr("simplify")(converted);
+            simplifySeconds=std::chrono::duration<double>(std::chrono::steady_clock::now()-start).count();
+        }
         std::sort(generation.begin(),generation.end()); std::sort(conversion.begin(),conversion.end());
         std::cout<<std::setprecision(17)<<"{\"topology\":\""<<topology<<"\",\"size\":"<<count
+                 <<",\"sympy_version\":\""<<py::cast<std::string>(sp.attr("__version__"))<<"\""
+                 <<",\"sympy_cache_size\":\""<<py::cast<std::string>(py::str(
+                     py::module::import("sympy.core.cache").attr("SYMPY_CACHE_SIZE")))<<"\""
+                 <<",\"first_conversion_profiled\":"<<(profileConversion ? "true" : "false")
                  <<",\"operation\":\""<<operation<<"\",\"generation_seconds\":"<<generation[generation.size()/2]
                  <<",\"conversion_seconds\":"<<conversion[conversion.size()/2]
                  <<",\"first_generation_seconds\":"<<firstGeneration
-                 <<",\"first_conversion_seconds\":"<<firstConversion<<",\"value_at_q_0_3\":"<<check<<"}"<<std::endl;
+                 <<",\"first_conversion_seconds\":"<<firstConversion
+                 <<",\"prepare_seconds\":"<<std::chrono::duration<double>(prepareEnd-prepareStart).count()
+                 <<",\"text_seconds\":"<<std::chrono::duration<double>(textEnd-textStart).count()
+                 <<",\"latex_seconds\":"<<std::chrono::duration<double>(latexEnd-textEnd).count()
+                 <<",\"text_bytes\":"<<text.size()<<",\"latex_bytes\":"<<latex.size()
+                 <<",\"evaluate_seconds\":"<<std::chrono::duration<double>(evaluateEnd-evaluateStart).count()/100.
+                 <<",\"simplify_seconds\":"<<simplifySeconds
+                 <<",\"value_at_q_0_3\":"<<check<<"}"<<std::endl;
     }
 }

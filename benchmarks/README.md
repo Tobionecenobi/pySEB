@@ -693,3 +693,80 @@ Validation: the full Python suite passes all 144 tests with one optional skip
 and the existing expected tiny-q sphere failure. All 69 C++ tests across the
 GiNaC-enabled symbolic, structure and numerical/integration suites pass. No
 converter-cache or expression-root-sharing changes remain in the implementation.
+
+## SymPy conversion and downstream costs
+
+The stage driver also measures CSE-enabled `lambdify` preparation, first plain
+text and LaTeX rendering, output byte counts, and warmed 31-q evaluation. These
+stages follow conversion and are timed separately. Downstream timings are
+single observations; conversion reports a first call and a median of repeated
+calls. Every operation is checked against native evaluation at three q values.
+The JSON records the installed SymPy version and cache capacity. An optional
+sixth argument `profile` instruments only the first conversion with cProfile
+and writes `/tmp/pyseb-conversion-<topology>-<size>-<operation>.pstats`:
+
+```bash
+# Build /tmp/pyseb-symbolic-stages using the command above.
+OPENBLAS_NUM_THREADS=1 SYMPY_CACHE_SIZE=1000 /tmp/pyseb-symbolic-stages \
+  chain 64 /home/tobi/pySEB/.venv-sympy/lib/python3.11/site-packages 3 profile
+.venv-sympy/bin/python -c \
+  "import pstats; pstats.Stats('/tmp/pyseb-conversion-chain-64-intensity.pstats').strip_dirs().sort_stats('cumulative').print_stats(25)"
+```
+
+Instrumented first-call times are explicitly marked and must not be compared
+with ordinary timings. Optional argument `simplify` instead measures general
+SymPy simplification; use small cases (e.g. `chain 2`) because large-expression
+simplification has no practical runtime bound. A value of -1 means it was not
+requested. Profiling and simplification are opt-in and do not affect the library.
+
+A cProfile run of the independently parameterized 64-polymer intensity found
+8.60 million calls (including recursive calls). SymPy `Mul.flatten` accounted
+for roughly 79% of the instrumented public call's cumulative time. Factor
+sorting/comparison and exponent gathering were prominent underneath it;
+these inclusive costs overlap. This is canonical construction of scalar
+products, rather than an explicit call to general `simplify` in our converter.
+
+Fresh-process observations with SymPy 1.14.0 on the portable Release backend, with no concurrent
+builds, tests or profiling during the measurements:
+
+| 64-polymer chain intensity | SymPy cache 1000 | SymPy cache 10000 |
+| --- | ---: | ---: |
+| Native generation, warmed median | 35.1 ms | 35.9 ms |
+| First conversion | 1637 ms | 1466 ms |
+| Repeated conversion, median of three | 1468 ms | 61.3 ms |
+| CSE evaluator preparation | 9.56 s | 7.60 s |
+| Plain text rendering | 6.45 s | 5.11 s |
+| LaTeX rendering | 8.05 s | 7.46 s |
+| Warmed 31-q evaluation, mean of 100 | 2.94 ms | 2.83 ms |
+
+Both runs produced exactly the same recorded validation values and output
+lengths: 1,083,165 plain-text bytes and 1,350,717 LaTeX bytes for the intensity.
+Cache size is a process-start SymPy setting, not a pySEB option; to repeat the
+second run, set `SYMPY_CACHE_SIZE=10000` before launching Python/the driver.
+A larger cache helps repeated extraction substantially in this case, but it
+does not eliminate first-time construction, retains more cached objects, and
+is not automatically enabled by pySEB. The small first-call/downstream timing
+differences are not established speedups from a replicated experiment.
+For comparison, the default-cache 32-polymer chain converted in 324 ms on its
+first call and 12.2 ms on repeated calls: warmed timings alone conceal the
+cache-capacity threshold. These benchmarks use independent parameter tags;
+shared-tag chains are much easier for SymPy to combine.
+
+An experimental converter combined exponential factors using the exact scalar
+identity `exp(a)*exp(b) = exp(a+b)` before constructing each product. It was
+rejected: the 64-polymer case became much slower and was interrupted rather
+than accepted as an extraction speedup. Both that converter and its rebuilt
+Python extension were restored to the committed implementation. No unevaluated
+operations or process-global cache changes were retained. The experimental
+patch and raw profiling/timing reports are session artifacts under `/tmp`.
+
+The retained change is measurement coverage. First-time conversion remains a
+bottleneck; generating a more compact, factorized native equation is a candidate
+for future work, with independent checks of algebra, parameter changes,
+preparation, rendering and numerical evaluation. Deferred canonicalization by
+itself would not establish an end-to-end improvement.
+
+Validation: the ten symbolic-generation regression tests pass after restoring
+the original converter. The extended driver compiles and validates intensity,
+amplitude and phase on chain, star and nested examples, including its optional
+cProfile and small-case simplification modes. No scattering-engine code changed.
