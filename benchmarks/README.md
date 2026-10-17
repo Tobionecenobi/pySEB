@@ -770,3 +770,102 @@ Validation: the ten symbolic-generation regression tests pass after restoring
 the original converter. The extended driver compiles and validates intensity,
 amplitude and phase on chain, star and nested examples, including its optional
 cProfile and small-case simplification modes. No scattering-engine code changed.
+
+## OpenUSD export stages and exact-output optimization
+
+The native `profile_usd.cpp` driver separates model construction from warmed
+exports. It covers a 64-cylinder analytical chain, a 16-cylinder chain with
+readable layout, a 512-point Debye-cloud/sphere hybrid with and without an
+envelope, and a 4096-atom/sphere hybrid. The default exporter quality settings
+are retained: seed 42, 96 curve samples, 48 surface samples, 64 orientation
+trials, four relaxation sweeps and envelope resolution 24. Cloud coordinates,
+mixed Debye radii and signed weights are deterministic; no external data,
+scattering evaluations or fitting are included in the timed exports.
+
+`build_usd_profile.py` creates an instrumented copy of the selected exporter
+under `/tmp`. No profiling callbacks, timers or public API additions enter the
+production build. Exact source anchors fail if the exporter changes. The copied
+exporter defines the USD symbols, so linking the regular portable static library
+does not extract its USD object. Build the normal portable Release core first,
+then run from the repository root:
+
+```bash
+git show 98ba5ca2:seb/USDExport.cpp > /tmp/pyseb-usd-baseline.cpp
+python3 benchmarks/build_usd_profile.py \
+  --source /tmp/pyseb-usd-baseline.cpp --build-dir /tmp/pyseb-usd-before
+python3 benchmarks/build_usd_profile.py --build-dir /tmp/pyseb-usd-after
+python3 benchmarks/profile_usd.py \
+  --before /tmp/pyseb-usd-before/profile-usd \
+  --after /tmp/pyseb-usd-after/profile-usd \
+  --output /tmp/pyseb-usd-comparison --repeats 5
+```
+
+The comparison alternates before/after order over five fresh processes per
+version and case, with one warm-up and one measured export per process. It
+checks SHA-256 equality for every output, within and between versions, and
+saves individual samples, stage medians and representative scenes. Run without
+concurrent builds, tests or other benchmarks. The native driver also accepts
+individual cases, for example:
+
+```bash
+/tmp/pyseb-usd-after/profile-usd analytical 32 readable points 3 /tmp/chain.usda
+/tmp/pyseb-usd-after/profile-usd debye 512 random envelope 3 /tmp/cloud.usda
+```
+
+The non-overlapping stages are preparation (occurrence traversal, parameter
+binding, analytical geometry sampling and proxy construction), layout,
+Debye-envelope meshing, remaining geometry/USDA serialization, file writing
+(including temporary-file handling and rename), and cleanup. Reference sampling
+performed lazily during placement is included in layout. Envelope meshing runs
+inside serialization; its timer is subtracted from that stage. These boundaries
+measure implementation stages, not hypothetical independent geometry and
+formatting pipelines. Filesystem writes are warmed/buffered, not forced to
+stable storage. Independent stage medians need not sum to the median total.
+
+The measured bottleneck was numeric formatting during serialization: the old
+exporter constructed a classic-locale, 17-digit string stream and temporary
+string for each coordinate and floating-point field. It now validates each
+number and writes it directly into the export-local stream, configured once
+with exactly the same locale and precision. The final file transfer reads that
+stream's buffer instead of allocating a second full USDA string. No mutable
+formatting state is shared between exports. Layout algorithms, random draws,
+sampling quality, meshes, instancing, references and atomic metadata are unchanged.
+
+Portable Release measurements (g++ `-O3 -DNDEBUG -fPIC`, five interleaved
+fresh-process samples per version; medians on this machine):
+
+| Scene | Bytes | Before | After | Speedup |
+| --- | ---: | ---: | ---: | ---: |
+| 64-cylinder chain, random layout | 35,382,510 | 1.227 s | 0.717 s | 1.71x |
+| 16-cylinder chain, readable layout | 8,845,178 | 0.907 s | 0.714 s | 1.27x |
+| 512-point Debye hybrid, envelope | 683,178 | 37.9 ms | 26.5 ms | 1.43x |
+| 512-point Debye hybrid, points only | 309,372 | 15.3 ms | 8.60 ms | 1.78x |
+| 4096-atom hybrid | 1,032,161 | 53.0 ms | 27.3 ms | 1.94x |
+
+Serialization of the 64-cylinder chain fell from 1.053 s to 0.519 s. In the
+readable chain, layout stayed essentially unchanged (480 ms versus 481 ms),
+while serialization fell from 355 ms to 182 ms. Debye-envelope meshing also
+stayed essentially unchanged (10.1 ms versus 9.92 ms). The observed improvement
+comes primarily from serialization, not from faster placement or surface
+construction. Local timings vary; these are not universal speedup guarantees.
+
+On Linux the driver reports process peak RSS in KiB, including construction,
+warm-up and measured exports. Removing the document copy did not materially
+reduce peak RSS in these cases: approximately 101 versus 97 MiB for the large
+chain, and 266 MiB for both atomic-hybrid runs. Buffer-growth peaks and cloud
+construction can dominate this process-wide measure. This is not evidence of
+a large peak-memory improvement or a streaming exporter; the complete USDA
+buffer is still retained until writing finishes.
+
+All five scene files are byte-identical before and after the optimization.
+They also load with OpenUSD 0.26.8; mesh face counts/indices and point-instancer
+prototype targets/array lengths were checked. All 17 Python USD-export tests
+pass, including existing nested hierarchy, deterministic placement, readable
+clearance and attachment checks. The new regression covers 17-digit/scientific
+formatting, signed zero, rejection of non-finite fields without replacing an
+existing scene, and recovery after that error. Generated scenes, profiles and
+raw JSON remain under `/tmp`, outside version control.
+
+The complete Python suite also passes: 145 tests, with the existing opt-in
+network skip and known expected tiny-q sphere failure. The portable Python
+extension was rebuilt with the retained exporter changes before validation.

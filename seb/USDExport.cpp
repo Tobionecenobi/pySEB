@@ -174,14 +174,13 @@ std::string quote(const std::string& value) {
     return result + "\"";
 }
 
-std::string number(double value) {
+// Validate each floating-point field, then format it directly in the export's
+// classic-locale, 17-digit stream. Avoid a temporary stream/string per coordinate.
+double number(double value) {
     if (!std::isfinite(value)) {
         throw SEBException("non-finite visualization value", "World::ExportUSD");
     }
-    std::ostringstream stream;
-    stream.imbue(std::locale::classic());
-    stream << std::setprecision(17) << value;
-    return stream.str();
+    return value;
 }
 
 std::string usdName(const std::string& value) {
@@ -1862,8 +1861,9 @@ void World::ExportUSD(const std::string& structure,
         }
     }
 
-    std::ostringstream output;
+    std::stringstream output;
     output.imbue(std::locale::classic());
+    output << std::setprecision(17);
     output << "#usda 1.0\n(\n    upAxis = \"Z\"\n    metersPerUnit = " << number(metersPerUnit) << "\n)\n\n";
     output << "def Xform \"" << usdName(structure) << "\" {\n";
     writeLayoutMetadata(output, options);
@@ -1949,7 +1949,9 @@ void World::ExportUSD(const std::string& structure,
     {
         std::ofstream file(temporary,std::ios::binary);
         if(!file)throw SEBException("unable to open USD output","World::ExportUSD");
-        file<<output.str();
+        // Transfer the existing buffer instead of allocating a second complete
+        // USDA string. A bidirectional stringstream exposes its get area here.
+        file<<output.rdbuf();
         if(!file)throw SEBException("failed writing USD output","World::ExportUSD");
     }
     if(std::rename(temporary.c_str(),path.c_str())!=0){std::remove(temporary.c_str());throw SEBException("unable to commit USD output","World::ExportUSD");}
