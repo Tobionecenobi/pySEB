@@ -10,6 +10,7 @@
 #include <vector>
 #include <memory>
 #include <functional>
+#include <stdexcept>
 
 //===========================================================================
 // Forward declarations
@@ -71,6 +72,17 @@ public:
     virtual SymExprPtr subs(const ParameterMap& params) const = 0;
     virtual SymExprPtr subs(const std::map<SymExprPtr, SymExprPtr>& exprMap) const = 0;
     virtual double eval() const = 0;
+    // Backends may evaluate immutable trees directly. The default retains the
+    // substitution path, including parameter-map precedence for a supplied q.
+    virtual double evaluateNumeric(const ParameterMap& params, double q) const {
+        const auto result = subs(params)->subs("q", constant(q))->evalf();
+        // Unresolved expressions must not reach a backend's numeric cast.
+        if (!result->is_numeric()) {
+            throw std::runtime_error("Expression did not evaluate to a number; missing parameters "
+                                     "or unresolved symbols: " + result->to_string());
+        }
+        return result->eval();
+    }
     virtual bool is_numeric() const = 0;
 
     // Series expansion and coefficient extraction

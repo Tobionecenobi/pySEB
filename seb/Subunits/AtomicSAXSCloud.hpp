@@ -136,6 +136,17 @@ private:
         double distance2;
     };
 
+    // Call-local common form factors: computed lazily to preserve validation
+    // behavior for inactive shell points and unused hydration water models.
+    struct AmplitudeFactors {
+        bool hydrogenReady = false;
+        bool waterReady = false;
+        double hydrogen = 0.0;
+        double water = 0.0;
+    };
+    double preparedAtomicAmplitude(std::size_t index, double q,
+                                   AmplitudeFactors& factors) const;
+
     struct AmplitudeMoment {
         double beta;
         double secondMoment;

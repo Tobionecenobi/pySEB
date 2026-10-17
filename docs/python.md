@@ -89,6 +89,34 @@ q_values = np.logspace(-3, 0, 100)
 intensity = pyseb.evaluate_expression(world, form_factor, params, q_values)
 ```
 
+## Repeated analytical-equation evaluation
+
+For fitting an exported analytical equation, prepare its NumPy evaluator once
+and pass updated parameters on each call:
+
+```python
+# Generate and retain the equation; prepare numerical code only once.
+equation = world.FormFactor_Unnormalized("diblockcopolymer")
+evaluate = pyseb.compile_expression(equation)
+intensity = evaluate(params, q_values)
+
+# Rebind every free parameter on each fitting iteration.
+updated = dict(params, Rg_poly1=6.0)
+next_intensity = evaluate(updated, q_values)
+print(evaluate.parameter_names)
+```
+
+Preparation uses SymPy common subexpression elimination. It generates reusable
+NumPy code, with additional special functions when optional SciPy is installed.
+All non-q free symbols require scalar bindings; extra dictionary entries are
+ignored and q is supplied separately. Scalars return a float; arrays retain
+their shape, including constant equations and empty arrays.
+
+Use native `World` evaluation for numerical subunits, clouds, hybrids containing
+numerical subunits, and unresolved quadrature expressions. This helper does not
+resolve removable q=0 singularities in generic equations and reports non-finite
+results. Only prepare trusted equations, as SymPy generates executable code.
+
 ## File-defined analytic subunits
 
 Create and use a custom analytic model without rebuilding the extension:

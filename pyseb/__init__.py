@@ -137,6 +137,7 @@ from .symbolic import (
     to_python
 )
 from .utils import (
+    compile_expression,
     evaluate_expression,
     evaluate_form_factor,
     evaluate_form_factor_amplitude,
@@ -238,6 +239,7 @@ __all__ = [
     'to_python',
     'to_sympy',
     'evaluate_expression',
+    'compile_expression',
     'evaluate_form_factor',
     'evaluate_form_factor_amplitude',
     'evaluate_phase_factor'

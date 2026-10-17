@@ -56,6 +56,7 @@ public:
     SymExprPtr subs(const ParameterMap& params) const override;
     SymExprPtr subs(const std::map<SymExprPtr, SymExprPtr>& exprMap) const override;
     double eval() const override;
+    double evaluateNumeric(const ParameterMap& params, double q) const override;
     bool is_numeric() const override;
 
     SymExprPtr series(const SymExprPtr& var, const SymExprPtr& point, int order) const override;
@@ -81,6 +82,7 @@ private:
     std::vector<SymExprPtr> _args;
     double _value = 0.0;
 
+    double evaluateTree(const ParameterMap* params, double q) const;
     SymExprPtr clone() const;
     SymExprPtr unary(const std::string& op) const;
     SymExprPtr binary(const std::string& op, const SymExprPtr& other) const;

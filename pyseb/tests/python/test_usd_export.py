@@ -688,6 +688,37 @@ class TestUSDExport(unittest.TestCase):
                 'def Mesh "envelope"', without_envelope.read_text(encoding="utf-8")
             )
 
+    def test_numeric_formatting_and_failed_replacement_preserve_scene(self):
+        # Exercise signed zero, scientific notation and full double precision
+        # through the public exporter, then fail during serialization. An error
+        # must leave the previous complete scene available for the reader.
+        weights = [0.1, -0.0, 1.2345678901234567e-30, 1.2345678901234567e30]
+        cloud = pyseb.DebyeSphereCloud([
+            pyseb.SphereScatterer(float(i), 0., 0., .25, weight)
+            for i, weight in enumerate(weights)
+        ])
+        world = pyseb.World('usd_numbers')
+        world.Add(cloud, 'cloud')
+        options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+        options.debye_envelope = False
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'numbers.usda'
+            world.export_usd('cloud', str(output), {}, options)
+            original = output.read_bytes()
+            expected = ', '.join(format(weight, '.17g') for weight in weights)
+            self.assertIn(f'custom float[] pyseb:beta = [{expected}, ]', original.decode())
+            for invalid in (float('nan'), float('inf'), -float('inf')):
+                options.color_overrides = {'cloud': (invalid, .5, .5)}
+                with self.assertRaisesRegex(RuntimeError, 'non-finite visualization value'):
+                    world.export_usd('cloud', str(output), {}, options)
+                self.assertEqual(output.read_bytes(), original)
+                self.assertFalse(Path(str(output)+'.tmp').exists())
+            # Subsequent calls must recover, overwrite successfully, and
+            # produce exactly the same bytes after an unsuccessful export.
+            options.color_overrides = {}
+            world.export_usd('cloud', str(output), {}, options)
+            self.assertEqual(output.read_bytes(), original)
+
     def test_atomic_saxs_cloud_exports_atom_metadata_and_reference(self):
         with tempfile.TemporaryDirectory() as directory:
             atom = pyseb.AtomRecord()

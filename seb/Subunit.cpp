@@ -10,15 +10,15 @@ double evaluateNumericExpression(const Expression& expression,
                                  const ParameterList& values,
                                  const string& where)
 {
-    Expression result = expression.subs(values).subs("q", q).evalf();
-    if (!result.is_numeric()) {
-        throw SEBException(
-            "Expression did not evaluate to a number; one or more parameters are missing",
-            where
-        );
+    double value;
+    try {
+        value = expression.evaluateNumeric(values, q);
+    } catch (SEBException& error) {
+        error.PushCallStack(where);
+        throw;
+    } catch (const std::exception& error) {
+        throw SEBException("Numerical evaluation failed: " + string(error.what()), where);
     }
-
-    const double value = result.eval();
     if (!std::isfinite(value)) {
         throw SEBException("Numerical evaluation produced a non-finite value", where);
     }
