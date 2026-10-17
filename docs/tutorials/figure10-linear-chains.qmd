@@ -91,6 +91,18 @@ chains = {
 print(f"built {len(chains)} chains with {segment_count} subunits each")
 ```
 
+## Inspect the constructed structures
+
+Compare the attachment choices in real space before comparing the curves.
+Each view shows one seeded realization; distributed references and polymers
+are averaged in the scattering calculation.
+
+```{python}
+for label, (preview_world, preview_parameters) in chains.items():
+    print(label)
+    _ = pyseb.visualize(preview_world, "chain", preview_parameters, height=400)
+```
+
 ## Evaluate the form factors
 
 ```{python}

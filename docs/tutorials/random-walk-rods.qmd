@@ -108,6 +108,15 @@ gaussian_parameters = {
 }
 ```
 
+Inspect the linked rods and the size-matched Gaussian chain before comparing
+their curves. Matching the ensemble radius of gyration does not make an
+individual realization have the same shape.
+
+```{python}
+_ = pyseb.visualize(world, "rodChain", rod_parameters, height=440)
+_ = pyseb.visualize(world, "gaussian", gaussian_parameters, height=440)
+```
+
 ### 6. Evaluate and plot
 
 Both form factors are normalized, so they approach one at small q. Agreement

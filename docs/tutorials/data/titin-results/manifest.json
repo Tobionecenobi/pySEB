@@ -28,5 +28,9 @@
     "scenes/debye-domains.usda": "6d8a948de1ed8c19baca1c0a662fdd90effcdc1c092af1d33a695af6d50b3a91"
   },
   "generation_seconds": 769.7903416480003,
-  "note": "Generation-cell hash identifies the working-tree calculation; git commit alone does not."
+  "note": "Generation-cell hash identifies the working-tree calculation; git commit alone does not.",
+  "viewer_migration": {
+    "generation_sha256": "385747569fc206253dc06ec6633730abe60bd7bc1e90ed9493b3173c2dceddcc",
+    "note": "Only the OpenUSD-to-Plotly adapter and display calls changed to the shared viewer. Export options, scientific calculations, inputs and saved outputs are unchanged. The original generation hash and timestamp above are retained."
+  }
 }

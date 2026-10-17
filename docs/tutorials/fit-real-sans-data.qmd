@@ -52,7 +52,7 @@ Continue in the environment used for the introductory tutorials and add
 SciPy and sasmodels:
 
 ```bash
-python -m pip install "pyseb[sasmodels]" scipy
+python -m pip install "pyseb[sasmodels,visualization]" scipy
 ```
 
 pySEB evaluates the scattering structure. SciPy's
@@ -348,6 +348,22 @@ The shared geometry is close to a 25 Å water core with an 8 Å surfactant
 layer. The fitted volume fraction is close to 0.056. These are plausible
 values, but the large reduced chi-squared warns that plausible parameters do
 not by themselves establish an adequate model.
+
+Inspect the fitted core and surfactant layer before comparing predicted and
+measured curves. Making the shell translucent exposes the shared center.
+This view uses the fitted geometry, independent of the experimental contrast.
+
+```{python}
+fitted_core_radius, fitted_shell_thickness = map(float, fit.x[:2])
+fitted_geometry = {
+    "R_core": fitted_core_radius,
+    "Ri_shell": fitted_core_radius,
+    "Ro_shell": fitted_core_radius + fitted_shell_thickness,
+}
+view_options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+view_options.opacity_overrides = {"shell": 0.25}
+_ = pyseb.visualize(world, "droplet", fitted_geometry, view_options, height=460)
+```
 
 ## 6. Plot data, fit, and normalized residuals
 

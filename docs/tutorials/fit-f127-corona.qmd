@@ -54,7 +54,7 @@ from scipy.optimize import least_squares
 from scipy.special import j1, gammaincinv, gammaln
 from IPython.display import display, Markdown
 import plotly.graph_objects as go
-from pxr import Usd, UsdGeom
+from pyseb.visualization import usd_to_plotly, structure_figure
 
 ROOT = next(p for p in (Path.cwd(), *Path.cwd().parents)
             if (p / "docs/tutorials/data/f127/F127_0_merged_1.txt").is_file())
@@ -119,8 +119,8 @@ assert arm_form_factor.shape == q.shape
 
 ## 4. See what we built
 
-Use the same cylinder dimensions to export the **actual pySEB graph**
-to OpenUSD. The interactive view below reads the scene we have just created.
+Use the same cylinder dimensions to display the **actual pySEB graph**
+with `pyseb.visualize`. We also save an OpenUSD scene for download.
 Drag to rotate and scroll to zoom.
 
 ```{python}
@@ -138,66 +138,7 @@ world.export_usd("arm", str(arm_path), parameters, options)
 
 ```{python}
 #| code-fold: true
-#| code-summary: "Display newly generated OpenUSD meshes and curves in Plotly"
-def usd_traces(path):
-    stage = Usd.Stage.Open(str(path))
-    if stage is None:
-        raise RuntimeError(f"Could not open generated scene {path}")
-    cache = UsdGeom.XformCache(Usd.TimeCode.Default())
-    traces = []
-    for prim in stage.Traverse():
-        if not (prim.IsA(UsdGeom.Mesh) or prim.IsA(UsdGeom.BasisCurves)):
-            continue
-        if UsdGeom.Imageable(prim).ComputeVisibility() == UsdGeom.Tokens.invisible:
-            continue
-        geom = UsdGeom.Gprim(prim)
-        colors = geom.GetDisplayColorPrimvar().ComputeFlattened()
-        alphas = geom.GetDisplayOpacityPrimvar().ComputeFlattened()
-        color = colors[0] if colors else (.2, .55, .8)
-        opacity = float(alphas[0]) if alphas else 1.
-        if opacity == 0:
-            continue
-        rgb = "rgb({},{},{})".format(*(round(255*float(c)) for c in color))
-        matrix = cache.GetLocalToWorldTransform(prim)
-        shape = UsdGeom.Mesh(prim) if prim.IsA(UsdGeom.Mesh) else UsdGeom.BasisCurves(prim)
-        points = [tuple(float(v) for v in matrix.Transform(p))
-                  for p in (shape.GetPointsAttr().Get() or [])]
-        if not points:
-            continue
-        name = str(prim.GetPath())
-        if prim.IsA(UsdGeom.Mesh):
-            counts = shape.GetFaceVertexCountsAttr().Get() or []
-            indices = shape.GetFaceVertexIndicesAttr().Get() or []
-            triangles = []
-            cursor = 0
-            for count in counts:
-                face = indices[cursor:cursor+count]
-                cursor += count
-                triangles.extend((int(face[0]), int(face[j]), int(face[j+1]))
-                                 for j in range(1, count-1))
-            if not triangles:
-                continue
-            x, y, z = zip(*points)
-            i, j, k = zip(*triangles)
-            traces.append(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k,
-                color=rgb, opacity=opacity, name=name, showlegend=False,
-                hovertemplate=name+"<extra></extra>"))
-        else:
-            x, y, z = [], [], []
-            cursor = 0
-            for count in shape.GetCurveVertexCountsAttr().Get() or []:
-                for point in points[cursor:cursor+count]:
-                    x.append(point[0]); y.append(point[1]); z.append(point[2])
-                cursor += count
-                x.append(None); y.append(None); z.append(None)
-            traces.append(go.Scatter3d(x=x, y=y, z=z, mode="lines", name=name,
-                line={"color": rgb, "width": 5}, opacity=opacity, showlegend=False,
-                hovertemplate=name+"<extra></extra>"))
-    if not traces:
-        raise RuntimeError(f"No visible geometry in {path}")
-    return traces
-
-
+#| code-summary: "Tutorial layout and download links"
 def structure_view(traces, title):
     fig = go.Figure(traces)
     fig.update_layout(height=420, title=title, showlegend=False,
@@ -215,8 +156,7 @@ def scene_link(path, text):
 
 ```{python}
 #| echo: false
-structure_view(usd_traces(arm_path), "Four cylinders linked into one arm").show(
-    config={"displaylogo": False, "scrollZoom": True})
+_ = pyseb.visualize(world, "arm", parameters, options, height=420)
 scene_link(arm_path, "Download the OpenUSD arm")
 ```
 
@@ -558,7 +498,9 @@ plt.show()
 
 ## 8. Visualize the fitted structure
 
-Now put the fitted dimensions back into the graph. Each arm uses the same
+Now put the fitted dimensions back into the graph. The shared
+`structure_figure` helper returns geometry for the compact gallery layout;
+`pyseb.visualize` provides the direct one-call display used above. Each arm uses the same
 fitted segment parameters. The integer arm count shown here is rounded from
 the fitted mean core volume; the fitted curve averages over sizes and
 conformations.
@@ -622,7 +564,9 @@ example_options.color_overrides = {"core": (.95, .55, .15), "anchor": (.25, .65,
 example_options.opacity_overrides = {"anchor": .25}
 example_world.export_usd("micelle", str(example_path), fitted_parameters(example_fit), example_options)
 
-structure_view(compact_scene(usd_traces(example_path)), "The fitted four-cylinder-arm micelle").show(
+structure_view(compact_scene(structure_figure(
+    example_world, "micelle", fitted_parameters(example_fit), example_options
+).data), "The fitted four-cylinder-arm micelle").show(
     config={"displaylogo": False, "scrollZoom": True})
 scene_link(example_path, "Download the fitted example as OpenUSD")
 ```
@@ -746,7 +690,9 @@ for key in VIEW_KEYS:
                                    else pyseb.LayoutMode.Readable)
     path = SCENE_DIR / f"{key[0]}-{key[1]}-fitted-micelle.usda"
     fitted_world.export_usd("micelle", str(path), fitted_parameters(fit), gallery_options)
-    figure = structure_view(compact_scene(usd_traces(path)), f"{fit['label']} — {count} attached arms")
+    figure = structure_view(compact_scene(structure_figure(
+        fitted_world, "micelle", fitted_parameters(fit), gallery_options
+    ).data), f"{fit['label']} — {count} attached arms")
     view_path = path.with_suffix(".html")
     figure.write_html(str(view_path), include_plotlyjs="directory", full_html=True,
                       config={"displaylogo": False, "scrollZoom": True})
@@ -818,7 +764,7 @@ comparison = make_subplots(rows=1, cols=2,
     subplot_titles=["Anchor hidden", "Anchor faintly visible"],
     horizontal_spacing=.02)
 for column, path in enumerate(best_paths, 1):
-    for trace in usd_traces(path):
+    for trace in usd_to_plotly(path).data:
         comparison.add_trace(trace, row=1, col=column)
 view = dict(aspectmode="data", xaxis={"visible": False},
             yaxis={"visible": False}, zaxis={"visible": False},

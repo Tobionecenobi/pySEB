@@ -121,6 +121,14 @@ for q_value, sympy_value, pyseb_value in zip(q, from_sympy, from_pyseb):
 
 The two columns agree because they evaluate the same symbolic form factor.
 
+Once numerical dimensions are available, the same model can also be viewed.
+This is one representative Gaussian chain, while the symbolic expression
+describes the conformation average.
+
+```{python}
+_ = pyseb.visualize(world, "polymer", parameters, height=440)
+```
+
 ## C++
 
 The maintained C++14 program performs the same portable-backend construction,

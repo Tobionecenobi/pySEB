@@ -31,7 +31,7 @@ On Linux or macOS:
 python3 -m venv .venv-pyseb
 source .venv-pyseb/bin/activate
 python -m pip install --upgrade pip
-python -m pip install pyseb numpy matplotlib
+python -m pip install "pyseb[visualization]" numpy matplotlib
 ```
 
 On Windows PowerShell:
@@ -40,7 +40,7 @@ On Windows PowerShell:
 py -3 -m venv .venv-pyseb
 .venv-pyseb\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install pyseb numpy matplotlib
+python -m pip install "pyseb[visualization]" numpy matplotlib
 ```
 
 The environment is active when the terminal prompt begins with
@@ -103,6 +103,13 @@ parameters = {
 length. A normalized single-sphere form factor does not change when this beta
 is rescaled, but composite structures use beta to weight subunits and their
 interference terms.
+
+See the sphere at the radius supplied above. The same parameter dictionary
+controls both this 3D view and the scattering calculation.
+
+```{python}
+_ = pyseb.visualize(world, "sphereModel", parameters, height=440)
+```
 
 ## 6. Choose q values
 

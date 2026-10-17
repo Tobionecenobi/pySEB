@@ -303,23 +303,17 @@ does not require an OpenUSD runtime to write it. The seed makes the
 representative random walks, distributed attachment positions, and layout
 repeatable. Change it when you want another equally valid realization.
 
-The documentation build can now open that exact USDA file with the OpenUSD
-Python bindings and hand its resolved meshes and curves to Plotly. This adapter
-lives in `docs/tutorials/_helpers.py`; it is not part of pySEB's runtime API or
-required dependencies.
+Use `pyseb.visualize` to inspect the reloaded world with the same parameters
+and export options. Viewing dependencies are optional: install
+`pyseb[visualization]` to enable the interactive display. The explicit export
+above remains useful for opening the scene in other applications.
 
 ```{python}
 #| label: fig-interactive-openusd
 #| fig-cap: "Interactive realization read back from the OpenUSD file produced above."
 
-from _helpers import usd_to_plotly
+_ = pyseb.visualize(loaded, "coatedSphere", parameters, options)
 
-interactive_scene = usd_to_plotly(usd_path)
-interactive_scene.show(config={
-    "displaylogo": False,
-    "scrollZoom": True,
-    "responsive": True,
-})
 ```
 
 Drag to orbit, scroll to zoom, and hover over geometry to see its resolved USD

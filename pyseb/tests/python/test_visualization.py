@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -57,6 +58,29 @@ else:
             result = pyseb.visualize(world, 'assembly', parameters, options, renderer='json')
         self.assertTrue(result.data)
         show.assert_called_once_with(renderer='json', config={'displaylogo': False, 'scrollZoom': True})
+
+
+    @unittest.skipUnless(importlib.util.find_spec('plotly') and importlib.util.find_spec('pxr'),
+                         'optional visualization dependencies not installed')
+    def test_hidden_geometry_stays_hidden(self):
+        from pxr import Usd, UsdGeom
+        from pyseb.visualization import usd_to_plotly
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'visibility.usda'
+            stage = Usd.Stage.CreateNew(str(path))
+            parent = UsdGeom.Xform.Define(stage, '/hidden')
+            parent.CreateVisibilityAttr(UsdGeom.Tokens.invisible)
+            for name in ('/visible', '/hidden/mesh', '/transparent'):
+                mesh = UsdGeom.Mesh.Define(stage, name)
+                mesh.CreatePointsAttr([(0, 0, 0), (1, 0, 0), (0, 1, 0)])
+                mesh.CreateFaceVertexCountsAttr([3])
+                mesh.CreateFaceVertexIndicesAttr([0, 1, 2])
+                if name == "/transparent":
+                    mesh.CreateDisplayOpacityAttr([0.0])
+            stage.GetRootLayer().Save()
+            figure = usd_to_plotly(path)
+        self.assertEqual([trace.name for trace in figure.data], ['/visible'])
 
 
 if __name__ == '__main__':

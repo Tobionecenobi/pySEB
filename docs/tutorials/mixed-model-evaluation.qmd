@@ -121,6 +121,14 @@ The total excess scattering length is
 \beta_{\mathrm{total}}=1+1+3+4=9.
 \]
 
+Inspect all three components at their shared junction. Geometry comes from
+the cloud coordinates and YAML definitions, independently of how each subunit
+evaluates its scattering.
+
+```{python}
+_ = pyseb.visualize(world, "mixed", parameters, height=440)
+```
+
 ## 3. Evaluate a scalar or a q grid
 
 For one q value, call the method on `World` directly:

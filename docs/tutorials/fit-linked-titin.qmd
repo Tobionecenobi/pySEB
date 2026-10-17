@@ -40,8 +40,9 @@ polymers throughout.
 
 ## Reproduce the saved calculations
 
-A normal website build only loads the bundled results; it does not rerun the
-fits or export scenes. To regenerate all stages, run from the repository root:
+A normal website build loads the bundled results and rebuilds one lightweight
+analytical preview; it does not rerun the fits or regenerate the saved scenes.
+To regenerate all stages, run from the repository root:
 
 ```bash
 python Examples/generate_linked_titin.py
@@ -54,7 +55,9 @@ or OpenUSD-export implementation. Results are saved under
 `docs/tutorials/data/titin-results/`: numerical curves in NPZ, fit parameters
 and optimizer status in JSON, and self-contained USDA scenes. A manifest
 records input, generating-code, and output hashes plus software versions.
-The loader stops with a regeneration message if these no longer match.
+The loader stops with a regeneration message if these no longer match. A
+recorded viewer-only migration retains the original calculation hash and
+checks the updated display code without changing the saved scientific results.
 
 - [Fit parameters and settings](data/titin-results/results.json)
 - [Numerical curves](data/titin-results/curves.npz)
@@ -74,8 +77,8 @@ tutorials and install the fitting and viewing dependencies:
 python -m pip install scipy matplotlib plotly usd-core
 ```
 
-Rendering saved results only requires NumPy, Matplotlib, Plotly, and
-`usd-core`; it does not import pySEB or SciPy.
+Rendering the saved results and live preview requires pySEB with the
+`visualization` extra, NumPy, and Matplotlib; it does not rerun SciPy fits.
 
 ## Load the measured curve
 
@@ -148,7 +151,11 @@ for filename, digest in manifest["inputs"].items():
 generation_cells = [block for block in re.findall(
     r"```\{python\}\n(.*?)\n```", Path("fit-linked-titin.qmd").read_text(), re.S
 ) if block.splitlines()[0] == "#| tags: [titin-generation]"]
-if hashlib.sha256("\n".join(generation_cells).encode()).hexdigest() != manifest["generation_sha256"]:
+# A recorded viewer-only migration preserves the original calculation hash.
+accepted_generation_hash = manifest.get("viewer_migration", {}).get(
+    "generation_sha256", manifest["generation_sha256"]
+)
+if hashlib.sha256("\n".join(generation_cells).encode()).hexdigest() != accepted_generation_hash:
     raise ValueError("Titin calculation code changed; regenerate the saved results.")
 with np.load(result_directory / "curves.npz", allow_pickle=False) as saved:
     curves = {key: saved[key] for key in saved.files}
@@ -459,7 +466,7 @@ Cloud marker sizes are display sizes, not fitted atomic radii.
 #| code-fold: true
 #| code-summary: "OpenUSD reader and interactive display (all Python)"
 
-from pyseb.visualization import usd_to_plotly, structure_figure
+from pyseb.visualization import usd_to_plotly
 
 ```
 
@@ -484,9 +491,7 @@ def show_structure(world, parameters, name):
     }
     path = visual_directory / f"{name}.usda"
     world.export_usd("titin", str(path), parameters, options)
-    figure = structure_figure(world, "titin", parameters, options, height=440)
-    figure.update_layout(title_text=name.replace("-", " "))
-    figure.show(config={"displaylogo": False, "scrollZoom": True})
+    _ = pyseb.visualize(world, "titin", parameters, options, height=440)
 ```
 
 ```{python}
@@ -518,7 +523,47 @@ show_structure(spheroid_world, spheroid_parameters(spheroid_fit.x),
 
 ```{python}
 show_saved_structure("analytical-collapsed")
-show_saved_structure("analytical-constrained")
+```
+
+### Preview the fitted analytical model
+
+The saved parameter vector can also be used with `pyseb.visualize`, without
+rerunning the optimizer. Compare it with the collapsed-linker scene above.
+Rebuild the same two-domain topology and supply the
+constrained fit's dimensions. The saved-scene comparisons remain useful
+for inspecting every expensive fitting stage without regenerating it.
+
+```{python}
+import pyseb
+
+preview_world = pyseb.World("FittedTitinPreview")
+preview_graph = preview_world.Add("Spheroid", "domain1")
+preview_world.Link("GaussianPolymer", "ntail.end2", "domain1.south")
+preview_world.Link("GaussianPolymer", "linker.end1", "domain1.north")
+preview_world.Link("Spheroid", "domain2.south", "linker.end2")
+preview_world.Link("GaussianPolymer", "ctail.end1", "domain2.north")
+preview_world.Add(preview_graph, "titin")
+a, c, linker_rg, tail_rg8 = results["fits"]["analytical_constrained"]["x"][:4]
+preview_parameters = {
+    "Rg_linker": linker_rg, "beta_linker": 8.0,
+    "Rg_ntail": tail_rg8 * np.sqrt(n_tail_beta / 8.0), "beta_ntail": n_tail_beta,
+    "Rg_ctail": tail_rg8 * np.sqrt(7.0 / 8.0), "beta_ctail": 7.0,
+}
+for domain in ("domain1", "domain2"):
+    preview_parameters.update({f"a_{domain}": a, f"c_{domain}": c,
+                               f"beta_{domain}": 89.0})
+preview_options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+preview_options.seed = 42
+preview_options.layout_mode = pyseb.LayoutMode.Readable
+preview_options.orientation_trials = 32
+preview_options.relaxation_sweeps = 2
+preview_options.color_overrides = {
+    "domain1": (0.10, 0.55, 0.78), "domain2": (0.92, 0.43, 0.12),
+    "linker": (0.2, 0.7, 0.3), "ntail": (0.6, 0.6, 0.6),
+    "ctail": (0.6, 0.6, 0.6),
+}
+_ = pyseb.visualize(preview_world, "titin", preview_parameters, preview_options, height=440)
+display(Markdown("[Download the constrained-fit OpenUSD scene](data/titin-results/scenes/analytical-constrained.usda)"))
 ```
 
 ## Step 2: connect coordinate domains with the same linker

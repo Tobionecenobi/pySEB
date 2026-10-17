@@ -24,7 +24,7 @@ macOS, run:
 python3 -m venv .venv-pyseb
 source .venv-pyseb/bin/activate
 python -m pip install --upgrade pip
-python -m pip install pyseb
+python -m pip install "pyseb[visualization]"
 ```
 
 On Windows PowerShell, run:
@@ -33,7 +33,7 @@ On Windows PowerShell, run:
 py -3 -m venv .venv-pyseb
 .venv-pyseb\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install pyseb
+python -m pip install "pyseb[visualization]"
 ```
 
 Confirm that the package imports and reports its available symbolic backends:
@@ -183,6 +183,13 @@ plt.ylabel(r"$F(q)$")
 plt.show()
 ```
 
+With the structure named and its dimensions supplied, inspect it before
+calculating the scattering curve. Drag to rotate and scroll to zoom.
+
+```{python}
+_ = pyseb.visualize(analytic_world, "diblock", diblock_parameters, height=440)
+```
+
 ## A numerical Debye sphere cloud
 
 `DebyeSphereCloud` represents scatterers with coordinates, radii, and excess
@@ -250,6 +257,13 @@ plt.show()
 
 The cloud precomputes and reuses scatterer--scatterer,
 reference--scatterer, and reference--reference distances.
+
+The cloud stores its geometry, so its 3D view needs no parameter values.
+The marker sizes are for display.
+
+```{python}
+_ = pyseb.visualize(cloud_world, "cloud", {}, height=440)
+```
 
 ## Defining a numerical subunit with callbacks
 
@@ -372,6 +386,12 @@ print("Number of atom scatterers:", protein_cloud.scattererCount())
 print(f"Rg(protein model) = {math.sqrt(protein_rg2):.4f} Å")
 ```
 
+Inspect the imported coordinate cloud before adding the polymer.
+
+```{python}
+_ = pyseb.visualize(protein_world, "protein", {}, height=440)
+```
+
 ## Attach an analytic polymer to the numerical protein
 
 The PDB-derived cloud has a named `cterminus` reference point. Connect the
@@ -429,6 +449,13 @@ The combined numerical traversal evaluates the protein's Debye callbacks and
 the polymer's analytic expressions, then constructs the cross term along the
 graph path.
 
+Now inspect the chain attached to the PDB-derived terminal reference.
+The chain realization is illustrative; scattering averages over conformations.
+
+```{python}
+_ = pyseb.visualize(protein_world, "proteinpolymer", protein_polymer_parameters, height=440)
+```
+
 ## Optional: Crambin from the Protein Data Bank
 
 The following cell downloads the official 1CRN PDB file. It is not executed
@@ -471,6 +498,8 @@ with tempfile.TemporaryDirectory() as temporary_directory:
     )
     print("Scatterers:", crambin_cloud.scattererCount())
     print(f"Rg = {crambin_rg:.4f} Å")
+    _ = pyseb.visualize(crambin_world, "crambin", {}, height=440)
+
 ```
 
 ## Where to go next

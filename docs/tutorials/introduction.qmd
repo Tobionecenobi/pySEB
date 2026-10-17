@@ -80,11 +80,15 @@ value = world.EvaluateFormFactor(
     "sphereModel", parameters, 0.01
 )
 print(value)
+
+# Display the structure after supplying its physical dimensions.
+pyseb.visualize(world, "sphereModel", parameters)
 ```
 
 Line by line, this creates a workspace, adds one sphere instance, names the
-complete graph, supplies its physical values, and evaluates its normalized
-form factor at one q value.
+complete graph, supplies its physical values, evaluates its normalized
+form factor at one q value, and displays the sphere in 3D. Install the optional
+viewer with `python -m pip install "pyseb[visualization]"`.
 
 ## Parameter names
 

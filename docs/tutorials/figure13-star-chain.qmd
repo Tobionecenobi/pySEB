@@ -118,19 +118,13 @@ Changing these four values updates all twenty diblock instances together.
 ### Interactive OpenUSD figures
 
 The exporter can now expand repeated nested graph instances. These figures are
-written from the same `world` used for the form-factor calculation, then read
-back with OpenUSD and rendered in the browser with Plotly.
+created with `pyseb.visualize` from the same `world` and parameters used for
+the form-factor calculation. The helper handles temporary OpenUSD export
+and interactive display.
 
 ```{python}
 #| echo: false
 
-from pathlib import Path
-import tempfile
-
-from _helpers import usd_to_plotly
-
-visual_workspace = tempfile.TemporaryDirectory()
-visual_directory = Path(visual_workspace.name)
 visual_options = pyseb.USDExportOptions(pyseb.LengthUnit.Nanometer)
 visual_options.seed = 13
 visual_options.layout_mode = pyseb.LayoutMode.Readable
@@ -142,15 +136,7 @@ visual_options.color_overrides = {
     "B": (0.94, 0.47, 0.15),
 }
 
-visual_paths = {}
-for name in ("diblock", "star", "chain"):
-    visual_paths[name] = visual_directory / f"figure13-{name}.usda"
-    world.export_usd(
-        name,
-        str(visual_paths[name]),
-        parameters,
-        visual_options,
-    )
+
 ```
 
 ::: {.grid}
@@ -160,11 +146,7 @@ for name in ("diblock", "star", "chain"):
 #| label: fig-interactive-figure13-diblock
 #| fig-cap: "Diblock: one Gaussian A block linked to one Gaussian B block."
 
-usd_to_plotly(visual_paths["diblock"], height=430).show(config={
-    "displaylogo": False,
-    "scrollZoom": True,
-    "responsive": True,
-})
+_ = pyseb.visualize(world, "diblock", parameters, visual_options, height=430)
 ```
 :::
 
@@ -174,11 +156,7 @@ usd_to_plotly(visual_paths["diblock"], height=430).show(config={
 #| label: fig-interactive-figure13-star
 #| fig-cap: "Four-arm star: four diblocks sharing their A-block ends."
 
-usd_to_plotly(visual_paths["star"], height=430).show(config={
-    "displaylogo": False,
-    "scrollZoom": True,
-    "responsive": True,
-})
+_ = pyseb.visualize(world, "star", parameters, visual_options, height=430)
 ```
 :::
 
@@ -188,11 +166,7 @@ usd_to_plotly(visual_paths["star"], height=430).show(config={
 #| label: fig-interactive-figure13-chain
 #| fig-cap: "Star chain: five linked stars containing forty Gaussian polymers."
 
-usd_to_plotly(visual_paths["chain"], height=430).show(config={
-    "displaylogo": False,
-    "scrollZoom": True,
-    "responsive": True,
-})
+_ = pyseb.visualize(world, "chain", parameters, visual_options, height=430)
 ```
 :::
 :::

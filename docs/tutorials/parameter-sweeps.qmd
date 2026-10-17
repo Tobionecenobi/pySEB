@@ -49,6 +49,16 @@ base = {
 }
 ```
 
+First inspect the same three parameter sets in real space. The default seed
+is shared, so the comparison keeps the realization repeatable while block B
+changes size. The scattering curves below still average over conformations.
+
+```{python}
+for rg_b in (4.0, 8.0, 16.0):
+    print(f"Rg_blockB = {rg_b:g}")
+    _ = pyseb.visualize(world, "diblock", {**base, "Rg_blockB": rg_b}, height=380)
+```
+
 ### 3. Evaluate each parameter set
 
 Construct a fresh dictionary on every iteration so the base values are not

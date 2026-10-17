@@ -29,7 +29,7 @@ Create a dedicated environment. On Linux and macOS:
 python3 -m venv .venv-pyseb
 source .venv-pyseb/bin/activate
 python -m pip install --upgrade pip
-python -m pip install pyseb numpy matplotlib
+python -m pip install "pyseb[visualization]" numpy matplotlib
 ```
 
 On Windows PowerShell:
@@ -38,7 +38,7 @@ On Windows PowerShell:
 py -3 -m venv .venv-pyseb
 .venv-pyseb\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install pyseb numpy matplotlib
+python -m pip install "pyseb[visualization]" numpy matplotlib
 ```
 
 Confirm the installation:
@@ -106,6 +106,14 @@ q = np.geomspace(1e-3, 0.5, 150)
 
 Lengths and q must use reciprocal units. For example, radii in ångström imply
 q in inverse ångström.
+
+Inspect how the two blocks connect before calculating their scattering.
+The curves show one seeded polymer realization; the form factor averages
+over conformations.
+
+```{python}
+_ = pyseb.visualize(world, "diblock", parameters, height=440)
+```
 
 ### 4. Evaluate and inspect the form factor
 

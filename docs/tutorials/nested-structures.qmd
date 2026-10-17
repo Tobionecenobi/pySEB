@@ -81,7 +81,7 @@ world.Add(chain, "starChain")
 
 Naming the final graph exposes `starChain` to the scattering queries.
 
-### 5. Parameterize and evaluate
+### 5. Parameterize, inspect, and evaluate
 
 Repeated instances retain the internal names `polyA` and `polyB`. Consequently
 all eight polymers reuse four physical parameters.
@@ -93,6 +93,16 @@ parameters = {
     "Rg_polyA": 5.0,
     "Rg_polyB": 8.0,
 }
+```
+
+Now inspect the assembled hierarchy. Hover over a curve to see its nested
+instance path; repeated instances retain the internal subunit names.
+
+```{python}
+_ = pyseb.visualize(world, "starChain", parameters, height=440)
+```
+
+```{python}
 q = [0.01, 0.03, 0.1, 0.3]
 values = world.EvaluateFormFactor("starChain", parameters, q)
 

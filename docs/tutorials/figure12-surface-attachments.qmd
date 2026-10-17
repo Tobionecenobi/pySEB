@@ -155,27 +155,16 @@ shows one deterministic representative realization of that ensemble.
 ```{python}
 #| echo: false
 
-from pathlib import Path
-import tempfile
-
-from _helpers import usd_to_plotly
-
 shell_world, shell_core_parameters = structures[
     "Shell: outer polymers / inner rods"
 ]
 shell_parameters = {**shell_core_parameters, **shared_parameters}
-visual_workspace = tempfile.TemporaryDirectory()
-visual_path = Path(visual_workspace.name) / "figure12-shell.usda"
 visual_options = pyseb.USDExportOptions(pyseb.LengthUnit.Nanometer)
 visual_options.seed = 12
 visual_options.layout_mode = pyseb.LayoutMode.Readable
 visual_options.orientation_trials = 24
 visual_options.relaxation_sweeps = 2
 visual_options.opacity_overrides = {"core": 0.35}
-
-shell_world.export_usd(
-    "structure", str(visual_path), shell_parameters, visual_options
-)
 ```
 
 ```{python}
@@ -183,11 +172,7 @@ shell_world.export_usd(
 #| label: fig-interactive-figure12-shell
 #| fig-cap: "A representative shell realization with polymers on the outer surface and rods on the inner surface."
 
-usd_to_plotly(visual_path, height=560).show(config={
-    "displaylogo": False,
-    "scrollZoom": True,
-    "responsive": True,
-})
+_ = pyseb.visualize(shell_world, "structure", shell_parameters, visual_options, height=560)
 ```
 
 ## C++

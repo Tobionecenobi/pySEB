@@ -49,6 +49,9 @@ def _usd_traces(path):
         return rgb, opacity
 
     for prim in stage.Traverse():
+        imageable = UsdGeom.Imageable(prim)
+        if imageable and imageable.ComputeVisibility() == UsdGeom.Tokens.invisible:
+            continue
         name = str(prim.GetPath())
 
         if prim.IsA(UsdGeom.Mesh):
@@ -70,6 +73,8 @@ def _usd_traces(path):
             x, y, z = zip(*points)
             i, j, k = zip(*triangles)
             color, opacity = display_style(prim)
+            if opacity == 0:
+                continue
             traces.append(go.Mesh3d(
                 x=x, y=y, z=z, i=i, j=j, k=k,
                 name=name,
@@ -96,6 +101,8 @@ def _usd_traces(path):
             if not points:
                 continue
             color, opacity = display_style(prim)
+            if opacity == 0:
+                continue
             traces.append(go.Scatter3d(
                 x=coordinates[0], y=coordinates[1], z=coordinates[2],
                 mode="lines",
@@ -120,6 +127,8 @@ def _usd_traces(path):
             )
             opacities = prim.GetAttribute("primvars:displayOpacity").Get() or []
             opacity = float(opacities[0]) if opacities else 1.0
+            if opacity == 0:
+                continue
             traces.append(go.Scatter3d(
                 x=x, y=y, z=z,
                 mode="markers",

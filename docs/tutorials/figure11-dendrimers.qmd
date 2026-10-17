@@ -103,6 +103,18 @@ print(f"branches per dendrimer: {branch_count}")
 With functionality three, the number of scattering branches is
 $3 + 6 + 12 = 21$ for three generations and 45 for four generations.
 
+## Inspect the constructed structures
+
+Compare the attachment choices in real space before comparing the curves.
+Each view shows one seeded realization; distributed references and polymers
+are averaged in the scattering calculation.
+
+```{python}
+for label, (preview_world, preview_parameters) in dendrimers.items():
+    print(label)
+    _ = pyseb.visualize(preview_world, "dendrimer", preview_parameters, height=400)
+```
+
 ## Evaluate and compare
 
 ```{python}

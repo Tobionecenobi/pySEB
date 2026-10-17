@@ -95,6 +95,17 @@ the polymer's `beta` and `Rg`.
 
 ```{python}
 parameters = {"beta_polymer": 4.0, "Rg_polymer": 6.0}
+```
+
+Inspect the coordinate cloud with its attached chain. Atom positions come
+from the PDB fragment; the Gaussian chain is one representative realization.
+Cloud markers use display sizes rather than physical atomic radii.
+
+```{python}
+_ = pyseb.visualize(world, "conjugate", parameters, height=440)
+```
+
+```{python}
 q = np.linspace(0.0, 0.5, 150)
 fragment = np.asarray(world.EvaluateFormFactor("fragment", {}, q.tolist()))
 conjugate = np.asarray(
