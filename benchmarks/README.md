@@ -869,3 +869,88 @@ raw JSON remain under `/tmp`, outside version control.
 The complete Python suite also passes: 145 tests, with the existing opt-in
 network skip and known expected tiny-q sphere failure. The portable Python
 extension was rebuilt with the retained exporter changes before validation.
+
+## Unevaluated SymPy construction experiment (not retained)
+
+Two converter variants were tested without changing native generation or
+special-function mappings:
+
+1. Construct every collected `Add` and `Mul` with `evaluate=False`.
+2. Keep normal construction except for `Mul` with more than eight collected
+   arguments, where `evaluate=False` is used.
+
+The existing `profile_symbolic_stages.cpp` driver measures conversion separately
+from CSE-enabled evaluator preparation, plain text/LaTeX printing, and warmed
+31-q evaluation. Both variants were compiled against the same restored
+`3f969b1c` core library and run on independent-parameter chains, stars and
+nested structures with signed contrasts. Each operation is checked against
+native evaluation at q=0.03, 0.1 and 0.3. Recorded baseline/experimental q=0.3
+values also agree within relative/absolute 1e-10.
+
+Screening observations with SymPy 1.14.0 and cache capacity 1000, one fresh
+process per version/case, alternating version order between cases, with three
+warmed conversion calls and 100 curve evaluations. No builds, tests or other
+profilers ran concurrently. These are individual observations, not replicated
+speedup guarantees. This first screen uses the stage driver's original
+`dummify=False` evaluator setting:
+
+| Intensity case | First conversion, normal | First conversion, all unevaluated | Compiled curve, normal | Compiled curve, all unevaluated |
+| --- | ---: | ---: | ---: | ---: |
+| Chain, 32 polymers | 295 ms | 83.4 ms | 0.793 ms | 2.719 ms |
+| Sphere + 32 arms | 181 ms | 75.7 ms | 0.684 ms | 1.101 ms |
+| 16 nested blocks / 32 polymers | 132 ms | 72.6 ms | 0.435 ms | 0.849 ms |
+| Chain, 64 polymers | 1274 ms | 264 ms | 2.583 ms | 19.378 ms |
+
+For the 64-polymer intensity, evaluator preparation increased from 6.47 to
+8.14 seconds. Plain-text rendering was essentially unchanged (4.40 versus
+4.32 seconds), as was LaTeX rendering (6.13 versus 6.13 seconds). The text grew
+from 1,083,165 to 1,106,033 bytes. Thus the faster initial transfer left more
+work for preparation and repeated evaluation, rather than compacting the
+expression. CSE and `docstring_limit=0` remained enabled throughout.
+
+The all-unevaluated variant also failed two existing structural/canonical-form
+assertions: a sum of 300 identical symbols stayed a repeated sum rather than
+`300*x`, and a constant expression stayed `1 + 1 + 2*1*1*1` rather than `4`.
+These are changes in representation, not demonstrated numerical errors. The
+other eight symbolic-generation tests passed.
+
+The long-product-only variant passed all ten symbolic-generation tests, but
+still made the 64-polymer evaluator slower: first conversion 462 ms,
+preparation 8.46 seconds and repeated curves 19.59 ms. The 32-arm star was
+roughly unchanged, while the smaller chain and nested cases also had slower
+evaluation. No beneficial general default was established.
+
+Neither variant was retained. The converter and rebuilt Python extension use
+the original evaluated constructors. Reproduce the broad experiment by replacing
+only the converter's collected `Add`/`Mul` constructor call with its
+`evaluate=False` equivalent, then compiling two stage-driver binaries using the
+command above, keeping their core libraries identical. The restricted variant
+applies that keyword only to products with more than eight arguments. The
+experimental source copies, patches, raw JSON and test logs are under
+`/tmp/pyseb-unevaluated-*`; no experimental setting or new dependency is exposed
+in pySEB.
+
+A follow-up uses the same `dummify=True`, CSE and docstring settings as the
+public `compile_expression` helper's numerical kernel. Parameter renaming did
+not recover the performance: for the 64-polymer intensity, ordinary conversion
+plus kernel preparation took 1.388 + 9.453 seconds, versus 0.270 + 21.644 seconds
+with all sums/products unevaluated. Warmed 31-q kernels took 2.413 versus
+20.663 ms. These kernel timings exclude the helper's parameter/q validation
+wrapper. This confirms the regression is relevant to the helper's preparation
+settings as well as the original stage-driver setting. The restricted variant
+also regressed with parameter renaming: preparation took 20.46 seconds and
+curves 21.99 ms.
+
+The stage driver now accepts optional sixth argument `dummify` to reproduce
+that preparation policy, and records its value in JSON. Existing default,
+`profile`, and `simplify` modes are unchanged:
+
+```bash
+OPENBLAS_NUM_THREADS=1 SYMPY_CACHE_SIZE=1000 /tmp/pyseb-symbolic-stages \
+  chain 64 /home/tobi/pySEB/.venv-sympy/lib/python3.11/site-packages 3 dummify
+```
+
+After restoring and rebuilding the production converter, all ten symbolic
+regressions and all eight compiled-evaluator regressions pass. The retained
+changes are benchmark policy coverage and these findings, not a production
+conversion optimization.

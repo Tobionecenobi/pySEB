@@ -23,10 +23,14 @@ int main(int argc, char** argv) {
     py::module::import("pyseb.symbolic");
     auto sp = py::module::import("sympy");
     const bool profileConversion=argc>5 && std::string(argv[5]) == "profile";
+    const bool dummify=argc>5 && std::string(argv[5]) == "dummify";
     py::dict globals;
     globals["sp"] = sp;
+    globals["dummify"] = py::bool_(dummify);
     // A Python caller frame is required by SymPy's lambdify implementation.
-    py::object prepare = py::eval("lambda e: sp.lambdify(sorted(e.free_symbols, key=str), e, modules=['numpy','scipy'], cse=True, docstring_limit=0)", globals);
+    // Match compile_expression's parameter-renaming setting when requested;
+    // it can trigger further reconstruction of an unevaluated expression.
+    py::object prepare = py::eval("lambda e: sp.lambdify(sorted(e.free_symbols, key=str), e, modules=['numpy','scipy'], cse=True, dummify=dummify, docstring_limit=0)", globals);
     World world("independent_symbolic_profile");
     GraphID graph;
     ParameterList p;
@@ -142,6 +146,7 @@ int main(int argc, char** argv) {
                  <<",\"sympy_cache_size\":\""<<py::cast<std::string>(py::str(
                      py::module::import("sympy.core.cache").attr("SYMPY_CACHE_SIZE")))<<"\""
                  <<",\"first_conversion_profiled\":"<<(profileConversion ? "true" : "false")
+                 <<",\"dummify\":"<<(dummify ? "true" : "false")
                  <<",\"operation\":\""<<operation<<"\",\"generation_seconds\":"<<generation[generation.size()/2]
                  <<",\"conversion_seconds\":"<<conversion[conversion.size()/2]
                  <<",\"first_generation_seconds\":"<<firstGeneration
