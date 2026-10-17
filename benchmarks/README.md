@@ -954,3 +954,63 @@ After restoring and rebuilding the production converter, all ten symbolic
 regressions and all eight compiled-evaluator regressions pass. The retained
 changes are benchmark policy coverage and these findings, not a production
 conversion optimization.
+
+## Prepared sasmodels fitting: combined intensity and amplitude
+
+The runtime adapter can now request the complete unnormalized intensity and
+signed reference amplitude together. C++ reuses its traversal paths and leaf
+amplitudes within each q sample, and returns numeric buffers instead of Python
+float lists. Intensity is still evaluated independently; this does not replace
+it with the square of the mean amplitude. Complete parameter bindings still
+run on every distribution sample, and no state is cached across fitting calls.
+The adapter uses this combined path when an interaction-enabled model needs F
+and I. The existing intensity-only adapter path is retained: its initial
+buffer-only experiment did not establish a useful improvement.
+
+`profile_sasmodels_fitting.py` measures already-prepared runtime models while
+changing radius on every call. Both hybrid and interacting AOT cases include
+Pinhole1D resolution on a 101-point measured grid (108 evaluation points).
+Declared radius distributions use 21 samples for the hybrid and 11 for AOT.
+Model construction, symbolic preparation, and kernel creation are excluded.
+`--fit` additionally fits AOT radius and shell thickness to noiseless synthetic
+data, starting at (25, 8) Angstrom and recovering (29, 6.5) Angstrom. This is a
+performance/correctness fixture, not an experimental-data fit.
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+SAS_DLL_PATH=/tmp/pyseb-fitting-kernels \
+python benchmarks/profile_sasmodels_fitting.py \
+  "$PWD" /tmp/pyseb-fitting.json --fit
+```
+
+The first positional argument selects the source/build tree and requires its
+`build-python/pyseb` extension. This permits the same driver to measure a
+separately built older snapshot. The script verifies the selected native module
+path, saves changing-parameter curves and timing samples, and checks parameter
+recovery. `--profile` separately profiles repeated evaluations after timing.
+It needs the optional sasmodels extra and SciPy, and adds no dependencies to
+ordinary imports.
+
+Local portable Release comparison against `3971dd52`, GCC 12.2 with the same
+-O3/LTO settings, Python 3.11, NumPy 2.4.2, SciPy 1.17.1 and sasmodels 1.1.0:
+
+| Prepared runtime workload | Before | Combined evaluation | Speedup |
+| --- | ---: | ---: | ---: |
+| Interacting AOT curve, radius distribution of 11 | 193.3 ms | 154.4 ms | 1.25x |
+| Complete two-parameter SciPy fit, same distribution and resolution | 3.607 s | 2.788 s | 1.29x |
+
+These are medians of three fresh-process medians, with three timed samples per
+process and alternating old/new process order. No builds, tests or other
+profilers ran concurrently. All 18 fits recovered identical parameters and
+reported six function evaluations. Changing-parameter curves agreed at relative
+tolerance 2e-12, with zero absolute tolerance. A separate five-round comparison
+of old/new adapter callbacks sharing the exact same native binary measured
+1.35x for the distributed interacting AOT curve. Local run times vary; these
+measurements do not establish a universal speedup for every particle.
+
+This targets repeated **runtime** fitting evaluations. Compiled analytical
+kernels and their SymPy preparation are unchanged. No speedup is claimed for
+intensity-only hybrids. Numeric-buffer regressions cover strided/converted
+inputs, owned output storage, empty and invalid grids, signed contrast,
+contrast matching, hydration changes and cloud/analytical interference.
+Generated curves, profiles, logs and raw measurements remain under `/tmp`.

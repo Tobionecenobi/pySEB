@@ -238,6 +238,11 @@ public:
     double EvaluateFormFactorUnnormalized(string name, const ParameterList& values, double q);
     DoubleVector EvaluateFormFactorUnnormalized(string name, const ParameterList& values, const DoubleVector& q);
 
+    // Return (complete intensity, signed reference amplitude), reusing the
+    // traversal context within each q sample. Neither quantity is normalized.
+    std::pair<DoubleVector, DoubleVector> EvaluateFormFactorAndAmplitudeUnnormalized(
+        string name, refPoint reference, const ParameterList& values, const DoubleVector& q);
+
     double EvaluateFormFactorAmplitude(refPoint ref, const ParameterList& values, double q);
     DoubleVector EvaluateFormFactorAmplitude(refPoint ref, const ParameterList& values, const DoubleVector& q);
     double EvaluateFormFactorAmplitudeUnnormalized(refPoint ref, const ParameterList& values, double q);

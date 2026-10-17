@@ -1388,6 +1388,27 @@ DoubleVector World::EvaluateFormFactorUnnormalized(
     return result;
 }
 
+std::pair<DoubleVector, DoubleVector> World::EvaluateFormFactorAndAmplitudeUnnormalized(
+    string name, refPoint reference, const ParameterList& values, const DoubleVector& q)
+{
+    if (prefix(reference) != name) {
+        throw SEBException("Amplitude reference must belong to the intensity target",
+                           "World::EvaluateFormFactorAndAmplitudeUnnormalized()");
+    }
+    std::pair<DoubleVector, DoubleVector> result;
+    result.first.reserve(q.size());
+    result.second.reserve(q.size());
+    NumericEvaluationContext context;
+    for (const double value : q) {
+        context.beginSample();
+        // The complete intensity includes internal interference. Its leaf
+        // amplitudes can also serve the independent reference-amplitude query.
+        result.first.push_back(GenerateAllToAllNumeric(name, value, values, &context));
+        result.second.push_back(GenerateRefToAllNumeric(reference, value, values, &context));
+    }
+    return result;
+}
+
 double World::EvaluateFormFactorAmplitude(
     refPoint ref,
     const ParameterList& values,

@@ -178,16 +178,22 @@ def make_model_info(spec, backend="runtime"):
             ctx = context()
             parameters = dict(spec.bind(ctx, values))
             world = getattr(ctx, "world", ctx)
-            intensity = np.asarray(world.EvaluateFormFactorUnnormalized(
-                spec.structure, parameters, q.tolist()), dtype=float) * spec.intensity_factor
+            if amplitude:
+                # Interactions need both F and I. Keep numeric buffers and share
+                # one native traversal context per q sample for these queries.
+                intensity, f = world._evaluate_form_factor_numpy(
+                    spec.structure, parameters, q, spec.interaction.reference)
+            else:
+                # Intensity-only models need no reference-amplitude query.
+                intensity = np.asarray(world.EvaluateFormFactorUnnormalized(
+                    spec.structure, parameters, q.tolist()), dtype=float)
+            intensity *= spec.intensity_factor
             if intensity.shape != q.shape or not np.all(np.isfinite(intensity)):
                 raise ValueError("pySEB returned invalid intensity")
             # Intensity comes from the complete graph independently of F. For
             # general particles, the mean reference amplitude squared is not I.
             if not amplitude:
                 return intensity
-            f = np.asarray(world.EvaluateFormFactorAmplitudeUnnormalized(
-                spec.interaction.reference, parameters, q.tolist()), dtype=float)
             if f.shape != q.shape or not np.all(np.isfinite(f)):
                 raise ValueError("pySEB returned invalid amplitude")
             return math.sqrt(spec.intensity_factor) * f, intensity

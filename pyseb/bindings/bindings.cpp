@@ -1,6 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/functional.h>
+#include <pybind11/numpy.h>
 #include <algorithm>
 #include <memory>
 #include <sstream>
@@ -19,6 +20,24 @@ namespace py = pybind11;
 
 // Forward declaration of the function that registers common types
 void register_common_types(py::module& m);
+
+namespace {
+
+// Transfer ownership of numeric storage without constructing Python floats.
+py::array_t<double> numeric_array(DoubleVector values)
+{
+    auto* storage = new DoubleVector(std::move(values));
+    py::capsule owner(storage, [](void* pointer) {
+        delete static_cast<DoubleVector*>(pointer);
+    });
+    // Explicit strides also work with older pybind11 releases on NumPy 2,
+    // where deriving strides from the dtype descriptor can yield zero.
+    return py::array_t<double>({static_cast<py::ssize_t>(storage->size())},
+                               {static_cast<py::ssize_t>(sizeof(double))},
+                               storage->data(), owner);
+}
+
+} // namespace
 
 PYBIND11_MODULE(_pyseb, m) {
     m.doc() = "Python bindings for the Scattering Equation Builder (SEB) library";
@@ -713,6 +732,24 @@ PYBIND11_MODULE(_pyseb, m) {
         .def("getParamsq", &World::getParamsq)
         .def("getq", &World::getq, py::arg("value") = 0)
         .def("q", &World::q, py::arg("value") = 0)
+        .def("_evaluate_form_factor_numpy", [](World& self, const std::string& name,
+                const ParameterList& parameters,
+                py::array_t<double, py::array::c_style | py::array::forcecast> q,
+                const std::string& reference) -> py::object {
+            if (q.ndim() != 1) throw py::value_error("Expected a 1-D q array");
+            // A numeric copy preserves the C++ vector API without routing
+            // every input/output sample through a boxed Python float.
+            DoubleVector grid(static_cast<std::size_t>(q.size()));
+            std::copy_n(q.data(), q.size(), grid.begin());
+            if (reference.empty()) {
+                return numeric_array(self.EvaluateFormFactorUnnormalized(name, parameters, grid));
+            }
+            auto result = self.EvaluateFormFactorAndAmplitudeUnnormalized(
+                name, reference, parameters, grid);
+            return py::make_tuple(numeric_array(std::move(result.first)),
+                                  numeric_array(std::move(result.second)));
+        }, py::arg("name"), py::arg("parameters"), py::arg("q"),
+           py::arg("reference") = "")
         .def("EvaluateFormFactor",
              py::overload_cast<std::string, const ParameterList&, double>(
                  &World::EvaluateFormFactor),

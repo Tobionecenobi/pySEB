@@ -16,6 +16,57 @@ class TestNumericalOptimization(unittest.TestCase):
     def assert_close(self, actual, expected):
         np.testing.assert_allclose(actual, expected, rtol=2e-11, atol=2e-11)
 
+    def test_numpy_combined_evaluation_preserves_independent_intensity_and_amplitude(self):
+        world = pyseb.World()
+        graph = world.Add('GaussianPolymer', 'a')
+        world.Link('GaussianPolymer', 'b.end1', 'a.end2')
+        world.Add(graph, 'particle')
+        reference = 'particle:a.end1'
+        # A strided, signed grid exercises buffer conversion and sample order.
+        q = np.array([.2, 9., 0., 9., -.2, 9., .03, 9.])[::2]
+        for beta in (-2., 3., -2.):
+            p = dict(Rg_a=3., Rg_b=5., beta_a=beta, beta_b=2.)
+            intensity, amplitude = world._evaluate_form_factor_numpy('particle', p, q, reference)
+            self.assert_close(intensity, world.EvaluateFormFactorUnnormalized('particle', p, q.tolist()))
+            self.assert_close(amplitude, world.EvaluateFormFactorAmplitudeUnnormalized(reference, p, q.tolist()))
+            self.assert_close(world._evaluate_form_factor_numpy('particle', p, q), intensity)
+            # Contrast matching does not make the finite-q particle invisible.
+            self.assertGreater(np.max(np.abs(intensity-amplitude**2)), 1e-4)
+            self.assertEqual(intensity.dtype, np.dtype('float64'))
+            saved = intensity.copy()
+            # Later calls must not overwrite returned arrays or retain parameters.
+            world._evaluate_form_factor_numpy('particle', dict(p, beta_a=8.), q, reference)
+            self.assert_close(intensity, saved)
+        del world
+        self.assert_close(intensity, saved)
+
+    def test_numpy_evaluation_empty_grids_and_error_recovery(self):
+        world = pyseb.World()
+        world.Add('SolidSphere', 'sphere')
+        p = dict(R_sphere=3., beta_sphere=-2.)
+        for reference in ('', 'sphere.center'):
+            empty = world._evaluate_form_factor_numpy('sphere', p, np.array([]), reference)
+            for array in (empty if reference else (empty,)):
+                self.assertEqual(array.shape, (0,))
+            for q in (np.array([np.nan]), np.array([np.inf])):
+                with self.assertRaises(RuntimeError):
+                    world._evaluate_form_factor_numpy('sphere', p, q, reference)
+            with self.assertRaises(ValueError):
+                world._evaluate_form_factor_numpy('sphere', p, np.zeros((2, 2)), reference)
+            with self.assertRaises(RuntimeError):
+                world._evaluate_form_factor_numpy('sphere', dict(beta_sphere=-2.), [.1], reference)
+            actual = world._evaluate_form_factor_numpy('sphere', p, np.array([0.], dtype='float32'), reference)
+            self.assert_close(actual[0] if reference else actual, [4.])
+            if reference:
+                self.assert_close(actual[1], [-2.])
+            for dtype in ('float32', '>f8'):
+                q = np.array([.25, 0., .125], dtype=dtype)
+                actual = world._evaluate_form_factor_numpy('sphere', p, q, reference)
+                self.assert_close(actual[0] if reference else actual,
+                                  world.EvaluateFormFactorUnnormalized('sphere', p, q.tolist()))
+        with self.assertRaises(RuntimeError):
+            world._evaluate_form_factor_numpy('sphere', p, [.1], 'other.center')
+
     def test_analytical_values_match_symbolic_substitution(self):
         # These exercise arithmetic, powers, trigonometric functions, exp,
         # and the rod's sine integral through the actual scattering API.
@@ -196,6 +247,13 @@ class TestNumericalOptimization(unittest.TestCase):
                         np.testing.assert_array_equal(actual, scalar)
                         beta2 = world.EvaluateFormFactorUnnormalized(target, p, 0.)
                         self.assert_close(world.EvaluateFormFactor(target, p, q), np.array(scalar)/beta2)
+            # The combined fitting path must retain hydration and hybrid cross
+            # terms when both intensity and a signed amplitude are requested.
+            intensity, amplitude = world._evaluate_form_factor_numpy(
+                'hybrid', p, np.array(grid), 'hybrid:cloud.join')
+            self.assert_close(intensity, world.EvaluateFormFactorUnnormalized('hybrid', p, grid))
+            self.assert_close(amplitude, world.EvaluateFormFactorAmplitudeUnnormalized(
+                'hybrid:cloud.join', p, grid))
             with self.assertRaises(RuntimeError):
                 world.EvaluateFormFactorUnnormalized('hybrid', p, [.1, .2, math.nan, .3])
         # Inherited callback replacement is public API and must also be
