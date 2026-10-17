@@ -96,6 +96,34 @@ class TestViewerBrowser(unittest.TestCase):
         self.assertEqual(self.errors, [])
         self.page.close()
 
+    def test_alternating_colors_follow_connections_and_restore_manual_colors(self):
+        page = self.page
+        page.goto(self.nested_url)
+        page.locator('.plotly-graph-div').hover()
+        page.get_by_role('button', name='Structure settings', exact=True).click()
+        original = page.evaluate(r"""() => document.querySelector('.plotly-graph-div').data
+            .filter(t=>t.meta.pyseb.role==='geometry').map(t=>{
+                const color=t.line.color;
+                return color.startsWith('#')?color:'#'+color.match(/\d+/g)
+                    .map(v=>Number(v).toString(16).padStart(2,'0')).join('');
+            })""")
+        checkbox = page.get_by_role('checkbox', name='Alternate connected colors')
+        checkbox.check()
+        page.wait_for_function("""() => {
+            const traces=document.querySelector('.plotly-graph-div').data.filter(t=>t.meta.pyseb.role==='geometry');
+            const colors=new Map(traces.map(t=>[t.meta.pyseb.instance,t.line.color]));
+            return new Set(colors.values()).size===2 && traces.every(t=>
+                t.meta.pyseb.neighbors.every(n=>colors.get(n)!==t.line.color));
+        }""")
+        page.get_by_label('Alternating color 1', exact=True).evaluate("""el=>{
+            el.value='#ff00ff';el.dispatchEvent(new Event('input',{bubbles:true}));} """)
+        page.wait_for_function("""() => document.querySelector('.plotly-graph-div').data
+            .some(t=>t.line&&t.line.color==='#ff00ff')""")
+        checkbox.uncheck()
+        page.wait_for_function("""expected => JSON.stringify(document.querySelector('.plotly-graph-div').data
+            .filter(t=>t.meta.pyseb.role==='geometry').map(t=>t.line.color))===JSON.stringify(expected)""",
+            arg=original)
+
     def test_panel_changes_geometry_and_preserves_camera(self):
         page = self.page
         page.mouse.move(950, 730)

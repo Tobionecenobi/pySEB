@@ -171,6 +171,39 @@ _SCRIPT = r"""
  const initial = gd.data.map(trace=>({visible:trace.visible===undefined?true:trace.visible,
    opacity:trace.opacity===undefined?1:trace.opacity, color:colorOf(trace)}));
  const styles = new Map();
+ const alternatingLabel=document.createElement('label');
+ const alternating=document.createElement('input');alternating.type='checkbox';
+ alternatingLabel.append(alternating,document.createTextNode('Alternate connected colors'));
+ alternatingLabel.title='Use two colors along connected chains and branches';
+ panel.insertBefore(alternatingLabel,referenceLabel);
+ const palette=document.createElement('div');palette.hidden=true;
+ const alternatingColors=['#269bd2','#f28e2b'];
+ const partitions=new Map();const adjacency=new Map();
+ gd.data.forEach((trace,i)=>{if(!isReference(trace)){
+   const name=groupName(trace,i);
+   adjacency.set(name,(meta(trace).neighbors||[]).map(value=>String(value).replace(/\//g,':')));
+ }});
+ for(const start of adjacency.keys()){
+   if(partitions.has(start))continue;
+   partitions.set(start,0);const queue=[start];
+   for(let index=0;index<queue.length;index++){
+     const name=queue[index];
+     for(const neighbor of adjacency.get(name)||[]){
+       if(!adjacency.has(neighbor)||partitions.has(neighbor))continue;
+       partitions.set(neighbor,1-partitions.get(name));queue.push(neighbor);
+     }
+   }
+ }
+ alternating.disabled=![...adjacency.values()].some(values=>values.length);
+ for(let index=0;index<2;index++){
+   const label=document.createElement('label');label.textContent='Alternating color '+(index+1);
+   const input=document.createElement('input');input.type='color';input.value=alternatingColors[index];
+   input.setAttribute('aria-label',label.textContent);
+   input.addEventListener('input',()=>{alternatingColors[index]=input.value;applyStyles();});
+   label.append(input);palette.append(label);
+ }
+ panel.insertBefore(palette,referenceLabel);
+ alternating.addEventListener('change',()=>{palette.hidden=!alternating.checked;applyStyles();});
  const nodes = new Map();
  const expanded = new Set(['']);
  function updateReferences() {
@@ -193,7 +226,8 @@ _SCRIPT = r"""
      indices.push(i);visible.push(state.visible);opacity.push(state.opacity*(factors.get(name)??1));
      const attr=trace.type==='mesh3d'?'color':
        (trace.mode&&trace.mode.includes('markers')?'marker.color':'line.color');
-     colors[attr].indices.push(i);colors[attr].values.push(state.color);
+     colors[attr].indices.push(i);colors[attr].values.push(alternating.checked?
+       alternatingColors[partitions.get(name)??0]:state.color);
    });
    const work=[];
    if(indices.length)work.push(Plot.restyle(gd,{visible,opacity},indices));
@@ -346,6 +380,7 @@ _SCRIPT = r"""
  resetStyle.addEventListener('click',async()=>{
    if(sceneSelect){activeVariant=0;sceneSelect.value='0';updateLayoutButton();await Plot.react(gd,JSON.parse(JSON.stringify(variants[0].data)),gd.layout,gd._context);}
    styles.clear();references.checked=false;scatteringOpacity.checked=false;scatteringMode.value='beta';
+   alternating.checked=false;palette.hidden=true;
    for(let i=0;i<gd.data.length;i++){
      const state=initial[i];if(!state)continue;
      const trace=gd.data[i];const attr=trace.type==='mesh3d'?'color':

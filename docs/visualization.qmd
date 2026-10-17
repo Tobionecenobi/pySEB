@@ -59,6 +59,14 @@ an individual subunit, for example `star4 → diblock4 → A`. Visibility, color
 and opacity changes at a parent apply to every subunit inside it. A later
 change to `A` affects only that leaf. Parents show mixed values when their
 children differ; the **All subunits** row controls the complete structure.
+Enable **Alternate connected colors** to distinguish adjoining subunits using
+two colors. The viewer follows the actual connections, alternating colors along
+polymer chains and branches rather than by subunit name or drawing order. Two
+color pickers set the palette. Turning the checkbox off restores manual colors;
+the setting persists when switching between model and unfolded views. Two colors
+cannot distinguish every neighbor in a connection cycle with an odd number of
+subunits.
+
 Reference markers follow the visibility of their owning subunits. Expanded
 branches and display styles are retained when switching prepared realizations.
 

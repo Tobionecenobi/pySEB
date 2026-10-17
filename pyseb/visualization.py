@@ -113,8 +113,25 @@ def _usd_traces(path, *, references=False, parameters=None, volumes=None):
             current = current.GetParent()
         return str(prim.GetParent().GetPath()).strip("/") or str(prim.GetPath())
 
+    neighbors = {}
+    for prim in stage.Traverse():
+        for relationship in prim.GetRelationships():
+            if not relationship.GetName().startswith("pyseb:link_"):
+                continue
+            targets = relationship.GetTargets()
+            if len(targets) != 2:
+                continue
+            endpoints = [stage.GetPrimAtPath(target) for target in targets]
+            if not all(endpoints):
+                continue
+            a, b = map(instance_name, endpoints)
+            if a != b:
+                neighbors.setdefault(a, set()).add(b)
+                neighbors.setdefault(b, set()).add(a)
+
     def metadata(prim, role="geometry"):
         return {"pyseb": {"instance": instance_name(prim), "role": role,
+                           "neighbors": sorted(neighbors.get(instance_name(prim), ())),
                            **scattering_info(prim)}}
 
     def hover(prim, name):
