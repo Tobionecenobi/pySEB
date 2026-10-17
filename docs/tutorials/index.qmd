@@ -15,7 +15,11 @@ where useful. Install the optional viewer in the tutorial environment:
 python -m pip install "pyseb[visualization]"
 ```
 
-Drag to rotate and scroll to zoom. Polymer shapes and distributed attachment
+Drag to rotate and scroll to zoom. Hover inside the frame and open the
+upper-left settings button to change visibility, colors, transparency, and
+reference markers. The camera toolbar remains upper-right.
+[Viewer settings and realization choices](../visualization.qmd) describes the
+optional controls. Polymer shapes and distributed attachment
 points show seeded representative realizations, while scattering calculations
 average over their ensembles. Numerical clouds use their stored coordinates.
 In executable notebook cells, `_ = pyseb.visualize(...)` displays the view

@@ -46,6 +46,9 @@ def main():
     # The QMD makes every plot and interactive view from the saved data.
     # Generation exports real USDA scenes, without opening browser windows.
     go.Figure.show = lambda self, *args, **kwargs: None
+    # The controlled HTML viewer subclasses Figure and supplies its own show.
+    from pyseb._viewer import figure_class
+    figure_class().show = go.Figure.show
     plt.show = lambda *args, **kwargs: plt.close("all")
     cells = generation_cells()
     if not cells:

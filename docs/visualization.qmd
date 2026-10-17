@@ -1,4 +1,4 @@
----
+am---
 title: "YAML Visualization and OpenUSD"
 jupyter: python3
 execute:
@@ -44,6 +44,82 @@ To view a saved scene, use `pyseb.visualization.usd_to_plotly(path)`.
 
 These views show representative realizations of the scattering model.
 Cloud marker sizes are display sizes rather than physical particle radii.
+
+## Settings inside the 3D frame
+
+Move the pointer into the view to reveal the settings button in the upper-left
+corner. Click it to open a panel for showing or hiding individual subunits,
+changing colors and opacity, showing reference points, and resetting the camera
+or display style. The camera toolbar stays in the upper-right corner.
+The panel stays open while you use it; close it with × or Escape. On touch
+screens, tap the settings button directly.
+
+Controls follow the structure hierarchy. Expand a star, then a diblock, then
+an individual subunit, for example `star4 → diblock4 → A`. Visibility, color,
+and opacity changes at a parent apply to every subunit inside it. A later
+change to `A` affects only that leaf. Parents show mixed values when their
+children differ; the **All subunits** row controls the complete structure.
+Reference markers follow the visibility of their owning subunits. Expanded
+branches and display styles are retained when switching prepared realizations.
+
+![The in-frame settings panel, with per-subunit controls and reference markers.](previews/structure-controls.png){fig-alt="A compact settings overlay in the upper-left of a nested star structure view, expanded from star4 to diblock4 and A; the camera toolbar remains in the upper-right."}
+
+Prepare additional realizations if you want to switch seeds and layouts inside
+the panel, including in a saved HTML file:
+
+```python
+pyseb.visualize(world, "assembly", parameters,
+                seeds=[1], layouts=["readable"])
+```
+
+When both layouts are prepared for a seed, a button beside the settings gear
+switches between **See unfolded** and **See model**. The model view restores
+the original seeded coordinates; the unfolded view uses an overlap-reduced layout.
+Both keep the camera, hierarchy, colors, visibility, and opacity settings.
+The readable view is illustrative and does not add excluded-volume physics.
+
+The current seed and layout are always included. With default options, this
+example prepares seeds 0 and 1 in both random and readable layouts. Preparing
+more realizations takes additional export time and increases the HTML size;
+it is optional. Choosing a realization preserves the camera and display styles.
+These controls change the representative geometry, not the scattering model.
+
+Returned figures keep their controls when displayed in a notebook or saved
+with `figure.write_html("structure.html")`. Use `controls=False` to return a
+plain Plotly figure. Static image exports show the structure without the panel.
+
+## Opacity from scattering contrast
+
+Enable **Opacity by scattering** in the settings panel. Choose **Total |β|**
+or **Contrast density |β| / V**. The largest magnitude in the complete displayed
+structure maps to opacity 1; other values scale linearly relative to it. This
+factor multiplies the manual opacity sliders. Turning the checkbox off restores
+manual opacity; zero beta becomes transparent, and negative beta uses its
+absolute magnitude. Hover text retains the signed beta and, when available,
+material volume and signed beta/volume. This is a display aid, not an intensity
+calculation or a change to the fitted scattering model.
+
+Material volumes are calculated analytically for solid spheres, spherical
+shells, cylinders, and spheroids. Polymers, thin curves/surfaces, and numerical
+clouds need explicit material volumes; the viewer does not use a coil's radius
+of gyration or a cloud envelope as a volume. Supply known volumes in the cube
+of the model's length unit, using instance paths, shared tags, or source names:
+
+```python
+pyseb.visualize(world, "starChain", parameters, volumes={"A": 1000., "B": 1600.})
+```
+
+These volume values are an example, not inferred polymer properties. Unknown
+beta or volume values keep their manual opacity and are reported in the panel.
+The density option is disabled when no material volumes are available. Relative
+opacity and its normalization stay fixed when hiding components or switching
+between the model and unfolded views. Reference markers keep their own style.
+
+For a saved USD scene, pass the parameter dictionary to
+`usd_to_plotly(path, parameters=parameters, volumes=...)`; analytic beta values
+are not stored by the USD exporter. Debye sphere clouds use the signed sum of
+their stored scatterer beta values. Q-dependent atomic SAXS contrast is not
+inferred from atomic coordinates.
 
 ## Geometry and reference mappings
 
