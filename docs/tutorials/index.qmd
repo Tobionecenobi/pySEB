@@ -5,6 +5,83 @@ title: "Tutorials"
 The tutorials combine explanation, maintained Python and C++ source code, and
 output produced by pySEB during the documentation build.
 
+Follow the numbered learning path below, or jump to the stage that matches
+your experience. Within each stage, tutorials appear in a suggested order.
+For interactive 3D views, see [Viewing structures](#viewing-structures).
+
+## 1. Start here
+
+**Before starting:** No prior pySEB experience is required. Follow these three
+tutorials in order:
+
+| Step | Tutorial | What you will learn |
+| --- | --- | --- |
+| 1 | [Introduction to pySEB](introduction.qmd) | Understand scattering, subunits, reference points, structure graphs, parameters, and q |
+| 2 | [Your first scattering model](first-model.qmd) | Install pySEB, evaluate a solid sphere, make a plot, and change its radius |
+| 3 | [Your first composite model](diblock-copolymer.qmd) | Connect two Gaussian polymers and use the same structure from Python and C++ |
+
+## 2. Build larger structures
+
+**Before starting:** Complete Your first composite model, or be comfortable
+adding subunits, linking reference points, and supplying model parameters.
+
+| Tutorial | What you will learn |
+| --- | --- |
+| [Sphere–polymer micelle](micelle.qmd) | Attach tagged chains to distributed sphere-surface references |
+| [Random-walk rod chain](random-walk-rods.qmd) | Link rigid segments, calculate the chain size, and compare with a Gaussian polymer |
+| [Reusable nested structures](nested-structures.qmd) | Build reusable graphs and address nested reference paths |
+| [Parameter sweeps](parameter-sweeps.qmd) | Reuse one graph with several parameter sets |
+
+## 3. Understand the calculations
+
+**Before starting:** Be comfortable evaluating a composite model and changing
+its parameters. Basic familiarity with symbolic algebra is useful for expression
+export.
+
+| Tutorial | What you will learn |
+| --- | --- |
+| [Scattering quantities](scattering-quantities.qmd) | Compare normalized and unnormalized form factors, amplitudes, phase factors, and size measures |
+| [Symbolic expressions and export](symbolic-expressions.qmd) | Select a backend, inspect expressions, convert to SymPy, and export Python, LaTeX, and C forms |
+
+## 4. Extend your models
+
+**Before starting:** Be comfortable building composite structures and evaluating
+their scattering. The PDB and mixed-model tutorials introduce numerical subunits
+alongside analytic models.
+
+| Tutorial | What you will learn |
+| --- | --- |
+| [Subunits and YAML models](custom-yaml-workflow.qmd) | Understand and explore bundled subunits, then define, validate, and visualize your own |
+| [PDB cloud with an attached polymer](pdb-polymer.qmd) | Combine coordinate-based numerical scattering with an analytic subunit |
+| [Evaluate mixed models](mixed-model-evaluation.qmd) | Evaluate structures containing numerical, integrated, and analytic subunits with one API |
+
+## 5. Fit experimental data
+
+**Before starting:** Be comfortable building models and exploring parameter
+sets. Basic familiarity with least-squares fitting is useful. For the titin
+example, first work through PDB cloud with an attached polymer.
+
+| Tutorial | What you will learn |
+| --- | --- |
+| [Fit real contrast-variation SANS data](fit-real-sans-data.qmd) | Fit a linked sphere-and-shell structure simultaneously to three experimental datasets |
+| [Build and fit a polymer corona](fit-f127-corona.qmd) | Connect subunits, view OpenUSD structures, and compare fitted corona models |
+| [Fit a linked titin doublet](fit-linked-titin.qmd) | Stress-test analytical domain/linker choices, then compare C-alpha and heavy-atom clouds using real SAXS data |
+
+## 6. Explore published examples
+
+**Before starting:** Work through Build larger structures, particularly reusable
+nested structures and distributed attachment references.
+
+These are worked applications of the modeling tools, grouped by publication
+figure. Figure order does not imply increasing difficulty.
+
+| Tutorial | What you will learn |
+| --- | --- |
+| [Figure 10 linear chains](figure10-linear-chains.qmd) | Compare endpoint and distributed-contour links across polymers, rods, loops, and rings |
+| [Figure 11 dendrimers](figure11-dendrimers.qmd) | Build branched structures recursively and compare endpoint and contour attachment |
+| [Figure 12 surface attachments](figure12-surface-attachments.qmd) | Attach polymers and rods to sphere, shell, and cylinder reference distributions |
+| [Figure 13 star chain](figure13-star-chain.qmd) | Construct and evaluate a chain of five reusable four-arm diblock stars |
+
 ## Viewing structures
 
 The Python tutorials call `pyseb.visualize(world, "structure", parameters)`
@@ -25,54 +102,16 @@ average over their ensembles. Numerical clouds use their stored coordinates.
 In executable notebook cells, `_ = pyseb.visualize(...)` displays the view
 once and suppresses a second display of its returned figure.
 
-## Start here
+## Reference and alternative formats
 
-No prior pySEB experience is required. Follow these three tutorials in order:
-
-| Step | Tutorial | What you will learn |
-| --- | --- | --- |
-| 1 | [Introduction to pySEB](introduction.qmd) | Understand scattering, subunits, reference points, structure graphs, parameters, and q |
-| 2 | [Your first scattering model](first-model.qmd) | Install pySEB, evaluate a solid sphere, make a plot, and change its radius |
-| 3 | [Your first composite model](diblock-copolymer.qmd) | Connect two Gaussian polymers and use the same structure from Python and C++ |
-
-## Choose a tutorial by task
-
-| Tutorial | What you will learn | Level |
-| --- | --- | --- |
-| [Sphere–polymer micelle](micelle.qmd) | Attach tagged chains to distributed sphere-surface references | Intermediate |
-| [Reusable nested structures](nested-structures.qmd) | Build reusable graphs and address nested reference paths | Intermediate |
-| [Random-walk rod chain](random-walk-rods.qmd) | Link rigid segments, calculate the chain size, and compare with a Gaussian polymer | Intermediate |
-| [Parameter sweeps](parameter-sweeps.qmd) | Reuse one graph with several parameter sets | Intermediate |
-| [Fit real contrast-variation SANS data](fit-real-sans-data.qmd) | Fit a linked sphere-and-shell structure simultaneously to three experimental datasets | Intermediate |
-| [Fit a linked titin doublet](fit-linked-titin.qmd) | Stress-test analytical domain/linker choices, then compare C-alpha and heavy-atom clouds using real SAXS data | Intermediate |
-| [Build and fit a polymer corona](fit-f127-corona.qmd) | Connect subunits, view OpenUSD structures, and compare fitted corona models | Intermediate |
-| [PDB cloud with an attached polymer](pdb-polymer.qmd) | Combine coordinate-based numerical scattering with an analytic subunit | Advanced |
-| [Subunits and YAML models](custom-yaml-workflow.qmd) | Understand and explore bundled subunits, then define, validate, and visualize your own | Intermediate |
-
-## Advanced tutorials
-
-| Tutorial | What you will learn |
-| --- | --- |
-| [Evaluate mixed models](mixed-model-evaluation.qmd) | Evaluate structures containing numerical, integrated, and analytic subunits with one API |
-| [Symbolic expressions and export](symbolic-expressions.qmd) | Select a backend, inspect expressions, convert to SymPy, and export Python, LaTeX, and C forms |
-| [Scattering quantities](scattering-quantities.qmd) | Compare normalized and unnormalized form factors, amplitudes, phase factors, and size measures |
-
-## Published structure tutorials
-
-| Tutorial | What you will learn |
-| --- | --- |
-| [Figure 10 linear chains](figure10-linear-chains.qmd) | Compare endpoint and distributed-contour links across polymers, rods, loops, and rings |
-| [Figure 11 dendrimers](figure11-dendrimers.qmd) | Build branched structures recursively and compare endpoint and contour attachment |
-| [Figure 12 surface attachments](figure12-surface-attachments.qmd) | Attach polymers and rods to sphere, shell, and cylinder reference distributions |
-| [Figure 13 star chain](figure13-star-chain.qmd) | Construct and evaluate a chain of five reusable four-arm diblock stars |
+These extended guides offer broader coverage and a C++ route through the
+examples. They are optional references alongside the learning path.
 
 The established modeling task pages present Python and C++ in parallel. Their
 Python blocks execute in the documentation environment, while maintained C++
 listings are compiled and their output is captured during the build. The
 Subunits and YAML Models tutorial runs in Python and includes the equivalent
 portable C++ file APIs.
-
-## Extended guides
 
 [Symbolic and numerical scattering with Python](pyseb_tutorial.qmd) covers:
 
