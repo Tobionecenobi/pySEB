@@ -14,7 +14,8 @@ execute:
 ---
 
 ::: {.callout-note title="Before you start"}
-Complete [Your first scattering model](first-model.qmd). You need pySEB,
+Complete [Your first scattering model](first-model.qmd) and read
+[What is a reference point?](reference-points.qmd). You need pySEB,
 NumPy, and Matplotlib; the interactive cloud view also needs
 `pyseb[visualization]`. You can use this page without deriving an analytical
 subunit. For the corresponding vector integrals, read

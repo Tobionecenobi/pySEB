@@ -19,6 +19,7 @@ project:
     - tutorials/index.qmd
     - tutorials/introduction.qmd
     - tutorials/first-model.qmd
+    - tutorials/reference-points.qmd
     - tutorials/diblock-copolymer.qmd
     - tutorials/rod-coil.qmd
     - tutorials/comb-polymer.qmd
@@ -81,6 +82,7 @@ website:
           contents:
             - tutorials/introduction.qmd
             - tutorials/first-model.qmd
+            - tutorials/reference-points.qmd
             - tutorials/diblock-copolymer.qmd
         - section: "Build structures"
           contents:
@@ -93,8 +95,8 @@ website:
             - tutorials/parameter-sweeps.qmd
         - section: "Understand scattering"
           contents:
-            - tutorials/scattering-from-phases.qmd
             - tutorials/scattering-quantities.qmd
+            - tutorials/scattering-from-phases.qmd
             - tutorials/symbolic-expressions.qmd
         - section: "Custom subunits and models"
           contents:

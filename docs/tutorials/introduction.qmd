@@ -53,6 +53,10 @@ This distinction matters. Attaching at a polymer end describes a different
 ensemble from attaching at an independently sampled position along its
 contour.
 
+Reference locations do not add scattering material. For a diagram and a
+small example, read [What is a reference point?](reference-points.qmd) before
+connecting subunits or calculating reference amplitudes.
+
 ### A World and its graphs
 
 A `World` is the workspace in which you add subunits, connect them, and name

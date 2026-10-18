@@ -15,8 +15,9 @@ execute:
 
 ::: {.callout-note title="Before you start"}
 Read [Introduction to pySEB](introduction.qmd) and
-[Your first scattering model](first-model.qmd). You should know what $q$ and
-a reference point mean, and be comfortable with definite integrals.
+[Your first scattering model](first-model.qmd), then
+[What is a reference point?](reference-points.qmd). You should know what $q$
+means and be comfortable with definite integrals.
 Run from `docs/tutorials` in a repository checkout, or download the YAML
 below into a `models` directory beside your notebook. The executable check
 uses pySEB, NumPy, and Matplotlib; no 3D viewer is needed.

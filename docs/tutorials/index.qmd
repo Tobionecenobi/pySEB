@@ -14,14 +14,15 @@ running. For interactive 3D views, see [Viewing structures](#viewing-structures)
 
 ## 1. Start here
 
-**Before starting:** No prior pySEB experience is required. Follow these three
+**Before starting:** No prior pySEB experience is required. Follow these four
 tutorials in order:
 
 | Step | Tutorial | What you will learn |
 | --- | --- | --- |
 | 1 | [Introduction to pySEB](introduction.qmd) | Understand scattering, subunits, reference points, structure graphs, parameters, and q |
 | 2 | [Your first scattering model](first-model.qmd) | Install pySEB, evaluate a solid sphere, make a plot, and change its radius |
-| 3 | [Your first composite model](diblock-copolymer.qmd) | Connect two Gaussian polymers and use the same structure from Python and C++ |
+| 3 | [What is a reference point?](reference-points.qmd) | Distinguish scattering material from attachment locations, including fixed and distributed references |
+| 4 | [Your first composite model](diblock-copolymer.qmd) | Connect two Gaussian polymers and use the same structure from Python and C++ |
 
 ## 2. Build larger structures
 
@@ -40,7 +41,8 @@ adding subunits, linking reference points, and supplying model parameters.
 
 ## 3. Understand the calculations
 
-**Before starting:** Complete Your first scattering model. Start with the
+**Before starting:** Complete Your first scattering model and
+[What is a reference point?](reference-points.qmd). Start with the
 point-cloud example to calculate the three factors from coordinates, or the
 distance-vector derivation to derive an analytical subunit. Composite models
 and basic symbolic algebra are useful for the expression-export page.
