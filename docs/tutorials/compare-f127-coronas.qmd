@@ -1,0 +1,330 @@
+---
+title: "Compare Corona Models"
+subtitle: "Fit alternative arm geometries to the same F127 measurement"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+  cache: false
+  freeze: false
+---
+
+::: {.callout-note title="Before you start"}
+Complete [Fit the corona to F127 data](fit-f127-data.qmd) first. You should
+be able to interpret uncertainty-weighted residuals, parameter bounds, and a
+fitted realization. This advanced page compares 15 candidates with repeated
+starts and takes longer to run. Run it from `docs/tutorials` in a repository
+checkout with the same dependencies and data as the preceding page.
+:::
+
+We now change the arm description while keeping the data and fitting
+criterion fixed. The setup below loads the measurement and defines the
+same evaluator; it does not rerun the preceding single-model fit.
+
+## Load the shared data and model tools
+
+{{< include _f127-setup.qmd >}}
+
+{{< include _f127-model.qmd >}}
+
+{{< include _f127-view.qmd >}}
+
+## Fit alternative arm descriptions
+
+Change the subunit and its link references to try other arm descriptions.
+The cases below include Gaussian polymers, a single rod or cylinder per arm,
+and chains of 4, 8, or 32 segments. Each fit uses the same data and uncertainty
+weighting; all segments in an arm share their dimensions.
+
+- Gaussian polymers use `end1`.
+- Rod segments connect `end1` to `end2`.
+- Cylinders connect `bottom` to `top`.
+- Spheroids connect `south` to `north`.
+- Spheres connect independently distributed `surface` references.
+
+```{python}
+CASES = [("gaussian", 0), ("cylinder", 1), ("rod", 1)] + [
+    (kind, count)
+    for kind in ("rod", "sphere", "cylinder", "spheroid")
+    for count in (4, 8, 32)
+]
+checks = [check_graph(kind, count, 1.) for kind, count in CASES]
+checks += [check_graph(kind, 4, aspect) for kind in ("cylinder", "spheroid")
+           for aspect in (.4, 3.)]
+results = {}
+initial_guess = [42., 25., 1., .15, .1, .003, 2.]
+for key in CASES:
+    baseline = results[("gaussian", 0)]["p"] if results else initial_guess
+    results[key] = fit_candidate(*key, baseline)
+```
+
+Here are the fitted curves for the best candidate of each arm type. All 15
+fits appear in the table. Smaller reduced χ² means a closer fit relative to
+the supplied uncertainties.
+
+```{python}
+#| code-fold: true
+#| code-summary: "Plot the fitted curves and make the comparison table"
+ranking = sorted(results, key=lambda key: results[key]["AICc"])
+family_winners = [min((key for key in results if key[0] == kind),
+                      key=lambda key: results[key]["AICc"])
+                  for kind in ("gaussian", "rod", "sphere", "cylinder", "spheroid")]
+dense_q = np.geomspace(q.min(), q.max(), 450)
+fig, ax = plt.subplots(figsize=(9, 5.5))
+ax.errorbar(q, intensity, sigma, fmt="ko", ms=3, label="F127 data")
+for key in family_winners:
+    fit = results[key]
+    ax.plot(dense_q, kernel(dense_q, fit["p"], *key, 160, 128), label=fit["label"])
+ax.set(xscale="log", yscale="log", xlabel=r"$q$ [Å$^{-1}$]",
+       ylabel=r"$I(q)$ [cm$^{-1}$]", title="Fit the same data with different corona arms")
+ax.legend(fontsize=9)
+fig.tight_layout()
+plt.show()
+
+display(pd.DataFrame([
+    {"Corona": results[key]["label"], "Reduced χ²": results[key]["reduced_chi2"],
+     "ΔAICc": results[key]["AICc"]-results[ranking[0]]["AICc"]}
+    for key in ranking
+]).style.format({"Reduced χ²": "{:.2f}", "ΔAICc": "{:.2f}"}).hide(axis="index"))
+```
+
+ΔAICc also accounts for the extra cylinder/spheroid shape parameter; lower is
+preferred under the same independent-error assumption. This comparison uses
+freely rotating joints, no excluded volume, and no resolution convolution.
+The shapes are effective descriptions, not literal molecular conformations.
+
+### Compare the complete fitted models
+
+Choose a model below to see its sphere and attached arms together. Each scene
+uses that model's fitted dimensions and the nearest integer arm count for its
+mean core size. The orange sphere is the core; the transparent blue sphere
+shows where the arms attach.
+
+The views and downloadable OpenUSD scenes are generated here. The dropdown
+loads one complete structure at a time, keeping the page responsive even for
+32-segment arms.
+
+```{python}
+#| code-fold: true
+#| code-summary: "Export complete fitted micelles and build the model selector"
+
+VIEW_KEYS = [("gaussian", 0), ("cylinder", 1), ("rod", 4), ("sphere", 4),
+             ("cylinder", 4), ("spheroid", 4), ("cylinder", 32)]
+from IPython.display import HTML
+from html import escape
+
+# Reduced mesh detail keeps these full-micelle views manageable.
+# It changes the display only, not the fitted dimensions or scattering.
+gallery_options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+gallery_options.seed = 127
+gallery_options.surface_samples = 8
+gallery_options.curve_samples = 48
+gallery_options.layout_mode = pyseb.LayoutMode.Readable
+gallery_options.orientation_trials = 4
+gallery_options.relaxation_sweeps = 0
+gallery_options.color_overrides = {"core": (.95, .55, .15), "anchor": (.25, .65, .95)}
+gallery_options.opacity_overrides = {"anchor": .25}
+
+
+scene_paths, view_paths = [], []
+for key in VIEW_KEYS:
+    fit = results[key]
+    radius = fit["p"][0]
+    count = int(round(2*(4*np.pi*radius**3/3)/6283))
+    fitted_world, _ = build_graph(*key, arms=count)
+    # Long chains use a seeded random realization; their links permit overlap.
+    gallery_options.layout_mode = (pyseb.LayoutMode.Random if key[1] >= 32
+                                   else pyseb.LayoutMode.Readable)
+    path = SCENE_DIR / f"{key[0]}-{key[1]}-fitted-micelle.usda"
+    fitted_world.export_usd("micelle", str(path), fitted_parameters(fit), gallery_options)
+    figure = structure_view(compact_scene(structure_figure(
+        fitted_world, "micelle", fitted_parameters(fit), gallery_options
+    ).data), f"{fit['label']} — {count} attached arms")
+    view_path = path.with_suffix(".html")
+    figure.write_html(str(view_path), include_plotlyjs="directory", full_html=True,
+                      config={"displaylogo": False, "scrollZoom": True})
+    scene_paths.append(path)
+    view_paths.append(view_path)
+
+# These local HTML views are freshly generated above, not precomputed inputs.
+view_urls = [path.relative_to(ROOT / "docs/tutorials").as_posix() for path in view_paths]
+choices = "".join(
+    f'<option value="{escape(url, quote=True)}">{escape(results[key]["label"])}</option>'
+    for key, url in zip(VIEW_KEYS, view_urls)
+)
+display(HTML(
+    '<label for="f127-model-choice">Fitted model: </label>'
+    '<select id="f127-model-choice" '
+    'onchange="this.nextElementSibling.src=this.value">'
+    + choices + '</select>'
+    + f'<iframe id="f127-micelle-view" src="{escape(view_urls[0], quote=True)}" '
+      'title="Complete fitted micelle; drag to rotate" '
+      'style="width:100%;height:470px;border:0" loading="lazy"></iframe>'
+))
+# Direct links also register newly generated files as Quarto resources.
+display(Markdown("\n".join(
+    f"- {results[key]['label']}: [open view]({url}) · "
+    f"[OpenUSD]({path.relative_to(ROOT / 'docs/tutorials').as_posix()})"
+    for key, path, url in zip(VIEW_KEYS, scene_paths, view_urls)
+)))
+script_url = (SCENE_DIR / "plotly.min.js").relative_to(ROOT / "docs/tutorials").as_posix()
+display(HTML(f'<a href="{script_url}" hidden aria-hidden="true">Viewer library</a>'))
+
+```
+
+### See where the arms attach
+
+For the best-fitting model, compare the same complete micelle with the anchor
+hidden and visible. The fitted curve averages over particle sizes and
+conformations; these views show one mean-size realization.
+
+The two views below show the **same fitted structure**. On the left the anchor
+is hidden; on the right it is faintly visible in blue. The orange sphere is
+the scattering core. The arms attach to the larger anchor sphere, so their
+ends can sit outside the orange surface. Zero contrast removes the anchor
+from the scattering calculation; its visibility in OpenUSD is a separate
+display choice. Changing its opacity changes neither the fit nor the geometry.
+
+```{python}
+best_key = ranking[0]
+best = results[best_key]
+radius = best["p"][0]
+arm_count = int(round(2*(4*np.pi*radius**3/3)/6283))
+best_world, _ = build_graph(*best_key, arms=arm_count)
+options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+options.seed = 127
+options.surface_samples = 16
+options.curve_samples = 64
+options.layout_mode = pyseb.LayoutMode.Readable
+options.orientation_trials = 8
+options.relaxation_sweeps = 1
+options.color_overrides = {"core": (.95, .55, .15), "anchor": (.25, .65, .95)}
+best_paths = []
+for name, opacity in (("hidden", 0.), ("visible", .25)):
+    path = SCENE_DIR / f"best-fitted-micelle-anchor-{name}.usda"
+    options.opacity_overrides = {"anchor": opacity}
+    # The same seed and parameters give both exports identical geometry.
+    best_world.export_usd("micelle", str(path), fitted_parameters(best), options)
+    best_paths.append(path)
+```
+
+```{python}
+#| code-fold: true
+#| code-summary: "Show the two newly generated OpenUSD scenes side by side"
+from plotly.subplots import make_subplots
+
+comparison = make_subplots(rows=1, cols=2,
+    specs=[[{"type": "scene"}, {"type": "scene"}]],
+    subplot_titles=["Anchor hidden", "Anchor faintly visible"],
+    horizontal_spacing=.02)
+for column, path in enumerate(best_paths, 1):
+    for trace in usd_to_plotly(path).data:
+        comparison.add_trace(trace, row=1, col=column)
+view = dict(aspectmode="data", xaxis={"visible": False},
+            yaxis={"visible": False}, zaxis={"visible": False},
+            camera={"eye": {"x": 1.5, "y": 1.5, "z": 1.1}})
+comparison.update_layout(scene=view, scene2=view, height=430,
+    margin={"l": 0, "r": 0, "t": 45, "b": 0}, showlegend=False)
+comparison.show(config={"displaylogo": False, "scrollZoom": True})
+scene_link(best_paths[0], "Download OpenUSD: anchor hidden")
+scene_link(best_paths[1], "Download OpenUSD: anchor faintly visible")
+```
+
+These scenes show representative conformations, with readable orientations
+for display. They are not unique structures recovered from the data.
+
+```{python}
+#| echo: false
+display(Markdown(
+    f"**{best['label']}** gives the best score among the tested models "
+    f"(reduced χ² **{best['reduced_chi2']:.2f}**). "
+    "The fit still has discrepancies, but we have built, viewed, and compared "
+    "the candidate structures with the same pySEB workflow."
+))
+```
+
+## Remember all of this is analytical
+
+The structures above are pictures of an analytical model. pySEB calculates
+the scattering by combining the subunit form factors, amplitudes, and phase
+factors specified by our connections. The OpenUSD meshes and their random
+conformations are illustrations; they do not enter the scattering calculation.
+
+For the single-cylinder-arm candidate in this comparison, a core carries
+$N$ arms, each consisting of **one cylinder**. Its normalized form factor at a
+fixed core size is:
+
+```{python}
+#| code-fold: true
+#| code-summary: "Obtain the graph expression and verify its compact analytical form"
+import sympy as sp
+from IPython.display import Math
+import re
+
+q_symbol, core_R = sp.symbols("q R_core")
+beta_c, beta_a, beta_anchor = sp.symbols("beta_core beta_a beta_anchor")
+C, F, A, phase = sp.symbols("C F_a A_a s")
+N = sp.Symbol("N", integer=True, positive=True)
+core_amplitude = 3*(sp.sin(q_symbol*core_R)-q_symbol*core_R*sp.cos(q_symbol*core_R))/(q_symbol*core_R)**3
+
+
+def compact_micelle(n, core):
+    numerator = (beta_c**2*core**2 + n*beta_a**2*F
+                 + n*(n-1)*beta_a**2*A**2*phase**2
+                 + 2*n*beta_c*beta_a*core*A*phase)
+    return numerator/(beta_c+n*beta_a)**2
+
+
+# Small explicit graphs verify the self/pair multiplicities used for general N.
+# Depth 1 leaves each reusable cylinder arm as its form factor and root amplitude.
+for n in (2, 3):
+    equation_world, _ = build_graph("cylinder", 1, arms=n)
+    with contextlib.redirect_stdout(io.StringIO()):
+        graph_expression = str(equation_world.FormFactor("micelle", 1))
+    aliases = [
+        (r"A_arm\d+:segment0\.bottom", "A_a"),
+        (r"F_arm\d+", "F_a"),
+        (r"beta_arm\d+", "beta_a"),
+        (r"Psi_anchor:center,surface#p\d+", "s"),
+        (r"Psi_anchor:surface#p\d+,surface#p\d+", "s**2"),
+    ]
+    for pattern, replacement in aliases:
+        graph_expression = re.sub(pattern, replacement, graph_expression)
+    generated = sp.sympify(graph_expression).subs(beta_anchor, 0)
+    assert sp.cancel(generated-compact_micelle(n, core_amplitude)) == 0
+
+# Display the compact N-arm identity checked against the generated graph above.
+display(Math(r"P(q) = " + sp.latex(compact_micelle(N, C))))
+```
+
+Here $C$ is the sphere's amplitude, $F_a$ the cylinder's form factor, and $A_a$
+its amplitude measured from the attached end. The attachment sphere contributes
+$s=\sin(qR_{\mathrm{anchor}})/(qR_{\mathrm{anchor}})$.
+The excess scattering lengths are $\beta_{\mathrm{core}}$ and $\beta_a$.
+The numerator includes the core scattering, the scattering from individual
+arms, and interference between arms and between the core and arms. Those
+interference terms are what make this a connected micelle rather than a sum
+of unrelated spheres and cylinders. pySEB constructs them from our `Link`
+calls: changing the connections changes the analytical model.
+
+The cylinder functions include orientational integrals, evaluated numerically.
+For fitting, we use the unnormalized expression, average over core sizes,
+then apply the intensity scale and background. No coordinate cloud or sampled
+OpenUSD conformation is used in that calculation.
+
+To try another model, add a subunit/connection choice or segment count to
+`CASES`, then rerender. All fits and OpenUSD scenes are generated by this file:
+
+```bash
+quarto render docs/tutorials/compare-f127-coronas.qmd --to html
+```
+
+## Continue
+
+For a different application, follow the [linked titin sequence](fit-linked-titin.qmd).

@@ -1,0 +1,225 @@
+```{python}
+#| code-fold: true
+#| code-summary: "Reuse the construction for each subunit type"
+def build_graph(kind, count, arms=2):
+    """A reusable arm prototype and a micelle with the requested arm count."""
+    api, incoming, outgoing = {
+        "gaussian": ("GaussianPolymer", "end1", "end2"),
+        "rod": ("ThinRod", "end1", "end2"),
+        "sphere": ("SolidSphere", "surface#in", "surface#out"),
+        "cylinder": ("SolidCylinder", "bottom", "top"),
+        "spheroid": ("Spheroid", "south", "north"),
+    }[kind]
+    count = 1 if kind == "gaussian" else count
+    world = pyseb.World("CoronaComparison")
+    chain = world.Add(api, "segment0", "segment")
+    for i in range(1, count):
+        world.Link(api, f"segment{i}.{incoming}",
+                   f"segment{i-1}.{outgoing}", "segment")
+    world.Add(chain, "prototype")
+
+    micelle = world.Add("SolidSphere", "core")
+    world.Link("SolidSphere", "anchor.center", "core.center")
+    for i in range(arms):
+        # Reuse the same GraphID; each instance shares the segment parameter tag.
+        world.Link(chain, f"arm{i}:segment0.{incoming}", f"anchor.surface#p{i}")
+    world.Add(micelle, "micelle")
+    return world, incoming
+```
+
+```{python}
+#| code-fold: true
+#| code-summary: "Numerical evaluation of the connected pySEB model"
+@lru_cache(None)
+def basis(nodes):
+    return leggauss(nodes)
+
+
+def phi(x):
+    small = abs(x) < .03
+    safe = np.where(small, 1., x)
+    return np.where(small, 1-x*x/10+x**4/280-x**6/15120,
+                    3*(np.sin(safe)-safe*np.cos(safe))/safe**3)
+
+
+def dimensions(kind, count, rg, aspect=1.):
+    # Chain Rg^2 = g + h*(m-1)/m + d*(m-1)*(m-2)/(6m),
+    # with bead Rg^2=g, endpoint-to-centre^2=h, endpoint separation^2=d.
+    if kind == 'sphere':
+        factor = 3/5 + (count*count-1)/(3*count)
+        return {'R': rg/np.sqrt(factor)}
+    if kind == 'rod':
+        factor = (2*count*count-2*count+1)/(12*count)
+        return {'L': rg/np.sqrt(factor)}
+    if kind == 'cylinder':
+        # aspect = L/(2R), with R=1 before rescaling.
+        length = 2*aspect
+        g, h, d = .5+length**2/12, length**2/4, length**2
+    else:
+        # aspect = c/a, with a=1 before rescaling.
+        g, h, d = (2+aspect**2)/5, aspect**2, 4*aspect**2
+    size = rg/np.sqrt(g+h*(count-1)/count+d*(count-1)*(count-2)/(6*count))
+    return {'R': size, 'L': length*size} if kind == 'cylinder' else {'a': size, 'c': aspect*size}
+
+
+def chain_terms(q, kind, count, rg, aspect=1., nodes=64):
+    q = np.asarray(q)
+    if kind == 'gaussian':
+        t = (q*rg)**2
+        small = t < .001
+        safe = np.where(small, 1., t)
+        return (np.where(small, 1-t/3+t*t/12-t**3/60,
+                         2*(np.expm1(-safe)+safe)/safe**2),
+                np.where(small, 1-t/2+t*t/6-t**3/24, -np.expm1(-safe)/safe))
+    dim = dimensions(kind, count, rg, aspect)
+    if kind == 'sphere':
+        x = q*dim['R']
+        amp = phi(x)
+        form, root, phase = amp**2, amp*np.sinc(x/np.pi), np.sinc(x/np.pi)**2
+    else:
+        u, w = basis(nodes)
+        u, w = (u+1)/2, w/2
+        if kind in ('rod', 'cylinder'):
+            axial = q[:, None]*dim['L']*u/2
+            amp = np.sinc(axial/np.pi)
+            if kind == 'cylinder':
+                radial = q[:, None]*dim['R']*np.sqrt(1-u*u)
+                safe = np.where(radial == 0, 1., radial)
+                amp = amp*np.where(radial == 0, 1., 2*j1(safe)/safe)
+            phase = np.sinc(q*dim['L']/np.pi)
+        else:
+            axial = q[:, None]*dim['c']*u
+            amp = phi(q[:, None]*np.sqrt(dim['a']**2*(1-u*u)+dim['c']**2*u*u))
+            phase = np.sinc(2*q*dim['c']/np.pi)
+        form, root = (amp*amp)@w, (amp*np.cos(axial))@w
+    pair = sum((count-k)*phase**(k-1) for k in range(1, count))
+    form = (count*form+2*root*root*pair)/count**2
+    root = root*sum(phase**k for k in range(count))/count
+    return form, root
+
+
+def distribution(radius, cv, nodes):
+    x, w = basis(nodes)
+    shape = 1/cv**2
+    minimum = (3*6283/(4*np.pi))**(1/3)
+    low = max(gammaincinv(shape, 1e-10)/shape, minimum/radius)
+    high = gammaincinv(shape, 1-1e-10)/shape
+    t = low+(x+1)*(high-low)/2
+    log_pdf = shape*np.log(shape)-gammaln(shape)+(shape-1)*np.log(t)-shape*t
+    weights = w*np.exp(log_pdf-log_pdf.max())
+    return radius*t, weights/weights.sum()
+
+
+def kernel(q, p, kind, count, radius_nodes=80, orientation_nodes=64, components=False):
+    radius, rg, offset, cv, scale, background, contrast = p[:7]
+    aspect = p[7] if len(p) > 7 else 1.
+    r, w = distribution(radius, cv, radius_nodes)
+    form, root = chain_terms(q, kind, count, rg, aspect, orientation_nodes)
+    core = phi(q[:, None]*r)
+    anchor = np.sinc(q[:, None]*(r+offset*rg)/np.pi)
+    volume = 4*np.pi*r**3/3
+    bc, ba, n = volume*(.34-6.33)*contrast, 14667/2*(.64-6.33), 2*volume/6283
+    pieces = np.array(np.broadcast_arrays(
+        bc**2*core**2,
+        n*ba**2*form[:, None],
+        n*(n-1)*ba**2*(root[:, None]*anchor)**2,
+        2*n*bc*ba*core*root[:, None]*anchor))
+    averaged = scale*(pieces@w)/1e12
+    return averaged if components else averaged.sum(axis=0)+background
+```
+
+```{python}
+#| code-fold: true
+#| code-summary: "Graph checks, fit statistics, and repeated-start helper"
+PARAMETERS = ["core_radius_A", "arm_Rg_A", "attachment_offset_over_Rg", "core_radius_CV",
+              "scale", "background_cm^-1", "core_to_corona_contrast_multiplier"]
+LOWER = [20., 5., 0., .005, .0001, 0., .05]
+UPPER = [80., 80., 2., .45, 100., .2, 5.]
+
+def label(kind, count):
+    if kind == "gaussian":
+        return "Gaussian polymer"
+    if count == 1:
+        return f"Single {kind}"
+    return f"{count}-{kind} chain"
+
+
+def check_graph(kind, count, aspect):
+    world, incoming = build_graph(kind, count)
+    test_q = np.array([0., .013, .07, .25, .46])
+    rg = 22.
+    dim = {"Rg": rg} if kind == "gaussian" else dimensions(kind, count, rg, aspect)
+    segment_count = count or 1
+    params = {f"{key}_segment": value for key, value in dim.items()}
+    params["beta_segment"] = 1/segment_count
+    expected_f, expected_a = chain_terms(test_q, kind, count, rg, aspect, 128)
+    with contextlib.redirect_stdout(io.StringIO()):
+        native_f = np.asarray(world.EvaluateFormFactor("prototype", params, test_q.tolist()))
+        native_a = np.asarray(world.EvaluateFormFactorAmplitude(
+            f"prototype:segment0.{incoming}", params, test_q.tolist()))
+        params.update(R_core=42., R_anchor=65., beta_core=-2.,
+                      beta_anchor=0., beta_segment=-.7/segment_count)
+        native_m = np.asarray(world.EvaluateFormFactor("micelle", params, test_q.tolist()))
+    c, s = phi(test_q*42.), np.sinc(test_q*65./np.pi)
+    expected_m = (4*c*c + 2*.7**2*expected_f + 2*.7**2*(expected_a*s)**2
+                  + 4*2*.7*c*expected_a*s)/(2+2*.7)**2
+    for native, expected in ((native_f, expected_f), (native_a, expected_a),
+                              (native_m, expected_m)):
+        np.testing.assert_allclose(native, expected, rtol=3e-7, atol=2e-9)
+    small_f = chain_terms(np.array([1e-5]), kind, count, rg, aspect, 128)[0][0]
+    np.testing.assert_allclose(3*(1-small_f)/1e-10, rg**2, rtol=3e-6)
+    return {"Model": label(kind, count), "Aspect": aspect,
+            "Maximum absolute check error": max(np.max(abs(native_f-expected_f)),
+                np.max(abs(native_a-expected_a)), np.max(abs(native_m-expected_m)))}
+
+
+def summarize_fit(kind, count, runs):
+    names = PARAMETERS + (["segment_aspect_ratio"] if kind in ("cylinder", "spheroid") else [])
+    converged = [run for run in runs if run.success and np.isfinite(run.cost)]
+    if not converged:
+        raise RuntimeError(f"No converged fit for {label(kind, count)}")
+    best = min(converged, key=lambda run: run.cost)
+    prediction = kernel(q, best.x, kind, count)
+    fine = kernel(q, best.x, kind, count, 160, 128)
+    error = float(np.max(abs(fine-prediction)/sigma))
+    if error > .01:
+        raise RuntimeError(f"Refine integration for {label(kind, count)}: {error} sigma")
+    dof = len(q)-len(best.x)
+    chi2 = float(np.sum(((prediction-intensity)/sigma)**2))
+    k = len(best.x)
+    return {"kind": kind, "segments": count, "label": label(kind, count), "p": best.x,
+            "parameters": dict(zip(names, best.x)), "prediction": prediction,
+            "residuals": (prediction-intensity)/sigma, "chi2": chi2, "dof": dof,
+            "reduced_chi2": chi2/dof,
+            "AICc": chi2+2*k+2*k*(k+1)/(len(q)-k-1),
+            "active_bounds": dict(zip(names, best.active_mask)),
+            "converged_starts": len(converged),
+            "starts_near_best": sum(run.success and abs(2*run.cost-chi2) < .001 for run in runs),
+            "start_chi2": [float(2*run.cost) for run in runs],
+            "start_success": [bool(run.success) for run in runs],
+            "integration_error_sigma": error}
+
+
+def fit_candidate(kind, count, baseline):
+    shaped = kind in ("cylinder", "spheroid")
+    aspect_upper = 100. if (kind, count) == ("cylinder", 1) else 4.
+    lower = LOWER + ([.25] if shaped else [])
+    upper = UPPER + ([aspect_upper] if shaped else [])
+    names = PARAMETERS + (["segment_aspect_ratio"] if shaped else [])
+    rng = np.random.default_rng(127)
+    aspects = (.4, 1., 3., 10., 40.) if aspect_upper == 100. else ((.4, 1., 3.) if shaped else (1.,))
+    starts = [list(baseline) + ([aspect] if shaped else []) for aspect in aspects]
+    while len(starts) < 12:
+        starts.append([rng.uniform(30, 65), rng.uniform(15, 45), rng.uniform(.2, 1.8),
+                       rng.uniform(.05, .3), rng.uniform(.1, 2), .004, rng.uniform(.2, 2)]
+                      + ([np.exp(rng.uniform(np.log(.3), np.log(.95*aspect_upper)))] if shaped else []))
+    runs = [least_squares(lambda p: (kernel(q, p, kind, count)-intensity)/sigma,
+                          start, bounds=(lower, upper), x_scale="jac", max_nfev=2000)
+            for start in starts]
+    return summarize_fit(kind, count, runs)
+
+# Check the complete connected structure against native SEB before fitting.
+for aspect in (.4, 1., 3.):
+    check_graph("cylinder", 4, aspect)
+```
+

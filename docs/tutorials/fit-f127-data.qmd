@@ -1,0 +1,162 @@
+---
+title: "Fit the Corona to F127 Data"
+subtitle: "Define weighted residuals, fit dimensions, and inspect the result"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+  cache: false
+  freeze: false
+---
+
+::: {.callout-note title="Before you start"}
+Complete [Build a polymer corona](fit-f127-corona.qmd) first. Read
+[Parameter sweeps](parameter-sweeps.qmd) if changing a parameter dictionary is
+unfamiliar. You should know the purpose of least-squares residuals and
+experimental uncertainties. This page runs from a fresh kernel in
+`docs/tutorials` inside a repository checkout.
+:::
+
+We will fit one arm description: four freely joined cylinders. Keep the
+topology fixed while the optimizer changes its physical parameters.
+
+## Load the data
+
+We use only the higher-q block of the merged F127 measurement, keeping its
+intensities and uncertainties unchanged.
+
+The data are from Dai and Olsen's
+[F127 SANS example](https://github.com/olsenlabmit/Accelerated-SANS-Code/tree/7f8a4b2548702f6e47e989266365d3efd771df01/PluronicF-127)
+([paper](https://doi.org/10.1039/D4SM01350F)); download the
+[data](data/f127/F127_0_merged_1.txt) and [license](data/f127/LICENSE).
+Use an environment with `pyseb`, `numpy`, `scipy`, `matplotlib`, `pandas`,
+`plotly`, `usd-core`, `sympy`, and Jupyter installed.
+
+{{< include _f127-setup.qmd >}}
+
+## Evaluate the experimental ensemble
+
+The direct pySEB call on the construction page evaluates one connected arm. For the experimental
+micelle, we also include the core, interference between its attached arms,
+and a distribution of core sizes. The folded helper evaluates that ensemble
+quickly and checks its connected scattering against native pySEB graphs.
+
+The optimizer will adjust eight shared parameters. `arm_Rg_A` describes the
+whole arm; the helper converts it to the dimensions of four identical
+cylinders. The attachment offset sets the anchor radius to
+`core_radius + offset * arm_Rg`.
+
+The folded cells below define the graph and checked ensemble evaluator.
+They do not run earlier tutorial pages or earlier fits.
+
+{{< include _f127-model.qmd >}}
+
+{{< include _f127-view.qmd >}}
+
+Here are the initial values and bounds for this fit. Scale and background
+convert the model intensity to the measured intensity units; the contrast
+multiplier adjusts the core's contribution relative to the arms.
+
+```{python}
+example_key = ("cylinder", 4)
+initial_parameters = {
+    "core_radius_A": 42.,
+    "arm_Rg_A": 25.,
+    "attachment_offset_over_Rg": 1.,
+    "core_radius_CV": .15,
+    "scale": .1,
+    "background_cm^-1": .003,
+    "core_to_corona_contrast_multiplier": 2.,
+    "segment_aspect_ratio": 3.,       # cylinder length / diameter
+}
+lower_bounds = [20., 5., 0., .005, .0001, 0., .05, .25]
+upper_bounds = [80., 80., 2., .45, 100., .2, 5., 4.]
+```
+
+The residual function is the connection to the experiment: evaluate the
+model, subtract the measured intensity, and divide by its uncertainty.
+SciPy changes the parameter values to reduce those residuals.
+
+```{python}
+def example_intensity(q_values, values):
+    return kernel(q_values, values, *example_key)
+
+
+def example_residual(values):
+    return (example_intensity(q, values) - intensity) / sigma
+
+
+example_optimizer = least_squares(
+    example_residual,
+    list(initial_parameters.values()),
+    bounds=(lower_bounds, upper_bounds),
+    x_scale="jac",
+    max_nfev=2000,
+)
+example_fit = summarize_fit(*example_key, [example_optimizer])
+```
+
+This is one bounded optimization from one starting point. The [next page’s
+comparison](compare-f127-coronas.qmd) repeats fits from several starting points. First, look at
+the result of this single build-and-fit example.
+
+```{python}
+dense_q = np.geomspace(q.min(), q.max(), 450)
+fig, ax = plt.subplots(figsize=(9, 5.5))
+ax.errorbar(q, intensity, sigma, fmt="ko", ms=3, label="F127 data")
+ax.plot(dense_q, example_intensity(dense_q, example_fit["p"]),
+        label=f"Four-cylinder arms: reduced χ² = {example_fit['reduced_chi2']:.2f}")
+ax.set(xscale="log", yscale="log", xlabel=r"$q$ [Å$^{-1}$]",
+       ylabel=r"$I(q)$ [cm$^{-1}$]", title="Fit the connected four-cylinder-arm model")
+ax.legend()
+fig.tight_layout()
+plt.show()
+```
+
+## Inspect the fitted structure
+
+Now put the fitted dimensions back into the graph. The shared
+`structure_figure` helper returns geometry for the compact gallery layout;
+`pyseb.visualize` provides the direct one-call display used on the
+[construction page](fit-f127-corona.qmd). Each arm uses the same
+fitted segment parameters. The integer arm count shown here is rounded from
+the fitted mean core volume; the fitted curve averages over sizes and
+conformations.
+
+```{python}
+example_radius = example_fit["p"][0]
+example_arm_count = int(round(2*(4*np.pi*example_radius**3/3)/6283))
+example_world, _ = build_graph(*example_key, arms=example_arm_count)
+example_path = SCENE_DIR / "four-cylinder-example-fitted-micelle.usda"
+example_options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+example_options.seed = 127
+example_options.surface_samples = 8
+example_options.curve_samples = 48
+example_options.layout_mode = pyseb.LayoutMode.Random
+example_options.color_overrides = {"core": (.95, .55, .15), "anchor": (.25, .65, .95)}
+example_options.opacity_overrides = {"anchor": .25}
+example_world.export_usd("micelle", str(example_path), fitted_parameters(example_fit), example_options)
+
+structure_view(compact_scene(structure_figure(
+    example_world, "micelle", fitted_parameters(example_fit), example_options
+).data), "The fitted four-cylinder-arm micelle").show(
+    config={"displaylogo": False, "scrollZoom": True})
+scene_link(example_path, "Download the fitted example as OpenUSD")
+```
+
+The orange sphere is the core. The transparent blue sphere is the
+zero-contrast anchor, whose surface supplies the arm attachment points.
+This is a representative conformation of the fitted analytical model;
+rotating or resampling it does not change the calculated curve.
+
+
+## Continue
+
+Before trying more models, inspect the residuals and fitted dimensions.
+Then continue to [Compare corona models](compare-f127-coronas.qmd).

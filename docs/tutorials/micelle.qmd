@@ -19,7 +19,7 @@ first to install Python and learn the basic `World` workflow.
 
 This is the basic distributed-surface attachment tutorial. Continue to
 [Figure 12](figure12-surface-attachments.qmd) for different attachment regions,
-or [F127 fitting](fit-f127-corona.qmd) to compare corona models against data.
+or [F127 fitting](fit-f127-data.qmd) to compare corona models against data.
 
 ## References and tags
 

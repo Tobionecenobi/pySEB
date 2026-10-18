@@ -1,0 +1,53 @@
+```{python}
+#| code-fold: true
+#| code-summary: "Imports and experimental data"
+from pathlib import Path
+from functools import lru_cache
+import contextlib
+import io
+import sys
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from numpy.polynomial.legendre import leggauss
+from scipy.optimize import least_squares
+from scipy.special import j1, gammaincinv, gammaln
+from IPython.display import display, Markdown
+import plotly.graph_objects as go
+from pyseb.visualization import usd_to_plotly, structure_figure
+
+ROOT = next(p for p in (Path.cwd(), *Path.cwd().parents)
+            if (p / "docs/tutorials/data/f127/F127_0_merged_1.txt").is_file())
+sys.path.insert(0, str(ROOT))
+import pyseb
+
+raw = np.loadtxt(ROOT / "docs/tutorials/data/f127/F127_0_merged_1.txt")
+selected = raw[21:-2]
+split = np.flatnonzero(np.diff(selected[:, 0]) < 0) + 1
+assert len(split) == 1
+q, intensity, sigma = selected[int(split[0]):].T
+assert np.all(sigma > 0) and np.all(np.diff(q) > 0)
+
+SCENE_DIR = ROOT / "docs/tutorials/generated/f127-corona"
+SCENE_DIR.mkdir(parents=True, exist_ok=True)
+```
+
+```{python}
+#| code-fold: true
+#| code-summary: "Tutorial layout and download links"
+def structure_view(traces, title):
+    fig = go.Figure(traces)
+    fig.update_layout(height=420, title=title, showlegend=False,
+        margin={"l": 0, "r": 0, "t": 45, "b": 0},
+        scene={"aspectmode": "data", "xaxis": {"visible": False},
+               "yaxis": {"visible": False}, "zaxis": {"visible": False},
+               "camera": {"eye": {"x": 1.5, "y": 1.5, "z": 1.1}}})
+    return fig
+
+
+def scene_link(path, text):
+    relative = path.relative_to(ROOT / "docs/tutorials").as_posix()
+    display(Markdown(f"[{text}]({relative})"))
+```
+

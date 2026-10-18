@@ -1,0 +1,45 @@
+```{python}
+#| code-fold: true
+#| code-summary: "Map fitted parameters to SEB and batch the viewer geometry"
+def fitted_parameters(fit):
+    kind, count = fit["kind"], fit["segments"]
+    p = fit["p"]
+    dim = {"Rg": p[1]} if kind == "gaussian" else dimensions(
+        kind, count, p[1], p[7] if len(p) > 7 else 1.)
+    parameters = {f"{name}_segment": float(value) for name, value in dim.items()}
+    parameters["beta_segment"] = (14667/2)*(.64-6.33)/(count or 1)
+    volume = 4*np.pi*p[0]**3/3
+    parameters.update(R_core=float(p[0]), R_anchor=float(p[0]+p[2]*p[1]),
+                      beta_core=float(volume*(.34-6.33)*p[6]), beta_anchor=0.)
+    return parameters
+
+
+def compact_scene(traces):
+    """Batch equal-material geometry for responsive full-micelle views."""
+    batches = {}
+    for trace in traces:
+        color = trace.color if trace.type == "mesh3d" else trace.line.color
+        key = (trace.type, color, trace.opacity)
+        if key not in batches:
+            batches[key] = dict(x=[], y=[], z=[], i=[], j=[], k=[])
+        batch = batches[key]
+        offset = len(batch["x"])
+        for axis in ("x", "y", "z"):
+            batch[axis].extend(getattr(trace, axis))
+            if trace.type != "mesh3d":
+                batch[axis].append(None)
+        if trace.type == "mesh3d":
+            for axis in ("i", "j", "k"):
+                batch[axis].extend(int(index)+offset for index in getattr(trace, axis))
+    result = []
+    for (kind, color, opacity), batch in batches.items():
+        if kind == "mesh3d":
+            result.append(go.Mesh3d(**batch, color=color, opacity=opacity,
+                                   showlegend=False, hoverinfo="skip"))
+        else:
+            result.append(go.Scatter3d(x=batch["x"], y=batch["y"], z=batch["z"],
+                mode="lines", line={"color": color, "width": 5}, opacity=opacity,
+                showlegend=False, hoverinfo="skip"))
+    return result
+```
+
