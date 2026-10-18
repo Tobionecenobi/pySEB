@@ -146,3 +146,6 @@ re-evaluating the curve. The subunit definition stays the same.
 ## Continue
 
 Continue to [Save, reload, and visualize a model](save-load-model.qmd).
+
+For a derivation that extends an existing model, try
+[Add a reference to an existing subunit](add-subunit-reference.qmd).
