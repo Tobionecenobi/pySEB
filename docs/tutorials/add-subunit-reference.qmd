@@ -14,7 +14,7 @@ execute:
 ---
 
 ::: {.callout-note title="Before you start"}
-Read [From phase sums to scattering quantities](scattering-from-phases.qmd)
+Read [Derive a subunit from distance vectors](scattering-from-phases.qmd)
 for the distance-vector picture and orientation averaging. Complete
 [Define and validate a custom subunit](define-custom-subunit.qmd) for YAML
 registration. You should be comfortable with a simple definite integral.

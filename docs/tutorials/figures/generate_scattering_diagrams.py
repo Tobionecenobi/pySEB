@@ -1,7 +1,7 @@
 """Rebuild the vector diagrams for scattering-from-phases.qmd.
 
-Run with the documentation Python environment from any directory. Geometry is
-illustrative: only the six marked points scatter, not the surrounding outline.
+Run with the documentation Python environment from any directory. The fan sketch is illustrative; the rod sketch depicts the continuous material
+used in the worked derivation.
 """
 import argparse
 from pathlib import Path
@@ -112,31 +112,56 @@ def main(preview_directory=None):
                     dpi=150, facecolor="white")
     plt.close(fig)
 
-    # A reference shift rotates every complex contribution by the same phase.
-    q = np.array([.9, .5])
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4.8), facecolor="white")
-    for ax, ref, label in zip(axes, (CENTER, EDGE), ("Midpoint reference", "Edge reference")):
-        terms = np.exp(1j*((POINTS-ref)@q)) / len(POINTS)
-        total = terms.sum()
-        for z in terms:
-            arrow(ax, (0, 0), (z.real, z.imag), width=1.6, alpha=.7)
-        arrow(ax, (0, 0), (total.real, total.imag), color=BLUE, width=3)
-        ax.add_patch(plt.Circle((0, 0), abs(total), fill=False, color=BLUE,
-                                linestyle=":", linewidth=1))
-        ax.axhline(0, color="#cbd5df", lw=.8)
-        ax.axvline(0, color="#cbd5df", lw=.8)
-        ax.set(xlim=(-.38, .38), ylim=(-.38, .38), aspect="equal",
-               xlabel="real part", ylabel="imaginary part", title=label)
-        ax.spines[['top', 'right']].set_visible(False)
-    fig.suptitle("Before orientational averaging: moving the reference rotates the phase", color=INK, fontsize=12)
-    fig.text(.5, .025, "Orange: individual contributions / 6. Blue: their sum. The blue length stays the same.",
-             ha="center", color=INK, fontsize=10)
-    fig.tight_layout(rect=(0, .06, 1, .94))
-    fig.savefig(OUTPUT / "scattering-reference-phase.svg", facecolor="white",
+    # Four vector constructions on the continuous rod used in the tutorial.
+    fig, axes = plt.subplots(2, 2, figsize=(11, 5.8), facecolor="white")
+    titles = ("1. Form factor: scatterer pairs", "2. Amplitude: easiest reference",
+              "3. Amplitude: subtract the shift", "4. Phase factor: reference pairs")
+    for ax, title in zip(axes.flat, titles):
+        ax.plot([-2, 2], [0, 0], color=INK, lw=7, solid_capstyle="round")
+        ax.set(xlim=(-2.8, 2.8), ylim=(-1.4, 1.2))
+        ax.set_title(title, loc="left", color=INK, weight="bold", fontsize=12)
+        ax.axis("off")
+        ax.text(-2, -.27, r"$-L/2$", ha="center", color=INK)
+        ax.text(2, -.27, r"$L/2$", ha="center", color=INK)
+    ax = axes[0, 0]
+    ax.scatter([-.9, 1.2], [0, 0], color=ORANGE, s=45, zorder=4)
+    ax.text(-.9, .2, r"$t$", ha="center", color=INK)
+    ax.text(1.2, .2, r"$s$", ha="center", color=INK)
+    arrow(ax, (-.9, .65), (1.2, .65), color=BLUE, width=2.2)
+    ax.text(.15, .88, r"$(s-t)\hat{\mathbf{u}}$", ha="center", color=BLUE)
+    ax.text(0, -1.05, "Integrate over both scattering elements", ha="center", color=INK)
+    ax = axes[0, 1]
+    reference(ax, (0, 0), r"$R_m=0$", (-22, -32))
+    for endpoint, height in ((-1.4, .48), (1.4, .72)):
+        ax.plot([0, 0], [0, height], color="#cbd5df", lw=1)
+        ax.plot([endpoint, endpoint], [0, height], color="#cbd5df", lw=1)
+        arrow(ax, (0, height), (endpoint, height))
+    ax.text(1.4, .94, r"$s\hat{\mathbf{u}}$", ha="center", color=ORANGE)
+    ax.text(0, -1.05, "Integrate from the midpoint to the material", ha="center", color=INK)
+    ax = axes[1, 0]
+    reference(ax, (-2, 0), r"$R_{new}$", (-15, -34))
+    ax.scatter(0, 0, color=GOLD, edgecolor=INK, s=65, zorder=4)
+    ax.plot([-2, -2], [0, .7], color="#cbd5df", lw=1)
+    ax.plot([1.2, 1.2], [0, .7], color="#cbd5df", lw=1)
+    arrow(ax, (-2, .7), (1.2, .7))
+    ax.text(-.4, .94, r"$s\hat{\mathbf{u}}-\mathbf{r}$", ha="center", color=ORANGE)
+    arrow(ax, (0, -.77), (-2, -.77), color=BLUE)
+    ax.text(-1, -1.12, r"$\mathbf{r}=\mathbf{R}_{new}-\mathbf{R}_m$", ha="center", color=BLUE)
+    ax.text(.22, -.35, r"$R_m$", color=INK)
+    ax = axes[1, 1]
+    reference(ax, (-2, 0), "end1", (-12, -32))
+    reference(ax, (0, 0), "middle", (-18, -32))
+    reference(ax, (2, 0), "end2", (-12, -32))
+    arrow(ax, (-2, .65), (2, .65), color=BLUE, width=2.2)
+    ax.text(0, .87, r"$|\mathbf{R}_2-\mathbf{R}_1|=L$", ha="center", color=BLUE)
+    ax.text(0, -1.05, "Use reference separations; no material integral", ha="center", color=INK)
+    fig.subplots_adjust(left=.05, right=.98, bottom=.04, top=.93, hspace=.32, wspace=.18)
+    fig.savefig(OUTPUT / "rod-derivation-vectors.svg", facecolor="white",
                 metadata={"Date": None})
+    svg_path = OUTPUT / "rod-derivation-vectors.svg"
+    svg_path.write_text("\n".join(line.rstrip() for line in svg_path.read_text().splitlines()) + "\n")
     if preview_directory is not None:
-        fig.savefig(preview_directory / "scattering-reference-phase.png",
-                    dpi=150, facecolor="white")
+        fig.savefig(preview_directory / "rod-derivation-vectors.png", dpi=150, facecolor="white")
     plt.close(fig)
 
 

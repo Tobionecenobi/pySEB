@@ -1,6 +1,6 @@
 ---
-title: "From Phase Sums to Scattering Quantities"
-subtitle: "Form factor, form-factor amplitude, and phase factor drawn as distance vectors"
+title: "Derive a Subunit from Distance Vectors"
+subtitle: "Form factor → midpoint amplitude → shifted-reference amplitude → phase factors"
 jupyter: python3
 format:
   html:
@@ -15,258 +15,342 @@ execute:
 
 ::: {.callout-note title="Before you start"}
 Read [Introduction to pySEB](introduction.qmd) and
-[Your first scattering model](first-model.qmd) first. You should know what
-$q$ and a reference point mean. Use that Python environment with NumPy and
-Matplotlib installed. No PDB files or optional 3D viewer are needed here.
+[Your first scattering model](first-model.qmd). You should know what $q$ and
+a reference point mean, and be comfortable with definite integrals.
+Run from `docs/tutorials` in a repository checkout, or download the YAML
+below into a `models` directory beside your notebook. The executable check
+uses pySEB, NumPy, and Matplotlib; no 3D viewer is needed.
 :::
 
-The three quantities use three kinds of distance: **scatterer to scatterer**,
-**reference to scatterer**, and **reference to reference**. We will draw those
-distances, turn them into phase sums, and check our calculations with pySEB.
+To derive a subunit, first specify its scattering material and the points
+where other subunits may attach. Then work through these four calculations:
 
-## 1. Draw the vectors before writing the equations
+1. **Form factor:** vectors between all pairs of scattering elements.
+2. **Amplitude at the easiest reference:** vectors from that point to the material.
+3. **Amplitude at another reference:** subtract the reference displacement from those vectors.
+4. **Phase factors:** vectors between the attachment references.
 
-![Moving the reference from midpoint to edge multiplies each phase contribution by the labelled exponential.](figures/scattering-distance-vectors.svg){#fig-scattering-distance-vectors fig-alt="The midpoint fan on the left connects to the edge fan on the right through an arrow labelled multiply by exp of i q dot R midpoint minus R edge, before averaging." width="100%"}
+We will derive a **uniform, rigid, infinitesimally thin rod** and turn the
+results into a usable pySEB subunit. This shape already exists as `ThinRod`;
+deriving it ourselves gives us a simple example with a known answer.
+The same sequence applies to a new shape, with different positions, scattering
+weights, and integration limits.
 
-The orange fans are the geometric picture of a form-factor amplitude. Each
-arrow starts at the chosen reference and ends at a scatterer. Moving the
-reference from the midpoint $\mathbf R_m$ to the edge $\mathbf R_e$ changes
-all those arrows. **The object itself has not moved or changed shape.**
+## Set up the geometry once
 
-The connecting arrow shows the corresponding phase change explicitly:
-
-$$
-a_e(\mathbf q)=
-\underbrace{e^{i\mathbf q\cdot(\mathbf R_m-\mathbf R_e)}}_{\text{move the reference from midpoint to edge}}
-a_m(\mathbf q).
-$$
-
-The position difference sits **inside the exponent**. This relation applies
-before orientational averaging, as the arrow label indicates; the averaged
-quantities are introduced in Step 3.
-
-The outline is only a guide: our example contains six discrete point
-scatterers, not a uniformly filled ellipse. The two reference points need
-not scatter, and a reference need not be the centre of scattering.
-
-## 2. Convert each arrow into a complex phase
-
-A displacement $\mathbf d$ contributes
+The rod has length $L>0$, a constant excess scattering length per unit length
+$b$, and total excess scattering length $\beta=bL\ne0$. Measure $s$ from its
+midpoint, with $-L/2\le s\le L/2$. For a rod direction $\hat{\mathbf u}$,
 
 $$
-e^{i\mathbf q\cdot\mathbf d}
-=\cos(\mathbf q\cdot\mathbf d)+i\sin(\mathbf q\cdot\mathbf d).
+\mathbf R(s)=s\hat{\mathbf u},\qquad
+\mathbf R_m=\mathbf 0,\qquad
+\mathbf R_1=-\frac L2\hat{\mathbf u},\qquad
+\mathbf R_2=\frac L2\hat{\mathbf u}.
 $$
 
-Think of this as a unit arrow in the complex plane. Its angle depends on the
-projection of $\mathbf d$ along the scattering vector $\mathbf q$.
-Here $i^2=-1$; $\mathbf q\cdot\mathbf d$ is dimensionless.
+These give the `middle`, `end1`, and `end2` references. The normalized
+scattering weight of an element is $b\,ds/\beta=ds/L$.
 
-For scatterer $j$ at $\mathbf r_j$, measured from reference
-$\mathbf R_\alpha$, that phase is
+![Four calculations on the same rod: scatterer pairs, midpoint-to-scatterer vectors, shifted-reference vectors, and reference pairs.](figures/rod-derivation-vectors.svg){#fig-rod-derivation-vectors fig-alt="Four rod diagrams in derivation order. The form factor uses s minus t. The midpoint amplitude uses s. Moving the reference by r changes this to s minus r. Phase factors use the separation between two named references." width="100%"}
 
-$$
-\underbrace{e^{i\mathbf q\cdot\mathbf r_j}}_{\text{scatterer phase}}
-\underbrace{e^{-i\mathbf q\cdot\mathbf R_\alpha}}_{\text{reference phase}}
-= e^{i\mathbf q\cdot(\mathbf r_j-\mathbf R_\alpha)}.
-$$
-
-**Subtract the positions inside the exponent; multiply the two exponentials.**
-Subtracting the exponentials would describe a different quantity.
-
-Let $b_j$ be the real excess scattering length of point $j$ and
-$\beta=\sum_j b_j\ne0$. The normalized amplitude for **one orientation** is
-
-$$
-a_\alpha(\mathbf q)=\frac{1}{\beta}
-\sum_j b_j e^{i\mathbf q\cdot(\mathbf r_j-\mathbf R_\alpha)}.
-$$
-
-This adds the complex contributions from every arrow in one orange fan.
-For a continuous density, replace the weighted point sum with a volume
-integral. We will keep the point sum so every calculation can be checked.
-
-### What happens when the reference moves?
-
-If $\mathbf R_{\mathrm{new}}=\mathbf R_{\mathrm{old}}+\boldsymbol\Delta$,
-
-$$
-a_{\mathrm{new}}(\mathbf q)
-=e^{-i\mathbf q\cdot\boldsymbol\Delta}\,a_{\mathrm{old}}(\mathbf q).
-$$
-
-Every contribution rotates by the same phase. The length of their sum stays
-the same, so $|a_{\mathrm{new}}|^2=|a_{\mathrm{old}}|^2$ for each orientation.
-
-![Complex contributions for the midpoint and edge references. The sum rotates but retains its length.](figures/scattering-reference-phase.svg){#fig-reference-phase fig-alt="Two complex-plane plots show six orange phase contributions and their blue sum. Shifting the reference rotates every contribution and the resultant without changing the resultant length." width="100%"}
-
-The figure uses $\mathbf q=(0.9,0.5,0)$ nm$^{-1}$ and the coordinates below.
-These complex-plane arrows represent **phases**, whereas the arrows in the
-first figure represent **distances in the object**.
-
-## 3. Average to obtain the three pySEB quantities
-
-For an isotropic solution, average over all object orientations. Flexible
-objects also require an average over their conformations. Angle brackets
-below denote these averages; all three quantities are normalized to one at
-$q=0$ when $\beta\ne0$.
-
-| Quantity | Definition | Distances involved |
-| --- | --- | --- |
-| Form factor | $F(q)=\langle |a_\alpha(\mathbf q)|^2\rangle$ | All scatterer pairs |
-| Form-factor amplitude | $A_\alpha(q)=\langle a_\alpha(\mathbf q)\rangle$ | One reference to every scatterer |
-| Phase factor | $\Psi_{\alpha\omega}(q)=\langle e^{i\mathbf q\cdot(\mathbf R_\alpha-\mathbf R_\omega)}\rangle$ | Two references |
-
-![Form factor uses distances between scatterers; phase factor uses the distance between references.](figures/scattering-pair-vectors.svg){#fig-scattering-pair-vectors fig-alt="Two adjacent panels show several scatterer-pair vectors for the form factor and the edge-to-midpoint reference vector for the phase factor." width="100%"}
-
-$F$ is independent of the reference because the reference phases cancel when
-multiplying $a_\alpha$ by its complex conjugate. $A_\alpha$ generally changes
-with the reference: averaging differently rotated contributions changes the
-result. $\Psi$ contains no scatterer sum or scattering weights.
-
-::: {.callout-important title="Average in the right order"}
-The form factor is $\langle |a|^2\rangle$, **not**
-$|\langle a\rangle|^2$. In general, $F(q)\ne|A_\alpha(q)|^2$.
-Likewise, the orientation-dependent phase and amplitude are correlated, so
-one cannot generally obtain a shifted, averaged amplitude by multiplying
-$A_{\mathrm{old}}(q)$ by $\Psi_{\mathrm{new,old}}(q)$.
-:::
-
-For a fixed distance $d$, averaging the exponential over 3D orientations gives
+Our solution is isotropic: rods point in all 3D directions with equal
+probability. For any fixed vector $\mathbf d$ of length $d$, the orientation
+average is
 
 $$
 \left\langle e^{i\mathbf q\cdot\mathbf d}\right\rangle
 =\frac12\int_{-1}^{1}e^{iqd\mu}\,d\mu
-=\frac{\sin(qd)}{qd}=\operatorname{sinc}(qd),
-\qquad \operatorname{sinc}(0)=1.
+=\operatorname{sinc}(qd),
+\qquad \operatorname{sinc}(x)=\frac{\sin x}{x},\quad\operatorname{sinc}(0)=1.
 $$
 
-Thus for our rigid point cloud the calculation becomes
+Here $\mu$ is the cosine of the angle between the vector and $\mathbf q$.
+This is the calculation rule we need: **draw the vector, find its length,
+then average its contribution**. The rod is rigid, so no conformational
+average is required. For a flexible subunit, also average over its conformations.
+
+## 1. Derive the form factor from scatterer pairs
+
+Choose two scattering elements at $s$ and $t$. Their separation vector is
 
 $$
-\begin{aligned}
-F(q)&=\frac{1}{\beta^2}\sum_{j,k}b_jb_k\,
-\operatorname{sinc}\!\left(q|\mathbf r_j-\mathbf r_k|\right),\\
-A_\alpha(q)&=\frac{1}{\beta}\sum_jb_j\,
-\operatorname{sinc}\!\left(q|\mathbf r_j-\mathbf R_\alpha|\right),\\
-\Psi_{\alpha\omega}(q)&=
-\operatorname{sinc}\!\left(q|\mathbf R_\alpha-\mathbf R_\omega|\right).
-\end{aligned}
+\mathbf d_{st}=\mathbf R(s)-\mathbf R(t)=(s-t)\hat{\mathbf u}.
 $$
 
-Include the $j=k$ self terms in $F$; their distance is zero. Although we draw
-the cloud in a plane, the averaging is over **3D orientations**, not just
-rotations within that plane. No conformational average is needed for these
-fixed coordinates. For a fluctuating distance, average its sinc over the
-distance distribution; do not substitute only its mean distance.
+The form factor sums over **both** elements, with their scattering weights:
 
-## 4. Calculate the same object directly
+$$
+F(q)=\frac1{L^2}\int_{-L/2}^{L/2}\!ds
+\int_{-L/2}^{L/2}\!dt\;
+\operatorname{sinc}\!\left(q|s-t|\right).
+$$
 
-Lengths are in nm and q is in nm$^{-1}$. All six scatterers have weight one.
-The midpoint is at $(0,0,0)$ and the edge reference is at $(-3,0,0)$.
+For separation $u>0$, the allowed pairs occupy length $L-u$ along the rod.
+The two orders of each pair give
+
+$$
+F(q)=\frac2{L^2}\int_0^L(L-u)\operatorname{sinc}(qu)\,du.
+$$
+
+Set $x=qL$ and define the sine integral
+$\operatorname{Si}(x)=\int_0^x\sin(t)/t\,dt$. Integrating the two terms gives
+
+$$
+\boxed{F(q)=\frac{2\operatorname{Si}(x)}x
++\frac{2(\cos x-1)}{x^2}.}
+$$
+
+Use the limit $F(0)=1$. pySEB writes $\operatorname{Si}(x)/x$ as `six(x)`,
+so the YAML expression will be `2 * six(x) + 2 * (cos(x) - 1) / x^2`.
+`six(x)` and `sinc(x)` are different functions.
+
+No attachment reference entered this calculation. Moving or adding a
+reference will leave $F$ unchanged.
+
+## 2. Derive the amplitude at the easiest point
+
+The midpoint is the convenient reference because the two halves of the
+rod are identical. The vector from it to a scattering element is simply
+
+$$
+\mathbf d_m(s)=\mathbf R(s)-\mathbf R_m=s\hat{\mathbf u}.
+$$
+
+An amplitude uses **one** scattering integral, starting at this reference.
+Before orientation averaging, write
+
+$$
+a_m(\mathbf q)=\frac1L\int_{-L/2}^{L/2}
+e^{i\mathbf q\cdot s\hat{\mathbf u}}\,ds,
+\qquad A_m(q)=\langle a_m(\mathbf q)\rangle.
+$$
+
+Lowercase $a$ keeps the rod orientation; uppercase $A$ is the averaged
+amplitude used by pySEB. Applying the distance rule gives
+
+$$
+A_m(q)=\frac1L\int_{-L/2}^{L/2}\operatorname{sinc}(q|s|)\,ds
+=\frac2L\int_0^{L/2}\operatorname{sinc}(qs)\,ds.
+$$
+
+Therefore
+
+$$
+\boxed{A_m(q)=\frac{\operatorname{Si}(x/2)}{x/2}
+=\mathrm{six}(x/2).}
+$$
+
+For another shape, choose whichever point makes this integral easiest:
+a symmetry centre, an endpoint, or an origin suited to the integration limits.
+It need not be the reference where you eventually want to attach another subunit.
+
+## 3. Move the amplitude reference by subtracting a vector
+
+Let the displacement **from the easy reference to the desired reference** be
+
+$$
+\mathbf r=\mathbf R_{\mathrm{new}}-\mathbf R_m.
+$$
+
+The vector from the new reference to the same scattering element is
+
+$$
+\boxed{\mathbf d_{\mathrm{new}}(s)=\mathbf d_m(s)-\mathbf r.}
+$$
+
+That subtraction is the central construction. The material has not moved;
+we have changed the starting point of every reference-to-scatterer vector.
+
+![Moving from a midpoint reference to an edge reference subtracts the same displacement from every scatterer vector.](figures/scattering-distance-vectors.svg){#fig-scattering-distance-vectors fig-alt="The same generic object is shown with midpoint-to-scatterer and edge-to-scatterer arrows. A connecting arrow labels the exponential multiplier for moving the reference, before averaging." width="100%"}
+
+This sketch illustrates the vector change for a generic object; the outlined
+object is not the rod. Its connecting exponential follows directly from
+substituting the new vector:
+
+$$
+e^{i\mathbf q\cdot(\mathbf d_m(s)-\mathbf r)}
+=e^{-i\mathbf q\cdot\mathbf r}e^{i\mathbf q\cdot\mathbf d_m(s)}.
+$$
+
+Equivalently, before orientation averaging,
+
+$$
+a_{\mathrm{new}}(\mathbf q)
+=e^{-i\mathbf q\cdot\mathbf r}a_m(\mathbf q)
+=e^{i\mathbf q\cdot(\mathbf R_m-\mathbf R_{\mathrm{new}})}a_m(\mathbf q).
+$$
+
+The subtraction belongs **inside the exponent**. To obtain the averaged
+amplitude used by pySEB, average using the new vectors:
+
+$$
+A_{\mathrm{new}}(q)=\frac1L\int_{-L/2}^{L/2}
+\operatorname{sinc}\!\left(q|s\hat{\mathbf u}-\mathbf r|\right)\,ds.
+$$
+
+Both $\hat{\mathbf u}$ and this fixed-in-the-rod displacement turn together
+when the rod changes orientation. Keep them together when averaging:
+$A_{\mathrm{new}}$ is generally not $A_m$ times an already averaged phase factor.
+
+### Apply the shift to a rod endpoint
+
+For `end1`, $\mathbf r=-L\hat{\mathbf u}/2$. Thus
+$\mathbf d_1(s)=(s+L/2)\hat{\mathbf u}$, with distances ranging from zero to $L$:
+
+$$
+A_1(q)=\frac1L\int_{-L/2}^{L/2}
+\operatorname{sinc}\!\left(q(s+L/2)\right)\,ds
+=\frac1L\int_0^L\operatorname{sinc}(qu)\,du.
+$$
+
+Therefore
+
+$$
+\boxed{A_1(q)=A_2(q)=\frac{\operatorname{Si}(x)}x=\mathrm{six}(x).}
+$$
+
+Reflection about the midpoint gives the same result for `end2`.
+More generally, a reference at fraction $f$ of the length from `end1` has
+$\mathbf r=(f-1/2)L\hat{\mathbf u}$. Splitting its integral at that point gives
+
+$$
+A_f(q)=f\,\mathrm{six}(fx)+(1-f)\,\mathrm{six}((1-f)x),\qquad 0\le f\le1.
+$$
+
+The endpoints $f=0,1$ and midpoint $f=1/2$ recover our three amplitudes.
+The follow-up tutorial uses this same expression to add `third1` and `third2`.
+
+## 4. Derive phase factors from reference pairs
+
+Now put the scattering elements aside. A phase factor needs only the vector
+between two references:
+
+$$
+\mathbf d_{\alpha\omega}=\mathbf R_\alpha-\mathbf R_\omega,
+\qquad
+\Psi_{\alpha\omega}(q)=\operatorname{sinc}
+\!\left(q|\mathbf d_{\alpha\omega}|\right).
+$$
+
+For the rod, read the three separations directly from the geometry:
+
+| Reference pair | Distance | Phase factor |
+| --- | --- | --- |
+| `end1`, `end2` | $L$ | $\operatorname{sinc}(x)$ |
+| `end1`, `middle` | $L/2$ | $\operatorname{sinc}(x/2)$ |
+| `end2`, `middle` | $L/2$ | $\operatorname{sinc}(x/2)$ |
+
+A fixed reference paired with itself has phase factor one. There is no
+scattering integral or scattering weight in these fixed-reference phase factors.
+
+We now have all three ingredients: the object's $F$, an $A$ for each
+reference, and a $\Psi$ for each distinct reference pair. All equal one at
+$q=0$. The form factor is an average over scatterer **pairs**; squaring an
+already averaged amplitude does not generally reproduce it.
+
+## Put the derived expressions into a usable subunit
+
+For the size fields, the same vectors give
+
+$$
+R_g^2=\frac1L\int_{-L/2}^{L/2}s^2\,ds=\frac{L^2}{12},\qquad
+\langle d_{m,s}^2\rangle=\frac{L^2}{12},\qquad
+\langle d_{1,s}^2\rangle=\langle d_{2,s}^2\rangle
+=\frac1L\int_0^Lu^2\,du=\frac{L^2}{3}.
+$$
+
+Reference-to-reference mean-square distances are the squared distances in the
+table above. The complete model puts these results alongside the scattering
+expressions and a line for visualization:
+
+[Download `DerivedRod.pyseb.yaml`](models/DerivedRod.pyseb.yaml){download="DerivedRod.pyseb.yaml"}
+
+<details>
+<summary>The complete rod derived on this page</summary>
+
+```yaml
+{{< include models/DerivedRod.pyseb.yaml >}}
+```
+
+</details>
+
+This teaching model exposes only the three fixed references we derived.
+The bundled `ThinRod` also supplies a distributed `contour` reference.
+For YAML registration details, see
+[Define and validate a custom subunit](define-custom-subunit.qmd).
+
+## Check the derivation against direct integration
+
+Validate and register our model under its own name. Lengths below are in nm
+and $q$ is in nm$^{-1}$.
 
 ```{python}
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.polynomial.legendre import leggauss
 import pyseb
 
-positions = np.array([
-    [-2.0, -0.65, 0.0], [-1.2, 1.0, 0.0], [-0.4, -1.25, 0.0],
-    [0.4, 1.25, 0.0], [1.2, -1.0, 0.0], [2.0, 0.65, 0.0],
-])
-weights = np.ones(len(positions))
-beta = weights.sum()
-midpoint = np.array([0.0, 0.0, 0.0])
-edge = np.array([-3.0, 0.0, 0.0])
-q = np.linspace(0.0, 4.0, 240)
+model_path = Path("models/DerivedRod.pyseb.yaml").resolve()
+report = pyseb.validate_subunit_file(str(model_path))
+assert report.ok, [failure.message for failure in report.failures]
+world = pyseb.World("DerivedRodTutorial")
+world.register_subunit_file(str(model_path))
+world.Add("DerivedRod", "rod")
+
+L = 4.0
+q = np.linspace(0.0, 5.0, 180)
+parameters = {"L_rod": L, "beta_rod": 1.0}
 ```
 
-NumPy defines `np.sinc(x)` as $\sin(\pi x)/(\pi x)$, so divide its argument
-by $\pi$ to obtain the scattering convention $\sin(x)/x$.
+Use Gauss–Legendre quadrature to evaluate the original integrals, independently
+of their closed-form YAML expressions. NumPy uses
+`np.sinc(z) = sin(pi*z)/(pi*z)`, so divide the arguments by $\pi$.
 
 ```{python}
-pair_distances = np.linalg.norm(
-    positions[:, None, :] - positions[None, :, :], axis=-1
+nodes, weights = leggauss(96)
+s = L * nodes / 2
+weights = weights / 2  # normalized integration measure ds/L
+
+pair_distances = np.abs(s[:, None] - s[None, :])
+F_direct = np.einsum(
+    "qij,i,j->q", np.sinc(q[:, None, None] * pair_distances / np.pi),
+    weights, weights,
 )
-pair_weights = weights[:, None] * weights[None, :]
-F = np.sum(
-    pair_weights * np.sinc(q[:, None, None] * pair_distances / np.pi),
-    axis=(1, 2),
-) / beta**2
+A_middle_direct = np.sinc(q[:, None] * np.abs(s) / np.pi) @ weights
+A_end_direct = np.sinc(q[:, None] * (s + L/2) / np.pi) @ weights
+Psi_ends_direct = np.sinc(q * L / np.pi)
 
+F = np.asarray(world.EvaluateFormFactor("rod", parameters, q.tolist()))
+A_middle = np.asarray(world.EvaluateFormFactorAmplitude(
+    "rod.middle", parameters, q.tolist()))
+A_end = np.asarray(world.EvaluateFormFactorAmplitude(
+    "rod.end1", parameters, q.tolist()))
+Psi_ends = np.asarray(world.EvaluatePhaseFactor(
+    "rod.end1", "rod.end2", parameters, q.tolist()))
 
-def amplitude(reference):
-    distances = np.linalg.norm(positions - reference, axis=1)
-    return np.sinc(q[:, None] * distances / np.pi) @ weights / beta
+for integrated, implemented in ((F_direct, F), (A_middle_direct, A_middle),
+                                (A_end_direct, A_end), (Psi_ends_direct, Psi_ends)):
+    np.testing.assert_allclose(integrated, implemented, rtol=1e-9, atol=1e-11)
+    assert np.isclose(implemented[0], 1.0)
 
-
-A_midpoint = amplitude(midpoint)
-A_edge = amplitude(edge)
-Psi = np.sinc(q * np.linalg.norm(midpoint - edge) / np.pi)
-```
-
-You can also check the reference-shift rule **before** averaging:
-
-```{python}
-q_vector = np.array([0.9, 0.5, 0.0])
-
-
-def oriented_amplitude(reference):
-    return weights @ np.exp(1j * ((positions - reference) @ q_vector)) / beta
-
-
-a_midpoint = oriented_amplitude(midpoint)
-a_edge = oriented_amplitude(edge)
-shift_phase = np.exp(-1j * (q_vector @ (edge - midpoint)))
-assert np.allclose(a_edge, shift_phase * a_midpoint)
-assert np.isclose(abs(a_edge)**2, abs(a_midpoint)**2)
-print(f"Single-orientation intensity: {abs(a_midpoint)**2:.6f}")
-```
-
-The lowercase $a$ values are complex, orientation-dependent amplitudes.
-The uppercase $A$ curves above are the real, isotropically averaged amplitudes
-that pySEB evaluates for this example.
-
-## 5. Check against pySEB and plot
-
-Create exactly the same scatterers and named references. Zero sphere radii
-make these point scatterers; the ellipse drawn earlier adds no scattering.
-
-```{python}
-cloud = pyseb.DebyeSphereCloud([
-    pyseb.SphereScatterer(float(x), float(y), float(z), 0.0, float(weight))
-    for (x, y, z), weight in zip(positions, weights)
-])
-cloud.addReferencePoint("midpoint", *midpoint.tolist())
-cloud.addReferencePoint("edge", *edge.tolist())
-world = pyseb.World("PhaseSumTutorial")
-world.Add(cloud, "cloud")
-
-native_F = np.asarray(world.EvaluateFormFactor("cloud", {}, q.tolist()))
-native_A_midpoint = np.asarray(world.EvaluateFormFactorAmplitude(
-    "cloud.midpoint", {}, q.tolist()))
-native_A_edge = np.asarray(world.EvaluateFormFactorAmplitude(
-    "cloud.edge", {}, q.tolist()))
-native_Psi = np.asarray(world.EvaluatePhaseFactor(
-    "cloud.midpoint", "cloud.edge", {}, q.tolist()))
-
-for direct, native in ((F, native_F), (A_midpoint, native_A_midpoint),
-                       (A_edge, native_A_edge), (Psi, native_Psi)):
-    np.testing.assert_allclose(direct, native, rtol=1e-10, atol=1e-12)
-    assert np.isclose(direct[0], 1.0)
-assert not np.allclose(F, A_midpoint**2)
-assert not np.allclose(A_edge, A_midpoint * Psi)
-print("All three definitions agree with pySEB, including both references.")
+A_end2 = np.asarray(world.EvaluateFormFactorAmplitude(
+    "rod.end2", parameters, q.tolist()))
+np.testing.assert_allclose(A_end, A_end2)
+assert np.isclose(world.EvaluateRadiusOfGyration2("rod", parameters), L**2/12)
+print(f"Validated {report.case_count} reference cases; all integrals agree with pySEB.")
 ```
 
 ```{python}
-#| label: fig-phase-sum-curves
-#| fig-cap: "The same six-point object: its form factor, two reference amplitudes, and the phase factor between the references."
+#| label: fig-derived-rod-quantities
+#| fig-cap: "One derived rod: its form factor, midpoint amplitude, endpoint amplitude, and endpoint-to-endpoint phase factor."
 fig, ax = plt.subplots(figsize=(8, 4.6))
 ax.plot(q, F, color="#172f46", lw=2.5, label=r"$F$")
-ax.plot(q, A_midpoint, color="#b95017", label=r"$A_{midpoint}$")
-ax.plot(q, A_edge, "--", color="#b95017", label=r"$A_{edge}$")
-ax.plot(q, Psi, color="#176b96", label=r"$\Psi_{midpoint,edge}$")
+ax.plot(q, A_middle, color="#b95017", label=r"$A_{middle}$")
+ax.plot(q, A_end, "--", color="#b95017", label=r"$A_{end}$")
+ax.plot(q, Psi_ends, color="#176b96", label=r"$\Psi_{end1,end2}$")
 ax.axhline(0, color="0.7", lw=0.8)
 ax.set(xlabel=r"$q$ [nm$^{-1}$]", ylabel="normalized value")
 ax.legend()
@@ -274,31 +358,19 @@ fig.tight_layout()
 plt.show()
 ```
 
-All curves start at one. The form factor stays nonnegative, while an averaged
-amplitude or phase factor can be negative. Negative values represent phase
-cancellation, not negative measured intensity. The discrete cloud's self
-terms leave $F(q)\to1/6$ at large q; this is not the high-q behaviour of a
-uniformly filled particle. Its unnormalized single-particle scattering is
-$\beta^2F(q)=36F(q)$.
+`DerivedRod` can now be used in `Add` and `Link` with `end1`, `middle`, and
+`end2`, just like other registered subunits. Its line drawing is for display;
+the derived expressions supply its scattering.
 
-## Try it, then continue
+## Apply the method to your own subunit
 
-Move `edge` and recompute the amplitudes and phase factor, also updating the
-pySEB reference coordinates. Predict which curve stays unchanged before
-running the calculation. Next translate **both** the scatterers and references
-by the same vector: all three quantities should then be unchanged.
+Choose the material and its scattering weights. Derive $F$ from scatterer
+pairs, find $A$ at a convenient reference, subtract the displacement to each
+required attachment, then derive $\Psi$ from every reference pair. For a
+nonuniform density, replace $ds/L$ by the normalized scattering-density measure;
+for flexible geometry or distributed references, include their statistical averages.
 
-Continue to [Scattering quantities in Python and C++](scattering-quantities.qmd)
-for a two-point example, unnormalized intensity, and size measures. In that
-special example $F=A_{left}$; it is not a general identity.
-
-To apply the reference-shift sketch to an implemented subunit, follow
-[Add a reference to an existing subunit](add-subunit-reference.qmd). It derives
-symmetric attachments at one-third and two-thirds along a thin rod, with
-shared amplitudes, distinct phase factors, and distance measures. Read its YAML prerequisites first.
-
-For the formal definitions and their use in composite structures, see
-Svaneborg and Pedersen,
-[A formalism for scattering of complex composite structures, Part I](https://arxiv.org/abs/1108.1140).
-The vector diagrams and numerical example on this page are drawn and
-calculated independently for this tutorial.
+Continue to [Add a reference to an existing subunit](add-subunit-reference.qmd)
+to put `third1` and `third2` on either side of the midpoint without rederiving
+$F$. For the corresponding point-cloud sums and API calls, see
+[Scattering from a point cloud](scattering-quantities.qmd).
