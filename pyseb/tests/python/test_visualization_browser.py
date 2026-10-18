@@ -4,7 +4,11 @@ Run with Playwright installed and a Chromium browser available. No browser or
 Playwright dependency is needed for ordinary pyseb imports or unit tests.
 """
 import importlib.util
+import os
 from pathlib import Path
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -101,13 +105,13 @@ class TestViewerBrowser(unittest.TestCase):
         page.goto(self.nested_url)
         page.locator('.plotly-graph-div').hover()
         page.get_by_role('button', name='Structure settings', exact=True).click()
-        original = page.evaluate(r"""() => document.querySelector('.plotly-graph-div').data
-            .filter(t=>t.meta.pyseb.role==='geometry').map(t=>{
-                const color=t.line.color;
-                return color.startsWith('#')?color:'#'+color.match(/\d+/g)
-                    .map(v=>Number(v).toString(16).padStart(2,'0')).join('');
-            })""")
         checkbox = page.get_by_role('checkbox', name='Alternate connected colors')
+        self.assertTrue(checkbox.is_checked())
+        checkbox.uncheck()
+        page.wait_for_function("""() => document.querySelector('.plotly-graph-div').data
+            .filter(t=>t.meta.pyseb.role==='geometry').every(t=>t.line.color!=='#269bd2'&&t.line.color!=='#f28e2b')""")
+        original = page.evaluate(r"""() => document.querySelector('.plotly-graph-div').data
+            .filter(t=>t.meta.pyseb.role==='geometry').map(t=>t.line.color)""")
         checkbox.check()
         page.wait_for_function("""() => {
             const traces=document.querySelector('.plotly-graph-div').data.filter(t=>t.meta.pyseb.role==='geometry');
@@ -123,6 +127,14 @@ class TestViewerBrowser(unittest.TestCase):
         page.wait_for_function("""expected => JSON.stringify(document.querySelector('.plotly-graph-div').data
             .filter(t=>t.meta.pyseb.role==='geometry').map(t=>t.line.color))===JSON.stringify(expected)""",
             arg=original)
+        page.get_by_role('button', name='Reset style', exact=True).click()
+        page.wait_for_function("""() => {
+            const colors=document.querySelector('.plotly-graph-div').data
+                .filter(t=>t.meta.pyseb.role==='geometry').map(t=>t.line.color);
+            return new Set(colors).size===2&&colors.every(c=>c==='#269bd2'||c==='#f28e2b');
+        }""")
+        self.assertTrue(checkbox.is_checked())
+        self.assertEqual(page.get_by_label('Alternating color 1', exact=True).input_value(), '#269bd2')
 
     def test_panel_changes_geometry_and_preserves_camera(self):
         page = self.page
@@ -261,6 +273,89 @@ class TestViewerBrowser(unittest.TestCase):
         page.wait_for_function("""() => document.querySelector('.plotly-graph-div').data
             .filter(t=>t.meta.pyseb.role==='geometry').every(t=>t.visible!==false&&t.opacity===1)""")
         self.assertTrue(page.get_by_role('checkbox', name='Show star4:diblock4:A', exact=True).is_visible())
+        self.assertTrue(page.get_by_role('checkbox', name='Alternate connected colors').is_checked())
+
+    def test_settings_and_layout_buttons_appear_together_on_hover(self):
+        page = self.page
+        page.goto(self.nested_url)
+        page.wait_for_selector('.pyseb-settings')
+        page.mouse.move(950, 730)
+        gear = page.get_by_role('button', name='Structure settings', exact=True)
+        button = page.get_by_role('button', name='See unfolded', exact=True)
+        for control in (gear, button):
+            self.assertEqual(control.evaluate('(el)=>getComputedStyle(el).opacity'), '0')
+            self.assertEqual(control.evaluate('(el)=>getComputedStyle(el).pointerEvents'), 'none')
+        page.locator('.plotly-graph-div').hover()
+        page.wait_for_timeout(200)
+        for control in (gear, button):
+            self.assertEqual(control.evaluate('(el)=>getComputedStyle(el).opacity'), '1')
+            self.assertEqual(control.evaluate('(el)=>getComputedStyle(el).pointerEvents'), 'auto')
+        button.click()
+        page.get_by_role('button', name='See model', exact=True).wait_for()
+        gear.click()
+        self.assertTrue(page.locator('.pyseb-panel').is_visible())
+        page.mouse.move(950, 730)
+        self.assertEqual(gear.evaluate('(el)=>getComputedStyle(el).opacity'), '1')
+        page.keyboard.press('Escape')
+        page.locator('.pyseb-toggle').evaluate('(el)=>el.blur()')
+        page.evaluate("document.querySelector('.pyseb-viewer').classList.add('pyseb-touch')")
+        for control in (gear, page.locator('.pyseb-fold')):
+            self.assertEqual(control.evaluate('(el)=>getComputedStyle(el).pointerEvents'), 'auto')
+
+    @unittest.skipUnless(shutil.which('quarto') and importlib.util.find_spec('ipykernel'),
+                         'Quarto and Jupyter kernel not installed')
+    def test_quarto_keeps_model_below_heading_in_article_column(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'article.qmd'
+            path.write_text('''---
+title: Viewer placement
+jupyter: python3
+---
+
+## Model
+
+The visualization belongs below this heading, inside the text column.
+
+```{python}
+import pyseb
+world = pyseb.World('ArticleViewer')
+graph = world.Add('GaussianPolymer', 'A')
+world.Link('GaussianPolymer', 'B.end1', 'A.end2')
+world.Add(graph, 'model')
+_ = pyseb.visualize(world, 'model',
+    {'Rg_A': 3., 'Rg_B': 4., 'beta_A': 1., 'beta_B': 1.}, height=360)
+```
+''')
+            result = subprocess.run(
+                ['quarto', 'render', str(path), '--to', 'html'],
+                capture_output=True, text=True, env={
+                    **os.environ, 'QUARTO_PYTHON': sys.executable,
+                    'PYTHONPATH': str(Path(__file__).resolve().parents[3]),
+                },
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            page = self.page
+            page.goto(path.with_suffix('.html').as_uri())
+            page.wait_for_selector('main .pyseb-viewer')
+            self.assertEqual(page.locator('.pyseb-viewer').count(), 1)
+            viewer = page.locator('main .pyseb-viewer')
+            heading = page.locator('main h2').first
+            for width in (1200, 390):
+                page.set_viewport_size({'width': width, 'height': 800})
+                page.wait_for_function("""() => {
+                    const main=document.querySelector('main').getBoundingClientRect();
+                    const view=document.querySelector('.pyseb-viewer').getBoundingClientRect();
+                    return view.left>=main.left-1&&view.right<=main.right+1;
+                }""")
+                self.assertGreater(viewer.bounding_box()['y'], heading.bounding_box()['y'])
+                self.assertTrue(page.get_by_role('button', name='See unfolded', exact=True).is_visible())
+                page.wait_for_function("""() => {
+                    const graph=document.querySelector('.pyseb-viewer');
+                    const view=graph.getBoundingClientRect();
+                    const title=graph.querySelector('.gtitle').getBoundingClientRect();
+                    const button=graph.querySelector('.pyseb-fold').getBoundingClientRect();
+                    return title.top>=button.bottom&&title.left>=view.left&&title.right<=view.right;
+                }""")
 
     def test_scattering_opacity_density_zero_sign_and_manual_restore(self):
         page = self.page

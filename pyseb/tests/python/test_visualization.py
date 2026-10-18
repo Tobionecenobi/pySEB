@@ -70,6 +70,12 @@ else:
 
         parameters = {'R_sphere': 3.0, 'L_rod': 2.0}
         figure = pyseb.structure_figure(RecordingWorld(), 'assembly', parameters, options, height=420)
+        self.assertEqual([variant['layout'] for variant in figure._pyseb_variants],
+                         ['random', 'readable'])
+        self.assertEqual(options.layout_mode, pyseb.LayoutMode.Random)
+        single_layout = pyseb.structure_figure(
+            world, 'assembly', parameters, options, layouts=[])
+        self.assertEqual(single_layout._pyseb_variants, [])
         self.assertTrue(figure.data)
         self.assertIn('mesh3d', {trace.type for trace in figure.data})
         self.assertIn('scatter3d', {trace.type for trace in figure.data})
@@ -172,8 +178,17 @@ else:
             figure.show(renderer='notebook', config={'scrollZoom': True})
         html = display.call_args.args[0]['text/html']
         self.assertIn('pyseb-settings', html)
-        self.assertIn('plotly.js', html)
+        self.assertNotIn('* plotly.js v', html)
+        self.assertEqual(display.call_count, 2)
+        dependency = display.call_args_list[0].args[0]['text/html']
+        self.assertIn('* plotly.js v', dependency)
+        self.assertNotIn('plotly-graph-div', dependency)
         self.assertEqual(display.call_args.kwargs, {'raw': True})
+        with patch('IPython.display.display') as display:
+            bundle = figure._repr_mimebundle_()
+        self.assertIn('pyseb-settings', bundle['text/html'])
+        self.assertNotIn('* plotly.js v', bundle['text/html'])
+        display.assert_called_once()
         exported = figure.to_html(post_script='window.pysebUserScript = true;', full_html=False)
         self.assertIn('window.pysebUserScript = true;', exported)
         self.assertIn('pyseb-settings', exported)
