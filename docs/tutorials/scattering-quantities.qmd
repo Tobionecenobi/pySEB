@@ -13,6 +13,13 @@ execute:
   error: false
 ---
 
+::: {.callout-note title="Before you start"}
+Read [From phase sums to scattering quantities](scattering-from-phases.qmd)
+first if form factors, reference amplitudes, or phase factors are new to you.
+Its diagrams explain the distance vectors and what changes when a reference
+moves. This page focuses on the Python and C++ APIs and size measures.
+:::
+
 This tutorial uses two equal point scatterers separated by a distance of two
 length units. The simple geometry makes the normalized form factor,
 unnormalized intensity, reference-point amplitude, phase factor, radius of
@@ -38,6 +45,10 @@ F(q)=A_{\mathrm{left}}(q)=\frac{1+\operatorname{sinc}(qd)}{2},
 The total excess scattering length is two, so the unnormalized intensity is
 \(I(q)=4F(q)\). The geometry also gives \(R_g^2=1\) and
 \(\langle r_{\mathrm{left,right}}^2\rangle=4\).
+
+The equality $F=A_{\mathrm{left}}$ is specific to this equal two-point
+example. It does not hold for arbitrary objects or reference choices, and
+$F$ is generally not the square of an orientationally averaged amplitude.
 
 ## Python
 
