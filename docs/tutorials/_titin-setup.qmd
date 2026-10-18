@@ -1,0 +1,90 @@
+```{python}
+#| code-fold: true
+#| code-summary: "Load saved results and verify their provenance"
+import hashlib
+import json
+import re
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+from IPython.display import Markdown, display
+
+result_directory = Path("data/titin-results")
+results = json.loads((result_directory / "results.json").read_text())
+manifest = json.loads((result_directory / "manifest.json").read_text())
+# Fail clearly if inputs or saved outputs no longer match this calculation.
+for relative, digest in manifest["files"].items():
+    path = result_directory / relative
+    if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+        raise ValueError(f"Changed titin asset: {path}; regenerate the results.")
+for filename, digest in manifest["inputs"].items():
+    if hashlib.sha256((Path("data") / filename).read_bytes()).hexdigest() != digest:
+        raise ValueError(f"Changed titin input: {filename}; regenerate the results.")
+from _titin_sources import generation_cells
+source_cells = generation_cells(Path.cwd())
+# A recorded viewer-only migration preserves the original calculation hash.
+accepted_generation_hash = manifest.get("viewer_migration", {}).get(
+    "generation_sha256", manifest["generation_sha256"]
+)
+if hashlib.sha256("\n".join(source_cells).encode()).hexdigest() != accepted_generation_hash:
+    raise ValueError("Titin calculation code changed; regenerate the saved results.")
+with np.load(result_directory / "curves.npz", allow_pickle=False) as saved:
+    curves = {key: saved[key] for key in saved.files}
+q, intensity, uncertainty = (curves[key] for key in ("q", "intensity", "uncertainty"))
+fit_q, held_q = q[::2], q[1::2]
+print(f"Loaded {q.size} measured points, {fit_q.size} training and {held_q.size} held points.")
+print(f"Results generated: {manifest['generated_utc']}")
+
+
+def fit_table(key):
+    fit = results["fits"][key]
+    rows = ["| Parameter | Value |", "| --- | ---: |"]
+    rows.extend(f"| {name} | {value:.6g} |"
+                for name, value in zip(fit["parameter_names"], fit["x"]))
+    rows.append(f"| Training reduced chi² | {fit['training_reduced_chi2']:.3f} |")
+    rows.append(f"| Held-point score | {fit['held_score']:.3f} |")
+    display(Markdown("\n".join(rows)))
+    print(f"Optimizer: {fit['message']}")
+
+```
+
+
+```{python}
+#| code-fold: true
+#| code-summary: "Saved-scene viewer"
+from pyseb.visualization import usd_to_plotly
+```
+
+```{python}
+def show_saved_structure(name):
+    path = result_directory / "scenes" / f"{name}.usda"
+    figure = usd_to_plotly(path, height=440)
+    figure.update_layout(title_text=name.replace("-", " "))
+    figure.show(config={"displaylogo": False, "scrollZoom": True})
+    display(Markdown(f"[Download this OpenUSD scene]({path.as_posix()})"))
+```
+
+
+```{python}
+#| code-fold: true
+#| code-summary: "Shared curve and residual display"
+def compare_curves(curves):
+    figure, (axis, residual_axis) = plt.subplots(
+        2, 1, figsize=(8, 6), sharex=True,
+        gridspec_kw={"height_ratios": [3, 1]})
+    axis.errorbar(q, intensity, uncertainty, fmt=".", color="black",
+                  alpha=0.5, label="SASDKC2")
+    for label, curve in curves.items():
+        axis.plot(q, curve, label=label)
+        residual_axis.plot(q, (curve-intensity)/uncertainty)
+    axis.set(yscale="log", ylabel="Intensity [a.u.]")
+    axis.legend(fontsize="small")
+    residual_axis.axhline(0, color="gray", linewidth=1)
+    residual_axis.set(xlabel=r"$q$ [$\mathrm{\AA}^{-1}$]",
+                      ylabel=r"$(I_\mathrm{model}-I)/\sigma$")
+    figure.tight_layout()
+    plt.show()
+
+```
+

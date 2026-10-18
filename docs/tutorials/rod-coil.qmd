@@ -122,4 +122,4 @@ plt.show()
 
 - [Comb polymer](comb-polymer.qmd): change connectivity while holding composition fixed.
 - [Random-walk rod chain](random-walk-rods.qmd): compare many freely jointed rigid segments with a Gaussian chain.
-- [Fit a linked titin doublet](fit-linked-titin.qmd): apply rigid-domain and flexible-linker models to protein data.
+- [Fit analytic domains and a linker](fit-linked-titin.qmd): apply rigid-domain and flexible-linker models to protein data.

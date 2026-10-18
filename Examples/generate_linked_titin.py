@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Regenerate the linked-titin tutorial's fits and OpenUSD scenes.
 
-The displayed, tagged Python cells in the QMD are the calculation source.
+The displayed, tagged Python cells in the tutorial sequence are the
+calculation source.
 No Quarto/Jupyter process is needed. Publication happens only after every
 stage succeeds; an interrupted fit leaves the previous bundle intact.
 """
@@ -12,7 +13,6 @@ import importlib.metadata
 import json
 import os
 from pathlib import Path
-import re
 import shutil
 import subprocess
 import sys
@@ -22,14 +22,14 @@ from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parents[1]
 TUTORIAL = ROOT / "docs/tutorials/fit-linked-titin.qmd"
+sys.path.insert(0, str(TUTORIAL.parent))
+from _titin_sources import generation_cells as tutorial_generation_cells
 DESTINATION = ROOT / "docs/tutorials/data/titin-results"
 INPUT_NAMES = ("SASDKC2-titin.csv", "1TIU-heavy-ensemble.pdb")
 
 
 def generation_cells():
-    return [block for block in re.findall(
-        r"```\{python\}\n(.*?)\n```", TUTORIAL.read_text(), re.S
-    ) if block.splitlines()[0] == "#| tags: [titin-generation]"]
+    return tutorial_generation_cells(TUTORIAL.parent)
 
 
 def digest(path):
