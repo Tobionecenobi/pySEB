@@ -18,9 +18,14 @@ formalism: a diblock copolymer, a four-arm star made from that diblock, and a
 linear chain containing five instances of the star. The final structure has 40
 Gaussian-polymer subunits but only four independent physical parameters.
 
-Read [Reusable Nested Structures](nested-structures.qmd) first if nested
-reference paths are unfamiliar. Publication details are collected in the
+Publication details are collected in the
 [citation guide](https://github.com/Tobionecenobi/pySEB/wiki/Publications-and-Citation).
+
+::: {.callout-note title="Before you start"}
+Read [Assemble multiple hierarchy levels](nested-hierarchy.qmd) first. This
+application uses nested reference paths and repeatedly instantiates reusable
+graphs.
+:::
 
 ## Structure hierarchy
 
@@ -220,7 +225,7 @@ run_tutorial("figure13-star-chain")
 
 ## Next steps
 
-- [Review reusable nested structures](nested-structures.qmd)
+- [Review multiple hierarchy levels](nested-hierarchy.qmd)
 - [Theory overview](https://github.com/Tobionecenobi/pySEB/wiki/Theory-Overview)
 - [Complete maintained Python source](https://github.com/Tobionecenobi/pySEB/blob/main/pyseb/examples/python/figure13_star_chain.py)
 - [Original C++ example](https://github.com/Tobionecenobi/pySEB/blob/main/Examples/DiBlockStarChain.cpp)

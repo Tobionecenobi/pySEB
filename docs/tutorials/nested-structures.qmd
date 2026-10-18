@@ -1,6 +1,6 @@
 ---
-title: "Reusable Nested Structures"
-subtitle: "Build once, instantiate repeatedly, and use nested paths"
+title: "Reuse a Composite Component"
+subtitle: "Build one diblock and instantiate it twice"
 jupyter: python3
 format:
   html:
@@ -13,23 +13,20 @@ execute:
   error: false
 ---
 
-This tutorial builds a diblock, reuses it to make a two-arm star, then reuses
-the star to make `starChain`. It assumes the Python environment from the
-[diblock tutorial](diblock-copolymer.qmd).
+::: {.callout-note title="Before you start"}
+Read [Your first composite model](diblock-copolymer.qmd) first. You should
+be able to link endpoints, name a graph, and evaluate its form factor.
+:::
 
-## Construction levels
+The goal is to reuse a connected component without rebuilding its internal
+links. We will make one diblock, then connect two instances through their
+`polyA.end1` references. This two-arm component is named `star`.
 
 ```text
-Level 1: polyA -- polyB                 diblock
-Level 2: (polyA -- polyB) x 2           star
-Level 3: star1 = star2                   starChain
+(polyB -- polyA) = (polyA -- polyB)
 ```
 
-Colons descend into structures. For example,
-`star1:diblock2:polyB.end2` addresses `polyB.end2` inside `diblock2` inside
-`star1`.
-
-## Python
+## Build and reuse the component
 
 ### 1. Create a world
 
@@ -64,27 +61,10 @@ star = world.Add(diblock, "diblock1")
 world.Link(diblock, "diblock2:polyA.end1", "diblock1:polyA.end1")
 ```
 
-### 4. Reuse the star to make a chain
-
-Repeat the same pattern at the next level. The longer reference paths descend
-through a star, a diblock, and finally a polymer reference point.
-
-```{python}
-chain = world.Add(star, "star1")
-world.Link(
-    star,
-    "star2:diblock1:polyB.end2",
-    "star1:diblock2:polyB.end2",
-)
-world.Add(chain, "starChain")
-```
-
-Naming the final graph exposes `starChain` to the scattering queries.
-
-### 5. Parameterize, inspect, and evaluate
+### 4. Parameterize, inspect, and evaluate
 
 Repeated instances retain the internal names `polyA` and `polyB`. Consequently
-all eight polymers reuse four physical parameters.
+all four polymers reuse four physical parameters.
 
 ```{python}
 parameters = {
@@ -95,16 +75,17 @@ parameters = {
 }
 ```
 
-Now inspect the assembled hierarchy. Hover over a curve to see its nested
+Name and inspect the reusable component. Hover over a curve to see its nested
 instance path; repeated instances retain the internal subunit names.
 
 ```{python}
-_ = pyseb.visualize(world, "starChain", parameters, height=440)
+world.Add(star, "star")
+_ = pyseb.visualize(world, "star", parameters, height=440)
 ```
 
 ```{python}
 q = [0.01, 0.03, 0.1, 0.3]
-values = world.EvaluateFormFactor("starChain", parameters, q)
+values = world.EvaluateFormFactor("star", parameters, q)
 
 for q_value, value in zip(q, values):
     print(f"q={q_value:g}, F(q)={value:.8f}")
@@ -113,21 +94,10 @@ for q_value, value in zip(q, values):
 The decreasing values show the expected loss of coherence as q resolves the
 nested structure's internal length scales.
 
-## C++
+You now have two instances of the same diblock. Their internal names share
+parameters; their instance names identify which copy a reference belongs to.
 
-```cpp
-{{< include cpp/nested-structures.cpp >}}
-```
+## Continue
 
-```{python}
-#| echo: false
-from _helpers import run_tutorial
-
-run_tutorial("nested-structures")
-```
-
-## Next steps
-
-- [Sweep model parameters](parameter-sweeps.qmd)
-- [Core concepts](https://github.com/Tobionecenobi/pySEB/wiki/Core-Concepts)
-- [Naming and linking](https://github.com/Tobionecenobi/pySEB/wiki/Naming-and-Linking)
+Continue to [Assemble multiple hierarchy levels](nested-hierarchy.qmd)
+to reuse this component inside another structure and address deeper paths.

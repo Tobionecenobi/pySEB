@@ -1,0 +1,138 @@
+---
+title: "Assemble Multiple Hierarchy Levels"
+subtitle: "Reuse a component inside another reusable structure"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+::: {.callout-note title="Before you start"}
+Read [Reuse a composite component](nested-structures.qmd) first. This page
+adds another hierarchy level and uses paths containing two colons.
+:::
+
+We will join two copies of the previous page’s component and evaluate the
+result. The first cells rebuild that component so this page starts in a fresh
+Python session. Run all cells in order.
+
+## Follow the paths through three levels
+
+```text
+Level 1: polyA -- polyB                 diblock
+Level 2: (polyA -- polyB) x 2           star
+Level 3: star1 = star2                   starChain
+```
+
+Colons descend into structures. For example,
+`star1:diblock2:polyB.end2` addresses `polyB.end2` inside `diblock2` inside
+`star1`.
+
+## Python
+
+### 1. Create a world
+
+All reusable graphs live in the same `World`. Later steps instantiate these
+graphs without rebuilding their internal links.
+
+```{python}
+import pyseb
+
+world = pyseb.World("NestedTutorial")
+```
+
+### 2. Rebuild the component from the previous page
+
+Start with `polyA`, then attach `polyB` end to end. Keep the returned graph in
+`diblock`; a graph does not need a public structure name before it can be
+reused.
+
+```{python}
+diblock = world.Add("GaussianPolymer", "polyA")
+world.Link("GaussianPolymer", "polyB.end1", "polyA.end2")
+```
+
+### 3. Instantiate the component
+
+`world.Add(diblock, "diblock1")` creates the first instance. `Link` creates a
+second instance and connects the `polyA.end1` reference inside each diblock.
+The colon separates a structure instance from a nested subunit path.
+
+```{python}
+star = world.Add(diblock, "diblock1")
+world.Link(diblock, "diblock2:polyA.end1", "diblock1:polyA.end1")
+```
+
+### 4. Reuse the star to make a chain
+
+Repeat the same pattern at the next level. The longer reference paths descend
+through a star, a diblock, and finally a polymer reference point.
+
+```{python}
+chain = world.Add(star, "star1")
+world.Link(
+    star,
+    "star2:diblock1:polyB.end2",
+    "star1:diblock2:polyB.end2",
+)
+world.Add(chain, "starChain")
+```
+
+Naming the final graph exposes `starChain` to the scattering queries.
+
+### 5. Parameterize, inspect, and evaluate
+
+Repeated instances retain the internal names `polyA` and `polyB`. Consequently
+all eight polymers reuse four physical parameters.
+
+```{python}
+parameters = {
+    "beta_polyA": 1.0,
+    "beta_polyB": 0.75,
+    "Rg_polyA": 5.0,
+    "Rg_polyB": 8.0,
+}
+```
+
+Now inspect the assembled hierarchy. Hover over a curve to see its nested
+instance path; repeated instances retain the internal subunit names.
+
+```{python}
+_ = pyseb.visualize(world, "starChain", parameters, height=440)
+```
+
+```{python}
+q = [0.01, 0.03, 0.1, 0.3]
+values = world.EvaluateFormFactor("starChain", parameters, q)
+
+for q_value, value in zip(q, values):
+    print(f"q={q_value:g}, F(q)={value:.8f}")
+```
+
+The decreasing values show the expected loss of coherence as q resolves the
+nested structure's internal length scales.
+
+## C++
+
+```cpp
+{{< include cpp/nested-structures.cpp >}}
+```
+
+```{python}
+#| echo: false
+from _helpers import run_tutorial
+
+run_tutorial("nested-structures")
+```
+
+
+## Continue
+
+Try [Parameter sweeps](parameter-sweeps.qmd), or see a larger application in
+[Figure 13 star chain](figure13-star-chain.qmd).

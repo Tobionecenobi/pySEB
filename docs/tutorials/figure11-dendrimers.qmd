@@ -170,7 +170,7 @@ run_tutorial("figure11-dendrimers")
 
 ## Next steps
 
-- [Reusable nested structures](nested-structures.qmd)
+- [Reuse a composite component](nested-structures.qmd)
 - [Figure 12 surface attachments](figure12-surface-attachments.qmd)
 - [Core concepts](https://github.com/Tobionecenobi/pySEB/wiki/Core-Concepts)
 - [Original Figure 11 sources](https://github.com/Tobionecenobi/pySEB/tree/main/PaperFigs)
