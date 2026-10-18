@@ -176,7 +176,7 @@ run_tutorial("random-walk-rods")
 
 ## Next steps
 
-- [Scattering quantities](scattering-quantities.qmd)
+- [Scattering from a point cloud](scattering-quantities.qmd)
 - [Parameter sweeps](parameter-sweeps.qmd)
 - [Thin Rod reference](https://github.com/Tobionecenobi/pySEB/wiki/Subunit-Thin-Rod)
 - [Inspecting C++ structures](https://github.com/Tobionecenobi/pySEB/wiki/Inspecting-Structures)

@@ -1,6 +1,6 @@
 ---
-title: "Scattering Quantities"
-subtitle: "Form factors, amplitudes, phase factors, and size measures"
+title: "Scattering from a Point Cloud"
+subtitle: "Get form factors, reference amplitudes, and phase factors from coordinates"
 jupyter: python3
 format:
   html:
@@ -14,166 +14,253 @@ execute:
 ---
 
 ::: {.callout-note title="Before you start"}
-Read [From phase sums to scattering quantities](scattering-from-phases.qmd)
-first if form factors, reference amplitudes, or phase factors are new to you.
-Its diagrams explain the distance vectors and what changes when a reference
-moves. This page focuses on the Python and C++ APIs and size measures.
+Complete [Your first scattering model](first-model.qmd). You need pySEB,
+NumPy, and Matplotlib; the interactive cloud view also needs
+`pyseb[visualization]`. You can use this page without deriving an analytical
+subunit. For the corresponding vector integrals, read
+[Derive a subunit from distance vectors](scattering-from-phases.qmd).
 :::
 
-This tutorial uses two equal point scatterers separated by a distance of two
-length units. The simple geometry makes the normalized form factor,
-unnormalized intensity, reference-point amplitude, phase factor, radius of
-gyration, and mean-square distance easy to compare directly.
+Suppose you already have a set of scattering points. How does that cloud get
+its **form factor**, **form-factor amplitude**, and **phase factor**?
 
-The same APIs work for analytic subunits and larger composite structures.
+You need the coordinates, a scattering weight for each point, and named
+reference coordinates. pySEB calculates the three factors from their distances:
 
-## Geometry and expected relationships
+| Factor | Distances to calculate |
+| --- | --- |
+| $F(q)$ | All scattering-point pairs, including self pairs |
+| $A_\alpha(q)$ | Reference $\alpha$ to every scattering point |
+| $\Psi_{\alpha\omega}(q)$ | Reference $\alpha$ to reference $\omega$ |
 
-```text
-left/scatterer 1  x----------------x  scatterer 2/right
-                 0       d=2       2
-```
+We will build a six-point cloud, request each factor through pySEB, and show
+the short NumPy calculation behind it. These are isotropically averaged
+factors for one rigid cloud: a fixed distance $d$ contributes
+$\operatorname{sinc}(qd)=\sin(qd)/(qd)$, with value one at zero.
 
-For two equal point scatterers,
+## 1. Put coordinates and weights into a cloud
 
-\[
-F(q)=A_{\mathrm{left}}(q)=\frac{1+\operatorname{sinc}(qd)}{2},
-\qquad
-\Psi_{\mathrm{left,right}}(q)=\operatorname{sinc}(qd).
-\]
-
-The total excess scattering length is two, so the unnormalized intensity is
-\(I(q)=4F(q)\). The geometry also gives \(R_g^2=1\) and
-\(\langle r_{\mathrm{left,right}}^2\rangle=4\).
-
-The equality $F=A_{\mathrm{left}}$ is specific to this equal two-point
-example. It does not hold for arbitrary objects or reference choices, and
-$F$ is generally not the square of an orientationally averaged amplitude.
-
-## Python
-
-### 1. Create the numerical coordinate cloud
-
-Set both sphere radii to zero so the objects behave as point scatterers. Their
-equal `beta` values give them equal scattering weight.
+Each row below is one point $(x,y,z)$ in nm. Its `weight` is its excess
+scattering length $b_j$, in a consistent scattering-length unit. Equal weights
+would make all points contribute equally; here two points have twice the weight.
 
 ```{python}
 import matplotlib.pyplot as plt
 import numpy as np
 import pyseb
 
-scatterers = [
-    pyseb.SphereScatterer(0.0, 0.0, 0.0, 0.0, 1.0),
-    pyseb.SphereScatterer(2.0, 0.0, 0.0, 0.0, 1.0),
-]
-cloud = pyseb.DebyeSphereCloud(scatterers)
-cloud.addReferencePoint("left", 0.0, 0.0, 0.0)
-cloud.addReferencePoint("right", 2.0, 0.0, 0.0)
+positions = np.array([
+    [-2.0, -0.65, -0.4],
+    [-1.2,  1.00,  0.3],
+    [-0.4, -1.25,  0.6],
+    [ 0.4,  1.25, -0.6],
+    [ 1.2, -1.00, -0.3],
+    [ 2.0,  0.65,  0.4],
+])
+weights = np.array([1.0, 2.0, 1.0, 1.0, 2.0, 1.0])
+beta = weights.sum()
+assert beta != 0  # normalized factors divide by the total scattering length
 
-print("scatterers:", cloud.scattererCount())
+origin = np.array([0.0, 0.0, 0.0])
+anchor = np.array([-3.0, 0.0, 0.0])
+q = np.linspace(0.0, 4.0, 180)  # nm^-1
 ```
 
-The named references are independent coordinates used by amplitudes, phase
-factors, linking, and distance calculations.
-
-### 2. Add the cloud to a world
-
-A numerical subunit is added to `World` in the same way as an analytic
-subunit. Its coordinates and scattering weights are already stored inside the
-cloud, so the later parameter dictionary is empty.
+`SphereScatterer(x, y, z, radius, beta)` becomes a **point scatterer** when
+its radius is zero. Pass each row and weight into the cloud:
 
 ```{python}
-world = pyseb.World("ScatteringQuantitiesTutorial")
+cloud = pyseb.DebyeSphereCloud([
+    pyseb.SphereScatterer(float(x), float(y), float(z), 0.0, float(weight))
+    for (x, y, z), weight in zip(positions, weights)
+])
+cloud.addReferencePoint("origin", *origin.tolist())
+cloud.addReferencePoint("anchor", *anchor.tolist())
+
+world = pyseb.World("PointCloudFactorsTutorial")
 world.Add(cloud, "cloud")
-
-parameters = {}
-q = np.linspace(0.0, 3.0, 180)
+parameters = {}  # coordinates and scattering weights are stored in the cloud
+print("scattering points:", cloud.scattererCount())
 ```
 
-Inspect the two points before comparing their scattering quantities. Their
-separation is two length units; marker sizes are chosen only for display.
+The references mark possible attachment locations. They add no scattering
+material and can lie between or outside the scattering points. `origin`
+is the centre of this symmetric example; `anchor` is outside the cloud.
+
+### Inspect the cloud and its references
 
 ```{python}
-_ = pyseb.visualize(world, "cloud", parameters, height=440, layouts=["random", "readable"])
+#| code-fold: true
+options = pyseb.USDExportOptions(pyseb.LengthUnit.Nanometer)
+options.zero_radius_marker_size = 0.15
+_ = pyseb.visualize(world, "cloud", parameters, options, height=440,
+                    layouts=["random", "readable"])
 ```
 
-### 3. Evaluate the q-dependent quantities
+Hover over the frame, open the gear, and enable reference markers to see
+`origin` and `anchor`. The visible point sizes are display markers; their
+scattering radii remain zero. This rigid cloud has no internal joints, so
+model and unfolded layouts can look identical.
 
-The form factor describes the complete cloud. The amplitude is relative to
-one reference, while the phase factor describes the separation between two
-references.
+## 2. Form factor: sum over all point pairs
+
+Request the form factor of the whole cloud:
 
 ```{python}
 form_factor = np.asarray(
     world.EvaluateFormFactor("cloud", parameters, q.tolist())
 )
-unnormalized = np.asarray(
-    world.EvaluateFormFactorUnnormalized(
-        "cloud", parameters, q.tolist()
-    )
-)
-left_amplitude = np.asarray(
-    world.EvaluateFormFactorAmplitude(
-        "cloud.left", parameters, q.tolist()
-    )
-)
-left_right_phase = np.asarray(
-    world.EvaluatePhaseFactor(
-        "cloud.left", "cloud.right", parameters, q.tolist()
-    )
-)
-
-print(f"F(0) = {form_factor[0]:.1f}")
-print(f"I(0) = {unnormalized[0]:.1f}")
-print(f"A_left(0) = {left_amplitude[0]:.1f}")
-print(f"Psi_left,right(0) = {left_right_phase[0]:.1f}")
 ```
 
-All normalized quantities equal one at q = 0. The unnormalized value is four,
-the square of the total beta.
+Behind that call, pySEB uses the distance between every pair of points,
+multiplies by both scattering weights, and adds the contributions:
 
-### 4. Plot and compare
+$$
+F(q)=\frac{1}{\beta^2}\sum_{j,k}b_jb_k\,
+\operatorname{sinc}\!\left(q|\mathbf r_j-\mathbf r_k|\right),
+\qquad \beta=\sum_j b_j.
+$$
 
-For this symmetric two-point example, the form factor and left amplitude lie
-on top of one another. The phase factor oscillates twice as far from their
-midpoint value.
+Here is the same calculation in NumPy. `np.sinc(z)` means
+$\sin(\pi z)/(\pi z)$, so divide the arguments by $\pi$.
 
 ```{python}
-#| label: fig-scattering-quantities
-#| fig-cap: "Form factor, reference amplitude, and phase factor for two equal point scatterers."
+pair_distances = np.linalg.norm(
+    positions[:, None, :] - positions[None, :, :], axis=-1
+)
+pair_weights = weights[:, None] * weights[None, :]
+form_factor_direct = np.sum(
+    pair_weights * np.sinc(q[:, None, None] * pair_distances / np.pi),
+    axis=(1, 2),
+) / beta**2
+np.testing.assert_allclose(form_factor, form_factor_direct, rtol=1e-10, atol=1e-12)
+```
 
-plt.plot(q, form_factor, label=r"$F(q)$")
-plt.plot(q, left_amplitude, "--", label=r"$A_{left}(q)$")
-plt.plot(q, left_right_phase, label=r"$\Psi_{left,right}(q)$")
-plt.xlabel(r"$q$")
-plt.ylabel("normalized value")
-plt.legend()
+Include the zero-distance self pairs $j=k$, and include both orders of each
+other pair. The array calculation does both automatically. No reference
+coordinate appears: moving `anchor` cannot change this form factor.
+
+## 3. Amplitude: measure from one reference to all points
+
+Choose the reference where you want to attach another subunit. To get its
+amplitude, use the reference path `cloud.anchor`:
+
+```{python}
+anchor_amplitude = np.asarray(
+    world.EvaluateFormFactorAmplitude("cloud.anchor", parameters, q.tolist())
+)
+```
+
+This time there is only one sum. Start each distance at the reference and
+end it at a scattering point:
+
+$$
+A_\alpha(q)=\frac{1}{\beta}\sum_j b_j\,
+\operatorname{sinc}\!\left(q|\mathbf r_j-\mathbf R_\alpha|\right).
+$$
+
+```{python}
+anchor_distances = np.linalg.norm(positions - anchor, axis=1)
+anchor_amplitude_direct = (
+    np.sinc(q[:, None] * anchor_distances / np.pi) @ weights / beta
+)
+np.testing.assert_allclose(anchor_amplitude, anchor_amplitude_direct,
+                           rtol=1e-10, atol=1e-12)
+```
+
+To use the other reference, change the path:
+
+```{python}
+origin_amplitude = np.asarray(
+    world.EvaluateFormFactorAmplitude("cloud.origin", parameters, q.tolist())
+)
+```
+
+The material is identical, but these two amplitudes generally differ because
+the distances start at different points. Squaring either averaged amplitude
+does not generally give the form factor.
+
+## 4. Phase factor: measure between two references
+
+Pass both reference paths:
+
+```{python}
+phase_factor = np.asarray(
+    world.EvaluatePhaseFactor("cloud.origin", "cloud.anchor", parameters, q.tolist())
+)
+```
+
+There is one distance and no scattering sum:
+
+$$
+\Psi_{\alpha\omega}(q)=
+\operatorname{sinc}\!\left(q|\mathbf R_\alpha-\mathbf R_\omega|\right).
+$$
+
+```{python}
+reference_distance = np.linalg.norm(origin - anchor)
+phase_factor_direct = np.sinc(q * reference_distance / np.pi)
+np.testing.assert_allclose(phase_factor, phase_factor_direct, rtol=1e-10, atol=1e-12)
+print("reference separation:", reference_distance, "nm")
+```
+
+Changing the scattering weights changes $F$ and $A$, but leaves this phase
+factor unchanged when the two reference coordinates stay fixed.
+
+## 5. Plot the factors and check zero angle
+
+```{python}
+#| label: fig-point-cloud-factors
+#| fig-cap: "One six-point cloud: form factor, amplitudes at two references, and the phase factor between those references."
+fig, ax = plt.subplots(figsize=(8, 4.6))
+ax.plot(q, form_factor, color="#172f46", lw=2.5, label=r"$F$")
+ax.plot(q, origin_amplitude, color="#b95017", label=r"$A_{origin}$")
+ax.plot(q, anchor_amplitude, "--", color="#b95017", label=r"$A_{anchor}$")
+ax.plot(q, phase_factor, color="#176b96", label=r"$\Psi_{origin,anchor}$")
+ax.axhline(0, color="0.7", lw=0.8)
+ax.set(xlabel=r"$q$ [nm$^{-1}$]", ylabel="normalized value")
+ax.legend()
+fig.tight_layout()
 plt.show()
+
+for values in (form_factor, origin_amplitude, anchor_amplitude, phase_factor):
+    assert np.isclose(values[0], 1.0)
+print("All factors start at one; all direct distance sums agree with pySEB.")
 ```
 
-### 5. Evaluate size measures
+The form factor is nonnegative. Averaged amplitudes and phase factors can
+cross zero. At high $q$, a finite point cloud retains its self-pair contribution
+$\sum_jb_j^2/\beta^2$; the displayed marker sizes add no particle shape factor.
 
-Size measures do not depend on q. The radius of gyration is measured about the
-cloud's scattering-weighted center; the reference-to-reference result is the
-squared separation of the named points.
+If you also need unnormalized single-cloud scattering, use
+`world.EvaluateFormFactorUnnormalized("cloud", parameters, q.tolist())`.
+For this point cloud it equals $\beta^2F(q)$.
 
-```{python}
-rg2 = world.EvaluateRadiusOfGyration2("cloud", parameters)
-left_right_msd = world.EvaluateSMSDRef2Ref(
-    "cloud.left", "cloud.right", parameters
-)
+## Use your own point cloud
 
-print(f"Rg^2 = {rg2:.1f}")
-print(f"<r_left,right^2> = {left_right_msd:.1f}")
+Replace `positions` and `weights`, choose your reference coordinates, then
+rebuild the cloud. For large clouds, keep the pySEB API calls and omit the
+NumPy check arrays, which allocate one entry per $q$ and point pair.
+For a text file with columns `x y z beta`, the input step is:
+
+```python
+points = np.loadtxt("my-cloud.txt")
+positions = points[:, :3]
+weights = points[:, 3]
 ```
 
-The values reproduce the expected geometry: \(R_g^2=1\) and squared
-reference separation four.
+Keep the coordinates and $q$ in reciprocal units. Coordinates from a PDB
+file are usually in Å, so use $q$ in Å$^{-1}$ or convert the coordinates first.
+The [PDB and polymer tutorial](pdb-polymer.qmd) shows loading a coordinate model
+and attaching polymers to its references.
 
-## C++
+Try moving only `anchor`, rebuilding the cloud, and rerunning the three
+calculations. Its amplitude and the reference phase factor change; $F$ and
+the `origin` amplitude stay the same. Next change a point's weight while
+keeping the references fixed: the phase factor stays the same.
 
-The compiled program constructs the same cloud and writes all four
-q-dependent quantities as CSV, followed by the two size measures.
+<details>
+<summary>The same cloud and three API calls in C++</summary>
 
 ```cpp
 {{< include cpp/scattering-quantities.cpp >}}
@@ -186,8 +273,13 @@ from _helpers import run_tutorial
 run_tutorial("scattering-quantities")
 ```
 
-## Next steps
+</details>
 
-- [Build the Figure 13 star chain](figure13-star-chain.qmd)
-- [Scattering quantities reference](https://github.com/Tobionecenobi/pySEB/wiki/Scattering-Quantities)
-- [Numerical subunits](https://github.com/Tobionecenobi/pySEB/wiki/Numerical-Subunits)
+## Continue
+
+For an analytical shape, follow
+[Derive a subunit from distance vectors](scattering-from-phases.qmd).
+The distance sums on this page become integrals over its scattering material.
+For atomic and finite-radius sphere clouds, see
+[Mixed model evaluation](mixed-model-evaluation.qmd); their individual
+scatterer form factors also enter the cloud calculation.

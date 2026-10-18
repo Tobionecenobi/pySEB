@@ -17,7 +17,7 @@ execute:
 Complete [Test atomic scattering and hydration](titin-hydration.qmd) first.
 You need its fixed Fraser-solvent hybrid as the reference model. Be comfortable
 with the distinction between amplitudes and intensities; review
-[Scattering quantities](scattering-quantities.qmd) if necessary.
+[Scattering from a point cloud](scattering-quantities.qmd) if necessary.
 :::
 
 Keep the domain coordinates and solvent settings fixed. This page tests

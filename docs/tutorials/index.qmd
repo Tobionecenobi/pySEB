@@ -40,15 +40,15 @@ adding subunits, linking reference points, and supplying model parameters.
 
 ## 3. Understand the calculations
 
-**Before starting:** Complete Your first scattering model. Begin with the
-distance-vector and phase-sum explanation below if the three quantities are
-new to you. Composite models and basic symbolic algebra are useful for the
-later expression-export page.
+**Before starting:** Complete Your first scattering model. Start with the
+point-cloud example to calculate the three factors from coordinates, or the
+distance-vector derivation to derive an analytical subunit. Composite models
+and basic symbolic algebra are useful for the expression-export page.
 
 | Tutorial | What you will learn |
 | --- | --- |
-| [From phase sums to scattering quantities](scattering-from-phases.qmd) | Draw pair and reference vectors, move the reference point, and calculate F, A, and Ψ from phase sums |
-| [Scattering quantities](scattering-quantities.qmd) | Compare normalized and unnormalized form factors, amplitudes, phase factors, and size measures |
+| [Scattering from a point cloud](scattering-quantities.qmd) | Build a weighted point cloud and get F, A, and Ψ from point-pair and reference distances |
+| [Derive a subunit from distance vectors](scattering-from-phases.qmd) | Derive a rod: form factor, midpoint amplitude, shifted-reference amplitudes, and phase factors; validate a usable subunit |
 | [Symbolic expressions and export](symbolic-expressions.qmd) | Select a backend, inspect expressions, convert to SymPy, and export Python, LaTeX, and C forms |
 
 ## 4. Extend your models

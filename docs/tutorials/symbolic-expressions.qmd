@@ -149,6 +149,6 @@ run_tutorial("symbolic-expressions")
 
 ## Next steps
 
-- [Compare scattering quantities](scattering-quantities.qmd)
+- [Calculate scattering from a point cloud](scattering-quantities.qmd)
 - [Symbolic backends reference](https://github.com/Tobionecenobi/pySEB/wiki/Symbolic-Backends)
 - [Python API reference](https://github.com/Tobionecenobi/pySEB/wiki/Python-API-Reference)
