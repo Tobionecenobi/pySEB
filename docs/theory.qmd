@@ -8,50 +8,85 @@ prediction with an experiment. The [Tutorials](tutorials/index.qmd) apply them
 to concrete models; the [Reference Wiki](https://github.com/Tobionecenobi/pySEB/wiki)
 provides detailed definitions and API documentation.
 
-## Model assumptions
+## Subunits behave like ghosts
 
-A model specifies both scattering material and the statistics of its geometry.
-A reference identifies an attachment location; a distributed reference
-specifies a statistical selection over locations. The subunits and their
-connections determine the distances that enter the scattering calculation.
+**The subunits in a structure do not push or pull on one another.** They can
+pass through one another, overlap, or sit inside one another. Their
+connections stay in place.
 
-A 3D view shows one realization. Its displayed polymer conformation and
-sampled attachment positions are examples of the ensemble used by the model.
-An overlap-reduced display layout changes the illustration rather than adding
-excluded-volume interactions to the scattering calculation.
+![The same chain of a triangle, sphere, square, and rectangle is shown stretched out and folded into overlapping shapes.](figures/theory-ghost-subunits.svg){#fig-theory-ghost-subunits fig-alt="A triangle, blue sphere, purple square, and green rectangle are connected in that order. On the left they are spread out. On the right the triangle sits inside the sphere and the square and rectangle overlap. The shapes and connections are the same." width="100%"}
 
-Start with [What is a reference point?](tutorials/reference-points.qmd) to
-separate scattering material from attachment locations. For the compositional
-formalism, graph constraints, and reference statistics, read the Wiki's
-[Core Concepts](https://github.com/Tobionecenobi/pySEB/wiki/Core-Concepts) and
-[Theory Overview](https://github.com/Tobionecenobi/pySEB/wiki/Theory-Overview).
+That is what **no self-interaction** means here. Connecting a polymer to a
+sphere does not make the polymer avoid the sphere. Each subunit still has its
+own shape and internal model: a rigid sphere remains a rigid sphere.
+
+The subunits still scatter, and their scattered waves still interfere with
+one another. The ghost comparison describes how the subunits can move
+through each other; it does not remove their scattering.
+
+## Do not close a loop
+
+**Do not connect a structure back onto itself.** You can add subunits to a
+chain or make branches, but you cannot add a connection that closes a loop.
+
+![An open chain is allowed. Adding a connection between its ends would close a loop and is crossed out.](figures/theory-no-loops.svg){#fig-theory-no-loops fig-alt="Two copies of the same bent chain contain a triangle, sphere, square, and rectangle. The left chain has two free ends. On the right, a red dashed connection joins those ends, with a red cross showing that this loop is not allowed." width="100%"}
+
+Overlapping subunits is allowed; adding that extra connection is not. This
+rule concerns connections between subunits. A ring described inside a single
+subunit is still possible.
+
+## One structure, many conformations
+
+A structure describes its connected subunits in **all the conformations
+allowed by their models**. A picture shows just one of those arrangements.
+
+Below, every chain contains the same triangle, sphere, square, and rectangle,
+connected in the same order. Only their arrangement changes.
+
+![The same four shapes form a stretched chain, a bent chain, and an overlapping chain. Their scattering curves are averaged.](figures/theory-conformation-average.svg){#fig-theory-ensemble fig-alt="Three arrangements contain the same yellow triangle, blue sphere, purple square, and green rectangle. They are stretched out, bent, and overlapping. An arrow leads to their individual scattering curves and a dark average curve." width="100%"}
+
+The calculation averages the scattering over the arrangements and directions
+allowed by the model. Some arrangements can be more likely than others.
+The three pictures are examples, not the full set of possible conformations.
+The plotted curves illustrate an equal-weight average of these three examples.
+
+The **unfolded** view spreads the drawing out so it is easier to read. It does
+not change the scattering curve or make the subunits repel each other.
+
+For attachment locations, start with
+[What is a reference point?](tutorials/reference-points.qmd).
 
 ## From form factor to measured intensity
 
-The normalized form factor describes the shape of a scattering curve.
-The unnormalized single-particle scattering also retains the excess scattering
-lengths. For total excess scattering length $\beta\ne0$,
+Start with the normalized form factor $F(q)$. It starts at one. Multiply by
+the square of the total excess scattering length, $\beta^2$, to get the
+single-particle scattering. For $\beta\ne0$,
 
 $$
 I_{\mathrm{single}}(q)=\beta^2 F(q).
 $$
 
-For identical, dilute, independently positioned particles with number density
-$n$, the corresponding intensity per volume is
+Next account for how many particles are present and add the background.
+For identical particles in a dilute sample, with number density $n$,
 
 $$
 I(q)=n\,I_{\mathrm{single}}(q)+B(q),
 $$
 
-in consistent units, where $B(q)$ is the background. For a homogeneous region,
-$\beta=(\rho-\rho_{\mathrm{solvent}})V$, using its scattering-length density
-contrast and volume. Absolute-intensity comparison requires consistent
-scattering-length, volume, and reciprocal-length units.
+![The normalized form factor is multiplied by beta squared, then by particle number density, before adding a background.](figures/theory-form-factor-to-intensity.svg){#fig-theory-intensity-scaling fig-alt="Three sphere scattering plots show F starting at one, beta squared F with a changed scale, and n beta squared F plus a positive background. Arrows label the multiplications and addition; a dashed line marks the background." width="100%"}
 
-Particle-size distributions, interparticle correlations, and measurement
-resolution require their own treatment. A scale factor alone does not supply
-those effects. The [sasmodels integration](sasmodels.qmd) describes its explicit
-distribution, interaction, and resolution options.
+The plots show these steps for a sphere. They use example numbers, not
+experimental data. Here $R$ is the sphere radius and $B$ is a constant background.
+
+$n$ is the number of particles per unit volume. $B(q)$ is the background.
+Use consistent units for lengths, scattering lengths, and concentration.
+For a uniform region, $\beta=(\rho-\rho_{\mathrm{solvent}})V$: its
+scattering-length density difference from the solvent, multiplied by its volume.
+
+A sample with different particle sizes needs a size average. Particles that
+push or pull on other particles need a description of those interactions.
+The measurement can also blur the curve. These effects are separate from
+the simple scaling above; see the [sasmodels integration](sasmodels.qmd).
 
 For API definitions, see [Scattering Quantities](https://github.com/Tobionecenobi/pySEB/wiki/Scattering-Quantities).
 For a worked conversion using contrast, volume fraction, unit conversion, and
@@ -63,3 +98,5 @@ also shows this volume-fraction, contrast, and background convention explicitly.
 
 - [Scattering from a point cloud](tutorials/scattering-quantities.qmd) calculates form factors, reference amplitudes, and phase factors from distances.
 - [Derive a subunit from distance vectors](tutorials/scattering-from-phases.qmd) replaces the point sums with integrals for a uniform rod.
+
+For the full theory, see the [SEB formalism](https://arxiv.org/abs/1108.1140).
