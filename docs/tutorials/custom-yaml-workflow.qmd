@@ -15,7 +15,7 @@ execute:
 
 This tutorial first explains the role of a subunit and presents the bundled
 model catalogue. You will then define a flexible linker without writing C++,
-validate it, use it in a coated-particle model, save and reload the topology,
+validate it, use it in an asymmetric three-arm junction, save and reload the topology,
 evaluate its form factor, and export a deterministic 3D realization.
 
 ## What is a subunit?
@@ -72,8 +72,8 @@ Three files have different jobs:
 | File | Contains | Does not contain |
 | --- | --- | --- |
 | `FlexibleLinker.pyseb.yaml` | One subunit's parameters, scattering equations, references, validation cases, and visual geometry | Instances or links |
-| `coated-sphere.pyseb-world.yaml` | World ID, model instances, tags, reusable graphs, links, and roots | Parameter values or external model definitions |
-| `coated-sphere.usda` | One deterministic visual realization in a chosen length unit | Scattering physics |
+| `linker-junction.pyseb-world.yaml` | World ID, model instances, tags, reusable graphs, links, and roots | Parameter values or external model definitions |
+| `linker-junction.usda` | One deterministic visual realization in a chosen length unit | Scattering physics |
 
 Keeping these concerns separate lets one subunit definition serve many worlds,
 and one saved world support parameter sweeps and contrast changes.
@@ -144,27 +144,24 @@ Registration belongs to one `World`. After registration, either the canonical
 ID `tutorial/FlexibleLinker` or the short API name `FlexibleLinker` can be
 passed to `Add` and `Link`.
 
-The example attaches twelve user-defined linkers to labelled, deterministic
-points on a sphere surface.
+The example joins three user-defined linkers at their first endpoints. Unequal
+arm sizes make an asymmetric junction without a core particle. All three
+endpoints coincide, while each arm fluctuates independently.
 
 ```{python}
 world = pyseb.World("CustomLinkerTutorial")
 model_info = world.register_subunit_file(str(model_path))
 print(model_info.id, "registered as", model_info.api_name)
 
-graph = world.Add("SolidSphere", "core")
-for index in range(1, 13):
-    graph = world.Link(
-        "FlexibleLinker",
-        f"linker{index}.end1",
-        f"core.surface#linker{index}",
-    )
-world.Add(graph, "coatedSphere")
+graph = world.Add("FlexibleLinker", "arm1")
+for index in (2, 3):
+    world.Link("FlexibleLinker", f"arm{index}.end1", "arm1.end1")
+world.Add(graph, "linkerJunction")
 ```
 
-The text after `#` identifies a repeatable representative point on the
-distributed sphere surface. With the same instance path and export seed, the
-same labels produce the same attachment positions.
+These are fixed endpoint references, so the junction needs no distributed
+attachment labels. The reusable definition supplies each arm's local physics;
+the world supplies the branching topology.
 
 For a one-off instance, `world.add_subunit_file(path, name)` loads and adds the
 model in one call. `register_subunit_file` is preferable here because the same
@@ -177,29 +174,26 @@ parameter, `beta`, to every scattering subunit. Instance names become parameter
 suffixes in the usual way.
 
 ```{python}
-parameters = {
-    "beta_core": 8.0,
-    "R_core": 3.0,
-}
-for index in range(1, 13):
-    parameters[f"beta_linker{index}"] = 0.25
-    parameters[f"Rg_linker{index}"] = 0.6
+parameters = {}
+for index, rg in enumerate((0.6, 1.0, 1.6), start=1):
+    parameters[f"beta_arm{index}"] = 1.0
+    parameters[f"Rg_arm{index}"] = rg
 
 q = np.geomspace(1e-3, 2.0, 160)
 form_factor = np.asarray(
-    world.EvaluateFormFactor("coatedSphere", parameters, q.tolist())
+    world.EvaluateFormFactor("linkerJunction", parameters, q.tolist())
 )
 
-print("F(0) =", world.EvaluateFormFactor("coatedSphere", parameters, 0.0))
+print("F(0) =", world.EvaluateFormFactor("linkerJunction", parameters, 0.0))
 assert np.isclose(
-    world.EvaluateFormFactor("coatedSphere", parameters, 0.0),
+    world.EvaluateFormFactor("linkerJunction", parameters, 0.0),
     1.0,
 )
 ```
 
 ```{python}
 #| label: fig-custom-yaml-form-factor
-#| fig-cap: "Normalized form factor of a sphere carrying twelve user-defined flexible linkers."
+#| fig-cap: "Normalized form factor of three user-defined flexible linkers joined at one endpoint."
 
 plt.loglog(q, form_factor)
 plt.xlabel(r"$q$ (nm$^{-1}$)")
@@ -216,7 +210,7 @@ in the source tree.
 ```{python}
 temporary_directory = tempfile.TemporaryDirectory()
 output_directory = Path(temporary_directory.name)
-world_path = output_directory / "coated-sphere.pyseb-world.yaml"
+world_path = output_directory / "linker-junction.pyseb-world.yaml"
 
 world.save(str(world_path))
 print("\n".join(world_path.read_text().splitlines()[:18]))
@@ -233,8 +227,8 @@ loaded = pyseb.load_world(
 )
 
 assert world.to_yaml() == loaded.to_yaml()
-reloaded_value = loaded.EvaluateFormFactor("coatedSphere", parameters, 0.2)
-original_value = world.EvaluateFormFactor("coatedSphere", parameters, 0.2)
+reloaded_value = loaded.EvaluateFormFactor("linkerJunction", parameters, 0.2)
+original_value = world.EvaluateFormFactor("linkerJunction", parameters, 0.2)
 assert np.isclose(reloaded_value, original_value)
 print(f"round-trip F(0.2) = {reloaded_value:.8f}")
 ```
@@ -253,10 +247,10 @@ The world CLI validates names, references, graph connectivity, external model
 availability, and schema versions without running an analysis:
 
 ```bash
-pyseb-world validate coated-sphere.pyseb-world.yaml \
+pyseb-world validate linker-junction.pyseb-world.yaml \
   --model-file models/FlexibleLinker.pyseb.yaml
 
-pyseb-world inspect coated-sphere.pyseb-world.yaml \
+pyseb-world inspect linker-junction.pyseb-world.yaml \
   --model-file models/FlexibleLinker.pyseb.yaml
 ```
 
@@ -270,7 +264,7 @@ The YAML model's `visualization` block is consumed by the OpenUSD exporter.
 subtrees to improve clearance while preserving every junction.
 
 ```{python}
-usd_path = output_directory / "coated-sphere.usda"
+usd_path = output_directory / "linker-junction.usda"
 options = pyseb.USDExportOptions(pyseb.LengthUnit.Nanometer)
 options.seed = 42
 options.layout_mode = pyseb.LayoutMode.Readable
@@ -279,16 +273,13 @@ options.relaxation_sweeps = 2
 options.surface_samples = 40
 options.curve_samples = 48
 options.color_overrides = {
-    "core": (0.18, 0.48, 0.78),
-    **{
-        f"linker{index}": (0.92, 0.42, 0.14)
-        for index in range(1, 13)
-    },
+    "arm1": (0.18, 0.48, 0.78),
+    "arm2": (0.92, 0.42, 0.14),
+    "arm3": (0.25, 0.65, 0.35),
 }
-options.opacity_overrides = {"core": 0.62}
 
 loaded.export_usd(
-    "coatedSphere",
+    "linkerJunction",
     str(usd_path),
     parameters,
     options,
@@ -300,7 +291,7 @@ print("\n".join(usd_path.read_text().splitlines()[:8]))
 
 The text USDA file opens in Blender, `usdview`, and other OpenUSD tools; pySEB
 does not require an OpenUSD runtime to write it. The seed makes the
-representative random walks, distributed attachment positions, and layout
+representative random walks and layout
 repeatable. Change it when you want another equally valid realization.
 
 Use `pyseb.visualize` to inspect the reloaded world with the same parameters
@@ -312,7 +303,7 @@ above remains useful for opening the scene in other applications.
 #| label: fig-interactive-openusd
 #| fig-cap: "Interactive realization read back from the OpenUSD file produced above."
 
-_ = pyseb.visualize(loaded, "coatedSphere", parameters, options)
+_ = pyseb.visualize(loaded, "linkerJunction", parameters, options)
 
 ```
 
@@ -331,25 +322,26 @@ for import and export:
 
 World world("CustomLinkerTutorial");
 world.RegisterSubunitFile("models/FlexibleLinker.pyseb.yaml");
-GraphID graph = world.Add("SolidSphere", "core");
-graph = world.Link(
-    "FlexibleLinker", "linker1.end1", "core.surface#linker1");
-world.Add(graph, "coatedSphere");
+GraphID graph = world.Add("FlexibleLinker", "arm1");
+world.Link("FlexibleLinker", "arm2.end1", "arm1.end1");
+world.Link("FlexibleLinker", "arm3.end1", "arm1.end1");
+world.Add(graph, "linkerJunction");
 
-pyseb::SaveWorld(world, "coated-sphere.pyseb-world.yaml");
+pyseb::SaveWorld(world, "linker-junction.pyseb-world.yaml");
 auto loaded = pyseb::LoadWorld(
-    "coated-sphere.pyseb-world.yaml",
+    "linker-junction.pyseb-world.yaml",
     {"models/FlexibleLinker.pyseb.yaml"});
 
 ParameterList parameters{
-    {"R_core", 3.0},
-    {"Rg_linker1", 0.6},
+    {"beta_arm1", 1.0}, {"Rg_arm1", 0.6},
+    {"beta_arm2", 1.0}, {"Rg_arm2", 1.0},
+    {"beta_arm3", 1.0}, {"Rg_arm3", 1.6},
 };
 USDExportOptions options(LengthUnit::Nanometer);
 options.seed = 42;
 options.layoutMode = USDLayoutMode::Readable;
 loaded->ExportUSD(
-    "coatedSphere", "coated-sphere.usda", parameters, options);
+    "linkerJunction", "linker-junction.usda", parameters, options);
 ```
 
 `AddFile` and `LinkFile` are the C++ one-off loading conveniences corresponding

@@ -20,6 +20,8 @@ project:
     - tutorials/introduction.qmd
     - tutorials/first-model.qmd
     - tutorials/diblock-copolymer.qmd
+    - tutorials/rod-coil.qmd
+    - tutorials/comb-polymer.qmd
     - tutorials/micelle.qmd
     - tutorials/nested-structures.qmd
     - tutorials/random-walk-rods.qmd
@@ -72,6 +74,8 @@ website:
             - tutorials/diblock-copolymer.qmd
         - section: "Task tutorials"
           contents:
+            - tutorials/rod-coil.qmd
+            - tutorials/comb-polymer.qmd
             - tutorials/micelle.qmd
             - tutorials/nested-structures.qmd
             - tutorials/random-walk-rods.qmd

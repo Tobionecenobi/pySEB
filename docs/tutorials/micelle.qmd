@@ -17,6 +17,10 @@ This model attaches six Gaussian-polymer chains to distributed points on a
 solid-sphere surface. Complete the [diblock tutorial](diblock-copolymer.qmd)
 first to install Python and learn the basic `World` workflow.
 
+This is the basic distributed-surface attachment tutorial. Continue to
+[Figure 12](figure12-surface-attachments.qmd) for different attachment regions,
+or [F127 fitting](fit-f127-corona.qmd) to compare corona models against data.
+
 ## References and tags
 
 Every `surface#anchorN` label creates a distinct distributed attachment point.

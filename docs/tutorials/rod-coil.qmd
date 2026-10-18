@@ -1,0 +1,125 @@
+---
+title: "Rod–Coil Copolymer"
+subtitle: "Separate internal rigidity from overall size"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+Can a rigid block be distinguished from a flexible block when the two complete
+molecules have the same radius of gyration? Build a rod–coil diblock and compare
+it with a size-matched Gaussian chain. This isolates a change in internal
+structure from a change in overall size.
+
+Start with the environment and linking workflow in the
+[diblock tutorial](diblock-copolymer.qmd). All lengths below are in nm and q is
+in inverse nm. `ThinRod` neglects the rod cross-section, so use it only where
+that thickness is unresolved.
+
+## Connect a rigid block to a flexible block
+
+```text
+rod.end1 ---- rod.end2 = coil.end1 ~~~~ coil.end2
+```
+
+The rod is rigid internally. The endpoint link allows the coil to orient
+freely relative to it; this is not a model of a fixed-angle junction or a
+wormlike chain.
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+world = pyseb.World("RodCoilTutorial")
+graph = world.Add("ThinRod", "rod")
+world.Link("GaussianPolymer", "coil.end1", "rod.end2")
+world.Add(graph, "rodCoil")
+parameters = {
+    "beta_rod": 1.0,
+    "L_rod": 12.0,
+    "beta_coil": 1.0,
+    "Rg_coil": 3.0,
+}
+```
+
+`beta` is the total excess scattering length of each block. Equal values give
+the blocks equal scattering weight, even though their dimensions differ.
+
+## Match the overall size and scattering length
+
+Use the composite radius of gyration, which includes both internal block sizes
+and their separation. With positive scattering weights this gives a useful
+size-matched reference.
+
+```{python}
+rg2 = world.EvaluateRadiusOfGyration2("rodCoil", parameters)
+world.Add("GaussianPolymer", "reference")
+reference_parameters = {
+    "beta_reference": parameters["beta_rod"] + parameters["beta_coil"],
+    "Rg_reference": float(np.sqrt(rg2)),
+}
+print(f"Composite Rg = {np.sqrt(rg2):.4f} nm")
+```
+
+## Compare the scattering
+
+```{python}
+q = np.geomspace(1e-3, 3.0, 200)
+rod_coil = np.asarray(world.EvaluateFormFactor("rodCoil", parameters, q.tolist()))
+reference = np.asarray(world.EvaluateFormFactor(
+    "reference", reference_parameters, q.tolist()
+))
+assert np.all(np.isfinite(rod_coil))
+assert np.isclose(world.EvaluateFormFactor("rodCoil", parameters, 0.0), 1.0)
+
+plt.loglog(q, rod_coil, label="rod–coil")
+plt.loglog(q, reference, "--", label="size-matched Gaussian chain")
+plt.xlabel(r"$q$ (nm$^{-1}$)")
+plt.ylabel(r"$F(q)$")
+plt.legend()
+plt.show()
+```
+
+Both curves have the same intercept and leading Guinier slope. At larger q,
+the rod–coil model resolves a rigid block and a flexible block rather than one
+Gaussian chain. Equal overall size alone does not determine the form factor.
+
+```{python}
+_ = pyseb.visualize(world, "rodCoil", parameters, height=440)
+```
+
+The viewer shows one seeded realization; the curve averages over coil
+conformations and the relative orientations allowed by the link.
+
+## Try changing the contrast
+
+Keep the geometry fixed and reduce `beta_coil`. The normalized curve approaches
+the isolated rod form factor as the coil becomes contrast matched. This changes
+the scattering-weighted radius of gyration, so the reference above would need
+to be matched again for a new size-controlled comparison.
+
+```{python}
+plt.loglog(q, rod_coil, label="both blocks visible")
+for beta in (0.2, 0.0):
+    changed = dict(parameters, beta_coil=beta)
+    curve = world.EvaluateFormFactor("rodCoil", changed, q.tolist())
+    plt.loglog(q, curve, label=f"coil beta = {beta:g}")
+plt.xlabel(r"$q$ (nm$^{-1}$)")
+plt.ylabel(r"$F(q)$")
+plt.legend()
+plt.show()
+```
+
+## Next steps
+
+- [Comb polymer](comb-polymer.qmd): change connectivity while holding composition fixed.
+- [Random-walk rod chain](random-walk-rods.qmd): compare many freely jointed rigid segments with a Gaussian chain.
+- [Fit a linked titin doublet](fit-linked-titin.qmd): apply rigid-domain and flexible-linker models to protein data.

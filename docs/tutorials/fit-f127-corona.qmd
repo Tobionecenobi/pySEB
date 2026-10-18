@@ -25,6 +25,11 @@ plot, and table. Only the experimental data are read from an existing file.
 The longer numerical and viewer helpers are expandable; the pySEB construction
 steps stay visible.
 
+The [micelle tutorial](micelle.qmd) introduces the surface-linking syntax.
+This application uses that construction to ask which corona description fits
+the experimental data; the optional comparisons keep that modelling question
+separate from the basic API lesson.
+
 ## 1. Load the data
 
 We use only the higher-q block of the merged F127 measurement, keeping its

@@ -1,0 +1,135 @@
+---
+title: "Comb Polymer"
+subtitle: "Compare branching at fixed composition"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+How much does connectivity matter when composition is unchanged? Compare a
+linear chain with a comb made from exactly the same Gaussian blocks. In the
+comb, three side chains branch from backbone junctions; there is no spherical
+core or distributed surface attachment.
+
+This tutorial assumes the [diblock workflow](diblock-copolymer.qmd). Lengths
+are in nm and q is in inverse nm.
+
+## Build two topologies from the same blocks
+
+The backbone contains four blocks and the side chains contain three. Shared
+`backbone` and `side` tags give each family its own physical parameters.
+Branching at a common endpoint is a fixed junction: it is different from
+attaching a chain to a randomly sampled position along a polymer contour.
+
+```text
+comb:    b1 -- b2 -- b3 -- b4
+              |     |     |
+              s1    s2    s3
+
+linear:  b1 -- b2 -- b3 -- b4 -- s1 -- s2 -- s3
+```
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+
+def build_model(topology):
+    world = pyseb.World(f"{topology}Tutorial")
+    graph = world.Add("GaussianPolymer", "b1", "backbone")
+    for index in range(2, 5):
+        world.Link("GaussianPolymer", f"b{index}.end1",
+                   f"b{index - 1}.end2", "backbone")
+    for index in range(1, 4):
+        if topology == "comb":
+            target = f"b{index}.end2"
+        else:
+            target = "b4.end2" if index == 1 else f"s{index - 1}.end2"
+        world.Link("GaussianPolymer", f"s{index}.end1", target, "side")
+    world.Add(graph, "molecule")
+    return world
+
+
+comb = build_model("comb")
+linear = build_model("linear")
+parameters = {
+    "beta_backbone": 1.0,
+    "Rg_backbone": 2.0,
+    "beta_side": 0.8,
+    "Rg_side": 3.0,
+}
+```
+
+Every `Link` adds a new subunit. The result is a tree with no closed cycles.
+The two worlds use identical parameter dictionaries and total scattering
+lengths; only the links differ.
+
+## Compare size and form factor
+
+```{python}
+q = np.geomspace(1e-3, 2.0, 180)
+for label, world in (("comb", comb), ("linear", linear)):
+    rg2 = world.EvaluateRadiusOfGyration2("molecule", parameters)
+    curve = np.asarray(world.EvaluateFormFactor("molecule", parameters, q.tolist()))
+    assert np.all(np.isfinite(curve))
+    assert np.isclose(world.EvaluateFormFactor("molecule", parameters, 0.0), 1.0)
+    print(f"{label}: Rg = {np.sqrt(rg2):.4f} nm")
+    plt.loglog(q, curve, label=label)
+plt.xlabel(r"$q$ (nm$^{-1}$)")
+plt.ylabel(r"$F(q)$")
+plt.legend()
+plt.show()
+```
+
+Both normalized curves approach one at small q. Branching shortens paths
+between blocks, making this comb more compact than the linear arrangement.
+The different radii of gyration therefore already distinguish the topologies
+in the Guinier region. Unlike the [rod–coil comparison](rod-coil.qmd), we hold
+composition and individual block dimensions fixed rather than matching total
+size.
+
+```{python}
+_ = pyseb.visualize(comb, "molecule", parameters, height=440)
+_ = pyseb.visualize(linear, "molecule", parameters, height=440)
+```
+
+The drawings are representative random walks. Crossings do not create links,
+and these ideal Gaussian blocks do not include excluded-volume interactions.
+
+## Hide the side chains by contrast matching
+
+Setting `beta_side` to zero removes side-chain scattering without removing
+the branches from the topology. Because both models have the same backbone,
+the resulting form factors coincide. This is a useful check that the original
+difference involves the side chains and their correlations with other blocks.
+
+```{python}
+matched = dict(parameters, beta_side=0.0)
+comb_matched = np.asarray(comb.EvaluateFormFactor("molecule", matched, q.tolist()))
+linear_matched = np.asarray(linear.EvaluateFormFactor("molecule", matched, q.tolist()))
+assert np.allclose(comb_matched, linear_matched)
+plt.loglog(q, comb_matched, label="comb, side chains matched")
+plt.loglog(q, linear_matched, "--", label="linear, side blocks matched")
+plt.xlabel(r"$q$ (nm$^{-1}$)")
+plt.ylabel(r"$F(q)$")
+plt.legend()
+plt.show()
+```
+
+Try changing `Rg_side` with both families visible. Then vary the side-chain
+scattering weight separately. Changing a dimension and changing contrast
+answer different questions, even though either can change the measured curve.
+
+## Next steps
+
+- [Reusable nested structures](nested-structures.qmd): package a larger branch as a reusable graph.
+- [Figure 11 dendrimers](figure11-dendrimers.qmd): build successive branching generations.
+- [Subunits and YAML models](custom-yaml-workflow.qmd): define a flexible linker and assemble a three-arm junction.

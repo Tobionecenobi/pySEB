@@ -24,6 +24,10 @@ The publication attaches 50 polymers and 50 rods in each case. The executable
 tutorial uses six pairs; increase `pair_count` to 50 for the published grafting
 count.
 
+Start with the [micelle tutorial](micelle.qmd) for the basic surface-linking
+workflow. Here the question is how choosing a surface, cap, or other reference
+distribution changes attachment correlations and scattering.
+
 ## Build a surface-decorated structure
 
 The core, polymer, and rod instances retain different tags. A transparent

@@ -169,6 +169,8 @@ run_tutorial("diblock")
 
 ## Next steps
 
+- [Compare a rod–coil with a size-matched flexible chain](rod-coil.qmd)
+- [Compare a comb polymer with a linear chain](comb-polymer.qmd)
 - [Attach polymers to a sphere](micelle.qmd)
 - [Naming and linking reference](https://github.com/Tobionecenobi/pySEB/wiki/Naming-and-Linking)
 - [Gaussian polymer subunit](https://github.com/Tobionecenobi/pySEB/wiki/Subunit-Gaussian-Polymer)

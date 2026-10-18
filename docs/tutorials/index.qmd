@@ -27,6 +27,8 @@ adding subunits, linking reference points, and supplying model parameters.
 
 | Tutorial | What you will learn |
 | --- | --- |
+| [Rod–coil copolymer](rod-coil.qmd) | Compare rigid and flexible blocks at matched overall size, then change contrast |
+| [Comb polymer](comb-polymer.qmd) | Compare branched and linear connectivity at fixed composition |
 | [Sphere–polymer micelle](micelle.qmd) | Attach tagged chains to distributed sphere-surface references |
 | [Random-walk rod chain](random-walk-rods.qmd) | Link rigid segments, calculate the chain size, and compare with a Gaussian polymer |
 | [Reusable nested structures](nested-structures.qmd) | Build reusable graphs and address nested reference paths |
@@ -51,7 +53,7 @@ alongside analytic models.
 
 | Tutorial | What you will learn |
 | --- | --- |
-| [Subunits and YAML models](custom-yaml-workflow.qmd) | Understand and explore bundled subunits, then define, validate, and visualize your own |
+| [Subunits and YAML models](custom-yaml-workflow.qmd) | Explore bundled subunits, then define a flexible linker and export a three-arm junction |
 | [PDB cloud with an attached polymer](pdb-polymer.qmd) | Combine coordinate-based numerical scattering with an analytic subunit |
 | [Evaluate mixed models](mixed-model-evaluation.qmd) | Evaluate structures containing numerical, integrated, and analytic subunits with one API |
 
@@ -65,7 +67,7 @@ example, first work through PDB cloud with an attached polymer.
 | --- | --- |
 | [Fit real contrast-variation SANS data](fit-real-sans-data.qmd) | Fit a linked sphere-and-shell structure simultaneously to three experimental datasets |
 | [Build and fit a polymer corona](fit-f127-corona.qmd) | Connect subunits, view OpenUSD structures, and compare fitted corona models |
-| [Fit a linked titin doublet](fit-linked-titin.qmd) | Stress-test analytical domain/linker choices, then compare C-alpha and heavy-atom clouds using real SAXS data |
+| [Fit a linked titin doublet](fit-linked-titin.qmd) | Connect two protein domains with a flexible linker; test domain, linker, and hydration choices against SAXS data |
 
 ## 6. Explore published examples
 
