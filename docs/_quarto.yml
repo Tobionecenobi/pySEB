@@ -1,6 +1,8 @@
 project:
   type: website
   output-dir: _site
+  pre-render: python3 _prepare_cache.py
+  post-render: python3 _prepare_cache.py --record-outputs
   resources:
     - tutorials/models/*.pyseb.yaml
     - tutorials/data/*.csv
@@ -179,6 +181,7 @@ format:
     link-external-newwindow: true
 
 execute:
+  cache: true
   echo: true
   warning: false
   error: false

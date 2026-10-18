@@ -6,3 +6,6 @@
 /tutorials/*.html
 
 **/*.quarto_ipynb
+
+# Local execution caches (CI persists these separately).
+**/.jupyter_cache/

@@ -2,12 +2,20 @@ name: Documentation
 
 on:
   workflow_dispatch:
+    inputs:
+      refresh_cache:
+        description: Recompute every documentation example
+        type: boolean
+        default: false
   push:
     branches:
       - main
     paths:
       - ".github/workflows/documentation.yml"
       - "CMakeLists.txt"
+      - "pyproject.toml"
+      - "models/**"
+      - "third_party/**"
       - "docs/**"
       - "pyseb/**"
       - "seb/**"
@@ -16,6 +24,9 @@ on:
     paths:
       - ".github/workflows/documentation.yml"
       - "CMakeLists.txt"
+      - "pyproject.toml"
+      - "models/**"
+      - "third_party/**"
       - "docs/**"
       - "pyseb/**"
       - "seb/**"
@@ -54,7 +65,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pybind11 jupyter numpy pandas matplotlib plotly pyyaml scipy "sasmodels==1.1.0" usd-core "sympy>=1.12"
+          python -m pip install pybind11 jupyter jupyter-cache numpy pandas matplotlib plotly pyyaml scipy "sasmodels==1.1.0" usd-core "sympy>=1.12"
 
       - name: Configure pySEB and tutorials
         run: |
@@ -67,11 +78,32 @@ jobs:
       - name: Build pySEB and C++ tutorials
         run: cmake --build build-docs --target _pyseb doc-tutorials
 
+      - name: Identify documentation calculation inputs
+        id: docs-inputs
+        run: echo "key=$(python docs/_prepare_cache.py --key)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore notebook results and generated downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            docs/.jupyter_cache
+            docs/tutorials/.jupyter_cache
+            docs/tutorials/generated
+          key: ${{ runner.os }}-docs-v1-${{ steps.docs-inputs.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ${{ runner.os }}-docs-v1-${{ steps.docs-inputs.outputs.key }}-
+
       - name: Render Quarto website
         env:
+          DOCS_REFRESH: ${{ inputs.refresh_cache }}
           PYTHONPATH: ${{ github.workspace }}/build-docs/pyseb:${{ github.workspace }}/build-docs:${{ github.workspace }}
           PYSEB_TUTORIAL_BIN_DIR: ${{ github.workspace }}/build-docs/docs-tutorials
-        run: quarto render docs
+        run: |
+          if [ "$DOCS_REFRESH" = "true" ]; then
+            quarto render docs --cache-refresh
+          else
+            quarto render docs
+          fi
 
       - name: Configure GitHub Pages
         if: github.event_name != 'pull_request'
