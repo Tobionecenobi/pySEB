@@ -1,0 +1,40 @@
+---
+title: "Using pySEB"
+subtitle: "Installation, visualization, portable models, and troubleshooting"
+---
+
+Use these pages when you need to set up pySEB, inspect a structure, save a
+model, or resolve an error. For a worked modelling task, follow the
+[Tutorials](tutorials/index.qmd).
+
+## Installation
+
+[Your first scattering model](tutorials/first-model.qmd#create-a-python-environment)
+starts with Python environment setup on Linux, macOS, and Windows, including
+the optional visualization dependencies and an import check.
+
+For native C++ builds, optional symbolic backends, and platform-specific
+dependencies, use the [platform build guides](https://github.com/Tobionecenobi/pySEB/wiki/Build-Guides).
+
+## Visualization
+
+[Visualization and OpenUSD](visualization.qmd) explains the interactive viewer,
+model/unfolded layouts, reference markers, colors, opacity, and scene export.
+The tutorial's first model introduces the controls beside its first 3D view.
+
+## Save and reuse models
+
+[Portable subunit definitions](file-defined-subunits.qmd) describes YAML model
+files and validation. [Save, reload, and visualize a model](tutorials/save-load-model.qmd)
+walks through preserving and restoring a complete structure.
+
+## Troubleshooting
+
+The [Troubleshooting and FAQ](https://github.com/Tobionecenobi/pySEB/wiki/Troubleshooting-and-FAQ)
+covers import problems, unavailable backends, missing parameters, rejected
+reference paths, and native build errors. For common first-run errors, see
+[Common problems](tutorials/first-model.qmd#common-problems).
+
+When reporting a problem, include the smallest model that reproduces it,
+your Python and pySEB versions, the command you ran, and the complete error.
+[Search or report an issue](https://github.com/Tobionecenobi/pySEB/issues).

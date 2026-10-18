@@ -1,0 +1,65 @@
+---
+title: "Theory"
+subtitle: "Model assumptions and the connection to measured intensity"
+---
+
+These concepts help you decide what a model represents and how to compare its
+prediction with an experiment. The [Tutorials](tutorials/index.qmd) apply them
+to concrete models; the [Reference Wiki](https://github.com/Tobionecenobi/pySEB/wiki)
+provides detailed definitions and API documentation.
+
+## Model assumptions
+
+A model specifies both scattering material and the statistics of its geometry.
+A reference identifies an attachment location; a distributed reference
+specifies a statistical selection over locations. The subunits and their
+connections determine the distances that enter the scattering calculation.
+
+A 3D view shows one realization. Its displayed polymer conformation and
+sampled attachment positions are examples of the ensemble used by the model.
+An overlap-reduced display layout changes the illustration rather than adding
+excluded-volume interactions to the scattering calculation.
+
+Start with [What is a reference point?](tutorials/reference-points.qmd) to
+separate scattering material from attachment locations. For the compositional
+formalism, graph constraints, and reference statistics, read the Wiki's
+[Core Concepts](https://github.com/Tobionecenobi/pySEB/wiki/Core-Concepts) and
+[Theory Overview](https://github.com/Tobionecenobi/pySEB/wiki/Theory-Overview).
+
+## From form factor to measured intensity
+
+The normalized form factor describes the shape of a scattering curve.
+The unnormalized single-particle scattering also retains the excess scattering
+lengths. For total excess scattering length $\beta\ne0$,
+
+$$
+I_{\mathrm{single}}(q)=\beta^2 F(q).
+$$
+
+For identical, dilute, independently positioned particles with number density
+$n$, the corresponding intensity per volume is
+
+$$
+I(q)=n\,I_{\mathrm{single}}(q)+B(q),
+$$
+
+in consistent units, where $B(q)$ is the background. For a homogeneous region,
+$\beta=(\rho-\rho_{\mathrm{solvent}})V$, using its scattering-length density
+contrast and volume. Absolute-intensity comparison requires consistent
+scattering-length, volume, and reciprocal-length units.
+
+Particle-size distributions, interparticle correlations, and measurement
+resolution require their own treatment. A scale factor alone does not supply
+those effects. The [sasmodels integration](sasmodels.qmd) describes its explicit
+distribution, interaction, and resolution options.
+
+For API definitions, see [Scattering Quantities](https://github.com/Tobionecenobi/pySEB/wiki/Scattering-Quantities).
+For a worked conversion using contrast, volume fraction, unit conversion, and
+background, follow [Fit real contrast-variation SANS data](tutorials/fit-real-sans-data.qmd#convert-contrast-into-excess-scattering-length).
+[SasView’s sphere-model definition](https://www.sasview.org/docs/user/models/sphere.html)
+also shows this volume-fraction, contrast, and background convention explicitly.
+
+## Work through the calculations
+
+- [Scattering from a point cloud](tutorials/scattering-quantities.qmd) calculates form factors, reference amplitudes, and phase factors from distances.
+- [Derive a subunit from distance vectors](tutorials/scattering-from-phases.qmd) replaces the point sums with integrals for a uniform rod.

@@ -10,9 +10,9 @@ your experience. Within each stage, tutorials appear in a suggested order.
 The focused sequences name required reading in **Before you start** notes. Read
 those pages first if the listed concepts are new to you. Continuation pages
 include setup for a fresh kernel; you do not need to keep an earlier notebook
-running. Viewer installation is covered in
-[Your first scattering model](first-model.qmd#create-a-python-environment);
-the [visualization guide](../visualization.qmd) explains the controls.
+running. For installation, visualization controls, and troubleshooting, see
+[Using pySEB](../using-pyseb.qmd). For model assumptions and intensity
+conventions, see [Theory](../theory.qmd).
 
 ## 1. Start here
 

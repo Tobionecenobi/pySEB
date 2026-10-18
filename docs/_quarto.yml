@@ -16,6 +16,8 @@ project:
   render:
     - index.qmd
     - about.qmd
+    - using-pyseb.qmd
+    - theory.qmd
     - tutorials/index.qmd
     - tutorials/introduction.qmd
     - tutorials/first-model.qmd
@@ -68,10 +70,14 @@ website:
         text: Home
       - href: tutorials/index.qmd
         text: Tutorials
+      - href: using-pyseb.qmd
+        text: Using pySEB
+      - href: theory.qmd
+        text: Theory
+      - href: https://github.com/Tobionecenobi/pySEB/wiki
+        text: Reference
       - href: about.qmd
         text: About
-      - href: https://github.com/Tobionecenobi/pySEB/wiki
-        text: Reference Wiki
   sidebar:
     - title: "Tutorials"
       style: docked
@@ -133,10 +139,24 @@ website:
           contents:
             - tutorials/pyseb_tutorial.qmd
             - tutorials/cpp_tutorials.qmd
-        - section: "Portable models and visuals"
-          contents:
-            - file-defined-subunits.qmd
-            - visualization.qmd
+    - title: "Using pySEB"
+      style: docked
+      search: true
+      contents:
+        - using-pyseb.qmd
+        - visualization.qmd
+        - file-defined-subunits.qmd
+        - href: https://github.com/Tobionecenobi/pySEB/wiki/Troubleshooting-and-FAQ
+          text: Troubleshooting
+    - title: "Theory"
+      style: docked
+      search: true
+      contents:
+        - theory.qmd
+        - href: https://github.com/Tobionecenobi/pySEB/wiki/Core-Concepts
+          text: Core concepts
+        - href: https://github.com/Tobionecenobi/pySEB/wiki/Theory-Overview
+          text: Formalism
   page-footer:
     left: "pySEB documentation"
     right:
