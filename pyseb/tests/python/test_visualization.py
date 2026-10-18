@@ -153,6 +153,7 @@ else:
 
     @unittest.skipUnless(importlib.util.find_spec('plotly') and importlib.util.find_spec('pxr'),
                          'optional visualization dependencies not installed')
+    @unittest.skipUnless(importlib.util.find_spec('IPython'), 'IPython not installed')
     def test_notebook_html_and_user_post_script(self):
         from pyseb.visualization import usd_to_plotly
         from pxr import Usd, UsdGeom
