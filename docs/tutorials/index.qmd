@@ -40,12 +40,14 @@ adding subunits, linking reference points, and supplying model parameters.
 
 ## 3. Understand the calculations
 
-**Before starting:** Be comfortable evaluating a composite model and changing
-its parameters. Basic familiarity with symbolic algebra is useful for expression
-export.
+**Before starting:** Complete Your first scattering model. Begin with the
+distance-vector and phase-sum explanation below if the three quantities are
+new to you. Composite models and basic symbolic algebra are useful for the
+later expression-export page.
 
 | Tutorial | What you will learn |
 | --- | --- |
+| [From phase sums to scattering quantities](scattering-from-phases.qmd) | Draw pair and reference vectors, move the reference point, and calculate F, A, and Ψ from phase sums |
 | [Scattering quantities](scattering-quantities.qmd) | Compare normalized and unnormalized form factors, amplitudes, phase factors, and size measures |
 | [Symbolic expressions and export](symbolic-expressions.qmd) | Select a backend, inspect expressions, convert to SymPy, and export Python, LaTeX, and C forms |
 
@@ -59,6 +61,7 @@ alongside analytic models.
 | --- | --- |
 | [Explore subunits](custom-yaml-workflow.qmd) | Choose bundled models and understand their references |
 | [Define and validate a custom subunit](define-custom-subunit.qmd) | Register a YAML linker and calculate a three-arm junction |
+| [Add a reference to an existing subunit](add-subunit-reference.qmd) | Derive two symmetric rod references, extend their YAML definition, and attach polymers there |
 | [Save, reload, and visualize a model](save-load-model.qmd) | Preserve topology, verify a round trip, and export a realization |
 | [PDB cloud with an attached polymer](pdb-polymer.qmd) | Combine coordinate-based numerical scattering with an analytic subunit |
 | [Evaluate mixed models](mixed-model-evaluation.qmd) | Evaluate structures containing numerical, integrated, and analytic subunits with one API |

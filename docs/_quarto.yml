@@ -39,12 +39,14 @@ project:
     - tutorials/mixed-model-evaluation.qmd
     - tutorials/symbolic-expressions.qmd
     - tutorials/scattering-quantities.qmd
+    - tutorials/scattering-from-phases.qmd
     - tutorials/figure10-linear-chains.qmd
     - tutorials/figure11-dendrimers.qmd
     - tutorials/figure12-surface-attachments.qmd
     - tutorials/figure13-star-chain.qmd
     - tutorials/custom-yaml-workflow.qmd
     - tutorials/define-custom-subunit.qmd
+    - tutorials/add-subunit-reference.qmd
     - tutorials/save-load-model.qmd
     - tutorials/pyseb_tutorial.qmd
     - tutorials/cpp_tutorials.qmd
@@ -89,10 +91,16 @@ website:
             - tutorials/nested-structures.qmd
             - tutorials/nested-hierarchy.qmd
             - tutorials/parameter-sweeps.qmd
+        - section: "Understand scattering"
+          contents:
+            - tutorials/scattering-from-phases.qmd
+            - tutorials/scattering-quantities.qmd
+            - tutorials/symbolic-expressions.qmd
         - section: "Custom subunits and models"
           contents:
             - tutorials/custom-yaml-workflow.qmd
             - tutorials/define-custom-subunit.qmd
+            - tutorials/add-subunit-reference.qmd
             - tutorials/save-load-model.qmd
             - tutorials/pdb-polymer.qmd
         - section: "Fit SANS data"
@@ -112,8 +120,6 @@ website:
         - section: "Advanced tutorials"
           contents:
             - tutorials/mixed-model-evaluation.qmd
-            - tutorials/symbolic-expressions.qmd
-            - tutorials/scattering-quantities.qmd
             - sasmodels.qmd
         - section: "Published structures"
           contents:

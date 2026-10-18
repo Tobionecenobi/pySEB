@@ -195,5 +195,6 @@ values is central to parameter sweeps and fitting workflows.
 ## Next steps
 
 - [Connect two subunits in a diblock](diblock-copolymer.qmd)
+- [Understand form factors, amplitudes, and phase factors](scattering-from-phases.qmd)
 - [Explore the bundled subunits and YAML models](custom-yaml-workflow.qmd)
 - [Solid Sphere reference](https://github.com/Tobionecenobi/pySEB/wiki/Subunit-Solid-Sphere)
