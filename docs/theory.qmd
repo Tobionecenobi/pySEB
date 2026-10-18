@@ -56,6 +56,54 @@ not change the scattering curve or make the subunits repel each other.
 For attachment locations, start with
 [What is a reference point?](tutorials/reference-points.qmd).
 
+## Point clouds: scattering from coordinates
+
+A point cloud describes a subunit using positions and scattering weights.
+The points might represent atoms, small beads, or samples of a continuous
+shape. They are scatterers, not attachment reference points. A reference
+point can sit anywhere and does not add scattering by itself.
+
+pySEB calculates scattering from the distances between the cloud's scatterers.
+For an amplitude it uses distances to a chosen reference point; for a phase
+factor it uses the distance between two reference points. A cloud keeps its
+stored geometry when used as a subunit. To describe several conformations,
+calculate their scattering separately and average the results.
+
+`DebyeSphereCloud` gives each scatterer a position, radius, and fixed excess
+scattering length. A zero radius makes it a point scatterer. `AtomicSAXSCloud`
+uses atomic X-ray scattering factors and can include solvent contributions.
+Coordinates alone do not specify the scattering: the weights matter too.
+
+Start with [Scattering from a point cloud](tutorials/scattering-quantities.qmd)
+for a small example you can calculate yourself.
+
+## Hydration: water around the molecule
+
+For a molecule in solution, the scattering model must also account for the
+solvent. The molecule displaces bulk water. Water near its surface may have
+a different average electron density from the bulk water; **hydration
+contrast** describes that difference.
+
+The atomic SAXS model combines three contributions before calculating their
+interference: atomic scattering, subtraction of displaced bulk solvent, and
+optional hydration contrast. Hydration is part of the particle's scattering,
+so it cannot be represented by simply adding a constant background.
+
+In `AtomicSAXSCloud`, hydration is off unless requested. It can be represented
+by contributions at exposed atom positions or by points in a spatial shell.
+Shell points sample a scattering-density model; they are not individual water
+molecules. The shell geometry and weighting convention are modeling choices.
+
+**Connecting two hydrated subunits does not rebuild their shells.** Shells
+can overlap, and a surface buried by another subunit keeps its assigned
+hydration contribution. This follows the same ghost-subunit assumption
+described above.
+
+See [Point Clouds and Hydration](https://github.com/Tobionecenobi/pySEB/wiki/Point-Clouds-and-Hydration)
+for the model choices and limitations. The advanced
+[atomic scattering and hydration tutorial](tutorials/titin-hydration.qmd)
+compares solvent contributions in a worked fit.
+
 ## From form factor to measured intensity
 
 Start with the normalized form factor $F(q)$. It starts at one. Multiply by
