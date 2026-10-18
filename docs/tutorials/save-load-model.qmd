@@ -1,0 +1,213 @@
+---
+title: "Save, Reload, and Visualize a Model"
+subtitle: "Separate the subunit definition, topology, and visual realization"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+::: {.callout-note title="Before you start"}
+Complete [Define and validate a custom subunit](define-custom-subunit.qmd)
+first. Keep `models/FlexibleLinker.pyseb.yaml` beside the notebook, as on that
+page. For interactive views install `pyseb[visualization]`; a saved world also
+needs its external YAML definitions when it is loaded.
+:::
+
+The goal is to preserve a constructed model, verify the round trip, and
+export one representative 3D realization.
+
+Three files have different jobs:
+
+| File | Contains | Does not contain |
+| --- | --- | --- |
+| `FlexibleLinker.pyseb.yaml` | One subunit's parameters, scattering equations, references, validation cases, and visual geometry | Instances or links |
+| `linker-junction.pyseb-world.yaml` | World ID, model instances, tags, reusable graphs, links, and roots | Parameter values or external model definitions |
+| `linker-junction.usda` | One deterministic visual realization in a chosen length unit | Scattering physics |
+
+Keeping these concerns separate lets one subunit definition serve many worlds,
+and one saved world support parameter sweeps and contrast changes.
+
+## Rebuild the junction
+
+This setup repeats the preceding page's construction so no notebook state is
+required. Run it once, then continue with the save/load steps.
+
+```{python}
+#| code-fold: true
+#| code-summary: "Imports, custom model registration, and junction parameters"
+from pathlib import Path
+import tempfile
+import numpy as np
+import pyseb
+
+model_path = Path("models/FlexibleLinker.pyseb.yaml").resolve()
+world = pyseb.World("CustomLinkerTutorial")
+world.register_subunit_file(str(model_path))
+graph = world.Add("FlexibleLinker", "arm1")
+for index in (2, 3):
+    world.Link("FlexibleLinker", f"arm{index}.end1", "arm1.end1")
+world.Add(graph, "linkerJunction")
+parameters = {}
+for index, rg in enumerate((0.6, 1.0, 1.6), start=1):
+    parameters[f"beta_arm{index}"] = 1.0
+    parameters[f"Rg_arm{index}"] = rg
+```
+
+## 1. Export and import the world
+
+Use the `.pyseb-world.yaml` format to preserve topology. The tutorial writes
+temporary files so rendering the documentation does not leave generated files
+in the source tree.
+
+```{python}
+temporary_directory = tempfile.TemporaryDirectory()
+output_directory = Path(temporary_directory.name)
+world_path = output_directory / "linker-junction.pyseb-world.yaml"
+
+world.save(str(world_path))
+print("\n".join(world_path.read_text().splitlines()[:18]))
+```
+
+The canonical document records `tutorial/FlexibleLinker` as the model ID. It
+does not copy the contents of `FlexibleLinker.pyseb.yaml` into the world file.
+Register that external definition while loading:
+
+```{python}
+loaded = pyseb.load_world(
+    str(world_path),
+    model_files=[str(model_path)],
+)
+
+assert world.to_yaml() == loaded.to_yaml()
+reloaded_value = loaded.EvaluateFormFactor("linkerJunction", parameters, 0.2)
+original_value = world.EvaluateFormFactor("linkerJunction", parameters, 0.2)
+assert np.isclose(reloaded_value, original_value)
+print(f"round-trip F(0.2) = {reloaded_value:.8f}")
+```
+
+For in-memory workflows, use `world.to_yaml()` and
+`pyseb.world_from_yaml(yaml_text, model_files=[...])`. The file and string APIs
+produce the same canonical YAML.
+
+::: {.callout-important}
+World files deliberately omit numerical parameter values. Store fitted or
+swept parameter sets separately and pass the selected dictionary to
+`Evaluate*` or `export_usd` after loading.
+:::
+
+The world CLI validates names, references, graph connectivity, external model
+availability, and schema versions without running an analysis:
+
+```bash
+pyseb-world validate linker-junction.pyseb-world.yaml \
+  --model-file models/FlexibleLinker.pyseb.yaml
+
+pyseb-world inspect linker-junction.pyseb-world.yaml \
+  --model-file models/FlexibleLinker.pyseb.yaml
+```
+
+`inspect` prints the canonical representation, which is convenient for review
+and stable round-trip tests.
+
+## 2. Export a deterministic visual
+
+The YAML model's `visualization` block is consumed by the OpenUSD exporter.
+`Readable` layout samples several seeded orientations and relaxes linked
+subtrees to improve clearance while preserving every junction.
+
+```{python}
+usd_path = output_directory / "linker-junction.usda"
+options = pyseb.USDExportOptions(pyseb.LengthUnit.Nanometer)
+options.seed = 42
+options.layout_mode = pyseb.LayoutMode.Readable
+options.orientation_trials = 32
+options.relaxation_sweeps = 2
+options.surface_samples = 40
+options.curve_samples = 48
+options.color_overrides = {
+    "arm1": (0.18, 0.48, 0.78),
+    "arm2": (0.92, 0.42, 0.14),
+    "arm3": (0.25, 0.65, 0.35),
+}
+
+loaded.export_usd(
+    "linkerJunction",
+    str(usd_path),
+    parameters,
+    options,
+)
+
+print(usd_path.name, f"({usd_path.stat().st_size / 1024:.1f} KiB)")
+print("\n".join(usd_path.read_text().splitlines()[:8]))
+```
+
+The text USDA file opens in Blender, `usdview`, and other OpenUSD tools; pySEB
+does not require an OpenUSD runtime to write it. The seed makes the
+representative random walks and layout
+repeatable. Change it when you want another equally valid realization.
+
+Use `pyseb.visualize` to inspect the reloaded world with the same parameters
+and export options. Viewing dependencies are optional: install
+`pyseb[visualization]` to enable the interactive display. The explicit export
+above remains useful for opening the scene in other applications.
+
+```{python}
+#| label: fig-interactive-openusd
+#| fig-cap: "Interactive realization read back from the OpenUSD file produced above."
+
+_ = pyseb.visualize(loaded, "linkerJunction", parameters, options)
+
+```
+
+Drag to orbit, scroll to zoom, and hover over geometry to see its resolved USD
+path. Python and OpenUSD run during the documentation build; the published page
+loads Plotly's JavaScript renderer to handle interaction in the browser.
+
+## C++ equivalents
+
+The same files are portable to the C++ API. Include the world parser explicitly
+for import and export:
+
+```cpp
+#include "SEB.hpp"
+#include "WorldIO/WorldParser.hpp"
+
+World world("CustomLinkerTutorial");
+world.RegisterSubunitFile("models/FlexibleLinker.pyseb.yaml");
+GraphID graph = world.Add("FlexibleLinker", "arm1");
+world.Link("FlexibleLinker", "arm2.end1", "arm1.end1");
+world.Link("FlexibleLinker", "arm3.end1", "arm1.end1");
+world.Add(graph, "linkerJunction");
+
+pyseb::SaveWorld(world, "linker-junction.pyseb-world.yaml");
+auto loaded = pyseb::LoadWorld(
+    "linker-junction.pyseb-world.yaml",
+    {"models/FlexibleLinker.pyseb.yaml"});
+
+ParameterList parameters{
+    {"beta_arm1", 1.0}, {"Rg_arm1", 0.6},
+    {"beta_arm2", 1.0}, {"Rg_arm2", 1.0},
+    {"beta_arm3", 1.0}, {"Rg_arm3", 1.6},
+};
+USDExportOptions options(LengthUnit::Nanometer);
+options.seed = 42;
+options.layoutMode = USDLayoutMode::Readable;
+loaded->ExportUSD(
+    "linkerJunction", "linker-junction.usda", parameters, options);
+```
+
+`AddFile` and `LinkFile` are the C++ one-off loading conveniences corresponding
+to Python's `add_subunit_file` and `link_subunit_file`.
+
+
+## Continue
+
+Use the [file-defined subunit reference](../file-defined-subunits.qmd) for
+the full schema and [visualization guide](../visualization.qmd) for export controls.

@@ -8,9 +8,9 @@ execute:
 ---
 
 Subunit YAML can describe representative 3D geometry, and a `World` can export
-one deterministic realization as OpenUSD. For a complete runnable path from a
-user-authored model through world save/reload to `.usda`, start with
-[Subunits and YAML Models](tutorials/custom-yaml-workflow.qmd).
+one deterministic realization as OpenUSD. For a runnable path from a user-authored
+model to `.usda`, first [define a custom subunit](tutorials/define-custom-subunit.qmd),
+then [save, reload, and visualize the model](tutorials/save-load-model.qmd).
 
 ## One-line interactive 3D display
 

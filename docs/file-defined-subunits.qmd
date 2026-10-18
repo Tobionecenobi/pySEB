@@ -231,8 +231,10 @@ used for evaluation. It writes a representative OpenUSD realization; visual
 sampling and layout never feed back into the orientationally averaged
 scattering calculation.
 
-Follow the tested [Subunits and YAML Models tutorial](tutorials/custom-yaml-workflow.qmd)
-to define, validate, register, save, reload, evaluate, and visualize one model.
+Start with [Explore subunits](tutorials/custom-yaml-workflow.qmd), then
+[define and validate a custom subunit](tutorials/define-custom-subunit.qmd) and
+[save, reload, and visualize it](tutorials/save-load-model.qmd). Each page lists
+its prerequisites and runs one part of the workflow.
 The [visualization guide](visualization.qmd) documents surface patches,
 distributed references, deterministic labels, named variants, readable
 layout, style overrides, and Debye-cloud envelopes.

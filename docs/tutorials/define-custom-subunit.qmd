@@ -1,0 +1,148 @@
+---
+title: "Define and Validate a Custom Subunit"
+subtitle: "Register a flexible linker and evaluate a three-arm junction"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+::: {.callout-note title="Before you start"}
+Read [Explore subunits](custom-yaml-workflow.qmd) and the
+[diblock tutorial](diblock-copolymer.qmd) first. You should understand
+parameters, endpoint references, and `Add`/`Link`. Basic YAML and familiarity
+with Gaussian-chain scattering equations will help you read the definition.
+:::
+
+We will load a Gaussian-chain definition from YAML, validate its equations,
+and use three instances to make an asymmetric junction. The finished page
+produces a form-factor curve; saving and 3D export come next. Run from
+`docs/tutorials` in a repository checkout, or download the YAML below into a
+`models` folder beside your notebook.
+
+## 1. Write a subunit model
+
+The complete tutorial model is below. It uses the Gaussian-chain scattering
+equations, exposes two end references, and asks the visual exporter to draw a
+random walk whose radius of gyration is `Rg`.
+
+[Download `FlexibleLinker.pyseb.yaml`](models/FlexibleLinker.pyseb.yaml){download="FlexibleLinker.pyseb.yaml"}
+
+```yaml
+{{< include models/FlexibleLinker.pyseb.yaml >}}
+```
+
+The scattering expressions and visual geometry share the structural parameter
+`Rg`, so a parameter change affects both the calculation and its representative
+shape. The random walk is only a visualization of an orientationally averaged
+model; it is not used to calculate the form factor.
+
+::: {.callout-note}
+The YAML expression language is declarative and restricted. It does not run
+Python, C++, shell commands, imports, or arbitrary functions.
+:::
+
+## 2. Validate before building
+
+Validation first checks the schema and every expression, then evaluates the
+optional numerical reference cases in the file.
+
+```{python}
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+model_path = Path("models/FlexibleLinker.pyseb.yaml").resolve()
+report = pyseb.validate_subunit_file(str(model_path))
+
+print("model:", report.model_id)
+print("reference cases:", report.case_count)
+print("valid:", report.ok)
+assert report.ok, [failure.message for failure in report.failures]
+```
+
+The equivalent command is useful in continuous integration:
+
+```bash
+pyseb-subunit validate models/FlexibleLinker.pyseb.yaml
+```
+
+It exits with status 0 when the schema and reference cases pass.
+
+## 3. Register and use the model
+
+Registration belongs to one `World`. After registration, either the canonical
+ID `tutorial/FlexibleLinker` or the short API name `FlexibleLinker` can be
+passed to `Add` and `Link`.
+
+The example joins three user-defined linkers at their first endpoints. Unequal
+arm sizes make an asymmetric junction without a core particle. All three
+endpoints coincide, while each arm fluctuates independently.
+
+```{python}
+world = pyseb.World("CustomLinkerTutorial")
+model_info = world.register_subunit_file(str(model_path))
+print(model_info.id, "registered as", model_info.api_name)
+
+graph = world.Add("FlexibleLinker", "arm1")
+for index in (2, 3):
+    world.Link("FlexibleLinker", f"arm{index}.end1", "arm1.end1")
+world.Add(graph, "linkerJunction")
+```
+
+These are fixed endpoint references, so the junction needs no distributed
+attachment labels. The reusable definition supplies each arm's local physics;
+the world supplies the branching topology.
+
+For a one-off instance, `world.add_subunit_file(path, name)` loads and adds the
+model in one call. `register_subunit_file` is preferable here because the same
+model is instantiated repeatedly.
+
+## 4. Supply parameters and evaluate
+
+The custom YAML declares `Rg`; pySEB adds one generated excess-scattering-length
+parameter, `beta`, to every scattering subunit. Instance names become parameter
+suffixes in the usual way.
+
+```{python}
+parameters = {}
+for index, rg in enumerate((0.6, 1.0, 1.6), start=1):
+    parameters[f"beta_arm{index}"] = 1.0
+    parameters[f"Rg_arm{index}"] = rg
+
+q = np.geomspace(1e-3, 2.0, 160)
+form_factor = np.asarray(
+    world.EvaluateFormFactor("linkerJunction", parameters, q.tolist())
+)
+
+print("F(0) =", world.EvaluateFormFactor("linkerJunction", parameters, 0.0))
+assert np.isclose(
+    world.EvaluateFormFactor("linkerJunction", parameters, 0.0),
+    1.0,
+)
+```
+
+```{python}
+#| label: fig-custom-yaml-form-factor
+#| fig-cap: "Normalized form factor of three user-defined flexible linkers joined at one endpoint."
+
+plt.loglog(q, form_factor)
+plt.xlabel(r"$q$ (nm$^{-1}$)")
+plt.ylabel(r"$F(q)$")
+plt.show()
+```
+
+Each arm has its own `Rg` and `beta`. Try changing one arm’s size and
+re-evaluating the curve. The subunit definition stays the same.
+
+## Continue
+
+Continue to [Save, reload, and visualize a model](save-load-model.qmd).
