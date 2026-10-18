@@ -126,7 +126,7 @@ This is one representative Gaussian chain, while the symbolic expression
 describes the conformation average.
 
 ```{python}
-_ = pyseb.visualize(world, "polymer", parameters, height=440)
+_ = pyseb.visualize(world, "polymer", parameters, height=440, layouts=["random", "readable"])
 ```
 
 ## C++

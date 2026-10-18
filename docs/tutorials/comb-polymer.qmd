@@ -97,8 +97,8 @@ composition and individual block dimensions fixed rather than matching total
 size.
 
 ```{python}
-_ = pyseb.visualize(comb, "molecule", parameters, height=440)
-_ = pyseb.visualize(linear, "molecule", parameters, height=440)
+_ = pyseb.visualize(comb, "molecule", parameters, height=440, layouts=["random", "readable"])
+_ = pyseb.visualize(linear, "molecule", parameters, height=440, layouts=["random", "readable"])
 ```
 
 The drawings are representative random walks. Crossings do not create links,

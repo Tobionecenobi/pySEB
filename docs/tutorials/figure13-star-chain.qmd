@@ -151,7 +151,7 @@ visual_options.color_overrides = {
 #| label: fig-interactive-figure13-diblock
 #| fig-cap: "Diblock: one Gaussian A block linked to one Gaussian B block."
 
-_ = pyseb.visualize(world, "diblock", parameters, visual_options, height=430)
+_ = pyseb.visualize(world, "diblock", parameters, visual_options, height=430, layouts=["random", "readable"])
 ```
 :::
 
@@ -161,7 +161,7 @@ _ = pyseb.visualize(world, "diblock", parameters, visual_options, height=430)
 #| label: fig-interactive-figure13-star
 #| fig-cap: "Four-arm star: four diblocks sharing their A-block ends."
 
-_ = pyseb.visualize(world, "star", parameters, visual_options, height=430)
+_ = pyseb.visualize(world, "star", parameters, visual_options, height=430, layouts=["random", "readable"])
 ```
 :::
 
@@ -171,13 +171,14 @@ _ = pyseb.visualize(world, "star", parameters, visual_options, height=430)
 #| label: fig-interactive-figure13-chain
 #| fig-cap: "Star chain: five linked stars containing forty Gaussian polymers."
 
-_ = pyseb.visualize(world, "chain", parameters, visual_options, height=430)
+_ = pyseb.visualize(world, "chain", parameters, visual_options, height=430, layouts=["random", "readable"])
 ```
 :::
 :::
 
 Drag to orbit, scroll to zoom, and hover over a curve to inspect its USD path.
-Blue curves are A blocks and orange curves are B blocks.
+Default colors alternate along connections. Turn off **Alternate connected
+colors** to use the exported palette: blue A blocks and orange B blocks.
 
 ### 5. Evaluate and plot the form factor
 

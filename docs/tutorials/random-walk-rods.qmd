@@ -113,8 +113,8 @@ their curves. Matching the ensemble radius of gyration does not make an
 individual realization have the same shape.
 
 ```{python}
-_ = pyseb.visualize(world, "rodChain", rod_parameters, height=440)
-_ = pyseb.visualize(world, "gaussian", gaussian_parameters, height=440)
+_ = pyseb.visualize(world, "rodChain", rod_parameters, height=440, layouts=["random", "readable"])
+_ = pyseb.visualize(world, "gaussian", gaussian_parameters, height=440, layouts=["random", "readable"])
 ```
 
 ### 6. Evaluate and plot

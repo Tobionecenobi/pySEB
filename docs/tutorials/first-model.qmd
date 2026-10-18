@@ -108,7 +108,7 @@ See the sphere at the radius supplied above. The same parameter dictionary
 controls both this 3D view and the scattering calculation.
 
 ```{python}
-_ = pyseb.visualize(world, "sphereModel", parameters, height=440)
+_ = pyseb.visualize(world, "sphereModel", parameters, height=440, layouts=["random", "readable"])
 ```
 
 ## 6. Choose q values

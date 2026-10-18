@@ -30,7 +30,8 @@
   "generation_seconds": 769.7903416480003,
   "note": "Generation-cell hash identifies the working-tree calculation; git commit alone does not.",
   "viewer_migration": {
-    "generation_sha256": "385747569fc206253dc06ec6633730abe60bd7bc1e90ed9493b3173c2dceddcc",
-    "note": "Only the OpenUSD-to-Plotly adapter and display calls changed to the shared viewer. Export options, scientific calculations, inputs and saved outputs are unchanged. The original generation hash and timestamp above are retained."
+    "generation_sha256": "c557b12a78ea82ec76493cae62b11b233db233d984c6fbb744a579fef174a256",
+    "previous_generation_sha256": "385747569fc206253dc06ec6633730abe60bd7bc1e90ed9493b3173c2dceddcc",
+    "note": "Viewer-only migrations use the shared viewer and explicitly request random/readable layouts. AST comparison confirms that the latest source change adds only visualization layout kwargs. Scientific calculations, inputs, saved curves, parameters, scene files, and the original generation timestamp/hash remain unchanged."
   }
 }

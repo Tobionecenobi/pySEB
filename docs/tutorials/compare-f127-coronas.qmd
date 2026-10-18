@@ -103,7 +103,7 @@ The shapes are effective descriptions, not literal molecular conformations.
 
 Choose a model below to see its sphere and attached arms together. Each scene
 uses that model's fitted dimensions and the nearest integer arm count for its
-mean core size. The orange sphere is the core; the transparent blue sphere
+mean core size. The inner sphere is the core; the larger transparent sphere
 shows where the arms attach.
 
 The views and downloadable OpenUSD scenes are generated here. The dropdown
@@ -143,9 +143,9 @@ for key in VIEW_KEYS:
                                    else pyseb.LayoutMode.Readable)
     path = SCENE_DIR / f"{key[0]}-{key[1]}-fitted-micelle.usda"
     fitted_world.export_usd("micelle", str(path), fitted_parameters(fit), gallery_options)
-    figure = structure_view(compact_scene(structure_figure(
-        fitted_world, "micelle", fitted_parameters(fit), gallery_options
-    ).data), f"{fit['label']} — {count} attached arms")
+    figure = compact_structure_view(
+        fitted_world, fitted_parameters(fit), gallery_options,
+        f"{fit['label']} — {count} attached arms")
     view_path = path.with_suffix(".html")
     figure.write_html(str(view_path), include_plotlyjs="directory", full_html=True,
                       config={"displaylogo": False, "scrollZoom": True})
@@ -185,9 +185,9 @@ hidden and visible. The fitted curve averages over particle sizes and
 conformations; these views show one mean-size realization.
 
 The two views below show the **same fitted structure**. On the left the anchor
-is hidden; on the right it is faintly visible in blue. The orange sphere is
+is hidden; on the right it is faintly visible. The inner sphere is
 the scattering core. The arms attach to the larger anchor sphere, so their
-ends can sit outside the orange surface. Zero contrast removes the anchor
+ends can sit outside the core surface. Zero contrast removes the anchor
 from the scattering calculation; its visibility in OpenUSD is a separate
 display choice. Changing its opacity changes neither the fit nor the geometry.
 
@@ -206,35 +206,35 @@ options.orientation_trials = 8
 options.relaxation_sweeps = 1
 options.color_overrides = {"core": (.95, .55, .15), "anchor": (.25, .65, .95)}
 best_paths = []
+best_views = {}
 for name, opacity in (("hidden", 0.), ("visible", .25)):
     path = SCENE_DIR / f"best-fitted-micelle-anchor-{name}.usda"
     options.opacity_overrides = {"anchor": opacity}
     # The same seed and parameters give both exports identical geometry.
     best_world.export_usd("micelle", str(path), fitted_parameters(best), options)
     best_paths.append(path)
+    best_views[name] = compact_structure_view(
+        best_world, fitted_parameters(best), options,
+        "Anchor hidden" if name == "hidden" else "Anchor visible")
 ```
 
+::: {.grid}
+::: {.g-col-12 .g-col-lg-6}
 ```{python}
-#| code-fold: true
-#| code-summary: "Show the two newly generated OpenUSD scenes side by side"
-from plotly.subplots import make_subplots
-
-comparison = make_subplots(rows=1, cols=2,
-    specs=[[{"type": "scene"}, {"type": "scene"}]],
-    subplot_titles=["Anchor hidden", "Anchor faintly visible"],
-    horizontal_spacing=.02)
-for column, path in enumerate(best_paths, 1):
-    for trace in usd_to_plotly(path).data:
-        comparison.add_trace(trace, row=1, col=column)
-view = dict(aspectmode="data", xaxis={"visible": False},
-            yaxis={"visible": False}, zaxis={"visible": False},
-            camera={"eye": {"x": 1.5, "y": 1.5, "z": 1.1}})
-comparison.update_layout(scene=view, scene2=view, height=430,
-    margin={"l": 0, "r": 0, "t": 45, "b": 0}, showlegend=False)
-comparison.show(config={"displaylogo": False, "scrollZoom": True})
+best_views["hidden"].show(config={"displaylogo": False, "scrollZoom": True})
 scene_link(best_paths[0], "Download OpenUSD: anchor hidden")
-scene_link(best_paths[1], "Download OpenUSD: anchor faintly visible")
 ```
+:::
+::: {.g-col-12 .g-col-lg-6}
+```{python}
+best_views["visible"].show(config={"displaylogo": False, "scrollZoom": True})
+scene_link(best_paths[1], "Download OpenUSD: anchor visible")
+```
+:::
+:::
+
+Both panels include model/unfolded controls. Select matching layouts when
+comparing opacity; changing layout does not change the fitted parameters.
 
 These scenes show representative conformations, with readable orientations
 for display. They are not unique structures recovered from the data.

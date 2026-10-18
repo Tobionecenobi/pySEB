@@ -122,98 +122,68 @@ def bundled_subunit_markdown(catalogue):
 
 
 def bundled_subunit_figure(catalogue, *, columns=3):
-    """Render every bundled YAML subunit through pySEB's OpenUSD exporter."""
+    """Render the catalogue with both layouts and the standard viewer controls."""
     import math
-    import tempfile
-
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
     import pyseb
+    from pyseb._viewer import figure_class
 
     rows = math.ceil(len(catalogue) / columns)
     specs = [[{"type": "scene"} for _ in range(columns)] for _ in range(rows)]
     titles = [model["api_name"] for model in catalogue]
     titles.extend([""] * (rows * columns - len(titles)))
-    figure = make_subplots(
-        rows=rows,
-        cols=columns,
-        specs=specs,
-        subplot_titles=titles,
-        horizontal_spacing=0.015,
-        vertical_spacing=0.06,
-    )
-
-    palette = (
-        (0.12, 0.38, 0.72),
-        (0.10, 0.62, 0.66),
-        (0.32, 0.68, 0.38),
-        (0.91, 0.63, 0.13),
-        (0.82, 0.25, 0.18),
-        (0.56, 0.36, 0.73),
-    )
-
-    with tempfile.TemporaryDirectory() as directory:
-        directory = Path(directory)
-        for index, model in enumerate(catalogue):
-            row, column = divmod(index, columns)
-            color = palette[index % len(palette)]
-            world = pyseb.World(f"catalogue-{model['api_name']}")
-            graph = world.Add(model["id"], "sample", "preview")
-            world.Add(graph, "previewStructure")
-
-            parameters = {
-                f"{name}_preview": value
-                for name, value in model["parameters"].items()
-            }
-            options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
-            options.seed = 1000 + index
-            options.curve_samples = 64
-            options.surface_samples = 22
-            options.color_overrides = {"sample": color}
-            options.opacity_overrides = {"sample": 0.82}
-            path = directory / f"{model['api_name']}.usda"
-            world.export_usd(
-                "previewStructure", str(path), parameters, options)
-
-            traces = _usd_traces(path)
+    galleries = {layout: make_subplots(
+        rows=rows, cols=columns, specs=specs, subplot_titles=titles,
+        horizontal_spacing=.015, vertical_spacing=.06)
+        for layout in ("random", "readable")}
+    palette = ((.12, .38, .72), (.10, .62, .66), (.32, .68, .38),
+               (.91, .63, .13), (.82, .25, .18), (.56, .36, .73))
+    for index, model in enumerate(catalogue):
+        row, column = divmod(index, columns)
+        color = palette[index % len(palette)]
+        world = pyseb.World(f"catalogue-{model['api_name']}")
+        graph = world.Add(model["id"], "sample", "preview")
+        world.Add(graph, "previewStructure")
+        parameters = {f"{name}_preview": value
+                      for name, value in model["parameters"].items()}
+        options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+        options.seed = 1000 + index
+        options.curve_samples = 64
+        options.surface_samples = 22
+        options.color_overrides = {"sample": color}
+        options.opacity_overrides = {"sample": .82}
+        preview = pyseb.structure_figure(
+            world, "previewStructure", parameters, options,
+            layouts=["random", "readable"])
+        for variant in preview._pyseb_variants:
+            traces = [trace for trace in go.Figure(variant['data']).data
+                      if trace.meta['pyseb']['role'] == 'geometry']
             if not traces:
-                # Point is deliberately invisible and has no scattering
-                # geometry. Represent its fixed connector reference explicitly.
-                rgb = "rgb({},{},{})".format(
-                    *(round(255 * channel) for channel in color)
-                )
-                traces = [go.Scatter3d(
-                    x=[0], y=[0], z=[0],
-                    mode="markers",
+                # Point is an invisible connector; show its location in the catalogue.
+                rgb = "rgb({},{},{})".format(*(round(255*c) for c in color))
+                traces = [go.Scatter3d(x=[0], y=[0], z=[0], mode="markers",
                     marker={"color": rgb, "size": 8, "symbol": "diamond"},
-                    hovertemplate=(
-                        f"{model['api_name']}: fixed connector reference"
-                        "<extra></extra>"
-                    ),
-                    showlegend=False,
-                )]
-
+                    hovertemplate=f"{model['api_name']}: fixed connector reference<extra></extra>",
+                    showlegend=False)]
             for trace in traces:
-                trace.name = model["api_name"]
-                figure.add_trace(trace, row=row + 1, col=column + 1)
-
-    scene_style = {
-        "aspectmode": "data",
-        "xaxis": {"visible": False},
-        "yaxis": {"visible": False},
-        "zaxis": {"visible": False},
-        "camera": {"eye": {"x": 1.45, "y": 1.45, "z": 1.0}},
-        "bgcolor": "rgba(0,0,0,0)",
-    }
-    for index in range(1, rows * columns + 1):
-        name = "scene" if index == 1 else f"scene{index}"
-        figure.layout[name].update(scene_style)
-
-    figure.update_layout(
-        height=270 * rows,
-        margin={"l": 0, "r": 0, "t": 35, "b": 0},
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        showlegend=False,
-    )
+                trace.name = model['api_name']
+                trace.meta = {'pyseb': {'instance': model['api_name'],
+                                        'role': 'geometry', 'neighbors': []}}
+                galleries[variant['layout']].add_trace(trace, row=row+1, col=column+1)
+    figure = figure_class()(galleries['random'])
+    scene_style = {"aspectmode": "data", "xaxis": {"visible": False},
+                   "yaxis": {"visible": False}, "zaxis": {"visible": False},
+                   "camera": {"eye": {"x": 1.45, "y": 1.45, "z": 1.0}},
+                   "bgcolor": "rgba(0,0,0,0)"}
+    for index in range(1, rows*columns+1):
+        figure.layout['scene' if index == 1 else f'scene{index}'].update(scene_style)
+    figure.update_layout(height=270*rows, margin={"l": 0, "r": 0, "t": 70, "b": 0},
+                         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                         showlegend=False)
+    figure._pyseb_variants = [
+        {'layout': layout, 'seed': 'per-subunit catalogue seeds',
+         'label': 'Model' if layout == 'random' else 'Unfolded',
+         'data': gallery.to_plotly_json()['data']}
+        for layout, gallery in galleries.items()]
     return figure

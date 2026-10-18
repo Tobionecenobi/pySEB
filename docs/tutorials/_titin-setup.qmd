@@ -52,14 +52,20 @@ def fit_table(key):
 
 ```{python}
 #| code-fold: true
-#| code-summary: "Saved-scene viewer"
-from pyseb.visualization import usd_to_plotly
+#| code-summary: "Rebuild both display layouts from the saved fit, without optimization"
+import pyseb
+from _titin_view_models import FittedTitinViews
+
+fitted_views = FittedTitinViews(Path.cwd(), results)
 ```
 
 ```{python}
 def show_saved_structure(name):
     path = result_directory / "scenes" / f"{name}.usda"
-    figure = usd_to_plotly(path, height=440)
+    world, parameters, options = fitted_views.model(name)
+    figure = pyseb.structure_figure(
+        world, "titin", parameters, options, height=440,
+        layouts=["random", "readable"])
     figure.update_layout(title_text=name.replace("-", " "))
     figure.show(config={"displaylogo": False, "scrollZoom": True})
     display(Markdown(f"[Download this OpenUSD scene]({path.as_posix()})"))

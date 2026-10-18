@@ -187,7 +187,7 @@ With the structure named and its dimensions supplied, inspect it before
 calculating the scattering curve. Drag to rotate and scroll to zoom.
 
 ```{python}
-_ = pyseb.visualize(analytic_world, "diblock", diblock_parameters, height=440)
+_ = pyseb.visualize(analytic_world, "diblock", diblock_parameters, height=440, layouts=["random", "readable"])
 ```
 
 ## A numerical Debye sphere cloud
@@ -262,7 +262,7 @@ The cloud stores its geometry, so its 3D view needs no parameter values.
 The marker sizes are for display.
 
 ```{python}
-_ = pyseb.visualize(cloud_world, "cloud", {}, height=440)
+_ = pyseb.visualize(cloud_world, "cloud", {}, height=440, layouts=["random", "readable"])
 ```
 
 ## Defining a numerical subunit with callbacks
@@ -389,7 +389,7 @@ print(f"Rg(protein model) = {math.sqrt(protein_rg2):.4f} Å")
 Inspect the imported coordinate cloud before adding the polymer.
 
 ```{python}
-_ = pyseb.visualize(protein_world, "protein", {}, height=440)
+_ = pyseb.visualize(protein_world, "protein", {}, height=440, layouts=["random", "readable"])
 ```
 
 ## Attach an analytic polymer to the numerical protein
@@ -453,7 +453,7 @@ Now inspect the chain attached to the PDB-derived terminal reference.
 The chain realization is illustrative; scattering averages over conformations.
 
 ```{python}
-_ = pyseb.visualize(protein_world, "proteinpolymer", protein_polymer_parameters, height=440)
+_ = pyseb.visualize(protein_world, "proteinpolymer", protein_polymer_parameters, height=440, layouts=["random", "readable"])
 ```
 
 ## Optional: Crambin from the Protein Data Bank
@@ -498,7 +498,7 @@ with tempfile.TemporaryDirectory() as temporary_directory:
     )
     print("Scatterers:", crambin_cloud.scattererCount())
     print(f"Rg = {crambin_rg:.4f} Å")
-    _ = pyseb.visualize(crambin_world, "crambin", {}, height=440)
+    _ = pyseb.visualize(crambin_world, "crambin", {}, height=440, layouts=["random", "readable"])
 
 ```
 

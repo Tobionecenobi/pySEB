@@ -162,7 +162,7 @@ above remains useful for opening the scene in other applications.
 #| label: fig-interactive-openusd
 #| fig-cap: "Interactive realization read back from the OpenUSD file produced above."
 
-_ = pyseb.visualize(loaded, "linkerJunction", parameters, options)
+_ = pyseb.visualize(loaded, "linkerJunction", parameters, options, layouts=["random", "readable"])
 
 ```
 

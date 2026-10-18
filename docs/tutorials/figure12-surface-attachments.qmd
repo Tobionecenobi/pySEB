@@ -176,7 +176,7 @@ visual_options.opacity_overrides = {"core": 0.35}
 #| label: fig-interactive-figure12-shell
 #| fig-cap: "A representative shell realization with polymers on the outer surface and rods on the inner surface."
 
-_ = pyseb.visualize(shell_world, "structure", shell_parameters, visual_options, height=560)
+_ = pyseb.visualize(shell_world, "structure", shell_parameters, visual_options, height=560, layouts=["random", "readable"])
 ```
 
 ## C++

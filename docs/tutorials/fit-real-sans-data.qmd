@@ -362,7 +362,7 @@ fitted_geometry = {
 }
 view_options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
 view_options.opacity_overrides = {"shell": 0.25}
-_ = pyseb.visualize(world, "droplet", fitted_geometry, view_options, height=460)
+_ = pyseb.visualize(world, "droplet", fitted_geometry, view_options, height=460, layouts=["random", "readable"])
 ```
 
 ## 6. Plot data, fit, and normalized residuals

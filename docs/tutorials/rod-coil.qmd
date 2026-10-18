@@ -93,7 +93,7 @@ the rod–coil model resolves a rigid block and a flexible block rather than one
 Gaussian chain. Equal overall size alone does not determine the form factor.
 
 ```{python}
-_ = pyseb.visualize(world, "rodCoil", parameters, height=440)
+_ = pyseb.visualize(world, "rodCoil", parameters, height=440, layouts=["random", "readable"])
 ```
 
 The viewer shows one seeded realization; the curve averages over coil

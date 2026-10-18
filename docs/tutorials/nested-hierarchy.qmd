@@ -104,7 +104,7 @@ Now inspect the assembled hierarchy. Hover over a curve to see its nested
 instance path; repeated instances retain the internal subunit names.
 
 ```{python}
-_ = pyseb.visualize(world, "starChain", parameters, height=440)
+_ = pyseb.visualize(world, "starChain", parameters, height=440, layouts=["random", "readable"])
 ```
 
 ```{python}

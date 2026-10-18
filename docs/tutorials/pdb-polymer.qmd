@@ -102,7 +102,7 @@ from the PDB fragment; the Gaussian chain is one representative realization.
 Cloud markers use display sizes rather than physical atomic radii.
 
 ```{python}
-_ = pyseb.visualize(world, "conjugate", parameters, height=440)
+_ = pyseb.visualize(world, "conjugate", parameters, height=440, layouts=["random", "readable"])
 ```
 
 ```{python}

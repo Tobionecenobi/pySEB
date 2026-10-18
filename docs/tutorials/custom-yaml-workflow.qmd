@@ -72,6 +72,9 @@ all structural parameters. The
 [Subunit Catalogue](https://github.com/Tobionecenobi/pySEB/wiki/Subunit-Catalogue)
 remains the reference for equations, parameters, and reference points.
 
+The model/unfolded button switches the entire gallery. Isolated rigid subunits
+look the same in both layouts: they have no internal joint to unfold.
+
 ## Choose a model
 
 Choose a bundled model and identify its parameters and link references in the

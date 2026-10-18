@@ -305,7 +305,7 @@ on opposite sides of `middle`. The polymers are illustrative realizations; scatt
 conformations and orientations.
 
 ```{python}
-_ = pyseb.visualize(world, "branchedRod", assembly_parameters, height=440)
+_ = pyseb.visualize(world, "branchedRod", assembly_parameters, height=440, layouts=["random", "readable"])
 ```
 
 ## Try another location

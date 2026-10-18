@@ -126,7 +126,7 @@ the cloud coordinates and YAML definitions, independently of how each subunit
 evaluates its scattering.
 
 ```{python}
-_ = pyseb.visualize(world, "mixed", parameters, height=440)
+_ = pyseb.visualize(world, "mixed", parameters, height=440, layouts=["random", "readable"])
 ```
 
 ## 3. Evaluate a scalar or a q grid

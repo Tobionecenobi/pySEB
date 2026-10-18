@@ -14,32 +14,5 @@ def fitted_parameters(fit):
     return parameters
 
 
-def compact_scene(traces):
-    """Batch equal-material geometry for responsive full-micelle views."""
-    batches = {}
-    for trace in traces:
-        color = trace.color if trace.type == "mesh3d" else trace.line.color
-        key = (trace.type, color, trace.opacity)
-        if key not in batches:
-            batches[key] = dict(x=[], y=[], z=[], i=[], j=[], k=[])
-        batch = batches[key]
-        offset = len(batch["x"])
-        for axis in ("x", "y", "z"):
-            batch[axis].extend(getattr(trace, axis))
-            if trace.type != "mesh3d":
-                batch[axis].append(None)
-        if trace.type == "mesh3d":
-            for axis in ("i", "j", "k"):
-                batch[axis].extend(int(index)+offset for index in getattr(trace, axis))
-    result = []
-    for (kind, color, opacity), batch in batches.items():
-        if kind == "mesh3d":
-            result.append(go.Mesh3d(**batch, color=color, opacity=opacity,
-                                   showlegend=False, hoverinfo="skip"))
-        else:
-            result.append(go.Scatter3d(x=batch["x"], y=batch["y"], z=batch["z"],
-                mode="lines", line={"color": color, "width": 5}, opacity=opacity,
-                showlegend=False, hoverinfo="skip"))
-    return result
+from _compact_view import compact_structure_view
 ```
-

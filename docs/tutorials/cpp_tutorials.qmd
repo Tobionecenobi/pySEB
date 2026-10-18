@@ -209,7 +209,7 @@ inspection_world.Link(diblock, "right:A.end1", "left:A.end1")
 inspection_world.Add(pair, "pair")
 inspection_parameters = {"Rg_A": 5.0, "Rg_B": 8.0,
                          "beta_A": 1.0, "beta_B": 0.8}
-_ = pyseb.visualize(inspection_world, "pair", inspection_parameters, height=440)
+_ = pyseb.visualize(inspection_world, "pair", inspection_parameters, height=440, layouts=["random", "readable"])
 ```
 
 See [Inspecting Structures](https://github.com/Tobionecenobi/pySEB/wiki/Inspecting-Structures)

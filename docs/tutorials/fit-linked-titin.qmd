@@ -33,7 +33,9 @@ SAXS measurement:
 The measurement is [SASBDB entry SASDKC2](https://www.sasbdb.org/data/SASDKC2/).
 The [data notice](data/TITIN-DATA-NOTICE.txt) records experimental and coordinate
 sources. The disordered linker and tails remain Gaussian polymers throughout.
-Fits and scenes use the saved, provenance-checked bundle. Expensive cells are
+Fits use the saved, provenance-checked bundle. Views rebuild the displayed
+world from the saved fit values and prepare both model and unfolded layouts.
+Expensive fitting cells are
 shown with execution disabled for documentation builds; the generator below
 runs the full calculation sequence when you want to reproduce it.
 
@@ -372,8 +374,8 @@ compare_curves({
 
 ### Look at the analytical structure with OpenUSD
 
-The blue and orange objects are the two domains; green is the central linker,
-and gray marks the terminal chains. Drag to rotate and scroll to zoom.
+The two spheroids are the domains; the chain between them is the central
+linker, and the outer chains are the terminal tails. Drag to rotate and scroll to zoom.
 These are seeded illustrative realizations of an averaged scattering model,
 not structures recovered uniquely from SAXS. The readable layout adjusts
 orientations for display; it does not add excluded volume to the fit.
@@ -412,7 +414,7 @@ def show_structure(world, parameters, name):
     }
     path = visual_directory / f"{name}.usda"
     world.export_usd("titin", str(path), parameters, options)
-    _ = pyseb.visualize(world, "titin", parameters, options, height=440)
+    _ = pyseb.visualize(world, "titin", parameters, options, height=440, layouts=["random", "readable"])
 ```
 
 ```{python}
@@ -473,15 +475,15 @@ preview_options.color_overrides = {
     "linker": (0.2, 0.7, 0.3), "ntail": (0.6, 0.6, 0.6),
     "ctail": (0.6, 0.6, 0.6),
 }
-_ = pyseb.visualize(preview_world, "titin", preview_parameters, preview_options, height=440)
+_ = pyseb.visualize(preview_world, "titin", preview_parameters, preview_options, height=440, layouts=["random", "readable"])
 display(Markdown("[Download the constrained-fit OpenUSD scene](data/titin-results/scenes/analytical-constrained.usda)"))
 ```
 
 
 ## Reproduce the saved calculations
 
-A normal website build loads the bundled results and rebuilds one lightweight
-analytical preview; it does not rerun the fits or regenerate the saved scenes.
+A normal website build loads the bundled results and rebuilds each display
+world in both layouts. It does not rerun the fits or overwrite archived scenes.
 To regenerate all stages, run from the repository root:
 
 ```bash
@@ -504,8 +506,10 @@ checks the updated display code without changing the saved scientific results.
 - [Provenance manifest](data/titin-results/manifest.json)
 
 Scene generation still appears at each stage, including the complete
-`world.export_usd(...)` example. The interactive views below open those saved
-scenes through OpenUSD. They are seeded illustrative realizations, not unique
+`world.export_usd(...)` example. The interactive views rebuild the same display topologies
+from the saved parameters, then export both layouts through OpenUSD. The
+archived scenes remain available as downloads. These are seeded illustrative
+realizations, not unique
 structures inferred from the scattering data.
 
 ## Continue

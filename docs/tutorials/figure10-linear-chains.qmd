@@ -100,7 +100,7 @@ are averaged in the scattering calculation.
 ```{python}
 for label, (preview_world, preview_parameters) in chains.items():
     print(label)
-    _ = pyseb.visualize(preview_world, "chain", preview_parameters, height=400)
+    _ = pyseb.visualize(preview_world, "chain", preview_parameters, height=400, layouts=["random", "readable"])
 ```
 
 ## Evaluate the form factors

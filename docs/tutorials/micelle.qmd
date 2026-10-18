@@ -81,7 +81,7 @@ micelle. The view shows one representative polymer conformation and set of
 surface attachment points.
 
 ```{python}
-_ = pyseb.visualize(world, "micelle", parameters, height=440)
+_ = pyseb.visualize(world, "micelle", parameters, height=440, layouts=["random", "readable"])
 ```
 
 ### 4. Evaluate the form factor

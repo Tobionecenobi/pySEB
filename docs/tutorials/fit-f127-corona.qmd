@@ -120,7 +120,7 @@ world.export_usd("arm", str(arm_path), parameters, options)
 
 ```{python}
 #| echo: false
-_ = pyseb.visualize(world, "arm", parameters, options, height=420)
+_ = pyseb.visualize(world, "arm", parameters, options, height=420, layouts=["random", "readable"])
 scene_link(arm_path, "Download the OpenUSD arm")
 ```
 

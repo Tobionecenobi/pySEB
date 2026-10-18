@@ -80,7 +80,7 @@ instance path; repeated instances retain the internal subunit names.
 
 ```{python}
 world.Add(star, "star")
-_ = pyseb.visualize(world, "star", parameters, height=440)
+_ = pyseb.visualize(world, "star", parameters, height=440, layouts=["random", "readable"])
 ```
 
 ```{python}

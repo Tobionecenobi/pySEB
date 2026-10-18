@@ -112,7 +112,7 @@ The curves show one seeded polymer realization; the form factor averages
 over conformations.
 
 ```{python}
-_ = pyseb.visualize(world, "diblock", parameters, height=440)
+_ = pyseb.visualize(world, "diblock", parameters, height=440, layouts=["random", "readable"])
 ```
 
 ### 4. Evaluate and inspect the form factor

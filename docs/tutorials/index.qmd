@@ -101,7 +101,8 @@ figure. Figure order does not imply increasing difficulty.
 
 ## Viewing structures
 
-The Python tutorials call `pyseb.visualize(world, "structure", parameters)`
+The Python tutorials explicitly request both layouts with
+`pyseb.visualize(world, "structure", parameters, layouts=["random", "readable"])`
 after the topology and dimensions are ready, and again for fitted geometries
 where useful. Install the optional viewer in the tutorial environment:
 
@@ -111,7 +112,11 @@ python -m pip install "pyseb[visualization]"
 
 Drag to rotate and scroll to zoom. Hover inside the frame and open the
 upper-left settings button to change visibility, colors, transparency, and
-reference markers. The camera toolbar remains upper-right.
+reference markers. Connected models use alternating colors by default and
+show a model/unfolded button beside the gear. The fitted titin views rebuild
+geometry from saved parameters, and the F127 galleries retain both layouts.
+Isolated rigid subunits can look identical in both layouts because there is
+no internal joint to unfold. The camera toolbar remains upper-right.
 [Viewer settings and realization choices](../visualization.qmd) describes the
 optional controls. Polymer shapes and distributed attachment
 points show seeded representative realizations, while scattering calculations

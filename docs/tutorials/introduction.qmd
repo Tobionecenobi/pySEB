@@ -82,7 +82,7 @@ value = world.EvaluateFormFactor(
 print(value)
 
 # Display the structure after supplying its physical dimensions.
-pyseb.visualize(world, "sphereModel", parameters)
+pyseb.visualize(world, "sphereModel", parameters, layouts=["random", "readable"])
 ```
 
 Line by line, this creates a workspace, adds one sphere instance, names the

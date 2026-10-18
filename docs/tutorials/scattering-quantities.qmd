@@ -94,7 +94,7 @@ Inspect the two points before comparing their scattering quantities. Their
 separation is two length units; marker sizes are chosen only for display.
 
 ```{python}
-_ = pyseb.visualize(world, "cloud", parameters, height=440)
+_ = pyseb.visualize(world, "cloud", parameters, height=440, layouts=["random", "readable"])
 ```
 
 ### 3. Evaluate the q-dependent quantities

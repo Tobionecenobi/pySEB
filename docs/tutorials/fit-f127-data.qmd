@@ -139,18 +139,21 @@ example_options.seed = 127
 example_options.surface_samples = 8
 example_options.curve_samples = 48
 example_options.layout_mode = pyseb.LayoutMode.Random
+# A small orientation search keeps the extra unfolded view practical to export.
+example_options.orientation_trials = 4
+example_options.relaxation_sweeps = 0
 example_options.color_overrides = {"core": (.95, .55, .15), "anchor": (.25, .65, .95)}
 example_options.opacity_overrides = {"anchor": .25}
 example_world.export_usd("micelle", str(example_path), fitted_parameters(example_fit), example_options)
 
-structure_view(compact_scene(structure_figure(
-    example_world, "micelle", fitted_parameters(example_fit), example_options
-).data), "The fitted four-cylinder-arm micelle").show(
+compact_structure_view(
+    example_world, fitted_parameters(example_fit), example_options,
+    "The fitted four-cylinder-arm micelle").show(
     config={"displaylogo": False, "scrollZoom": True})
 scene_link(example_path, "Download the fitted example as OpenUSD")
 ```
 
-The orange sphere is the core. The transparent blue sphere is the
+The central sphere is the core. The larger transparent sphere is the
 zero-contrast anchor, whose surface supplies the arm attachment points.
 This is a representative conformation of the fitted analytical model;
 rotating or resampling it does not change the calculated curve.
