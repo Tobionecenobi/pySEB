@@ -7,7 +7,10 @@ output produced by pySEB during the documentation build.
 
 Follow the numbered learning path below, or jump to the stage that matches
 your experience. Within each stage, tutorials appear in a suggested order.
-For interactive 3D views, see [Viewing structures](#viewing-structures).
+The focused sequences name required reading in **Before you start** notes. Read
+those pages first if the listed concepts are new to you. Continuation pages
+include setup for a fresh kernel; you do not need to keep an earlier notebook
+running. For interactive 3D views, see [Viewing structures](#viewing-structures).
 
 ## 1. Start here
 
@@ -31,7 +34,8 @@ adding subunits, linking reference points, and supplying model parameters.
 | [Comb polymer](comb-polymer.qmd) | Compare branched and linear connectivity at fixed composition |
 | [Sphere–polymer micelle](micelle.qmd) | Attach tagged chains to distributed sphere-surface references |
 | [Random-walk rod chain](random-walk-rods.qmd) | Link rigid segments, calculate the chain size, and compare with a Gaussian polymer |
-| [Reusable nested structures](nested-structures.qmd) | Build reusable graphs and address nested reference paths |
+| [Reuse a composite component](nested-structures.qmd) | Instantiate a diblock twice and share its parameters |
+| [Assemble multiple hierarchy levels](nested-hierarchy.qmd) | Reuse a component inside a larger structure and address deeper paths |
 | [Parameter sweeps](parameter-sweeps.qmd) | Reuse one graph with several parameter sets |
 
 ## 3. Understand the calculations
@@ -53,21 +57,29 @@ alongside analytic models.
 
 | Tutorial | What you will learn |
 | --- | --- |
-| [Subunits and YAML models](custom-yaml-workflow.qmd) | Explore bundled subunits, then define a flexible linker and export a three-arm junction |
+| [Explore subunits](custom-yaml-workflow.qmd) | Choose bundled models and understand their references |
+| [Define and validate a custom subunit](define-custom-subunit.qmd) | Register a YAML linker and calculate a three-arm junction |
+| [Save, reload, and visualize a model](save-load-model.qmd) | Preserve topology, verify a round trip, and export a realization |
 | [PDB cloud with an attached polymer](pdb-polymer.qmd) | Combine coordinate-based numerical scattering with an analytic subunit |
 | [Evaluate mixed models](mixed-model-evaluation.qmd) | Evaluate structures containing numerical, integrated, and analytic subunits with one API |
 
 ## 5. Fit experimental data
 
 **Before starting:** Be comfortable building models and exploring parameter
-sets. Basic familiarity with least-squares fitting is useful. For the titin
-example, first work through PDB cloud with an attached polymer.
+sets. Basic familiarity with least-squares fitting is useful. Follow each
+application’s pages in order. For coordinate-based titin domains,
+first work through PDB cloud with an attached polymer.
 
 | Tutorial | What you will learn |
 | --- | --- |
 | [Fit real contrast-variation SANS data](fit-real-sans-data.qmd) | Fit a linked sphere-and-shell structure simultaneously to three experimental datasets |
-| [Build and fit a polymer corona](fit-f127-corona.qmd) | Connect subunits, view OpenUSD structures, and compare fitted corona models |
-| [Fit a linked titin doublet](fit-linked-titin.qmd) | Connect two protein domains with a flexible linker; test domain, linker, and hydration choices against SAXS data |
+| [Build a polymer corona](fit-f127-corona.qmd) | Reuse a segmented arm and attach copies to a core |
+| [Fit the corona to F127 data](fit-f127-data.qmd) | Define residuals, optimize dimensions, and inspect the fitted model |
+| [Compare corona models](compare-f127-coronas.qmd) | Compare alternative arm descriptions using the same data |
+| [Fit analytic domains and a linker](fit-linked-titin.qmd) | Fit a titin doublet and diagnose an implausibly small linker |
+| [Connect coordinate domains](titin-coordinate-domains.qmd) | Replace adjustable domain shapes with fixed PDB coordinates |
+| [Test atomic scattering and hydration](titin-hydration.qmd) | Compare atomic and solvent assumptions with held-point checks |
+| [Test relative scattering weights](titin-relative-weights.qmd) | Diagnose the domain-to-chain amplitude ratio |
 
 ## 6. Explore published examples
 
@@ -109,11 +121,11 @@ once and suppresses a second display of its returned figure.
 These extended guides offer broader coverage and a C++ route through the
 examples. They are optional references alongside the learning path.
 
-The established modeling task pages present Python and C++ in parallel. Their
-Python blocks execute in the documentation environment, while maintained C++
-listings are compiled and their output is captured during the build. The
-Subunits and YAML Models tutorial runs in Python and includes the equivalent
-portable C++ file APIs.
+The focused sequences use Python. Maintained C++ versions of the original
+examples remain in the task pages and the C++ guide below; their listings are
+compiled and their output is captured during the build. The complete nested
+example appears in [Assemble multiple hierarchy levels](nested-hierarchy.qmd).
+The YAML sequence's save/load page also includes portable C++ file APIs.
 
 [Symbolic and numerical scattering with Python](pyseb_tutorial.qmd) covers:
 

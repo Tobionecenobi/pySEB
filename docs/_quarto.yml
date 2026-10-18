@@ -24,11 +24,17 @@ project:
     - tutorials/comb-polymer.qmd
     - tutorials/micelle.qmd
     - tutorials/nested-structures.qmd
+    - tutorials/nested-hierarchy.qmd
     - tutorials/random-walk-rods.qmd
     - tutorials/parameter-sweeps.qmd
     - tutorials/fit-real-sans-data.qmd
     - tutorials/fit-linked-titin.qmd
+    - tutorials/titin-coordinate-domains.qmd
+    - tutorials/titin-hydration.qmd
+    - tutorials/titin-relative-weights.qmd
     - tutorials/fit-f127-corona.qmd
+    - tutorials/fit-f127-data.qmd
+    - tutorials/compare-f127-coronas.qmd
     - tutorials/pdb-polymer.qmd
     - tutorials/mixed-model-evaluation.qmd
     - tutorials/symbolic-expressions.qmd
@@ -38,6 +44,8 @@ project:
     - tutorials/figure12-surface-attachments.qmd
     - tutorials/figure13-star-chain.qmd
     - tutorials/custom-yaml-workflow.qmd
+    - tutorials/define-custom-subunit.qmd
+    - tutorials/save-load-model.qmd
     - tutorials/pyseb_tutorial.qmd
     - tutorials/cpp_tutorials.qmd
     - file-defined-subunits.qmd
@@ -72,19 +80,35 @@ website:
             - tutorials/introduction.qmd
             - tutorials/first-model.qmd
             - tutorials/diblock-copolymer.qmd
-        - section: "Task tutorials"
+        - section: "Build structures"
           contents:
             - tutorials/rod-coil.qmd
             - tutorials/comb-polymer.qmd
             - tutorials/micelle.qmd
-            - tutorials/nested-structures.qmd
             - tutorials/random-walk-rods.qmd
+            - tutorials/nested-structures.qmd
+            - tutorials/nested-hierarchy.qmd
             - tutorials/parameter-sweeps.qmd
-            - tutorials/fit-real-sans-data.qmd
-            - tutorials/fit-linked-titin.qmd
-            - tutorials/fit-f127-corona.qmd
-            - tutorials/pdb-polymer.qmd
+        - section: "Custom subunits and models"
+          contents:
             - tutorials/custom-yaml-workflow.qmd
+            - tutorials/define-custom-subunit.qmd
+            - tutorials/save-load-model.qmd
+            - tutorials/pdb-polymer.qmd
+        - section: "Fit SANS data"
+          contents:
+            - tutorials/fit-real-sans-data.qmd
+        - section: "F127 corona sequence"
+          contents:
+            - tutorials/fit-f127-corona.qmd
+            - tutorials/fit-f127-data.qmd
+            - tutorials/compare-f127-coronas.qmd
+        - section: "Titin doublet sequence"
+          contents:
+            - tutorials/fit-linked-titin.qmd
+            - tutorials/titin-coordinate-domains.qmd
+            - tutorials/titin-hydration.qmd
+            - tutorials/titin-relative-weights.qmd
         - section: "Advanced tutorials"
           contents:
             - tutorials/mixed-model-evaluation.qmd

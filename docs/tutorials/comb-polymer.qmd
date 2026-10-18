@@ -130,6 +130,6 @@ answer different questions, even though either can change the measured curve.
 
 ## Next steps
 
-- [Reusable nested structures](nested-structures.qmd): package a larger branch as a reusable graph.
+- [Reuse a composite component](nested-structures.qmd): package a larger branch as a reusable graph.
 - [Figure 11 dendrimers](figure11-dendrimers.qmd): build successive branching generations.
-- [Subunits and YAML models](custom-yaml-workflow.qmd): define a flexible linker and assemble a three-arm junction.
+- [Define a custom subunit](define-custom-subunit.qmd): define a flexible linker and assemble a three-arm junction.
