@@ -10,7 +10,9 @@ your experience. Within each stage, tutorials appear in a suggested order.
 The focused sequences name required reading in **Before you start** notes. Read
 those pages first if the listed concepts are new to you. Continuation pages
 include setup for a fresh kernel; you do not need to keep an earlier notebook
-running. For interactive 3D views, see [Viewing structures](#viewing-structures).
+running. Viewer installation is covered in
+[Your first scattering model](first-model.qmd#create-a-python-environment);
+the [visualization guide](../visualization.qmd) explains the controls.
 
 ## 1. Start here
 
@@ -100,31 +102,6 @@ figure. Figure order does not imply increasing difficulty.
 | [Figure 11 dendrimers](figure11-dendrimers.qmd) | Build branched structures recursively and compare endpoint and contour attachment |
 | [Figure 12 surface attachments](figure12-surface-attachments.qmd) | Attach polymers and rods to sphere, shell, and cylinder reference distributions |
 | [Figure 13 star chain](figure13-star-chain.qmd) | Construct and evaluate a chain of five reusable four-arm diblock stars |
-
-## Viewing structures
-
-The Python tutorials explicitly request both layouts with
-`pyseb.visualize(world, "structure", parameters, layouts=["random", "readable"])`
-after the topology and dimensions are ready, and again for fitted geometries
-where useful. Install the optional viewer in the tutorial environment:
-
-```bash
-python -m pip install "pyseb[visualization]"
-```
-
-Drag to rotate and scroll to zoom. Hover inside the frame and open the
-upper-left settings button to change visibility, colors, transparency, and
-reference markers. Connected models use alternating colors by default and
-show a model/unfolded button beside the gear. The fitted titin views rebuild
-geometry from saved parameters, and the F127 galleries retain both layouts.
-Isolated rigid subunits can look identical in both layouts because there is
-no internal joint to unfold. The camera toolbar remains upper-right.
-[Viewer settings and realization choices](../visualization.qmd) describes the
-optional controls. Polymer shapes and distributed attachment
-points show seeded representative realizations, while scattering calculations
-average over their ensembles. Numerical clouds use their stored coordinates.
-In executable notebook cells, `_ = pyseb.visualize(...)` displays the view
-once and suppresses a second display of its returned figure.
 
 ## Reference and alternative formats
 

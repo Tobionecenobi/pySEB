@@ -43,6 +43,11 @@ python -m pip install --upgrade pip
 python -m pip install "pyseb[visualization]" numpy matplotlib
 ```
 
+The `pyseb[visualization]` extra installs the optional dependencies for the
+interactive 3D views used throughout these tutorials. NumPy and Matplotlib
+support the numerical calculations and plots. The commands above install all
+three together.
+
 The environment is active when the terminal prompt begins with
 `(.venv-pyseb)`. Activate it again whenever you return to the project.
 
@@ -110,6 +115,19 @@ controls both this 3D view and the scattering calculation.
 ```{python}
 _ = pyseb.visualize(world, "sphereModel", parameters, height=440, layouts=["random", "readable"])
 ```
+
+Drag to rotate and scroll to zoom. Hover over the frame to reveal the settings
+gear and model/unfolded button. The gear opens controls for visibility, colors,
+transparency, and reference markers; the camera toolbar is in the upper-right.
+This single rigid sphere looks the same in both layouts. Later connected models
+use alternating colors by default, and their unfolded view helps distinguish
+overlapping subunits.
+
+In a notebook, `_ = pyseb.visualize(...)` displays the view once and suppresses
+a second display of its returned figure. The function works after the model's
+topology and dimensions are ready; use it again after fitting to inspect fitted
+geometries. See [Viewer settings and realization choices](../visualization.qmd)
+for the full controls.
 
 ## 6. Choose q values
 

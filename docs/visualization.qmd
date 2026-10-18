@@ -1,4 +1,4 @@
-am---
+---
 title: "YAML Visualization and OpenUSD"
 jupyter: python3
 execute:
@@ -43,7 +43,10 @@ The viewer exports to a temporary scene and removes it before returning.
 To view a saved scene, use `pyseb.visualization.usd_to_plotly(path)`.
 
 These views show representative realizations of the scattering model.
-Cloud marker sizes are display sizes rather than physical particle radii.
+Polymer conformations and distributed attachment points are seeded examples;
+the scattering calculation averages over their ensembles. Numerical clouds
+use their stored coordinates. Cloud marker sizes are display sizes rather
+than physical particle radii.
 
 ## Settings inside the 3D frame
 
@@ -92,7 +95,8 @@ The readable view is illustrative and does not add excluded-volume physics.
 Pass `layouts=[]` to export only the selected layout. Single subunits prepare
 one layout by default; pass `layouts=["random", "readable"]` to request both.
 All tutorial structure views explicitly request both, including the catalogue
-and galleries. An isolated rigid shape can look identical in both layouts.
+and galleries. The compact F127 galleries retain the layout controls.
+An isolated rigid shape can look identical in both layouts.
 
 A saved `.usda` file read directly with `usd_to_plotly` contains only one layout
 and therefore has no model/unfolded switch. Those saved scenes still offer
