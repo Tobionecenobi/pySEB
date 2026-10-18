@@ -14,13 +14,15 @@ _STYLE = r"""
  box-sizing:border-box;line-height:1.2;vertical-align:middle;}
 .pyseb-settings .pyseb-toggle svg {display:block;width:18px;height:18px;flex:none;}
 .pyseb-settings .pyseb-toggle {width:32px;height:30px;padding:0;flex:none;border:1px solid #687386;
- border-radius:5px;background:#232b36ed;color:#f3f6fa;cursor:pointer;opacity:0;
+ border-radius:5px;background:#232b36ed;color:#f3f6fa;cursor:pointer;}
+.pyseb-settings .pyseb-fold {height:30px;}
+.pyseb-settings .pyseb-toggle,.pyseb-settings .pyseb-fold {opacity:0;
  transition:opacity .15s;pointer-events:none;}
-.pyseb-viewer:hover .pyseb-toggle,.pyseb-viewer:focus-within .pyseb-toggle,
-.pyseb-settings[data-open] .pyseb-toggle,.pyseb-touch .pyseb-toggle {opacity:1;pointer-events:auto;}
-.pyseb-settings .pyseb-fold {height:30px;opacity:0;pointer-events:none;}
-.pyseb-viewer:hover .pyseb-fold,.pyseb-viewer:focus-within .pyseb-fold,
-.pyseb-settings[data-open] .pyseb-fold,.pyseb-touch .pyseb-fold {opacity:1;pointer-events:auto;}
+.pyseb-viewer:hover .pyseb-toggle,.pyseb-viewer:hover .pyseb-fold,
+.pyseb-viewer:focus-within .pyseb-toggle,.pyseb-viewer:focus-within .pyseb-fold,
+.pyseb-settings[data-open] .pyseb-toggle,.pyseb-settings[data-open] .pyseb-fold,
+.pyseb-touch .pyseb-toggle,.pyseb-touch .pyseb-fold {opacity:1;pointer-events:auto;}
+
 .pyseb-settings .pyseb-panel {margin-top:5px;width:272px;max-width:100%;
  max-height:min(420px,65vh);overflow:auto;box-sizing:border-box;padding:12px;
  border:1px solid #687386;border-radius:7px;background:#202833f5;
@@ -177,7 +179,8 @@ _SCRIPT = r"""
  alternatingLabel.title='Use two colors along connected chains and branches';
  panel.insertBefore(alternatingLabel,referenceLabel);
  const palette=document.createElement('div');palette.hidden=true;
- const alternatingColors=['#269bd2','#f28e2b'];
+ const defaultAlternatingColors=['#269bd2','#f28e2b'];
+ const alternatingColors=[...defaultAlternatingColors];
  const partitions=new Map();const adjacency=new Map();
  gd.data.forEach((trace,i)=>{if(!isReference(trace)){
    const name=groupName(trace,i);
@@ -195,6 +198,8 @@ _SCRIPT = r"""
    }
  }
  alternating.disabled=![...adjacency.values()].some(values=>values.length);
+ alternating.checked=!alternating.disabled;
+ palette.hidden=!alternating.checked;
  for(let index=0;index<2;index++){
    const label=document.createElement('label');label.textContent='Alternating color '+(index+1);
    const input=document.createElement('input');input.type='color';input.value=alternatingColors[index];
@@ -258,7 +263,9 @@ _SCRIPT = r"""
  }
  function editNode(node,attribute,value) {
    for(const name of node.leaves)styles.get(name)[attribute]=value;
-   syncControls();return applyStyles(node.leaves);
+   const manualColor=attribute==='color'&&alternating.checked;
+   if(manualColor){alternating.checked=false;palette.hidden=true;}
+   syncControls();return manualColor?applyStyles():applyStyles(node.leaves);
  }
  function buildComponents() {
    components.replaceChildren();nodes.clear();
@@ -380,7 +387,9 @@ _SCRIPT = r"""
  resetStyle.addEventListener('click',async()=>{
    if(sceneSelect){activeVariant=0;sceneSelect.value='0';updateLayoutButton();await Plot.react(gd,JSON.parse(JSON.stringify(variants[0].data)),gd.layout,gd._context);}
    styles.clear();references.checked=false;scatteringOpacity.checked=false;scatteringMode.value='beta';
-   alternating.checked=false;palette.hidden=true;
+   alternatingColors.splice(0,alternatingColors.length,...defaultAlternatingColors);
+   palette.querySelectorAll('input').forEach((input,i)=>{input.value=alternatingColors[i];});
+   alternating.checked=!alternating.disabled;palette.hidden=!alternating.checked;
    for(let i=0;i<gd.data.length;i++){
      const state=initial[i];if(!state)continue;
      const trace=gd.data[i];const attr=trace.type==='mesh3d'?'color':
@@ -388,9 +397,9 @@ _SCRIPT = r"""
      const update={visible:state.visible,opacity:state.opacity};if(state.color)update[attr]=state.color;
      await Plot.restyle(gd,update,[i]);
    }
-   buildComponents();await updateReferences();
+   buildComponents();await applyStyles();
  });
- actions.append(resetCamera,resetStyle);panel.append(actions);buildComponents();
+ actions.append(resetCamera,resetStyle);panel.append(actions);buildComponents();applyStyles();
 })();
 """
 
@@ -434,7 +443,26 @@ def figure_class():
         def _repr_mimebundle_(self, include=None, exclude=None, **kwargs):
             if (include is not None and 'text/html' not in include) or (exclude and 'text/html' in exclude):
                 return super()._repr_mimebundle_(include=include, exclude=exclude, **kwargs)
-            return {'text/html': self._repr_html_()}
+            return {'text/html': self._notebook_html()}
+
+        def _notebook_html(self, **kwargs):
+            try:
+                from IPython.display import display
+            except ImportError:
+                return self.to_html(full_html=False, **kwargs)
+
+            options = dict(kwargs)
+            options['full_html'] = False
+            if options.get('include_plotlyjs', True) is True:
+                from plotly.offline import get_plotlyjs
+
+                # Quarto extracts HTML containing the Plotly bundle as a page
+                # dependency. Emit only the library in that output, otherwise
+                # the complete viewer is moved above the article title.
+                display({'text/html': '<script type="text/javascript">' +
+                         get_plotlyjs() + '</script>'}, raw=True)
+                options['include_plotlyjs'] = False
+            return self.to_html(**options)
 
         def show(self, renderer=None, **kwargs):
             import plotly.io as pio
@@ -451,7 +479,7 @@ def figure_class():
                 notebook = False
             if notebook and selected != 'browser':
                 from IPython.display import display
-                display({'text/html': self.to_html(full_html=False, **kwargs)}, raw=True)
+                display({'text/html': self._notebook_html(**kwargs)}, raw=True)
             else:
                 from pathlib import Path
                 import tempfile

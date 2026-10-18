@@ -59,11 +59,13 @@ an individual subunit, for example `star4 → diblock4 → A`. Visibility, color
 and opacity changes at a parent apply to every subunit inside it. A later
 change to `A` affects only that leaf. Parents show mixed values when their
 children differ; the **All subunits** row controls the complete structure.
-Enable **Alternate connected colors** to distinguish adjoining subunits using
-two colors. The viewer follows the actual connections, alternating colors along
+**Alternate connected colors** is enabled by default for connected structures.
+The viewer follows the actual connections, alternating two colors along
 polymer chains and branches rather than by subunit name or drawing order. Two
 color pickers set the palette. Turning the checkbox off restores manual colors;
-the setting persists when switching between model and unfolded views. Two colors
+editing a subunit's color also switches to manual colors. **Reset style** restores
+the default alternating palette. The color setting persists when switching
+between model and unfolded views. Two colors
 cannot distinguish every neighbor in a connection cycle with an odd number of
 subunits.
 
@@ -80,11 +82,22 @@ pyseb.visualize(world, "assembly", parameters,
                 seeds=[1], layouts=["readable"])
 ```
 
-When both layouts are prepared for a seed, a button beside the settings gear
+Connected structures built with `structure_figure` or `visualize` prepare both
+layouts by default. A button beside the settings gear, revealed on hover,
 switches between **See unfolded** and **See model**. The model view restores
 the original seeded coordinates; the unfolded view uses an overlap-reduced layout.
 Both keep the camera, hierarchy, colors, visibility, and opacity settings.
 The readable view is illustrative and does not add excluded-volume physics.
+
+Pass `layouts=[]` to export only the selected layout. Single subunits prepare
+one layout by default; pass `layouts=["random", "readable"]` to request both.
+All tutorial structure views explicitly request both, including the catalogue
+and galleries. An isolated rigid shape can look identical in both layouts.
+
+A saved `.usda` file read directly with `usd_to_plotly` contains only one layout
+and therefore has no model/unfolded switch. Those saved scenes still offer
+settings and alternating colors when connectivity information is available.
+The titin tutorials rebuild both layouts from saved fit parameters.
 
 The current seed and layout are always included. With default options, this
 example prepares seeds 0 and 1 in both random and readable layouts. Preparing

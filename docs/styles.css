@@ -4,3 +4,11 @@
 .quarto-dark #fig-bundled-subunit-catalogue .annotation-text {
   fill: #fff !important;
 }
+
+/* Keep interactive models in the article column at their output location. */
+main.content .cell-output-display > div:has(.pyseb-viewer),
+main.content .cell-output-display .pyseb-viewer {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}

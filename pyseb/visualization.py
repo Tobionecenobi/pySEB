@@ -284,7 +284,7 @@ def usd_to_plotly(path, *, height=650, controls=True, parameters=None, volumes=N
         figure = go.Figure(_usd_traces(path, parameters=parameters, volumes=volumes))
     figure.update_layout(
         height=height,
-        margin={"l": 0, "r": 0, "t": 35, "b": 0},
+        margin={"l": 0, "r": 0, "t": 70 if controls else 35, "b": 0},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         scene={
@@ -296,10 +296,13 @@ def usd_to_plotly(path, *, height=650, controls=True, parameters=None, volumes=N
             "bgcolor": "rgba(0,0,0,0)",
         },
         title={
-            "text": "Interactive OpenUSD realization — drag to rotate, scroll to zoom",
+            "text": "Drag to rotate · scroll to zoom",
             "x": 0.5,
             "xanchor": "center",
-            "font": {"size": 15},
+            "font": {"size": 14},
+            "y": 1,
+            "yanchor": "top",
+            "pad": {"t": 42 if controls else 8},
         },
         showlegend=False,
     )
@@ -314,10 +317,13 @@ def structure_figure(world, structure, parameters=None, options=None, *, height=
     Pass ``USDExportOptions`` as ``options`` to set units, colors, sampling,
     seed and layout. Defaults use the exporter's seeded, representative layout.
     Temporary scene files are removed before returning; the figure is standalone.
-    HTML views have a hover-revealed settings panel. ``controls=False`` returns
+    Connected structures have alternating colors and a model/unfolded switch
+    by default. Hover reveals the settings gear and layout button. ``controls=False`` returns
     a plain Plotly figure. Optional ``seeds`` and ``layouts`` prepare realizations
     for switching in static HTML, without a running Python session. Layouts are
     ``"random"`` or ``"readable"`` (or the corresponding ``LayoutMode`` values).
+    Pass ``layouts=[]`` to keep only the selected layout. Saved USD files read
+    with ``usd_to_plotly`` contain only their exported realization.
     ``volumes`` optionally maps occurrence paths, tags, or source names to
     physical material volumes in the cube of the model's length unit. Solids
     use analytic volumes automatically; polymer coil envelopes are not volumes.
@@ -362,6 +368,13 @@ def structure_figure(world, structure, parameters=None, options=None, *, height=
                                         parameters=parameters, volumes=volumes)
                 if figure is None:
                     figure = current
+                    if controls and layouts is None and any(
+                        (trace.meta or {}).get('pyseb', {}).get('neighbors')
+                        for trace in current.data
+                    ):
+                        other = (LayoutMode.Readable if layout == LayoutMode.Random
+                                 else LayoutMode.Random)
+                        layout_values.append(other)
                 if len(seed_values) * len(layout_values) > 1:
                     mode = "Readable" if layout == LayoutMode.Readable else "Random"
                     variants.append({"label": f"{mode} · seed {seed}",
@@ -376,7 +389,8 @@ def visualize(world, structure, parameters=None, options=None, *, height=650,
               controls=True, seeds=None, layouts=None, volumes=None, **show_kwargs):
     """Display a structure in 3D and return its Plotly figure.
 
-    Hover inside the HTML view for settings in its upper-left corner.
+    Connected structures use alternating colors and expose a model/unfolded
+    button. Hover inside the view for settings in its upper-left corner.
     Optional ``seeds`` and ``layouts`` prepare switchable realizations;
     ``controls=False`` uses standard Plotly rendering.
 
