@@ -1,6 +1,6 @@
 ---
-title: "Reuse a Composite Component"
-subtitle: "Build one diblock and instantiate it twice"
+title: "Use a Structure as a Subunit"
+subtitle: "Build a rod–cylinder arm, then reuse it nine times to make a star"
 jupyter: python3
 format:
   html:
@@ -14,90 +14,134 @@ execute:
 ---
 
 ::: {.callout-note title="Before you start"}
-Read [Your first composite model](diblock-copolymer.qmd) first. You should
-be able to link endpoints, name a graph, and evaluate its form factor.
+Read [Diblock copolymer](diblock-copolymer.qmd) and
+[What is a reference point?](reference-points.qmd). This page keeps the
+construction explicit: one `Add`, then individual `Link` calls.
 :::
 
-The goal is to reuse a connected component without rebuilding its internal
-links. We will make one diblock, then connect two instances through their
-`polyA.end1` references. This two-arm component is named `star`.
+**A complete structure can be used as a subunit in a larger structure.**
+Build an arm from a thin rod and a solid cylinder, then attach nine copies
+at a common junction. The rod and cylinder remain inside every copy.
+
+All components live in the same `World`. Lengths are in nm and q in nm⁻¹.
+
+## 1. Build one arm from a rod and a cylinder
+
+The rod's second endpoint connects to the centre of the cylinder's bottom
+face. Its first endpoint remains available for attaching the arm:
 
 ```text
-(polyB -- polyA) = (polyA -- polyB)
+rod.end1 -------- rod.end2 = cylinder.bottom [ cylinder ] cylinder.top
 ```
-
-## Build and reuse the component
-
-### 1. Create a world
-
-All reusable graphs live in the same `World`. Later steps instantiate these
-graphs without rebuilding their internal links.
 
 ```{python}
 import pyseb
 
-world = pyseb.World("NestedTutorial")
-```
+world = pyseb.World("RodCylinderStar")
+arm = world.Add("ThinRod", "rod")
+world.Link("SolidCylinder", "cylinder.bottom", "rod.end2")
+world.Add(arm, "arm")
 
-### 2. Build the reusable diblock
-
-Start with `polyA`, then attach `polyB` end to end. Keep the returned graph in
-`diblock`; a graph does not need a public structure name before it can be
-reused.
-
-```{python}
-diblock = world.Add("GaussianPolymer", "polyA")
-world.Link("GaussianPolymer", "polyB.end1", "polyA.end2")
-```
-
-### 3. Reuse the diblock to make a star
-
-`world.Add(diblock, "diblock1")` creates the first instance. `Link` creates a
-second instance and connects the `polyA.end1` reference inside each diblock.
-The colon separates a structure instance from a nested subunit path.
-
-```{python}
-star = world.Add(diblock, "diblock1")
-world.Link(diblock, "diblock2:polyA.end1", "diblock1:polyA.end1")
-```
-
-### 4. Parameterize, inspect, and evaluate
-
-Repeated instances retain the internal names `polyA` and `polyB`. Consequently
-all four polymers reuse four physical parameters.
-
-```{python}
 parameters = {
-    "beta_polyA": 1.0,
-    "beta_polyB": 0.75,
-    "Rg_polyA": 5.0,
-    "Rg_polyB": 8.0,
+    "L_rod": 12.0,
+    "beta_rod": 1.0,
+    "R_cylinder": 1.2,
+    "L_cylinder": 6.0,
+    "beta_cylinder": 1.0,
 }
+
+view_options = pyseb.USDExportOptions(pyseb.LengthUnit.Nanometer)
+view_options.seed = 7
+view_options.layout_mode = pyseb.LayoutMode.Readable
+
+arm_view = pyseb.visualize(world, "arm", parameters, view_options, height=400)
 ```
 
-Name and inspect the reusable component. Hover over a curve to see its nested
-instance path; repeated instances retain the internal subunit names.
+The view shows two different subunits: a thin line for the rod and a solid
+cylinder. Both are rigid internally, but their junction is freely jointed.
+Their relative orientation in the view is one realization of the model.
+
+`arm` is the graph describing this connected pair. We can now use that graph
+as a building block, keeping its internal link intact.
+
+## 2. Use the arm as a subunit to build a star
+
+Previously, the first argument to `Add` or `Link` was a type such as
+`"ThinRod"`. Now pass **`arm`**, the structure we just built:
 
 ```{python}
+star = world.Add(arm, "arm1")
+world.Link(arm, "arm2:rod.end1", "arm1:rod.end1")
+world.Link(arm, "arm3:rod.end1", "arm1:rod.end1")
+world.Link(arm, "arm4:rod.end1", "arm1:rod.end1")
+world.Link(arm, "arm5:rod.end1", "arm1:rod.end1")
+world.Link(arm, "arm6:rod.end1", "arm1:rod.end1")
+world.Link(arm, "arm7:rod.end1", "arm1:rod.end1")
+world.Link(arm, "arm8:rod.end1", "arm1:rod.end1")
+world.Link(arm, "arm9:rod.end1", "arm1:rod.end1")
 world.Add(star, "star")
-_ = pyseb.visualize(world, "star", parameters, height=440, layouts=["random", "readable"])
+
+star_view = pyseb.visualize(world, "star", parameters, view_options, height=560)
 ```
+
+Each `Link` adds a **complete arm**, containing its rod, cylinder, and their
+connection. There are now nine rods and nine cylinders. We wrote the
+internal rod–cylinder link only once.
+
+All nine `rod.end1` references meet at the same central junction. The junction
+itself adds no scattering material. The arms can rotate freely; this is a
+star topology, not a rigid object with fixed angles between its spokes.
+
+## 3. Read a reference inside a structure
+
+The colon in `arm2:rod.end1` means “inside arm2”:
+
+| Part of the path | Meaning |
+| --- | --- |
+| `arm2` | Which instance of the complete arm |
+| `rod` | Which subunit inside that instance |
+| `end1` | Which reference on that subunit |
+
+So `arm2:rod.end1` and `arm1:rod.end1` address different rods. The `Link` call
+joins those particular reference locations.
+
+The copies retain the internal parameter names. `L_rod` therefore controls
+the rod length in **all nine arms**, and `R_cylinder` controls all nine
+cylinder radii. The same parameter dictionary works for the single arm and
+the complete star.
+
+## 4. Calculate the scattering of each structure
+
+The star can be evaluated as one structure even though it contains eighteen
+primitive subunits:
 
 ```{python}
-q = [0.01, 0.03, 0.1, 0.3]
-values = world.EvaluateFormFactor("star", parameters, q)
+import matplotlib.pyplot as plt
+import numpy as np
 
-for q_value, value in zip(q, values):
-    print(f"q={q_value:g}, F(q)={value:.8f}")
+q = np.geomspace(0.001, 2.0, 180)
+arm_curve = world.EvaluateFormFactor("arm", parameters, q.tolist())
+star_curve = world.EvaluateFormFactor("star", parameters, q.tolist())
+
+plt.loglog(q, arm_curve, label="One rod–cylinder arm")
+plt.loglog(q, star_curve, label="Star of nine identical arms")
+plt.xlabel(r"$q$ [nm$^{-1}$]")
+plt.ylabel("Normalized form factor F(q)")
+plt.legend()
+plt.show()
 ```
 
-The decreasing values show the expected loss of coherence as q resolves the
-nested structure's internal length scales.
+These are normalized curves: both start at one, despite their different total
+scattering lengths. The star calculation includes scattering from every arm
+and interference between arms. Its internal rods and cylinders have not
+been replaced by a different particle model.
 
-You now have two instances of the same diblock. Their internal names share
-parameters; their instance names identify which copy a reference belongs to.
+The viewers use seeded, readability-optimized orientations to make the arms
+easier to distinguish. Scattering averages over the
+orientations allowed by the freely jointed links; displayed overlaps do not
+introduce excluded-volume interactions.
 
 ## Continue
 
-Continue to [Assemble multiple hierarchy levels](nested-hierarchy.qmd)
-to reuse this component inside another structure and address deeper paths.
+- [Comb polymer](comb-polymer.qmd): build a backbone and add hairs with explicit links.
+- [Assemble multiple hierarchy levels](nested-hierarchy.qmd): use a separate diblock example to follow references through another nesting level.

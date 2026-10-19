@@ -14,13 +14,14 @@ execute:
 ---
 
 ::: {.callout-note title="Before you start"}
-Read [Reuse a composite component](nested-structures.qmd) first. This page
+Read [Use a structure as a subunit](nested-structures.qmd) first. This page
 adds another hierarchy level and uses paths containing two colons.
 :::
 
-We will join two copies of the previous page’s component and evaluate the
-result. The first cells rebuild that component so this page starts in a fresh
-Python session. Run all cells in order.
+The preceding page reused a rod–cylinder arm to build a star. Here we use a
+separate, smaller diblock example to make three hierarchy levels easy to
+follow. All components are built below, so this page starts in a fresh Python
+session. Run all cells in order.
 
 ## Follow the paths through three levels
 
@@ -47,7 +48,7 @@ import pyseb
 world = pyseb.World("NestedTutorial")
 ```
 
-### 2. Rebuild the component from the previous page
+### 2. Build a diblock component
 
 Start with `polyA`, then attach `polyB` end to end. Keep the returned graph in
 `diblock`; a graph does not need a public structure name before it can be
