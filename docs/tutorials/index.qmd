@@ -16,7 +16,7 @@ conventions, see [Theory](../theory.qmd).
 
 ## 1. Start here
 
-**Before starting:** No prior pySEB experience is required. Follow these five
+**Before starting:** No prior pySEB experience is required. Follow these seven
 tutorials in order:
 
 | Step | Tutorial | What you will learn |
@@ -26,6 +26,8 @@ tutorials in order:
 | 3 | [Your first composite model](diblock-copolymer.qmd) | Connect two Gaussian polymers and use the same structure from Python and C++ |
 | 4 | [Normalized form factor and scattering strength](normalized-form-factor.qmd) | Compare shape and strength using the same two connected polymers |
 | 5 | [What is a reference point?](reference-points.qmd) | Distinguish scattering material from attachment locations, including fixed and distributed references |
+| 6 | [Explore building blocks](custom-yaml-workflow.qmd) | Explore the subunit geometries you can connect into structures |
+| 7 | [Symbolic expressions and export](symbolic-expressions.qmd) | Print model equations and export them to SymPy, Python, LaTeX, and C forms |
 
 ## 2. Build larger structures
 
@@ -39,23 +41,9 @@ adding subunits, linking reference points, and supplying model parameters.
 | [Comb polymer](comb-polymer.qmd) | Compare branched and linear connectivity at fixed composition |
 | [Sphere–polymer micelle](micelle.qmd) | Attach tagged chains to distributed sphere-surface references |
 | [Random-walk rod chain](random-walk-rods.qmd) | Link rigid segments, calculate the chain size, and compare with a Gaussian polymer |
-| [Assemble multiple hierarchy levels](nested-hierarchy.qmd) | Build a six-arm star, a chain of stars, and a chain of chains |
+| [Structures made of structures](nested-hierarchy.qmd) | Build a six-arm star, a chain of stars, and a chain of chains |
 
-## 3. Understand the calculations
-
-**Before starting:** Complete Your first scattering model and
-[What is a reference point?](reference-points.qmd). Use the
-point-cloud example to calculate the three factors from coordinates, or the
-distance-vector derivation to derive an analytical subunit. Composite models
-and basic symbolic algebra are useful for the expression-export page.
-
-| Tutorial | What you will learn |
-| --- | --- |
-| [Scattering from a point cloud](scattering-quantities.qmd) | Build a weighted point cloud and get F, A, and Ψ from point-pair and reference distances |
-| [Derive a subunit from distance vectors](scattering-from-phases.qmd) | Derive a rod: form factor, midpoint amplitude, shifted-reference amplitudes, and phase factors; validate a usable subunit |
-| [Symbolic expressions and export](symbolic-expressions.qmd) | Select a backend, inspect expressions, convert to SymPy, and export Python, LaTeX, and C forms |
-
-## 4. Extend your models
+## 3. Extend your models
 
 For deriving subunit equations or adding linkage references, see
 [Define and extend subunits](../theory.qmd#define-and-extend-subunits) in Theory.
@@ -66,12 +54,11 @@ alongside analytic models.
 
 | Tutorial | What you will learn |
 | --- | --- |
-| [Explore subunits](custom-yaml-workflow.qmd) | Choose bundled models and understand their references |
 | [Save, reload, and visualize a model](save-load-model.qmd) | Preserve topology, verify a round trip, and export a realization |
 | [PDB cloud with an attached polymer](pdb-polymer.qmd) | Combine coordinate-based numerical scattering with an analytic subunit |
 | [Evaluate mixed models](mixed-model-evaluation.qmd) | Evaluate structures containing numerical, integrated, and analytic subunits with one API |
 
-## 5. Fit experimental data
+## 4. Fit experimental data
 
 **Before starting:** Be comfortable building models and exploring parameter
 sets. Basic familiarity with least-squares fitting is useful. Follow each
@@ -109,7 +96,7 @@ Progress from analytical domains to coordinate clouds, hydration, and relative s
 | 3 | [Test atomic scattering and hydration](titin-hydration.qmd) | Compare atomic and solvent assumptions with held-point checks |
 | 4 | [Test relative scattering weights](titin-relative-weights.qmd) | Diagnose the domain-to-chain amplitude ratio |
 
-## 6. Explore published examples
+## 5. Explore published examples
 
 **Before starting:** Work through Build larger structures, particularly reusable
 nested structures and distributed attachment references.
@@ -132,7 +119,7 @@ examples. They are optional references alongside the learning path.
 The focused sequences use Python. Maintained C++ versions of the original
 examples remain in the task pages and the C++ guide below; their listings are
 compiled and their output is captured during the build. The complete nested
-example appears in [Assemble multiple hierarchy levels](nested-hierarchy.qmd).
+example appears in [Structures made of structures](nested-hierarchy.qmd).
 The YAML sequence's save/load page also includes portable C++ file APIs.
 
 [Symbolic and numerical scattering with Python](pyseb_tutorial.qmd) covers:

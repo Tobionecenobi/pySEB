@@ -52,7 +52,7 @@ one deterministic representative realization of the model topology.
 - [Using pySEB](using-pyseb.qmd) links to installation, visualization, model
   files, and troubleshooting.
 - [Theory](theory.qmd) introduces model assumptions and intensity conventions.
-- [Explore subunits](tutorials/custom-yaml-workflow.qmd) introduces the model
+- [Explore building blocks](tutorials/custom-yaml-workflow.qmd) introduces the model
   catalogue and leads to custom definitions, validation, and portable models.
 - The [Reference Wiki](https://github.com/Tobionecenobi/pySEB/wiki) contains
   build guides, theory, API summaries, model references, validation details,

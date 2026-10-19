@@ -218,5 +218,5 @@ and explore attachment locations in [What is a reference point?](reference-point
 
 - [Connect two subunits in a diblock](diblock-copolymer.qmd)
 - [Calculate scattering from a point cloud](scattering-quantities.qmd)
-- [Explore the bundled subunits and YAML models](custom-yaml-workflow.qmd)
+- [Explore building blocks](custom-yaml-workflow.qmd)
 - [Solid Sphere reference](https://github.com/Tobionecenobi/pySEB/wiki/Subunit-Solid-Sphere)

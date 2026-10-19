@@ -14,7 +14,7 @@ execute:
 ---
 
 ::: {.callout-note title="Before you start"}
-Read [Explore subunits](custom-yaml-workflow.qmd) and the
+Read [Explore building blocks](custom-yaml-workflow.qmd) and the
 [diblock tutorial](diblock-copolymer.qmd) first. You should understand
 parameters, endpoint references, and `Add`/`Link`. Basic YAML and familiarity
 with Gaussian-chain scattering equations will help you read the definition.

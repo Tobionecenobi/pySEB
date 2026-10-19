@@ -1,5 +1,5 @@
 ---
-title: "Assemble Multiple Hierarchy Levels"
+title: "Structures made of structures"
 subtitle: "Build a star, a chain of stars, and a chain of chains"
 jupyter: python3
 format:

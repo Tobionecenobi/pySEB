@@ -146,8 +146,15 @@ also shows this volume-fraction, contrast, and background convention explicitly.
 
 ## Work through the calculations
 
-- [Scattering from a point cloud](tutorials/scattering-quantities.qmd) calculates form factors, reference amplitudes, and phase factors from distances.
-- [Derive a subunit from distance vectors](tutorials/scattering-from-phases.qmd) replaces the point sums with integrals for a uniform rod.
+**Before starting:** Complete [Your first scattering model](tutorials/first-model.qmd)
+and [What is a reference point?](tutorials/reference-points.qmd). The point-cloud
+example builds F, A, and Ψ from coordinates. The distance-vector derivation
+uses definite integrals to derive an analytical subunit.
+
+| Tutorial | What you will learn |
+| --- | --- |
+| [Scattering from a point cloud](tutorials/scattering-quantities.qmd) | Build a weighted point cloud and get F, A, and Ψ from point-pair and reference distances |
+| [Derive a subunit from distance vectors](tutorials/scattering-from-phases.qmd) | Derive a rod: form factor, midpoint amplitude, shifted-reference amplitudes, and phase factors; validate a usable subunit |
 
 For the full theory, see the [SEB formalism](https://arxiv.org/abs/1108.1140).
 

@@ -126,7 +126,9 @@ Mixing the two shifts every feature of the predicted curve.
 2. [Connect two Gaussian polymers](diblock-copolymer.qmd).
 3. [Compare normalized form factors and scattering strength](normalized-form-factor.qmd).
 4. [Explore reference points with a ring](reference-points.qmd).
-5. Choose a task from the [tutorial index](index.qmd).
+5. [Explore the building blocks you can connect](custom-yaml-workflow.qmd).
+6. [Print and export symbolic expressions](symbolic-expressions.qmd).
+7. Choose a task from the [tutorial index](index.qmd).
 
 After those first two models, terms such as `World`, subunit, link, reference,
 parameter, and q will recur with the same meaning throughout the documentation.

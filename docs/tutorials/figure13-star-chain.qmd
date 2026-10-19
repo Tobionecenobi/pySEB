@@ -22,7 +22,7 @@ Publication details are collected in the
 [citation guide](https://github.com/Tobionecenobi/pySEB/wiki/Publications-and-Citation).
 
 ::: {.callout-note title="Before you start"}
-Read [Assemble multiple hierarchy levels](nested-hierarchy.qmd) first. This
+Read [Structures made of structures](nested-hierarchy.qmd) first. This
 application uses nested reference paths and repeatedly instantiates reusable
 graphs.
 :::

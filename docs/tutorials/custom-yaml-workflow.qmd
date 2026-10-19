@@ -1,6 +1,6 @@
 ---
-title: "Explore Subunits"
-subtitle: "Choose a building block and understand its references"
+title: "Explore building blocks"
+subtitle: "Subunit geometries you can connect into structures"
 jupyter: python3
 format:
   html:
@@ -83,6 +83,9 @@ For example, a rod has endpoint references, while a sphere also has a
 distributed surface reference. Which would you use for a rigid spacer?
 
 ## Continue
+
+[Symbolic expressions and export](symbolic-expressions.qmd) shows how to print
+the equations of a model and export them for use elsewhere.
 
 To derive your own equations step by step, start with
 [Contribute your own subunit](contribute-subunit.qmd). The five-page sequence

@@ -164,6 +164,9 @@ positions and conformations.
 
 ## Continue
 
+[Explore building blocks](custom-yaml-workflow.qmd) to see the available subunit
+geometries and their references.
+
 - [Rod–coil copolymer](rod-coil.qmd) to connect rigid and flexible subunits.
 - [Contribute your own subunit](contribute-subunit.qmd) to introduce F, A, and Ψ one step at a time.
 - [Scattering from a point cloud](scattering-quantities.qmd) to calculate form factors, amplitudes, and phase factors from coordinates.
