@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(pyseb VERSION 0.3.0)
+project(pyseb VERSION 0.4.0)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
