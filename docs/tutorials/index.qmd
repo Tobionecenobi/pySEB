@@ -79,7 +79,9 @@ first work through PDB cloud with an attached polymer.
 
 | Tutorial | What you will learn |
 | --- | --- |
-| [Fit real contrast-variation SANS data](fit-real-sans-data.qmd) | Fit a linked sphere-and-shell structure simultaneously to three experimental datasets |
+| [Fit three SANS contrasts](fit-real-sans-data.qmd) | Fit one linked core–shell structure to three measurements and inspect the baseline residuals |
+| [Add size distributions](sans-size-distributions.qmd) | Let sasmodels average the same pySEB particle over droplet sizes |
+| [Add interactions and resolution](sans-interactions-resolution.qmd) | Use sasmodels for the fluid and instrument response; compare all three fits in an interactive viewer |
 | [Build a polymer corona](fit-f127-corona.qmd) | Reuse a segmented arm and attach copies to a core |
 | [Fit the corona to F127 data](fit-f127-data.qmd) | Define residuals, optimize dimensions, and inspect the fitted model |
 | [Compare corona models](compare-f127-coronas.qmd) | Compare alternative arm descriptions using the same data |

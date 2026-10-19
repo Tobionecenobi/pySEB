@@ -1,0 +1,444 @@
+---
+title: "Add Interactions and Resolution"
+subtitle: "Use sasmodels and compare the three fits in one interactive viewer"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+::: {.callout-note title="Before you start"}
+Complete [Add size distributions](sans-size-distributions.qmd) first.
+Use the same environment and run from `docs/tutorials` in a repository checkout.
+This final step retains the pySEB particle and uses **sasmodels, the modelling
+library used by SasView**, for interactions and resolution smearing.
+:::
+
+We have fitted the same data twice: first with identical droplets, then with
+a size distribution. The remaining mismatch asks a different question:
+**are independently scattering particles and a perfectly sharp instrument
+response adequate?**
+
+Here we add an effective hard-sphere interaction and an approximate resolution
+correction. At the end, one interactive viewer brings the three fits together.
+The 3D particle, intensity curves and residuals change with the selected stage.
+
+## Continue from the size-distribution fit
+
+The folded setup rebuilds the preceding calculations in a fresh kernel,
+without rerunning their plots or opening their viewers.
+
+```{python}
+#| code-fold: true
+#| code-summary: "Rebuild the first two fits"
+from _aot_setup import previous_stage
+
+globals().update(previous_stage("distributions"))
+```
+
+## Include the surrounding droplets and instrument response
+
+
+This extends the same pySEB particle used on the first two pages. pySEB
+supplies the linked particle's scattering expression; sasmodels supplies
+interactions and resolution, and SciPy fits the parameters. sasmodels also averages the particle population. The adapter connects these
+components through the optional `pyseb.sasmodels` interface. The fitting
+choices remain explicit in this tutorial. See the
+[sasmodels resolution API](https://www.sasview.org/docs/dev/sasmodels-api/resolution.html)
+for the measurement interface.
+
+Size distributions smooth the form-factor minima, but do not account for
+correlations between droplet positions. At a volume fraction around 6%,
+the dilute-particle assumption deserves a test. A
+[Percus–Yevick hard-sphere structure factor](https://www.sasview.org/docs/user/models/hardsphere.html)
+provides a simple model of excluded-volume repulsion.
+
+For a polydisperse population we use the **decoupling approximation**:
+
+$$
+I(q)=\frac{\phi}{\langle V\rangle}10^8
+\left[\langle F(q)^2\rangle+
+\langle F(q)\rangle^2\{S(q)-1\}\right]+B.
+$$
+
+Here $F=\beta_c A_c+\beta_s A_s$ is the signed amplitude of our linked
+structure. Averaging the signed amplitude matters: simply multiplying the
+averaged intensity by $S(q)$ neglects the contrast-dependent correction for
+size dispersity. This approximation neglects correlations between particle
+size and position; it is not an exact mixture structure factor.
+
+We add one shared parameter, the effective interaction packing fraction
+$\eta$. The hard-sphere radius is fixed to
+$(3\langle V\rangle/4\pi)^{1/3}$. We keep $\eta$ separate from the absolute
+intensity's volume fraction $\phi$: this tests an effective interaction model,
+not a strictly self-consistent hard-sphere fluid. A successful fit does not
+establish a microscopic interaction potential.
+
+We also include a fixed Gaussian resolution with standard deviation
+$\sigma_q=0.10q$, following the approximate resolution assumed in the
+[source tutorial](https://www.sasview.org/downloads/simultaneous_1d_fitting_in_sasview_v6.pdf).
+The files contain no measured resolution widths, so this remains an assumption.
+We use sasmodels `Pinhole1D` with its default finite Gaussian window
+(2.5 standard deviations below and 3 above each measured q), rather than an
+unbounded Gaussian convolution.
+Resolution is applied to the complete interacting intensity before comparison
+with the data. All 363 selected measurements and their original uncertainties
+remain in the objective.
+
+### Evaluate the population and structure factor
+
+sasmodels composes our particle with `hardsphere`. We explicitly select
+`structure_factor_mode=1` for the decoupling approximation. Its product model
+normally uses the same volume fraction for interaction strength and absolute
+intensity. Here the effective packing fraction remains independent: we set
+`volfraction=eta` and `scale=phi/eta`. At zero eta we use the particle directly.
+The effective radius is calculated from the library's averaged particle volume,
+preserving the radius convention used above.
+
+```{python}
+#| code-fold: true
+#| code-summary: "Evaluate the pySEB particle through sasmodels"
+interaction_info = with_hardsphere(particle_spec, backend="compiled")
+interaction_model = build_model(interaction_info, platform="dll", dtype="double")
+
+
+@lru_cache(maxsize=16)
+def interaction_kernel(q_values):
+    return interaction_model.make_kernel([np.asarray(q_values)])
+
+
+@lru_cache(maxsize=16)
+def measurement_resolution(q_values, resolution_points=3000):
+    q = np.asarray(q_values)
+    q_calc = np.geomspace(0.7 * q.min(), 1.4 * q.max(), resolution_points)
+    return Pinhole1D(q, 0.10 * q, q_calc=q_calc)
+
+
+def interacting_intensity(contrast, q, values, background,
+                          population_points=41, resolution_points=3000):
+    radius, thickness, radius_sd, thickness_sd, phi = values[:5]
+    eta = values[8]
+    parameters = population_parameters(
+        contrast, radius, thickness, radius_sd, thickness_sd, population_points,
+    )
+    resolution = measurement_resolution(tuple(q), resolution_points)
+    if eta == 0:
+        theory = call_kernel(particle_kernel(tuple(resolution.q_calc)), dict(
+            parameters, scale=phi, background=0.0,
+        ))
+    else:
+        _, _, _, mean_volume, _ = call_Fq(
+            particle_kernel((0.01,)), parameters.copy(),
+        )
+        theory = call_kernel(interaction_kernel(tuple(resolution.q_calc)), dict(
+            parameters, radius_effective=(3 * mean_volume / (4 * np.pi))**(1/3),
+            volfraction=eta, scale=phi/eta, background=0.0,
+            structure_factor_mode=1, radius_effective_mode=0,
+        ))
+    return resolution.apply(theory) + background
+```
+
+### Fit the same data with one additional variable
+
+```{python}
+#| code-fold: true
+#| code-summary: "Fit interactions and resolution"
+def interacting_residual_vector(values, **quadrature):
+    return np.concatenate([
+        (interacting_intensity(
+            contrast, datasets[contrast]["q"], values, values[5 + index],
+            **quadrature,
+        ) - datasets[contrast]["intensity"]) / datasets[contrast]["uncertainty"]
+        for index, contrast in enumerate(contrast_order)
+    ])
+
+
+interaction_lower = np.r_[disperse_lower, 0.0]
+interaction_upper = np.r_[disperse_upper, 0.3]
+interaction_fit = least_squares(
+    interacting_residual_vector,
+    np.r_[disperse_fit.x, 0.05],
+    bounds=(interaction_lower, interaction_upper),
+    x_scale="jac",
+)
+assert interaction_fit.success, interaction_fit.message
+interaction_chi_squared = np.sum(interaction_fit.fun**2) / (
+    interaction_fit.fun.size - interaction_fit.x.size
+)
+for name, value in zip(
+    (*disperse_parameter_names, "interaction packing fraction"), interaction_fit.x,
+):
+    print(f"{name:30s} {value:.6g}")
+print(f"interacting reduced chi-squared {interaction_chi_squared:.3f}")
+
+for label, result in (
+    ("monodisperse", fit), ("size distributions", disperse_fit),
+    ("interactions + resolution", interaction_fit),
+):
+    chi2 = np.sum(result.fun**2)
+    print(f"{label:26s} k={result.x.size:2d}  "
+          f"chi2/dof={chi2 / (result.fun.size - result.x.size):.3f}  "
+          f"AIC={chi2 + 2 * result.x.size:.1f}")
+```
+
+AIC here omits the common constant for independent Gaussian observations with
+known uncertainties. It penalizes added parameters, but a lower AIC does not
+prove the model is physically correct.
+
+::: {.callout-note collapse="true" title="Numerical checks and static plots"}
+
+We compare the adapter with an independent sasmodels core-shell model at
+all three contrasts, check the zero-dispersity and zero-interaction limits,
+and double the distribution and resolution grids. Integration error should
+be small compared with the measured uncertainties.
+
+```{python}
+#| code-fold: true
+#| code-summary: "Check numerical limits and integration grids"
+from sasmodels.core import load_model
+
+check_q = datasets["Core"]["q"]
+reference_model = load_model("core_shell_sphere", platform="dll", dtype="double")
+reference_kernel = reference_model.make_kernel([check_q])
+for index, contrast in enumerate(contrast_order):
+    parameters = population_parameters(contrast, *interaction_fit.x[:4])
+    expected = call_kernel(reference_kernel, dict(parameters, scale=1., background=0.))
+    actual = call_kernel(particle_kernel(tuple(check_q)), dict(parameters, scale=1., background=0.))
+    np.testing.assert_allclose(actual, expected, rtol=1e-7, atol=1e-8)
+
+    radius, thickness = interaction_fit.x[:2]
+    rc, rs, solvent = sld[contrast]
+    vc = 4 * np.pi * radius**3 / 3
+    vo = 4 * np.pi * (radius + thickness)**3 / 3
+    native = world.EvaluateFormFactorUnnormalized("droplet", {
+        "R_core": radius, "Ri_shell": radius, "Ro_shell": radius + thickness,
+        "beta_core": (rc-solvent)*1e-6*vc,
+        "beta_shell": (rs-solvent)*1e-6*(vo-vc),
+    }, check_q.tolist())
+    mono = calculate_disperse_intensity(contrast, check_q, radius, thickness, 0, 0, 1, 0)
+    np.testing.assert_allclose(mono, np.asarray(native)*1e8/vo, rtol=1e-7, atol=1e-8)
+
+    tiny_eta = interaction_fit.x.copy()
+    tiny_eta[8] = 1e-10
+    zero_eta = interaction_fit.x.copy()
+    zero_eta[8] = 0
+    resolution = measurement_resolution(tuple(check_q))
+    unsmeared = calculate_disperse_intensity(contrast, resolution.q_calc, *zero_eta[:5], 0.)
+    np.testing.assert_allclose(interacting_intensity(contrast, check_q, zero_eta, 0.),
+                               resolution.apply(unsmeared), rtol=1e-12)
+    np.testing.assert_allclose(interacting_intensity(contrast, check_q, tiny_eta, 0.),
+                               resolution.apply(unsmeared), rtol=1e-8)
+reference_kernel.release()
+reference_model.release()
+np.testing.assert_allclose(resolution.apply(np.ones_like(resolution.q_calc)), 1)
+np.testing.assert_allclose(Perfect1D(check_q).apply(check_q**2), check_q**2)
+fine_residual = interacting_residual_vector(
+    interaction_fit.x, population_points=81, resolution_points=6000,
+)
+disperse_fine = np.concatenate([
+    (calculate_disperse_intensity(
+        contrast, datasets[contrast]["q"], *disperse_fit.x[:5],
+        disperse_fit.x[5 + index], population_points=81,
+    ) - datasets[contrast]["intensity"]) / datasets[contrast]["uncertainty"]
+    for index, contrast in enumerate(contrast_order)
+])
+assert np.max(np.abs(disperse_fine - disperse_fit.fun)) < 0.05
+quadrature_error = np.max(np.abs(fine_residual - interaction_fit.fun))
+print(f"Largest integration change / measured uncertainty: {quadrature_error:.4g}")
+assert quadrature_error < 0.05
+```
+
+```{python}
+#| code-fold: true
+#| code-summary: "Plot all contrasts and residuals"
+#| label: fig-real-aot-interacting-fit
+#| fig-cap: "Shared geometry with hard-sphere interactions and approximate resolution smearing. Dashed curves show the noninteracting size-distribution fit."
+
+figure, axes = plt.subplots(3, 2, figsize=(10, 10), sharex="col")
+for index, contrast in enumerate(contrast_order):
+    data = datasets[contrast]
+    prediction = interacting_intensity(
+        contrast, data["q"], interaction_fit.x, interaction_fit.x[5 + index],
+    )
+    previous = calculate_disperse_intensity(
+        contrast, data["q"], *disperse_fit.x[:5], disperse_fit.x[5 + index],
+    )
+    positive = data["intensity"] > 0
+    axes[index, 0].errorbar(
+        data["q"][positive], data["intensity"][positive],
+        yerr=data["uncertainty"][positive], fmt=".", markersize=3,
+        label="measurement",
+    )
+    axes[index, 0].plot(data["q"], previous, "--", color="grey", label="noninteracting")
+    axes[index, 0].plot(data["q"], prediction, label="interactions + resolution")
+    axes[index, 0].set(xscale="log", yscale="log", ylabel=f"{contrast}\n$I(q)$ (cm$^{{-1}}$)")
+    axes[index, 0].legend(fontsize="small")
+    residual = (data["intensity"] - prediction) / data["uncertainty"]
+    axes[index, 1].plot(data["q"], residual, ".", markersize=3)
+    for level in (-2, 0, 2):
+        axes[index, 1].axhline(level, color="grey", linewidth=0.7)
+    axes[index, 1].set(xscale="log", ylabel="residual / uncertainty")
+    print(f"{contrast}: mean squared normalized residual = {np.mean(residual**2):.3f}")
+for axis in axes[-1]:
+    axis.set_xlabel(r"$q$ (Å$^{-1}$)")
+plt.tight_layout()
+plt.show()
+```
+
+:::
+
+The reduced chi-squared falls from **29.50** for the monodisperse model to
+**20.49** with size distributions and **1.83** with interactions and sasmodels resolution.
+The final fit has nine parameters, compared with eight for the noninteracting
+size-distribution model. The core radius is about **25.2 Å**, shell thickness
+**8.6 Å**, core relative width **0.158**, and shell relative width **0.366**.
+The shared volume fraction is about **0.0596** and effective interaction packing
+fraction about **0.0762**.
+
+## Explore the whole fitting story
+
+Use the selector to move from **identical droplets**, through **a size
+population**, to **interactions and resolution**. The same three measurements
+stay visible. The particle geometry and all predicted curves and residuals
+update together; the title reports the fit score at that stage.
+
+The 3D view shows one representative core–shell particle at the fitted size
+parameters. It does not display the full size distribution or simulate the
+spatial arrangement of interacting droplets. Rotate the particle to inspect
+the core through the translucent surfactant shell.
+
+```{python}
+#| code-fold: true
+#| code-summary: "Build the interactive comparison of all three fitting stages"
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+stages = [
+    ("Identical droplets", fit, reduced_chi_squared),
+    ("Size distributions", disperse_fit, disperse_reduced_chi_squared),
+    ("Interactions + resolution", interaction_fit, interaction_chi_squared),
+]
+colors = {"Core": "#247ba0", "Drop": "#d1495b", "Shell": "#39875b"}
+viewer = make_subplots(
+    rows=3, cols=3,
+    specs=[[{"type": "scene", "rowspan": 3}, {}, {}],
+           [None, {}, {}], [None, {}, {}]],
+    column_widths=[0.35, 0.43, 0.22],
+    subplot_titles=("Representative droplet", "Intensity", "Residual / uncertainty",
+                    "", "", "", ""),
+    horizontal_spacing=0.06, vertical_spacing=0.08,
+)
+measurement_traces = []
+for row, contrast in enumerate(contrast_order, 1):
+    data = datasets[contrast]
+    positive = data["intensity"] > 0
+    measurement_traces.append(len(viewer.data))
+    viewer.add_trace(go.Scatter(
+        x=data["q"][positive], y=data["intensity"][positive],
+        error_y=dict(type="data", array=data["uncertainty"][positive],
+                     thickness=0.6, width=0, color="#888888"),
+        mode="markers", marker=dict(size=3, color=colors[contrast], opacity=0.65),
+        name=f"{contrast} data", legendgroup=contrast,
+    ), row=row, col=2)
+    viewer.update_xaxes(type="log", title_text="q [Å⁻¹]" if row == 3 else None,
+                        row=row, col=2)
+    viewer.update_yaxes(type="log", title_text=f"{contrast} I(q) [cm⁻¹]", row=row, col=2)
+    viewer.update_xaxes(type="log", title_text="q [Å⁻¹]" if row == 3 else None,
+                        row=row, col=3)
+    viewer.update_yaxes(title_text=contrast, row=row, col=3)
+    for level in (-2, 0, 2):
+        viewer.add_hline(y=level, line_width=1, line_color="#999999",
+                         line_dash="solid" if level == 0 else "dot", row=row, col=3)
+
+stage_traces = []
+for index, (label, result, score) in enumerate(stages):
+    indices = []
+    radius_value, thickness_value = map(float, result.x[:2])
+    geometry = dict(R_core=radius_value, Ri_shell=radius_value,
+                    Ro_shell=radius_value + thickness_value)
+    options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+    options.opacity_overrides = {"shell": 0.25}
+    options.color_overrides = {"core": (0.15, 0.48, 0.65), "shell": (0.9, 0.65, 0.25)}
+    particle_view = pyseb.structure_figure(world, "droplet", geometry, options)
+    for trace in particle_view.data:
+        indices.append(len(viewer.data))
+        trace.visible = index == 2
+        trace.showlegend = False
+        viewer.add_trace(trace, row=1, col=1)
+    for row, contrast in enumerate(contrast_order, 1):
+        data = datasets[contrast]
+        if index == 0:
+            prediction = calculate_intensity(contrast, data["q"], *result.x[:3], result.x[2 + row])
+        elif index == 1:
+            prediction = calculate_disperse_intensity(contrast, data["q"], *result.x[:5], result.x[4 + row])
+        else:
+            prediction = interacting_intensity(contrast, data["q"], result.x, result.x[4 + row])
+        indices.append(len(viewer.data))
+        viewer.add_trace(go.Scatter(
+            x=data["q"], y=prediction, mode="lines", line=dict(color=colors[contrast]),
+            visible=index == 2, name=f"{contrast} fit", showlegend=False,
+        ), row=row, col=2)
+        indices.append(len(viewer.data))
+        viewer.add_trace(go.Scatter(
+            x=data["q"], y=(data["intensity"] - prediction)/data["uncertainty"],
+            mode="markers", marker=dict(size=3, color=colors[contrast]),
+            visible=index == 2, showlegend=False, name=f"{contrast} residual",
+        ), row=row, col=3)
+    stage_traces.append(indices)
+
+buttons = []
+for index, (label, result, score) in enumerate(stages):
+    visible = [i in measurement_traces or i in stage_traces[index]
+               for i in range(len(viewer.data))]
+    title = (f"{label}: reduced χ² = {score:.2f} · "
+             f"core R = {result.x[0]:.2f} Å · shell thickness = {result.x[1]:.2f} Å")
+    buttons.append(dict(label=label, method="update",
+                        args=[{"visible": visible}, {"title.text": title}]))
+viewer.update_layout(
+    height=800, margin=dict(l=20, r=20, t=135, b=30),
+    title=dict(text=buttons[2]["args"][1]["title.text"], x=0.02, y=0.99,
+               xanchor="left", yanchor="top", font=dict(size=14)),
+    updatemenus=[dict(buttons=buttons, active=2, x=0, y=1.10, xanchor="left")],
+    scene=dict(aspectmode="data", xaxis=dict(visible=False),
+               yaxis=dict(visible=False), zaxis=dict(visible=False),
+               camera=dict(eye=dict(x=1.8, y=1.8, z=1.5))),
+    uirevision="aot-fit-story", legend=dict(orientation="h", y=-0.08),
+)
+from IPython.display import HTML, display
+
+# Quarto already renders the page's mathematics. Avoid loading MathJax twice.
+display(HTML(viewer.to_html(
+    full_html=False, include_plotlyjs=True, include_mathjax=False,
+    config={"displaylogo": False, "responsive": True},
+)))
+```
+
+The largest improvement comes in the final step: reduced χ² falls from
+**29.50 → 20.49 → 1.83**. The 3D particle remains a core and a shell throughout;
+what changes is the description of its population and measurement. The final
+fit uses **pySEB for particle scattering, sasmodels for distributions,
+interactions and resolution, and SciPy for optimization**.
+
+This comparison adds interactions and resolution together. It demonstrates
+their combined effect; it does not establish how much of the improvement
+comes from either contribution separately.
+
+The shell-contrast background reaches its lower bound of zero. Residuals still
+show some mismatch, and the resolution was assumed rather than measured. These
+are reasons to avoid treating the fitted geometry as a unique solution or
+reporting precision based only on the optimizer's local curvature. The next
+experimental checks would be measured resolution, background subtraction, and
+whether the same interaction model is adequate at other concentrations.
+
+
+## Where to go next
+
+- [Return to the first SANS fit](fit-real-sans-data.qmd).
+- [Use the sasmodels adapter in your own model](../sasmodels.qmd).
+- [Fit a titin doublet](fit-linked-titin.qmd) to explore a hybrid structure.

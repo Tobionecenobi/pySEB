@@ -33,6 +33,8 @@ project:
     - tutorials/random-walk-rods.qmd
     - tutorials/parameter-sweeps.qmd
     - tutorials/fit-real-sans-data.qmd
+    - tutorials/sans-size-distributions.qmd
+    - tutorials/sans-interactions-resolution.qmd
     - tutorials/fit-linked-titin.qmd
     - tutorials/titin-coordinate-domains.qmd
     - tutorials/titin-hydration.qmd
@@ -116,6 +118,8 @@ website:
         - section: "Fit SANS data"
           contents:
             - tutorials/fit-real-sans-data.qmd
+            - tutorials/sans-size-distributions.qmd
+            - tutorials/sans-interactions-resolution.qmd
         - section: "F127 corona sequence"
           contents:
             - tutorials/fit-f127-corona.qmd

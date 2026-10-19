@@ -182,7 +182,8 @@ def fit_sphere(spec, measured_q, measured_intensity, uncertainty, q_width=None):
 
 ```
 
-The [AOT tutorial](tutorials/fit-real-sans-data.qmd) runs the full simultaneous
+The [AOT tutorial sequence](tutorials/fit-real-sans-data.qmd), ending with
+[interactions and resolution](tutorials/sans-interactions-resolution.qmd), runs the full simultaneous
 fit at three contrasts. This workflow uses pySEB, sasmodels, and SciPy directly
 in Python. It requires no SasView application, plugin export, or GUI setup.
 
