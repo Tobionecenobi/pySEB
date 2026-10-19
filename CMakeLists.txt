@@ -44,6 +44,11 @@ file(GLOB PYSEB_BUNDLED_MODEL_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/models/*.pyseb.yaml"
 )
 list(SORT PYSEB_BUNDLED_MODEL_FILES)
+# file(READ) below must rerun when an existing definition changes, not just
+# when CONFIGURE_DEPENDS notices that a model was added or removed.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    ${PYSEB_BUNDLED_MODEL_FILES}
+)
 if(NOT PYSEB_BUNDLED_MODEL_FILES)
     message(FATAL_ERROR "No bundled models found in ${CMAKE_CURRENT_SOURCE_DIR}/models")
 endif()
