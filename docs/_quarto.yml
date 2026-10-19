@@ -32,7 +32,6 @@ project:
     - tutorials/micelle.qmd
     - tutorials/nested-hierarchy.qmd
     - tutorials/random-walk-rods.qmd
-    - tutorials/parameter-sweeps.qmd
     - tutorials/fit-real-sans-data.qmd
     - tutorials/sans-size-distributions.qmd
     - tutorials/sans-interactions-resolution.qmd
@@ -104,7 +103,6 @@ website:
             - tutorials/micelle.qmd
             - tutorials/random-walk-rods.qmd
             - tutorials/nested-hierarchy.qmd
-            - tutorials/parameter-sweeps.qmd
         - section: "Understand scattering"
           contents:
             - tutorials/scattering-quantities.qmd

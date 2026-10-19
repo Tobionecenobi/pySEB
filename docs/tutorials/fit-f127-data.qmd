@@ -16,7 +16,7 @@ execute:
 
 ::: {.callout-note title="Before you start"}
 Complete [Build a polymer corona](fit-f127-corona.qmd) first. Read
-[Parameter sweeps](parameter-sweeps.qmd) if changing a parameter dictionary is
+[Your first scattering model](first-model.qmd#reuse-the-graph-with-other-radii) if changing a parameter dictionary is
 unfamiliar. You should know the purpose of least-squares residuals and
 experimental uncertainties. This page runs from a fresh kernel in
 `docs/tutorials` inside a repository checkout.

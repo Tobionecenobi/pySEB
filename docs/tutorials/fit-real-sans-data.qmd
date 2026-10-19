@@ -16,7 +16,7 @@ execute:
 ::: {.callout-note title="Before you start"}
 Be comfortable linking subunits and evaluating a model, as in
 [Your first composite model](diblock-copolymer.qmd) and
-[Parameter sweeps](parameter-sweeps.qmd). Some familiarity with least-squares
+[Your first scattering model](first-model.qmd#reuse-the-graph-with-other-radii). Some familiarity with least-squares
 fitting is useful. Run the examples from `docs/tutorials` in a repository checkout.
 :::
 

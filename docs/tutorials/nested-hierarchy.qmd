@@ -205,4 +205,3 @@ excluded-volume interactions.
 ## Continue
 
 - [Comb polymer](comb-polymer.qmd): build a backbone and add hairs with explicit links.
-- [Parameter sweeps](parameter-sweeps.qmd): evaluate one structure with different parameter values.

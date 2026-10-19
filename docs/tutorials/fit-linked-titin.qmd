@@ -15,7 +15,7 @@ execute:
 
 ::: {.callout-note title="Before you start"}
 Read [Your first composite model](diblock-copolymer.qmd) and
-[Parameter sweeps](parameter-sweeps.qmd) first. For the fitting workflow,
+[Your first scattering model](first-model.qmd#reuse-the-graph-with-other-radii) first. For the fitting workflow,
 complete [Fit the corona to F127 data](fit-f127-data.qmd), or arrive comfortable
 with bounded least squares, uncertainty-weighted residuals, and fit diagnostics.
 You do not need PDB parsing or atomic scattering for this first page.

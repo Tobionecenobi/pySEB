@@ -46,7 +46,7 @@ and evaluate your first model step by step.
 ::: {.g-col-12 .g-col-md-6}
 ### Choose by task
 
-Continue with micelles, nested structures, parameter sweeps, or a mixed
+Continue with micelles, nested structures, or a mixed
 PDB–polymer model. The task pages use tested examples and show the
 equivalent C++ APIs where relevant.
 
