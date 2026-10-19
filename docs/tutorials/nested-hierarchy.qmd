@@ -55,7 +55,7 @@ view_options = pyseb.USDExportOptions(pyseb.LengthUnit.Nanometer)
 view_options.seed = 7
 view_options.layout_mode = pyseb.LayoutMode.Readable
 
-star_view = pyseb.visualize(world, "star", parameters, view_options, height=460)
+star_view = pyseb.visualize(world, "star", parameters, view_options, height=460, layouts=["random", "readable"])
 ```
 
 The tag `"rod"` makes all six rods share `L_rod` and `beta_rod`. The names
@@ -80,7 +80,7 @@ world.Link(star, "star2:rod1.end2", "star1:rod2.end2")
 world.Link(star, "star3:rod1.end2", "star2:rod2.end2")
 world.Add(chain, "chain")
 
-chain_view = pyseb.visualize(world, "chain", parameters, view_options, height=600)
+chain_view = pyseb.visualize(world, "chain", parameters, view_options, height=600, layouts=["random", "readable"])
 ```
 
 Each `Link` adds a **complete six-arm star**. The chain contains three rings
@@ -102,7 +102,8 @@ world.Link(chain, "chain3:star1:rod1.end2", "chain2:star3:rod2.end2")
 world.Add(chain_of_chains, "chainOfChains")
 
 chains_view = pyseb.visualize(
-    world, "chainOfChains", parameters, view_options, height=650
+    world, "chainOfChains", parameters, view_options, height=650,
+    layouts=["random", "readable"],
 )
 ```
 
@@ -153,7 +154,8 @@ dictionary and display the same structure again:
 short_rods = dict(parameters, L_rod=0.1)
 
 rings_view = pyseb.visualize(
-    world, "chainOfChains", short_rods, view_options, height=650
+    world, "chainOfChains", short_rods, view_options, height=650,
+    layouts=["random", "readable"],
 )
 ```
 

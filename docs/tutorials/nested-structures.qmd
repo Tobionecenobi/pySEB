@@ -54,7 +54,7 @@ view_options = pyseb.USDExportOptions(pyseb.LengthUnit.Nanometer)
 view_options.seed = 7
 view_options.layout_mode = pyseb.LayoutMode.Readable
 
-arm_view = pyseb.visualize(world, "arm", parameters, view_options, height=400)
+arm_view = pyseb.visualize(world, "arm", parameters, view_options, height=400, layouts=["random", "readable"])
 ```
 
 The view shows two different subunits: a thin line for the rod and a solid
@@ -81,7 +81,7 @@ world.Link(arm, "arm8:rod.end1", "arm1:rod.end1")
 world.Link(arm, "arm9:rod.end1", "arm1:rod.end1")
 world.Add(star, "star")
 
-star_view = pyseb.visualize(world, "star", parameters, view_options, height=560)
+star_view = pyseb.visualize(world, "star", parameters, view_options, height=560, layouts=["random", "readable"])
 ```
 
 Each `Link` adds a **complete arm**, containing its rod, cylinder, and their

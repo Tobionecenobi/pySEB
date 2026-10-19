@@ -365,7 +365,7 @@ for index, (label, result, score) in enumerate(stages):
     options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
     options.opacity_overrides = {"shell": 0.25}
     options.color_overrides = {"core": (0.15, 0.48, 0.65), "shell": (0.9, 0.65, 0.25)}
-    particle_view = pyseb.structure_figure(world, "droplet", geometry, options)
+    particle_view = pyseb.structure_figure(world, "droplet", geometry, options, layouts=["random", "readable"])
     for trace in particle_view.data:
         indices.append(len(viewer.data))
         trace.visible = index == 2

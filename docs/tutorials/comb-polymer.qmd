@@ -51,7 +51,7 @@ backbone.Link("GaussianPolymer", "b5.end1", "b4.end2", "backbone")
 backbone.Link("GaussianPolymer", "b6.end1", "b5.end2", "backbone")
 backbone.Add(graph, "molecule")
 
-backbone_view = pyseb.visualize(backbone, "molecule", parameters, height=400)
+backbone_view = pyseb.visualize(backbone, "molecule", parameters, height=400, layouts=["random", "readable"])
 ```
 
 The names `b1` to `b6` identify individual blocks. Their shared `backbone`
@@ -85,7 +85,7 @@ comb.Link("GaussianPolymer", "s4.end1", "b4.end2", "side")
 comb.Link("GaussianPolymer", "s5.end1", "b5.end2", "side")
 comb.Add(graph, "molecule")
 
-comb_view = pyseb.visualize(comb, "molecule", parameters, height=440)
+comb_view = pyseb.visualize(comb, "molecule", parameters, height=440, layouts=["random", "readable"])
 ```
 
 The five extra `Link` calls are the only change in construction. For example,
@@ -122,7 +122,7 @@ linear.Link("GaussianPolymer", "s4.end1", "s3.end2", "side")
 linear.Link("GaussianPolymer", "s5.end1", "s4.end2", "side")
 linear.Add(graph, "molecule")
 
-linear_view = pyseb.visualize(linear, "molecule", parameters, height=440)
+linear_view = pyseb.visualize(linear, "molecule", parameters, height=440, layouts=["random", "readable"])
 ```
 
 The comb and this linear chain use identical block dimensions, scattering

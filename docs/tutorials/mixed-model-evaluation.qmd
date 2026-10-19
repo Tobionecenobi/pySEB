@@ -79,7 +79,8 @@ view_options.zero_radius_marker_size = 0.04
 view_options.layout_mode = pyseb.LayoutMode.Readable
 
 assembly_view = pyseb.visualize(
-    world, "assembly", parameters, view_options, height=440
+    world, "assembly", parameters, view_options, height=440,
+    layouts=["random", "readable"],
 )
 ```
 

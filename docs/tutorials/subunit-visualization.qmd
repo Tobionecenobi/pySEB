@@ -118,7 +118,7 @@ F_before = previous.EvaluateFormFactor("shell", parameters, q.tolist())
 F_after = world.EvaluateFormFactor("shell", parameters, q.tolist())
 np.testing.assert_allclose(F_after, F_before, rtol=1e-12, atol=1e-12)
 
-shell_view = pyseb.visualize(world, "shell", parameters, height=430)
+shell_view = pyseb.visualize(world, "shell", parameters, height=430, layouts=["random", "readable"])
 ```
 
 Open the viewer settings and enable reference markers to inspect the centre
@@ -139,7 +139,7 @@ pole_parameters = {
     "L_bottom": 3.0, "beta_bottom": 1.0,
 }
 
-pole_view = pyseb.visualize(world, "poleAssembly", pole_parameters, height=470)
+pole_view = pyseb.visualize(world, "poleAssembly", pole_parameters, height=470, layouts=["random", "readable"])
 ```
 
 The attachment coordinates are opposite poles. Each link is freely jointed,
@@ -161,7 +161,8 @@ surface_parameters = {
 }
 
 surface_view = pyseb.visualize(
-    world, "surfaceAssembly", surface_parameters, height=470
+    world, "surfaceAssembly", surface_parameters, height=470,
+    layouts=["random", "readable"],
 )
 ```
 

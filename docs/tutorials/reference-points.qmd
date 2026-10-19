@@ -76,7 +76,7 @@ graph = center_linked.Add("ThinCircle", "ring")
 center_linked.Link("GaussianPolymer", "chain.end1", "ring.center")
 center_linked.Add(graph, "assembly")
 
-center_view = pyseb.visualize(center_linked, "assembly", parameters, height=420)
+center_view = pyseb.visualize(center_linked, "assembly", parameters, height=420, layouts=["random", "readable"])
 ```
 
 The chain starts in the **empty middle** of the ring. The ring still contains
@@ -93,7 +93,7 @@ graph = contour_linked.Add("ThinCircle", "ring")
 contour_linked.Link("GaussianPolymer", "chain.end1", "ring.contour#join")
 contour_linked.Add(graph, "assembly")
 
-contour_view = pyseb.visualize(contour_linked, "assembly", parameters, height=420)
+contour_view = pyseb.visualize(contour_linked, "assembly", parameters, height=420, layouts=["random", "readable"])
 ```
 
 This time the chain starts **on the circumference**, where ring material is
