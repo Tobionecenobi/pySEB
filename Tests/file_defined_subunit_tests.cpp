@@ -3,6 +3,8 @@
 #include <cmath>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "SEB.hpp"
 #include "SubunitIO/BundledModels.hpp"
@@ -54,6 +56,28 @@ TEST(FileDefinedExpression, RejectsUnsupportedFunctionsAndTrailingInput) {
     EXPECT_THROW(pyseb::ParseSubunitExpression("system(1)"), SEBException);
     EXPECT_THROW(pyseb::ParseSubunitExpression("2 + 3 garbage"), SEBException);
     EXPECT_THROW(pyseb::ParseSubunitExpression("pow(2)"), SEBException);
+}
+
+TEST(FileDefinedExpression, SphereAmplitudeIsStableAtZeroAndAcrossSeriesCutoff) {
+    SymbolicFactory::instance();
+    const auto expression = pyseb::ParseSubunitExpression("sphere_amplitude(x)");
+    // Independently calculated high-precision values of 3 (sin(x)-x cos(x))/x^3.
+    const std::vector<std::pair<double, double>> samples{
+        {0.0, 1.0}, {1e-10, 1.0}, {0.001, 0.9999999000000036},
+        {0.05, 0.9997500223203952}, {0.1, 0.9990003570767271},
+        {1.0, 0.9035060368192704}, {5.0, -0.057053644847502475}
+    };
+    for (const auto& sample : samples) {
+        for (double sign : {-1.0, 1.0}) {
+            const double argument = sign * sample.first;
+            EXPECT_NEAR(pyseb::EvaluateSubunitExpression(
+                expression, [argument](const std::string&) { return argument; }),
+                sample.second, 5e-14);
+            EXPECT_NEAR(pyseb::MaterializeSubunitExpression(
+                expression, [argument](const std::string&) { return sebsym::constant(argument); }).eval(),
+                sample.second, 5e-14);
+        }
+    }
 }
 
 TEST(FileDefinedExpression, EvaluatesParsedAstNumerically) {

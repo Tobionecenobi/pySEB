@@ -14,6 +14,7 @@
 #include "Exceptions.hpp"
 #include "ExpressionFunctions.hpp"
 #include "SpecialFunctions.hpp"
+#include "SphereAmplitude.hpp"
 
 namespace pyseb {
 namespace {
@@ -235,6 +236,13 @@ sebsym::Expression materialize(
             if (node->text == "six") return Six(arg);
             if (node->text == "sinc") return Sinc(arg);
             if (node->text == "jinc") return Jinc(arg);
+            if (node->text == "sphere_amplitude") {
+                if (arg.is_numeric()) {
+                    return sebsym::constant(SphereAmplitudeValue(arg.eval()));
+                }
+                // Preserve the familiar closed form in symbolic exports.
+                return 3 * (arg.sin() - arg * arg.cos()) / sebsym::pow(arg, 3);
+            }
             if (node->text == "struve_h0") return StruveH0(arg);
             if (node->text == "struve_h1") return StruveH1(arg);
             break;
@@ -311,6 +319,7 @@ double evaluate(
                 }
                 return 2.0 * gsl_sf_bessel_J1(arg) / arg;
             }
+            if (node->text == "sphere_amplitude") return SphereAmplitudeValue(arg);
             if (node->text == "struve_h0") return StruveH0Value(arg);
             if (node->text == "struve_h1") return StruveH1Value(arg);
             break;
@@ -349,7 +358,7 @@ bool IsSubunitExpressionFunction(const std::string& name) {
     static const std::set<std::string> functions = {
         "abs", "acos", "asin", "atan", "bessel_j0", "bessel_j1", "cos", "cosh",
         "dawson", "erf", "erfc", "exp", "jinc", "log", "pow", "sin", "sinc", "sinh", "six", "sqrt",
-        "struve_h0", "struve_h1", "tan", "tanh"
+        "sphere_amplitude", "struve_h0", "struve_h1", "tan", "tanh"
     };
     return functions.find(name) != functions.end();
 }

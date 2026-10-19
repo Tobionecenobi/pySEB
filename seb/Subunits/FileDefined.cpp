@@ -220,7 +220,8 @@ bool FileDefinedSubunit::requiresParsedNumericalEvaluation(
         usesAstFunction = [&](const std::shared_ptr<const pyseb::ParsedExpressionNode>& node) {
             if (!node) return false;
             if (node->kind == pyseb::ParsedExpressionNode::Kind::Function &&
-                (node->text == "struve_h0" || node->text == "struve_h1")) {
+                (node->text == "struve_h0" || node->text == "struve_h1" ||
+                 node->text == "sphere_amplitude")) {
                 return true;
             }
             for (const auto& child : node->children) {
@@ -231,6 +232,11 @@ bool FileDefinedSubunit::requiresParsedNumericalEvaluation(
         if (usesAstFunction(current.root())) return true;
         for (const auto& identifier : current.identifiers()) {
             if (definition_.integrals.count(identifier)) return true;
+            const auto variable = definition_.variables.find(identifier);
+            if (variable != definition_.variables.end() && visited.insert(identifier).second &&
+                inspect(variable->second)) {
+                return true;
+            }
             const auto named = definition_.definitions.find(identifier);
             if (named != definition_.definitions.end() && visited.insert(identifier).second &&
                 inspect(named->second)) {

@@ -2,7 +2,7 @@ format: pyseb-subunit
 schema_version: 1
 id: pyseb/SolidSphere
 api_name: SolidSphere
-model_version: "1.0.0"
+model_version: "1.0.1"
 
 metadata:
   title: Solid sphere
@@ -22,7 +22,7 @@ variables:
   x: "q * R"
 
 definitions:
-  A: "3 * (sin(x) - x * cos(x)) / x^3"
+  A: "sphere_amplitude(x)"
 
 references:
   specific: [center]
@@ -32,12 +32,12 @@ expressions:
   form_factor: "A * A"
   amplitudes:
     center: A
-    surface: "A * sin(x) / x"
+    surface: "A * sinc(x)"
   phases:
     - references: [center, surface]
-      expression: "sin(x) / x"
+      expression: "sinc(x)"
     - references: [surface, surface]
-      expression: "(sin(x) / x)^2"
+      expression: "sinc(x)^2"
 
 sizes:
   radius_of_gyration_squared: "3 * R^2 / 5"
@@ -59,6 +59,23 @@ validation:
       parameters: {R: 5.0}
       q: 0.0
       expected: 1.0
+    - name: tiny nonzero q forward limit
+      quantity: form_factor_unnormalized
+      parameters: {R: 2.0}
+      beta: -4.0
+      q: 1.0e-10
+      expected: 16.0
+    - name: small nonzero q center amplitude
+      quantity: amplitude
+      parameters: {R: 2.0}
+      references: [center]
+      q: 0.025
+      expected: 0.9997500223203952
+    - name: small nonzero q form factor
+      quantity: form_factor
+      parameters: {R: 2.0}
+      q: 0.025
+      expected: 0.9995001071296307
     - name: radius of gyration
       quantity: radius_of_gyration_squared
       parameters: {R: 5.0}

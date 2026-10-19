@@ -316,15 +316,50 @@ class TestNumericalOptimization(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             world.EvaluateFormFactor('cloud', {}, [.1, .2])
 
-    @unittest.expectedFailure
     def test_sphere_tiny_nonzero_q_matches_forward_limit(self):
-        # Known baseline defect: sin(z)-z*cos(z) cancels at z=2e-10.
-        # Keep the physical assertion; an unexpected success means this marker
-        # should be removed after the small-q evaluator is repaired.
         world = pyseb.World()
         world.Add('SolidSphere', 'sphere')
         p = dict(R_sphere=2., beta_sphere=-4.)
         self.assert_close(world.EvaluateFormFactorUnnormalized('sphere', p, 1e-10), 16.)
+
+    def test_sphere_amplitudes_match_high_precision_across_small_q_cutoff(self):
+        # The reference uses the original mathematical expression at 80-digit
+        # precision, independently of the numerical small-argument series.
+        x = sp.Symbol('x')
+        exact = 3 * (sp.sin(x) - x * sp.cos(x)) / x**3
+        arguments = np.array([
+            0., 1e-20, 1e-10, 1e-4, 1e-3,
+            np.nextafter(.1, 0.), .1, np.nextafter(.1, np.inf), .2, 1., 5., 10.,
+        ])
+        arguments = np.concatenate((arguments, -arguments[1:]))
+        world = pyseb.World()
+        world.Add('SolidSphere', 'sphere')
+        for radius, beta in [(2., -4.), (.25, 3.), (20., -2.)]:
+            q = arguments / radius
+            qr = q * radius
+            amplitude = np.array([
+                1. if value == 0 else float(exact.evalf(80, subs={x: value}))
+                for value in qr
+            ])
+            surface = amplitude * np.sinc(qr / np.pi)
+            parameters = dict(R_sphere=radius, beta_sphere=beta)
+            with self.subTest(radius=radius, beta=beta):
+                self.assert_close(world.EvaluateFormFactor('sphere', parameters, q.tolist()),
+                                  amplitude**2)
+                self.assert_close(world.EvaluateFormFactorUnnormalized('sphere', parameters, q.tolist()),
+                                  beta**2 * amplitude**2)
+                self.assert_close(world.EvaluateFormFactorAmplitude('sphere.center', parameters, q.tolist()),
+                                  amplitude)
+                self.assert_close(world.EvaluateFormFactorAmplitudeUnnormalized('sphere.surface', parameters, q.tolist()),
+                                  beta * surface)
+                self.assert_close([world.EvaluateFormFactorUnnormalized('sphere', parameters, value)
+                                   for value in q], beta**2 * amplitude**2)
+                intensity, center = world._evaluate_form_factor_numpy(
+                    'sphere', parameters, q, 'sphere.center')
+                self.assert_close(intensity, beta**2 * amplitude**2)
+                self.assert_close(center, beta * amplitude)
+                self.assert_close([pyseb.DebyeSphereCloud.sphereAmplitude(value) for value in qr],
+                                  amplitude)
 
     def test_cloud_tiny_nonzero_q_matches_independent_debye_sum(self):
         cloud, sites = self.make_cloud(.334, .02)
@@ -355,8 +390,14 @@ class TestNumericalOptimization(unittest.TestCase):
             for x in q:
                 intensity, amplitude = self.reference(sites, x, density, hydration)
                 z = x*radius
-                # The series avoids cancellation in the near-zero reference.
-                sphere = 1-z*z/10+z**4/280 if abs(z) < .001 else 3*(math.sin(z)-z*math.cos(z))/z**3
+                # Avoid importing the old double-precision cancellation into
+                # the independent hybrid reference near contrast matching.
+                if z == 0:
+                    sphere = 1.0
+                else:
+                    high_precision_z = sp.Float(z, 80)
+                    sphere = float(3 * (sp.sin(high_precision_z)
+                        - high_precision_z * sp.cos(high_precision_z)) / high_precision_z**3)
                 expected_cloud.append(intensity)
                 expected_amplitude.append(amplitude)
                 expected_hybrid.append(intensity+(beta*sphere)**2+2*amplitude*beta*sphere)

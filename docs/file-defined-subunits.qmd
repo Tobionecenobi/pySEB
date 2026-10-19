@@ -90,7 +90,7 @@ Expressions accept decimal/scientific numbers, `q`, declared identifiers,
 
 ```text
 abs acos asin atan bessel_j0 bessel_j1 cos cosh dawson erf erfc
-exp jinc log pow sin sinc sinh six sqrt struve_h0 struve_h1 tan tanh
+exp jinc log pow sin sinc sinh six sphere_amplitude sqrt struve_h0 struve_h1 tan tanh
 ```
 
 Names start with a letter and contain only letters and digits. Unknown names,
@@ -98,6 +98,11 @@ cycles, wrong function arity, Python syntax, imports, and arbitrary function
 calls are rejected. `sinc(z)` means `sin(z)/z`, and `jinc(z)` means
 `2*bessel_j1(z)/z`; both have the analytic value one at zero and stable
 small-argument evaluation.
+
+`sphere_amplitude(x)` evaluates the normalized solid-sphere amplitude
+`3 * (sin(x) - x * cos(x)) / x^3`, using a series near zero to avoid
+cancellation. Its value at zero is one. Symbolic exports retain the closed
+form; use `World.Evaluate*` for stable numerical evaluation.
 
 `api_name` follows the same identifier rule. For example:
 

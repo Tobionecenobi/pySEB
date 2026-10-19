@@ -13,6 +13,24 @@ MODELS = ROOT / "models"
 
 
 class TestFileDefinedSubunits(unittest.TestCase):
+    def test_sphere_kernel_remains_stable_through_variable_aliases(self):
+        source = (MODELS / "SolidSphere.pyseb.yaml").read_text()
+        source = source.replace("pyseb/SolidSphere", "test/AliasedSphere").replace(
+            "api_name: SolidSphere", "api_name: AliasedSphere"
+        ).replace(
+            '  x: "q * R"', '  x: "q * R"\n  shape: "sphere_amplitude(x)"'
+        ).replace('  A: "sphere_amplitude(x)"', '  A: "shape"')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sphere.pyseb.yaml"
+            path.write_text(source)
+            world = pyseb.World("aliased")
+            world.register_subunit_file(str(path))
+            world.Add("AliasedSphere", "sphere")
+            parameters = {"R_sphere": 2.0, "beta_sphere": -4.0}
+            self.assertAlmostEqual(
+                world.EvaluateFormFactorUnnormalized("sphere", parameters, 1e-10), 16.0
+            )
+
     def test_bundled_files_load_and_validate(self):
         paths = sorted(MODELS.glob("*.pyseb.yaml"))
         self.assertTrue(paths)

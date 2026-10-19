@@ -11,6 +11,7 @@
 
 #include "Geometry/Point3D.hpp"
 #include "Numerical.hpp"
+#include "SphereAmplitude.hpp"
 
 struct SphereScatterer {
     CartesianPoint3D center;
@@ -119,11 +120,7 @@ public:
     }
 
     static double sphereAmplitude(double x) {
-        const double x2 = x * x;
-        if (x2 < 1e-6) {
-            return 1.0 - x2 / 10.0 + x2 * x2 / 280.0;
-        }
-        return 3.0 * (std::sin(x) - x * std::cos(x)) / (x * x * x);
+        return pyseb::SphereAmplitudeValue(x);
     }
 
 private:
