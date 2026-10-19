@@ -1,6 +1,6 @@
 ---
 title: "Comb Polymer"
-subtitle: "Compare branching at fixed composition"
+subtitle: "Build a backbone, add side chains, and compare branching at fixed composition"
 jupyter: python3
 format:
   html:
@@ -13,27 +13,21 @@ execute:
   error: false
 ---
 
-How much does connectivity matter when composition is unchanged? Compare a
-linear chain with a comb made from exactly the same Gaussian blocks. In the
-comb, three side chains branch from backbone junctions; there is no spherical
-core or distributed surface attachment.
+Start with a six-block backbone. Then build it again and add five side chains,
+the comb's “hairs”. Finally, put the same eleven blocks into a single linear
+chain to see what branching changes.
 
-This tutorial assumes the [diblock workflow](diblock-copolymer.qmd). Lengths
-are in nm and q is in inverse nm.
+This tutorial builds on [Diblock copolymer](diblock-copolymer.qmd) and
+[What is a reference point?](reference-points.qmd). Lengths are in nm and q is
+in inverse nm.
 
-## Build two topologies from the same blocks
+## 1. Build and view the backbone
 
-The backbone contains four blocks and the side chains contain three. Shared
-`backbone` and `side` tags give each family its own physical parameters.
-Branching at a common endpoint is a fixed junction: it is different from
-attaching a chain to a randomly sampled position along a polymer contour.
+Use one `Add` followed by five `Link` calls. Each link adds the next block
+at the preceding block's endpoint:
 
 ```text
-comb:    b1 -- b2 -- b3 -- b4
-              |     |     |
-              s1    s2    s3
-
-linear:  b1 -- b2 -- b3 -- b4 -- s1 -- s2 -- s3
+b1 -- b2 -- b3 -- b4 -- b5 -- b6
 ```
 
 ```{python}
@@ -41,88 +35,157 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyseb
 
-
-def build_model(topology):
-    world = pyseb.World(f"{topology}Tutorial")
-    graph = world.Add("GaussianPolymer", "b1", "backbone")
-    for index in range(2, 5):
-        world.Link("GaussianPolymer", f"b{index}.end1",
-                   f"b{index - 1}.end2", "backbone")
-    for index in range(1, 4):
-        if topology == "comb":
-            target = f"b{index}.end2"
-        else:
-            target = "b4.end2" if index == 1 else f"s{index - 1}.end2"
-        world.Link("GaussianPolymer", f"s{index}.end1", target, "side")
-    world.Add(graph, "molecule")
-    return world
-
-
-comb = build_model("comb")
-linear = build_model("linear")
 parameters = {
     "beta_backbone": 1.0,
     "Rg_backbone": 2.0,
     "beta_side": 0.8,
     "Rg_side": 3.0,
 }
+
+backbone = pyseb.World("BackboneTutorial")
+graph = backbone.Add("GaussianPolymer", "b1", "backbone")
+backbone.Link("GaussianPolymer", "b2.end1", "b1.end2", "backbone")
+backbone.Link("GaussianPolymer", "b3.end1", "b2.end2", "backbone")
+backbone.Link("GaussianPolymer", "b4.end1", "b3.end2", "backbone")
+backbone.Link("GaussianPolymer", "b5.end1", "b4.end2", "backbone")
+backbone.Link("GaussianPolymer", "b6.end1", "b5.end2", "backbone")
+backbone.Add(graph, "molecule")
+
+backbone_view = pyseb.visualize(backbone, "molecule", parameters, height=400)
 ```
 
-Every `Link` adds a new subunit. The result is a tree with no closed cycles.
-The two worlds use identical parameter dictionaries and total scattering
-lengths; only the links differ.
+The names `b1` to `b6` identify individual blocks. Their shared `backbone`
+tag means they all use `Rg_backbone` and `beta_backbone`. The `side`
+parameters will be used when we add the hairs below.
 
-## Compare size and form factor
+## 2. Build the backbone again, then add hairs
+
+Repeat those six blocks in a new world. This time, attach a side chain at
+each of the five internal backbone junctions:
+
+```text
+b1 --+-- b2 --+-- b3 --+-- b4 --+-- b5 --+-- b6
+     |       |       |       |       |
+     s1      s2      s3      s4      s5
+```
+
+```{python}
+comb = pyseb.World("CombTutorial")
+graph = comb.Add("GaussianPolymer", "b1", "backbone")
+comb.Link("GaussianPolymer", "b2.end1", "b1.end2", "backbone")
+comb.Link("GaussianPolymer", "b3.end1", "b2.end2", "backbone")
+comb.Link("GaussianPolymer", "b4.end1", "b3.end2", "backbone")
+comb.Link("GaussianPolymer", "b5.end1", "b4.end2", "backbone")
+comb.Link("GaussianPolymer", "b6.end1", "b5.end2", "backbone")
+
+comb.Link("GaussianPolymer", "s1.end1", "b1.end2", "side")
+comb.Link("GaussianPolymer", "s2.end1", "b2.end2", "side")
+comb.Link("GaussianPolymer", "s3.end1", "b3.end2", "side")
+comb.Link("GaussianPolymer", "s4.end1", "b4.end2", "side")
+comb.Link("GaussianPolymer", "s5.end1", "b5.end2", "side")
+comb.Add(graph, "molecule")
+
+comb_view = pyseb.visualize(comb, "molecule", parameters, height=440)
+```
+
+The five extra `Link` calls are the only change in construction. For example,
+`b1.end2`, `b2.end1`, and `s1.end1` now meet at the same junction. Each hair
+uses the shared `side` parameters.
+
+These are fixed endpoint junctions, rather than attachments sampled along
+a polymer contour. The blocks can change conformation and rotate relative
+to each other; the junction does not impose a fixed angle.
+
+## 3. Put the same eleven blocks into a linear chain
+
+Adding hairs changed both composition and connectivity relative to the bare
+backbone. To isolate **connectivity**, keep all eleven blocks and connect
+`s1` through `s5` end to end after `b6`:
+
+```text
+b1 -- b2 -- b3 -- b4 -- b5 -- b6 -- s1 -- s2 -- s3 -- s4 -- s5
+```
+
+```{python}
+linear = pyseb.World("LinearTutorial")
+graph = linear.Add("GaussianPolymer", "b1", "backbone")
+linear.Link("GaussianPolymer", "b2.end1", "b1.end2", "backbone")
+linear.Link("GaussianPolymer", "b3.end1", "b2.end2", "backbone")
+linear.Link("GaussianPolymer", "b4.end1", "b3.end2", "backbone")
+linear.Link("GaussianPolymer", "b5.end1", "b4.end2", "backbone")
+linear.Link("GaussianPolymer", "b6.end1", "b5.end2", "backbone")
+
+linear.Link("GaussianPolymer", "s1.end1", "b6.end2", "side")
+linear.Link("GaussianPolymer", "s2.end1", "s1.end2", "side")
+linear.Link("GaussianPolymer", "s3.end1", "s2.end2", "side")
+linear.Link("GaussianPolymer", "s4.end1", "s3.end2", "side")
+linear.Link("GaussianPolymer", "s5.end1", "s4.end2", "side")
+linear.Add(graph, "molecule")
+
+linear_view = pyseb.visualize(linear, "molecule", parameters, height=440)
+```
+
+The comb and this linear chain use identical block dimensions, scattering
+weights, and total composition. Only the attachment references differ.
+
+All three viewers show representative random walks. Their precise shapes
+are not the scattering calculation: SEB averages over conformations.
+Crossings in a picture do not create links, and these ideal Gaussian blocks
+have no excluded-volume interactions.
+
+## 4. Compare the comb and the eleven-block chain
 
 ```{python}
 q = np.geomspace(1e-3, 2.0, 180)
-for label, world in (("comb", comb), ("linear", linear)):
-    rg2 = world.EvaluateRadiusOfGyration2("molecule", parameters)
-    curve = np.asarray(world.EvaluateFormFactor("molecule", parameters, q.tolist()))
-    assert np.all(np.isfinite(curve))
-    assert np.isclose(world.EvaluateFormFactor("molecule", parameters, 0.0), 1.0)
-    print(f"{label}: Rg = {np.sqrt(rg2):.4f} nm")
-    plt.loglog(q, curve, label=label)
+
+comb_rg2 = comb.EvaluateRadiusOfGyration2("molecule", parameters)
+linear_rg2 = linear.EvaluateRadiusOfGyration2("molecule", parameters)
+print(f"Comb: Rg = {np.sqrt(comb_rg2):.4f} nm")
+print(f"Linear chain: Rg = {np.sqrt(linear_rg2):.4f} nm")
+
+comb_curve = comb.EvaluateFormFactor("molecule", parameters, q.tolist())
+linear_curve = linear.EvaluateFormFactor("molecule", parameters, q.tolist())
+
+plt.loglog(q, comb_curve, label="Comb: six backbone blocks + five hairs")
+plt.loglog(q, linear_curve, label="Linear: the same eleven blocks")
 plt.xlabel(r"$q$ (nm$^{-1}$)")
 plt.ylabel(r"$F(q)$")
 plt.legend()
 plt.show()
 ```
 
-Both normalized curves approach one at small q. Branching shortens paths
-between blocks, making this comb more compact than the linear arrangement.
-The different radii of gyration therefore already distinguish the topologies
-in the Guinier region. Unlike the [rod–coil comparison](rod-coil.qmd), we hold
-composition and individual block dimensions fixed rather than matching total
-size.
+Both normalized curves start at one. Branching shortens the paths between
+blocks, making this comb more compact than the eleven-block linear chain.
+Their different radii of gyration therefore already distinguish them at
+small q. Unlike the [rod–coil comparison](rod-coil.qmd), we hold composition
+and block dimensions fixed rather than matching overall size.
 
-```{python}
-_ = pyseb.visualize(comb, "molecule", parameters, height=440, layouts=["random", "readable"])
-_ = pyseb.visualize(linear, "molecule", parameters, height=440, layouts=["random", "readable"])
-```
+## 5. Hide the hairs by contrast matching
 
-The drawings are representative random walks. Crossings do not create links,
-and these ideal Gaussian blocks do not include excluded-volume interactions.
-
-## Hide the side chains by contrast matching
-
-Setting `beta_side` to zero removes side-chain scattering without removing
-the branches from the topology. Because both models have the same backbone,
-the resulting form factors coincide. This is a useful check that the original
-difference involves the side chains and their correlations with other blocks.
+Set `beta_side` to zero. The hairs remain in the comb, but contribute no
+scattering. The same applies to the five terminal side-type blocks in the
+linear model. Both curves now reproduce the original six-block backbone:
 
 ```{python}
 matched = dict(parameters, beta_side=0.0)
-comb_matched = np.asarray(comb.EvaluateFormFactor("molecule", matched, q.tolist()))
-linear_matched = np.asarray(linear.EvaluateFormFactor("molecule", matched, q.tolist()))
-assert np.allclose(comb_matched, linear_matched)
-plt.loglog(q, comb_matched, label="comb, side chains matched")
-plt.loglog(q, linear_matched, "--", label="linear, side blocks matched")
+comb_matched = comb.EvaluateFormFactor("molecule", matched, q.tolist())
+linear_matched = linear.EvaluateFormFactor("molecule", matched, q.tolist())
+backbone_curve = backbone.EvaluateFormFactor("molecule", parameters, q.tolist())
+
+np.testing.assert_allclose(comb_matched, backbone_curve, rtol=1e-12, atol=1e-12)
+np.testing.assert_allclose(linear_matched, backbone_curve, rtol=1e-12, atol=1e-12)
+
+plt.loglog(q, backbone_curve, label="Original backbone")
+plt.loglog(q, comb_matched, "--", label="Comb: hairs contrast matched")
+plt.loglog(q, linear_matched, ":", label="Linear: side-type blocks contrast matched")
 plt.xlabel(r"$q$ (nm$^{-1}$)")
 plt.ylabel(r"$F(q)$")
 plt.legend()
 plt.show()
 ```
+
+The overlap shows that branching invisible, non-interacting chains onto the
+backbone does not change its scattering in this model.
 
 Try changing `Rg_side` with both families visible. Then vary the side-chain
 scattering weight separately. Changing a dimension and changing contrast
