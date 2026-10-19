@@ -15,8 +15,8 @@ execute:
 
 ::: {.callout-note title="Before you start"}
 Complete [Connect coordinate domains](titin-coordinate-domains.qmd) first.
-Read [Evaluate mixed models](mixed-model-evaluation.qmd) for numerical callback
-subunits. You should understand training versus held-point residuals and why
+Read [Combine point clouds and analytical geometries](mixed-model-evaluation.qmd)
+for connecting coordinate clouds to analytical subunits. You should understand training versus held-point residuals and why
 a lower training error alone does not establish a better model. This is an
 advanced application; the expensive calculations are available through the
 generator rather than repeated during rendering.

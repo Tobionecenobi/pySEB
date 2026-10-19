@@ -56,7 +56,7 @@ alongside analytic models.
 | --- | --- |
 | [Save, reload, and visualize a model](save-load-model.qmd) | Preserve topology, verify a round trip, and export a realization |
 | [PDB cloud with an attached polymer](pdb-polymer.qmd) | Combine coordinate-based numerical scattering with an analytic subunit |
-| [Evaluate mixed models](mixed-model-evaluation.qmd) | Evaluate structures containing numerical, integrated, and analytic subunits with one API |
+| [Combine point clouds and analytical geometries](mixed-model-evaluation.qmd) | Connect a point cloud to a cylinder and a sphere, then evaluate their combined scattering |
 
 ## 4. Fit experimental data
 

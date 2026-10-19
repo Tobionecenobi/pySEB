@@ -281,6 +281,5 @@ run_tutorial("scattering-quantities")
 For an analytical shape, follow
 [Derive a subunit from distance vectors](scattering-from-phases.qmd).
 The distance sums on this page become integrals over its scattering material.
-For atomic and finite-radius sphere clouds, see
-[Mixed model evaluation](mixed-model-evaluation.qmd); their individual
-scatterer form factors also enter the cloud calculation.
+To connect a cloud to other subunits and calculate the complete form factor,
+see [Combine point clouds and analytical geometries](mixed-model-evaluation.qmd).
