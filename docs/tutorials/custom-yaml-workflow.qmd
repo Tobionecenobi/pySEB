@@ -84,6 +84,9 @@ distributed surface reference. Which would you use for a rigid spacer?
 
 ## Continue
 
-If you need your own equations, continue to
+To derive your own equations step by step, start with
+[Contribute your own subunit](contribute-subunit.qmd). The five-page sequence
+introduces F, A, Ψ, distributed references, visualization, and validation using
+one spherical shell. For a shorter registration example, see
 [Define and validate a custom subunit](define-custom-subunit.qmd).
 For distributed surface links, try the [micelle tutorial](micelle.qmd).

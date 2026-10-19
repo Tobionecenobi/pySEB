@@ -1,0 +1,190 @@
+---
+title: "Visualize your subunit"
+subtitle: "Add representative geometry to the same YAML file"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+::: {.callout-note title="Step 5 of 5"}
+Continue from [Allow attachment anywhere on a surface](subunit-distributed-reference.qmd).
+The equations and validation cases are now complete. We add only visualization
+metadata, using the same structural parameter `R`.
+:::
+
+## Describe the shell surface
+
+A spherical surface with polar angle $u$ and azimuth $v$ has coordinates
+
+$$
+\mathbf r(u,v)=
+\left(R\sin u\cos v,\;R\sin u\sin v,\;R\cos u\right),
+\quad 0\le u\le\pi,\quad 0\le v\le2\pi.
+$$
+
+Add this entire block at the top level of the stage-4 YAML:
+
+```yaml
+visualization:
+  style:
+    color: [0.15, 0.55, 0.75]
+    opacity: 0.45
+  geometry:
+    shellSurface:
+      kind: surface
+      u: {lower: "0", upper: "pi"}
+      v: {lower: "0", upper: "2 * pi"}
+      coordinates:
+        - "R * sin(u) * cos(v)"
+        - "R * sin(u) * sin(v)"
+        - "R * cos(u)"
+  references:
+    center: {kind: fixed, position: [0, 0, 0]}
+    north: {kind: fixed, position: [0, 0, "R"]}
+    south: {kind: fixed, position: [0, 0, "-R"]}
+    surface:
+      kind: distributed
+      geometry: shellSurface
+      sampling: surface_area
+```
+
+The `visualization.references` names must match the scattering references.
+Fixed references get coordinates. The distributed reference identifies the
+geometry to sample and how to sample it.
+
+**Use `surface_area` here.** Uniform samples of the two angles would crowd
+points near the poles. Area sampling includes the $\sin u$ weighting needed
+to match the reference distribution derived on the previous page. For a
+uniformly sampled line, use a curve geometry and `sampling: arc_length`.
+`uniform_parameter` is suitable when uniformity in that parameter gives the
+intended distribution.
+
+The opacity makes the shell translucent. It does not create a filled sphere
+or change a scattering weight. The geometry is a representative display;
+scattering comes from the expressions we derived.
+
+## Keep the scattering validation
+
+The stage-5 file retains all 22 stage-4 validation cases. Geometry does not
+require different expected values for $F$, $A$, $\Psi$, or the size terms.
+We will also check that adding this block leaves the scattering unchanged.
+For that comparison, keep the [stage-4 file](models/ContributorShell4.pyseb.yaml)
+in the same `models` folder.
+
+[Download the complete stage 5 YAML](models/ContributorShell5.pyseb.yaml){download="ContributorShell5.pyseb.yaml"}
+
+<details>
+<summary>Complete YAML at this stage</summary>
+
+```yaml
+{{< include models/ContributorShell5.pyseb.yaml >}}
+```
+
+</details>
+
+## Validate and show the shell
+
+```{python}
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+model_path = Path("models/ContributorShell5.pyseb.yaml").resolve()
+report = pyseb.validate_subunit_file(str(model_path))
+assert report.ok, report.failures
+print(f"Passed {report.case_count} YAML validation cases")
+
+world = pyseb.World("ShellStage5")
+world.register_subunit_file(str(model_path))
+shell_graph = world.Add("ContributorShell", "shell")
+parameters = {"R_shell": 2.0, "beta_shell": 1.0}
+q = np.linspace(0.0, 3.0, 180)  # nm^-1
+```
+
+```{python}
+previous = pyseb.World("WithoutDisplayGeometry")
+previous.register_subunit_file(str(Path("models/ContributorShell4.pyseb.yaml").resolve()))
+previous.Add("ContributorShell", "shell")
+F_before = previous.EvaluateFormFactor("shell", parameters, q.tolist())
+F_after = world.EvaluateFormFactor("shell", parameters, q.tolist())
+np.testing.assert_allclose(F_after, F_before, rtol=1e-12, atol=1e-12)
+
+shell_view = pyseb.visualize(world, "shell", parameters, height=430)
+```
+
+Open the viewer settings and enable reference markers to inspect the centre
+and poles. The centre is a valid reference in the empty interior.
+
+## Attach rods to the fixed poles
+
+Build a new graph using the same registered shell definition:
+
+```{python}
+poles = world.Add("ContributorShell", "poleShell")
+world.Link("ThinRod", "top.end1", "poleShell.north")
+world.Link("ThinRod", "bottom.end1", "poleShell.south")
+world.Add(poles, "poleAssembly")
+pole_parameters = {
+    "R_poleShell": 2.0, "beta_poleShell": 1.0,
+    "L_top": 3.0, "beta_top": 1.0,
+    "L_bottom": 3.0, "beta_bottom": 1.0,
+}
+
+pole_view = pyseb.visualize(world, "poleAssembly", pole_parameters, height=470)
+```
+
+The attachment coordinates are opposite poles. Each link is freely jointed,
+so the rods can rotate independently of the shell; the links do not force
+radial rod directions.
+
+## Attach rods at two independent surface locations
+
+Now use two `#` labels on the distributed reference:
+
+```{python}
+surface = world.Add("ContributorShell", "surfaceShell")
+world.Link("ThinRod", "arm1.end1", "surfaceShell.surface#a", "arm")
+world.Link("ThinRod", "arm2.end1", "surfaceShell.surface#b", "arm")
+world.Add(surface, "surfaceAssembly")
+surface_parameters = {
+    "R_surfaceShell": 2.0, "beta_surfaceShell": 1.0,
+    "L_arm": 3.0, "beta_arm": 1.0,
+}
+
+surface_view = pyseb.visualize(
+    world, "surfaceAssembly", surface_parameters, height=470
+)
+```
+
+The two displayed locations are samples of the surface distribution. Scattering
+averages over possible locations, rather than evaluating only the pictured
+configuration. Changing a display seed changes the picture without changing
+the analytical curves.
+
+## Use the same file for a new shape
+
+For your own subunit, replace the material geometry and repeat the derivation:
+scatterer pairs for $F$, reference-to-material vectors for each $A$, and
+reference-pair vectors for each $\Psi$. Include the appropriate conformational
+or attachment-position averages. Update the size terms, add nonzero-q checks
+and independent numerical comparisons, then describe geometry consistent with
+your references. An attractive picture alone cannot validate the equations.
+
+A bundled contribution is one validated file in the repository's `models`
+directory, with appropriate authorship, citations, and license metadata.
+There is no need to write C++ or edit a model list in the build files.
+See the [file-defined subunit reference](../file-defined-subunits.qmd) for the
+full schema and contribution details.
+
+## Continue
+
+Use the same file in [Define and validate a custom subunit](define-custom-subunit.qmd) and [Save, reload, and visualize a model](save-load-model.qmd).

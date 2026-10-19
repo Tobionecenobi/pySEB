@@ -1,0 +1,319 @@
+format: pyseb-subunit
+schema_version: 1
+id: tutorial/ContributorShell
+api_name: ContributorShell
+model_version: 0.5.0
+metadata:
+  title: Tutorial thin spherical shell
+  description: A uniform, rigid, infinitesimally thin spherical shell; a staged teaching definition.
+  authors: []
+  citations: []
+  license: BSD-3-Clause
+parameters:
+  R:
+    unit: length
+    description: Shell radius (positive)
+variables:
+  x: q * R
+definitions:
+  shell: sinc(x)^2
+  centerAmplitude: sinc(x)
+references:
+  specific:
+  - center
+  - north
+  - south
+  distributed:
+  - surface
+expressions:
+  form_factor: shell
+  amplitudes:
+    center: centerAmplitude
+    north: shell
+    south: shell
+    surface: shell
+  phases:
+  - references:
+    - center
+    - north
+    expression: centerAmplitude
+  - references:
+    - center
+    - south
+    expression: centerAmplitude
+  - references:
+    - north
+    - south
+    expression: sinc(2 * x)
+  - references:
+    - center
+    - surface
+    expression: centerAmplitude
+  - references:
+    - north
+    - surface
+    expression: shell
+  - references:
+    - south
+    - surface
+    expression: shell
+  - references:
+    - surface
+    - surface
+    expression: shell
+sizes:
+  radius_of_gyration_squared: R^2
+  reference_to_scatterer:
+    center: R^2
+    north: 2 * R^2
+    south: 2 * R^2
+    surface: 2 * R^2
+  reference_to_reference:
+  - references:
+    - center
+    - north
+    expression: R^2
+  - references:
+    - center
+    - south
+    expression: R^2
+  - references:
+    - north
+    - south
+    expression: 4 * R^2
+  - references:
+    - center
+    - surface
+    expression: R^2
+  - references:
+    - north
+    - surface
+    expression: 2 * R^2
+  - references:
+    - south
+    - surface
+    expression: 2 * R^2
+  - references:
+    - surface
+    - surface
+    expression: 2 * R^2
+validation:
+  absolute_tolerance: 1.0e-10
+  relative_tolerance: 1.0e-08
+  cases:
+  - name: forward form factor
+    quantity: form_factor
+    parameters:
+      R: 2.0
+    q: 0.0
+    expected: 1.0
+  - name: form factor at qR=1
+    quantity: form_factor
+    parameters:
+      R: 2.0
+    q: 0.5
+    expected: 0.7080734182735712
+  - name: shell radius of gyration squared
+    quantity: radius_of_gyration_squared
+    parameters:
+      R: 2.0
+    expected: 4.0
+  - name: center amplitude at zero
+    quantity: amplitude
+    parameters:
+      R: 2.0
+    references:
+    - center
+    q: 0.0
+    expected: 1.0
+  - name: center amplitude at qR=1
+    quantity: amplitude
+    parameters:
+      R: 2.0
+    references:
+    - center
+    q: 0.5
+    expected: 0.8414709848078965
+  - name: center to material squared
+    quantity: reference_to_scatterer
+    parameters:
+      R: 2.0
+    references:
+    - center
+    expected: 4.0
+  - name: north amplitude at qR=1
+    quantity: amplitude
+    parameters:
+      R: 2.0
+    references:
+    - north
+    q: 0.5
+    expected: 0.7080734182735712
+  - name: south amplitude at qR=1
+    quantity: amplitude
+    parameters:
+      R: 2.0
+    references:
+    - south
+    q: 0.5
+    expected: 0.7080734182735712
+  - name: center to north phase
+    quantity: phase
+    parameters:
+      R: 2.0
+    references:
+    - center
+    - north
+    q: 0.5
+    expected: 0.8414709848078965
+  - name: center to south phase
+    quantity: phase
+    parameters:
+      R: 2.0
+    references:
+    - center
+    - south
+    q: 0.5
+    expected: 0.8414709848078965
+  - name: opposite pole phase
+    quantity: phase
+    parameters:
+      R: 2.0
+    references:
+    - north
+    - south
+    q: 0.5
+    expected: 0.45464871341284085
+  - name: north to material squared
+    quantity: reference_to_scatterer
+    parameters:
+      R: 2.0
+    references:
+    - north
+    expected: 8.0
+  - name: south to material squared
+    quantity: reference_to_scatterer
+    parameters:
+      R: 2.0
+    references:
+    - south
+    expected: 8.0
+  - name: pole distance squared
+    quantity: reference_to_reference
+    parameters:
+      R: 2.0
+    references:
+    - north
+    - south
+    expected: 16.0
+  - name: pole phase at zero
+    quantity: phase
+    parameters:
+      R: 2.0
+    references:
+    - north
+    - south
+    q: 0.0
+    expected: 1.0
+  - name: surface amplitude at qR=1
+    quantity: amplitude
+    parameters:
+      R: 2.0
+    references:
+    - surface
+    q: 0.5
+    expected: 0.7080734182735712
+  - name: center to surface phase
+    quantity: phase
+    parameters:
+      R: 2.0
+    references:
+    - center
+    - surface
+    q: 0.5
+    expected: 0.8414709848078965
+  - name: north to surface phase
+    quantity: phase
+    parameters:
+      R: 2.0
+    references:
+    - north
+    - surface
+    q: 0.5
+    expected: 0.7080734182735712
+  - name: south to surface phase
+    quantity: phase
+    parameters:
+      R: 2.0
+    references:
+    - south
+    - surface
+    q: 0.5
+    expected: 0.7080734182735712
+  - name: independent surface points phase
+    quantity: phase
+    parameters:
+      R: 2.0
+    references:
+    - surface
+    - surface
+    q: 0.5
+    expected: 0.7080734182735712
+  - name: independent surface points distance squared
+    quantity: reference_to_reference
+    parameters:
+      R: 2.0
+    references:
+    - surface
+    - surface
+    expected: 8.0
+  - name: surface to material squared
+    quantity: reference_to_scatterer
+    parameters:
+      R: 2.0
+    references:
+    - surface
+    expected: 8.0
+visualization:
+  style:
+    color:
+    - 0.15
+    - 0.55
+    - 0.75
+    opacity: 0.45
+  geometry:
+    shellSurface:
+      kind: surface
+      u:
+        lower: '0'
+        upper: pi
+      v:
+        lower: '0'
+        upper: 2 * pi
+      coordinates:
+      - R * sin(u) * cos(v)
+      - R * sin(u) * sin(v)
+      - R * cos(u)
+  references:
+    center:
+      kind: fixed
+      position:
+      - 0
+      - 0
+      - 0
+    north:
+      kind: fixed
+      position:
+      - 0
+      - 0
+      - R
+    south:
+      kind: fixed
+      position:
+      - 0
+      - 0
+      - -R
+    surface:
+      kind: distributed
+      geometry: shellSurface
+      sampling: surface_area

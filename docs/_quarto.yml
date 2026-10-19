@@ -52,6 +52,11 @@ project:
     - tutorials/figure12-surface-attachments.qmd
     - tutorials/figure13-star-chain.qmd
     - tutorials/custom-yaml-workflow.qmd
+    - tutorials/contribute-subunit.qmd
+    - tutorials/subunit-linkage-point.qmd
+    - tutorials/subunit-multiple-references.qmd
+    - tutorials/subunit-distributed-reference.qmd
+    - tutorials/subunit-visualization.qmd
     - tutorials/define-custom-subunit.qmd
     - tutorials/add-subunit-reference.qmd
     - tutorials/save-load-model.qmd
@@ -111,8 +116,6 @@ website:
         - section: "Custom subunits and models"
           contents:
             - tutorials/custom-yaml-workflow.qmd
-            - tutorials/define-custom-subunit.qmd
-            - tutorials/add-subunit-reference.qmd
             - tutorials/save-load-model.qmd
             - tutorials/pdb-polymer.qmd
         - section: "Fit experimental data"
@@ -161,6 +164,17 @@ website:
       search: true
       contents:
         - theory.qmd
+        - section: "Contribute your own subunit"
+          contents:
+            - tutorials/contribute-subunit.qmd
+            - tutorials/subunit-linkage-point.qmd
+            - tutorials/subunit-multiple-references.qmd
+            - tutorials/subunit-distributed-reference.qmd
+            - tutorials/subunit-visualization.qmd
+        - section: "Extend a subunit"
+          contents:
+            - tutorials/define-custom-subunit.qmd
+            - tutorials/add-subunit-reference.qmd
         - href: https://github.com/Tobionecenobi/pySEB/wiki/Core-Concepts
           text: Core concepts
         - href: https://github.com/Tobionecenobi/pySEB/wiki/Theory-Overview

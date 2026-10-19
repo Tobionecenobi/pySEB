@@ -57,6 +57,9 @@ and basic symbolic algebra are useful for the expression-export page.
 
 ## 4. Extend your models
 
+For deriving subunit equations or adding linkage references, see
+[Define and extend subunits](../theory.qmd#define-and-extend-subunits) in Theory.
+
 **Before starting:** Be comfortable building composite structures and evaluating
 their scattering. The PDB and mixed-model tutorials introduce numerical subunits
 alongside analytic models.
@@ -64,8 +67,6 @@ alongside analytic models.
 | Tutorial | What you will learn |
 | --- | --- |
 | [Explore subunits](custom-yaml-workflow.qmd) | Choose bundled models and understand their references |
-| [Define and validate a custom subunit](define-custom-subunit.qmd) | Register a YAML linker and calculate a three-arm junction |
-| [Add a reference to an existing subunit](add-subunit-reference.qmd) | Derive two symmetric rod references, extend their YAML definition, and attach polymers there |
 | [Save, reload, and visualize a model](save-load-model.qmd) | Preserve topology, verify a round trip, and export a realization |
 | [PDB cloud with an attached polymer](pdb-polymer.qmd) | Combine coordinate-based numerical scattering with an analytic subunit |
 | [Evaluate mixed models](mixed-model-evaluation.qmd) | Evaluate structures containing numerical, integrated, and analytic subunits with one API |

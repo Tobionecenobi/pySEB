@@ -23,6 +23,10 @@ below into a `models` directory beside your notebook. The executable check
 uses pySEB, NumPy, and Matplotlib; no 3D viewer is needed.
 :::
 
+For a slower introduction with one concept and YAML update per page, start
+with [Contribute your own subunit](contribute-subunit.qmd). This page keeps
+the full rod derivation together as a reference.
+
 To derive a subunit, first specify its scattering material and the points
 where other subunits may attach. Then work through these four calculations:
 

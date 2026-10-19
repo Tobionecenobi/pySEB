@@ -150,3 +150,30 @@ also shows this volume-fraction, contrast, and background convention explicitly.
 - [Derive a subunit from distance vectors](tutorials/scattering-from-phases.qmd) replaces the point sums with integrals for a uniform rod.
 
 For the full theory, see the [SEB formalism](https://arxiv.org/abs/1108.1140).
+
+## Define and extend subunits
+
+These pages work through the scattering expressions, reference points, YAML
+definitions, and validation needed to develop a subunit. Familiarity with
+normalized form factors, reference points, and definite integrals is useful.
+
+### Contribute your own subunit
+
+Follow one thin spherical shell from its scattering material to a validated,
+linkable, visualizable YAML definition. The centre, poles, and surface make
+it possible to introduce each quantity separately.
+
+| Step | Tutorial | What you will add |
+| --- | --- | --- |
+| 1 | [Contribute your own subunit](tutorials/contribute-subunit.qmd) | Derive the shell form factor from vectors between scattering elements |
+| 2 | [Add one linkage point](tutorials/subunit-linkage-point.qmd) | Derive the reference-to-material amplitude A and validate it |
+| 3 | [Add more linkage points](tutorials/subunit-multiple-references.qmd) | Add pole amplitudes and reference-pair phase factors Ψ |
+| 4 | [Allow attachment anywhere on a surface](tutorials/subunit-distributed-reference.qmd) | Average over distributed linkage positions; extend validation |
+| 5 | [Visualize your subunit](tutorials/subunit-visualization.qmd) | Add surface geometry and reference coordinates to YAML |
+
+### Other model workflows
+
+| Tutorial | What you will learn |
+| --- | --- |
+| [Define and validate a custom subunit](tutorials/define-custom-subunit.qmd) | Register a YAML linker and calculate a three-arm junction |
+| [Add a reference to an existing subunit](tutorials/add-subunit-reference.qmd) | Derive two symmetric rod references, extend their YAML definition, and attach polymers there |

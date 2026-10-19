@@ -165,5 +165,6 @@ positions and conformations.
 ## Continue
 
 - [Rod–coil copolymer](rod-coil.qmd) to connect rigid and flexible subunits.
+- [Contribute your own subunit](contribute-subunit.qmd) to introduce F, A, and Ψ one step at a time.
 - [Scattering from a point cloud](scattering-quantities.qmd) to calculate form factors, amplitudes, and phase factors from coordinates.
 - [Derive a subunit from distance vectors](scattering-from-phases.qmd) for the mathematical definitions behind those quantities.
