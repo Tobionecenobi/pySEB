@@ -115,22 +115,24 @@ website:
             - tutorials/add-subunit-reference.qmd
             - tutorials/save-load-model.qmd
             - tutorials/pdb-polymer.qmd
-        - section: "Fit SANS data"
+        - section: "Fit experimental data"
           contents:
-            - tutorials/fit-real-sans-data.qmd
-            - tutorials/sans-size-distributions.qmd
-            - tutorials/sans-interactions-resolution.qmd
-        - section: "F127 corona sequence"
-          contents:
-            - tutorials/fit-f127-corona.qmd
-            - tutorials/fit-f127-data.qmd
-            - tutorials/compare-f127-coronas.qmd
-        - section: "Titin doublet sequence"
-          contents:
-            - tutorials/fit-linked-titin.qmd
-            - tutorials/titin-coordinate-domains.qmd
-            - tutorials/titin-hydration.qmd
-            - tutorials/titin-relative-weights.qmd
+            - section: "SANS contrast variation"
+              contents:
+                - tutorials/fit-real-sans-data.qmd
+                - tutorials/sans-size-distributions.qmd
+                - tutorials/sans-interactions-resolution.qmd
+            - section: "F127 polymer coronas"
+              contents:
+                - tutorials/fit-f127-corona.qmd
+                - tutorials/fit-f127-data.qmd
+                - tutorials/compare-f127-coronas.qmd
+            - section: "Titin doublets"
+              contents:
+                - tutorials/fit-linked-titin.qmd
+                - tutorials/titin-coordinate-domains.qmd
+                - tutorials/titin-hydration.qmd
+                - tutorials/titin-relative-weights.qmd
         - section: "Advanced tutorials"
           contents:
             - tutorials/mixed-model-evaluation.qmd

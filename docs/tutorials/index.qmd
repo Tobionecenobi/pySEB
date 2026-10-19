@@ -77,18 +77,36 @@ sets. Basic familiarity with least-squares fitting is useful. Follow each
 application’s pages in order. For coordinate-based titin domains,
 first work through PDB cloud with an attached polymer.
 
-| Tutorial | What you will learn |
-| --- | --- |
-| [Fit three SANS contrasts](fit-real-sans-data.qmd) | Fit one linked core–shell structure to three measurements and inspect the baseline residuals |
-| [Add size distributions](sans-size-distributions.qmd) | Let sasmodels average the same pySEB particle over droplet sizes |
-| [Add interactions and resolution](sans-interactions-resolution.qmd) | Use sasmodels for the fluid and instrument response; compare all three fits in an interactive viewer |
-| [Build a polymer corona](fit-f127-corona.qmd) | Reuse a segmented arm and attach copies to a core |
-| [Fit the corona to F127 data](fit-f127-data.qmd) | Define residuals, optimize dimensions, and inspect the fitted model |
-| [Compare corona models](compare-f127-coronas.qmd) | Compare alternative arm descriptions using the same data |
-| [Fit analytic domains and a linker](fit-linked-titin.qmd) | Fit a titin doublet and diagnose an implausibly small linker |
-| [Connect coordinate domains](titin-coordinate-domains.qmd) | Replace adjustable domain shapes with fixed PDB coordinates |
-| [Test atomic scattering and hydration](titin-hydration.qmd) | Compare atomic and solvent assumptions with held-point checks |
-| [Test relative scattering weights](titin-relative-weights.qmd) | Diagnose the domain-to-chain amplitude ratio |
+### SANS contrast variation
+
+Follow one core–shell particle from a simultaneous baseline fit through size distributions, interactions, and resolution. Read these pages in order.
+
+| Step | Tutorial | What you will learn |
+| --- | --- | --- |
+| 1 | [Fit three SANS contrasts](fit-real-sans-data.qmd) | Fit one linked core–shell structure to three measurements and inspect the baseline residuals |
+| 2 | [Add size distributions](sans-size-distributions.qmd) | Let sasmodels average the same pySEB particle over droplet sizes |
+| 3 | [Add interactions and resolution](sans-interactions-resolution.qmd) | Use sasmodels for the fluid and instrument response; compare all three fits in an interactive viewer |
+
+### F127 polymer coronas
+
+Build a micelle, fit its corona, then compare alternative arm descriptions. Read these pages in order.
+
+| Step | Tutorial | What you will learn |
+| --- | --- | --- |
+| 1 | [Build a polymer corona](fit-f127-corona.qmd) | Reuse a segmented arm and attach copies to a core |
+| 2 | [Fit the corona to F127 data](fit-f127-data.qmd) | Define residuals, optimize dimensions, and inspect the fitted model |
+| 3 | [Compare corona models](compare-f127-coronas.qmd) | Compare alternative arm descriptions using the same data |
+
+### Titin doublets
+
+Progress from analytical domains to coordinate clouds, hydration, and relative scattering weights. Read these pages in order.
+
+| Step | Tutorial | What you will learn |
+| --- | --- | --- |
+| 1 | [Fit analytic domains and a linker](fit-linked-titin.qmd) | Fit a titin doublet and diagnose an implausibly small linker |
+| 2 | [Connect coordinate domains](titin-coordinate-domains.qmd) | Replace adjustable domain shapes with fixed PDB coordinates |
+| 3 | [Test atomic scattering and hydration](titin-hydration.qmd) | Compare atomic and solvent assumptions with held-point checks |
+| 4 | [Test relative scattering weights](titin-relative-weights.qmd) | Diagnose the domain-to-chain amplitude ratio |
 
 ## 6. Explore published examples
 
