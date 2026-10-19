@@ -1,6 +1,6 @@
 ---
 title: "Assemble Multiple Hierarchy Levels"
-subtitle: "Reuse a component inside another reusable structure"
+subtitle: "Build a star, a chain of stars, and a chain of chains"
 jupyter: python3
 format:
   html:
@@ -14,126 +14,195 @@ execute:
 ---
 
 ::: {.callout-note title="Before you start"}
-Read [Use a structure as a subunit](nested-structures.qmd) first. This page
-adds another hierarchy level and uses paths containing two colons.
+Read [Use a structure as a subunit](nested-structures.qmd) first.
+Every construction below
+uses explicit `Add` and `Link` calls.
 :::
 
-The preceding page reused a rod–cylinder arm to build a star. Here we use a
-separate, smaller diblock example to make three hierarchy levels easy to
-follow. All components are built below, so this page starts in a fresh Python
-session. Run all cells in order.
+**A complete structure can be used as a subunit in a larger structure.**
+First build a star with a ring core and six rod arms. Then use that complete
+star three times to make a chain, then connect three copies of that chain.
+Every copy keeps all of its internal subunits and links.
 
-## Follow the paths through three levels
+All components live in the same `World`. Lengths are in nm and q in nm⁻¹.
 
-```text
-Level 1: polyA -- polyB                 diblock
-Level 2: (polyA -- polyB) x 2           star
-Level 3: star1 = star2                   starChain
-```
+## 1. Build a ring with six rod arms
 
-Colons descend into structures. For example,
-`star1:diblock2:polyB.end2` addresses `polyB.end2` inside `diblock2` inside
-`star1`.
-
-## Python
-
-### 1. Create a world
-
-All reusable graphs live in the same `World`. Later steps instantiate these
-graphs without rebuilding their internal links.
+Each rod attaches by one endpoint to the ring contour. The six different
+`#` labels select independent attachment locations on that contour:
 
 ```{python}
 import pyseb
 
-world = pyseb.World("NestedTutorial")
+world = pyseb.World("RingStarChain")
+star = world.Add("ThinCircle", "ring")
+world.Link("ThinRod", "rod1.end1", "ring.contour#arm1", "rod")
+world.Link("ThinRod", "rod2.end1", "ring.contour#arm2", "rod")
+world.Link("ThinRod", "rod3.end1", "ring.contour#arm3", "rod")
+world.Link("ThinRod", "rod4.end1", "ring.contour#arm4", "rod")
+world.Link("ThinRod", "rod5.end1", "ring.contour#arm5", "rod")
+world.Link("ThinRod", "rod6.end1", "ring.contour#arm6", "rod")
+world.Add(star, "star")
+
+parameters = {
+    "R_ring": 4.0,
+    "beta_ring": 1.0,
+    "L_rod": 10.0,
+    "beta_rod": 1.0,
+}
+
+view_options = pyseb.USDExportOptions(pyseb.LengthUnit.Nanometer)
+view_options.seed = 7
+view_options.layout_mode = pyseb.LayoutMode.Readable
+
+star_view = pyseb.visualize(world, "star", parameters, view_options, height=460)
 ```
 
-### 2. Build a diblock component
+The tag `"rod"` makes all six rods share `L_rod` and `beta_rod`. The names
+`rod1` through `rod6` still identify the individual arms.
 
-Start with `polyA`, then attach `polyB` end to end. Keep the returned graph in
-`diblock`; a graph does not need a public structure name before it can be
-reused.
+The ring is rigid, and each arm is a rigid rod with a freely jointed
+attachment. The contour references are distributed: the model averages over
+attachment positions, rather than fixing six equally spaced points. The view
+shows one representative arrangement.
 
-```{python}
-diblock = world.Add("GaussianPolymer", "polyA")
-world.Link("GaussianPolymer", "polyB.end1", "polyA.end2")
-```
+`star` is the graph of the whole connected structure. We can pass that graph
+to `Add` and `Link`, just as we previously passed a primitive type.
 
-### 3. Instantiate the component
+## 2. Chain three complete stars together
 
-`world.Add(diblock, "diblock1")` creates the first instance. `Link` creates a
-second instance and connects the `polyA.end1` reference inside each diblock.
-The colon separates a structure instance from a nested subunit path.
-
-```{python}
-star = world.Add(diblock, "diblock1")
-world.Link(diblock, "diblock2:polyA.end1", "diblock1:polyA.end1")
-```
-
-### 4. Reuse the star to make a chain
-
-Repeat the same pattern at the next level. The longer reference paths descend
-through a star, a diblock, and finally a polymer reference point.
+Connect the free endpoint of one star's `rod2` to the free endpoint of the
+next star's `rod1`:
 
 ```{python}
 chain = world.Add(star, "star1")
-world.Link(
-    star,
-    "star2:diblock1:polyB.end2",
-    "star1:diblock2:polyB.end2",
+world.Link(star, "star2:rod1.end2", "star1:rod2.end2")
+world.Link(star, "star3:rod1.end2", "star2:rod2.end2")
+world.Add(chain, "chain")
+
+chain_view = pyseb.visualize(world, "chain", parameters, view_options, height=600)
+```
+
+Each `Link` adds a **complete six-arm star**. The chain contains three rings
+and eighteen rods. We wrote the construction of the star only once.
+
+Two arms form each connection between neighbouring ring cores. The remaining
+arms have free endpoints. These links allow the stars to rotate relative to
+one another; they do not prescribe a straight chain.
+
+## 3. Connect three complete chains
+
+Now reuse `chain` itself. Join the last star in one chain to the first star
+in the next chain, using the arms that are still free:
+
+```{python}
+chain_of_chains = world.Add(chain, "chain1")
+world.Link(chain, "chain2:star1:rod1.end2", "chain1:star3:rod2.end2")
+world.Link(chain, "chain3:star1:rod1.end2", "chain2:star3:rod2.end2")
+world.Add(chain_of_chains, "chainOfChains")
+
+chains_view = pyseb.visualize(
+    world, "chainOfChains", parameters, view_options, height=650
 )
-world.Add(chain, "starChain")
 ```
 
-Naming the final graph exposes `starChain` to the scattering queries.
+This is **chain1 – chain2 – chain3**. Each chain contains three stars, so the
+complete structure contains nine rings and fifty-four rods. Each `Link`
+adds a whole chain; it keeps the star-to-star connections made above.
 
-### 5. Parameterize, inspect, and evaluate
+The resulting connectivity is a chain of nine stars. Grouping them into
+three reusable chains introduces another hierarchy level without adding
+extra scattering material at the group boundaries.
 
-Repeated instances retain the internal names `polyA` and `polyB`. Consequently
-all eight polymers reuse four physical parameters.
+## 4. Read references through two hierarchy levels
+
+A colon moves inside an instance. In `chain2:star1:rod1.end2`, we go
+through two named structures before reaching the rod:
+
+| Part of the path | Meaning |
+| --- | --- |
+| `chain2` | Which instance of the complete chain |
+| `star1` | Which star inside that chain |
+| `rod1` | Which arm inside that star |
+| `end2` | The free endpoint of that rod |
+
+Compare the paths as the structure gets deeper:
+
+```text
+rod1.end2                  endpoint in one star
+star1:rod1.end2            endpoint in a chain of stars
+chain2:star1:rod1.end2     endpoint in a chain of chains
+```
+
+## 5. Change one parameter in every copy
+
+**All nine stars share the same parameters.** The instance paths identify
+individual rods and rings, but do not create new parameter names:
+
+| Parameter | What changes in the complete structure |
+| --- | --- |
+| `L_rod` | Length of all 54 rods |
+| `beta_rod` | Scattering weight of each of the 54 rods |
+| `R_ring` | Radius of all nine rings |
+| `beta_ring` | Scattering weight of each of the nine rings |
+
+To see this, set the shared rod length to 0.1 nm in a copy of the parameter
+dictionary and display the same structure again:
 
 ```{python}
-parameters = {
-    "beta_polyA": 1.0,
-    "beta_polyB": 0.75,
-    "Rg_polyA": 5.0,
-    "Rg_polyB": 8.0,
-}
+short_rods = dict(parameters, L_rod=0.1)
+
+rings_view = pyseb.visualize(
+    world, "chainOfChains", short_rods, view_options, height=650
+)
 ```
 
-Now inspect the assembled hierarchy. Hover over a curve to see its nested
-instance path; repeated instances retain the internal subunit names.
+Every arm becomes short at once, so neighbouring rings nearly meet at their
+linked contour locations. The graph still contains the same nine rings and 54 rods;
+we changed one parameter without rebuilding any of the stars or chains.
+The rings are connected by short rods; they are not physically interlocked.
+
+The small positive length also works for scattering calculations. Shortening
+rods does not remove their scattering: `beta_rod` is still 1 for every rod.
+Set `beta_rod=0` if you want only the rings to contribute to scattering;
+the rod length still controls the spacing between rings.
+
+The original `parameters` dictionary still has `L_rod=10`, which we use for
+the scattering curves below.
+
+## 6. Calculate the scattering of each structure
+
+Evaluate each complete structure by its public name:
 
 ```{python}
-_ = pyseb.visualize(world, "starChain", parameters, height=440, layouts=["random", "readable"])
+import matplotlib.pyplot as plt
+import numpy as np
+
+q = np.geomspace(0.001, 2.0, 180)
+star_curve = world.EvaluateFormFactor("star", parameters, q.tolist())
+chain_curve = world.EvaluateFormFactor("chain", parameters, q.tolist())
+chains_curve = world.EvaluateFormFactor("chainOfChains", parameters, q.tolist())
+
+plt.loglog(q, star_curve, label="One six-arm star")
+plt.loglog(q, chain_curve, label="Chain of three stars")
+plt.loglog(q, chains_curve, label="Three chains: nine stars")
+plt.xlabel(r"$q$ [nm$^{-1}$]")
+plt.ylabel("Normalized form factor F(q)")
+plt.legend()
+plt.show()
 ```
 
-```{python}
-q = [0.01, 0.03, 0.1, 0.3]
-values = world.EvaluateFormFactor("starChain", parameters, q)
+These are normalized curves: all approach one at low q, despite their
+different total scattering lengths. Each calculation includes the
+scattering from all rings and rods, including interference between its stars.
+The internal subunits remain part of the calculation.
 
-for q_value, value in zip(q, values):
-    print(f"q={q_value:g}, F(q)={value:.8f}")
-```
-
-The decreasing values show the expected loss of coherence as q resolves the
-nested structure's internal length scales.
-
-## C++
-
-```cpp
-{{< include cpp/nested-structures.cpp >}}
-```
-
-```{python}
-#| echo: false
-from _helpers import run_tutorial
-
-run_tutorial("nested-structures")
-```
-
+The viewers use seeded, readability-optimized orientations. Scattering
+averages over the orientations allowed by the freely jointed links and the
+distributed attachment locations; displayed overlaps do not introduce
+excluded-volume interactions.
 
 ## Continue
 
-Try [Parameter sweeps](parameter-sweeps.qmd), or see a larger application in
-[Figure 13 star chain](figure13-star-chain.qmd).
+- [Comb polymer](comb-polymer.qmd): build a backbone and add hairs with explicit links.
+- [Parameter sweeps](parameter-sweeps.qmd): evaluate one structure with different parameter values.

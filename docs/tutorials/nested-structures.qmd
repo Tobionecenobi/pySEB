@@ -144,4 +144,4 @@ introduce excluded-volume interactions.
 ## Continue
 
 - [Comb polymer](comb-polymer.qmd): build a backbone and add hairs with explicit links.
-- [Assemble multiple hierarchy levels](nested-hierarchy.qmd): use a separate diblock example to follow references through another nesting level.
+- [Assemble multiple hierarchy levels](nested-hierarchy.qmd): build six-arm ring-core stars and connect them into a chain.

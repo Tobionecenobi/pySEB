@@ -39,7 +39,7 @@ adding subunits, linking reference points, and supplying model parameters.
 | [Comb polymer](comb-polymer.qmd) | Compare branched and linear connectivity at fixed composition |
 | [Sphere–polymer micelle](micelle.qmd) | Attach tagged chains to distributed sphere-surface references |
 | [Random-walk rod chain](random-walk-rods.qmd) | Link rigid segments, calculate the chain size, and compare with a Gaussian polymer |
-| [Assemble multiple hierarchy levels](nested-hierarchy.qmd) | Reuse a component inside a larger structure and address deeper paths |
+| [Assemble multiple hierarchy levels](nested-hierarchy.qmd) | Build a six-arm star, a chain of stars, and a chain of chains |
 | [Parameter sweeps](parameter-sweeps.qmd) | Reuse one graph with several parameter sets |
 
 ## 3. Understand the calculations
