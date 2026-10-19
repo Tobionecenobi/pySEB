@@ -31,10 +31,15 @@ public:
         if (q == 0.0) {
             return beta * beta;
         }
-        return beta * beta * finiteValue(
-            formFactorFunction_(q, values),
-            "form factor"
-        );
+        try {
+            return beta * beta * finiteValue(
+                formFactorFunction_(q, values),
+                "form factor"
+            );
+        } catch (SEBException& error) {
+            error.PushCallStack("SubUnit::NumericFormFactorUnnormalized()");
+            throw;
+        }
     }
 
     double NumericFormFactorAmplitudeUnnormalized(
@@ -57,10 +62,15 @@ public:
         if (q == 0.0) {
             return beta;
         }
-        return beta * finiteValue(
-            function->second(q, values),
-            "form-factor amplitude"
-        );
+        try {
+            return beta * finiteValue(
+                function->second(q, values),
+                "form-factor amplitude"
+            );
+        } catch (SEBException& error) {
+            error.PushCallStack("SubUnit::NumericFormFactorAmplitudeUnnormalized()");
+            throw;
+        }
     }
 
     double NumericPhaseFactor(
