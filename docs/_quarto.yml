@@ -24,11 +24,12 @@ project:
     - tutorials/introduction.qmd
     - tutorials/first-model.qmd
     - tutorials/diblock-copolymer.qmd
+    - tutorials/normalized-form-factor.qmd
     - tutorials/reference-points.qmd
     - tutorials/rod-coil.qmd
+    - tutorials/nested-structures.qmd
     - tutorials/comb-polymer.qmd
     - tutorials/micelle.qmd
-    - tutorials/nested-structures.qmd
     - tutorials/nested-hierarchy.qmd
     - tutorials/random-walk-rods.qmd
     - tutorials/parameter-sweeps.qmd
@@ -93,14 +94,15 @@ website:
             - tutorials/introduction.qmd
             - tutorials/first-model.qmd
             - tutorials/diblock-copolymer.qmd
+            - tutorials/normalized-form-factor.qmd
             - tutorials/reference-points.qmd
         - section: "Build structures"
           contents:
             - tutorials/rod-coil.qmd
+            - tutorials/nested-structures.qmd
             - tutorials/comb-polymer.qmd
             - tutorials/micelle.qmd
             - tutorials/random-walk-rods.qmd
-            - tutorials/nested-structures.qmd
             - tutorials/nested-hierarchy.qmd
             - tutorials/parameter-sweeps.qmd
         - section: "Understand scattering"

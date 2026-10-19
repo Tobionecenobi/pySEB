@@ -106,6 +106,8 @@ compares solvent contributions in a worked fit.
 
 ## From form factor to measured intensity
 
+For a worked comparison, see [Normalized form factor and scattering strength](tutorials/normalized-form-factor.qmd).
+
 Start with the normalized form factor $F(q)$. It starts at one. Multiply by
 the square of the total excess scattering length, $\beta^2$, to get the
 single-particle scattering. For $\beta\ne0$,

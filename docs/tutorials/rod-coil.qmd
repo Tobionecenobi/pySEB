@@ -101,17 +101,27 @@ conformations and the relative orientations allowed by the link.
 
 ## Try changing the contrast
 
+These curves are normalized to start at one. A lower curve means a smaller
+fraction of its forward scattering, not necessarily less absolute scattering.
+See [Normalized form factor and scattering strength](normalized-form-factor.qmd)
+for a side-by-side comparison of both conventions.
+
 Keep the geometry fixed and reduce `beta_coil`. The normalized curve approaches
 the isolated rod form factor as the coil becomes contrast matched. This changes
 the scattering-weighted radius of gyration, so the reference above would need
 to be matched again for a new size-controlled comparison.
 
 ```{python}
-plt.loglog(q, rod_coil, label="both blocks visible")
-for beta in (0.2, 0.0):
-    changed = dict(parameters, beta_coil=beta)
-    curve = world.EvaluateFormFactor("rodCoil", changed, q.tolist())
-    plt.loglog(q, curve, label=f"coil beta = {beta:g}")
+plt.loglog(q, rod_coil, label="Both blocks visible")
+
+low_contrast = dict(parameters, beta_coil=0.2)
+curve = world.EvaluateFormFactor("rodCoil", low_contrast, q.tolist())
+plt.loglog(q, curve, label="Coil weakly visible")
+
+matched_coil = dict(parameters, beta_coil=0.0)
+curve = world.EvaluateFormFactor("rodCoil", matched_coil, q.tolist())
+plt.loglog(q, curve, label="Coil contrast matched")
+
 plt.xlabel(r"$q$ (nm$^{-1}$)")
 plt.ylabel(r"$F(q)$")
 plt.legend()

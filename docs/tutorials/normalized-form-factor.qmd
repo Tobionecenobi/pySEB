@@ -1,0 +1,164 @@
+---
+title: "Normalized Form Factor and Scattering Strength"
+subtitle: "Compare the same two connected subunits with different scattering weights"
+jupyter: python3
+format:
+  html:
+    toc: true
+    code-fold: show
+    code-tools: true
+execute:
+  echo: true
+  warning: false
+  error: false
+---
+
+::: {.callout-note title="Before you start"}
+Complete [Diblock copolymer](diblock-copolymer.qmd). We keep its two connected
+Gaussian polymers and change only their scattering weights.
+:::
+
+A normalized form factor starts at one. That helps us compare curve shapes,
+but hides the overall scattering strength. Let's see the difference using
+just **two subunits connected end to end**:
+
+```text
+blockA.end1 ~~~~ blockA.end2 = blockB.end1 ~~~~ blockB.end2
+```
+
+## 1. Build the diblock
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pyseb
+
+world = pyseb.World("DiblockNormalization")
+graph = world.Add("GaussianPolymer", "blockA")
+world.Link("GaussianPolymer", "blockB.end1", "blockA.end2")
+world.Add(graph, "diblock")
+
+parameters = {
+    "Rg_blockA": 3.0,
+    "beta_blockA": 1.0,
+    "Rg_blockB": 5.0,
+    "beta_blockB": 1.0,
+}
+q = np.geomspace(0.001, 2.0, 200)
+```
+
+Lengths are in nm and q in nm⁻¹. `beta` is a subunit's total **excess
+scattering length**, relative to the solvent. Here we use arbitrary but
+consistent scattering-length units.
+
+## 2. Ask for both kinds of curve
+
+Use the same structure and parameters with two different methods:
+
+```{python}
+normalized = world.EvaluateFormFactor("diblock", parameters, q.tolist())
+scattering = world.EvaluateFormFactorUnnormalized("diblock", parameters, q.tolist())
+```
+
+| Method | What it returns | Value at q = 0 |
+| --- | --- | --- |
+| `EvaluateFormFactor` | Normalized form factor, F(q) | 1, when total beta is nonzero |
+| `EvaluateFormFactorUnnormalized` | Single-particle scattering, including its strength | Total beta squared |
+
+Both blocks have beta = 1, so total beta is 2. The unnormalized curve starts
+at **4**, while the normalized curve starts at **1**. They are related by
+
+$$
+I_{\mathrm{single}}(q)=(\beta_A+\beta_B)^2F(q).
+$$
+
+SEB calls the normalized quantity **F(q)**. Other sources often call it
+**P(q)**, so always check the definition of “form factor”.
+
+## 3. Change the weights, keeping the same geometry
+
+First, double the scattering length of **both** blocks:
+
+```{python}
+both_doubled = dict(parameters, beta_blockA=2.0, beta_blockB=2.0)
+doubled_normalized = world.EvaluateFormFactor("diblock", both_doubled, q.tolist())
+doubled_scattering = world.EvaluateFormFactorUnnormalized("diblock", both_doubled, q.tolist())
+```
+
+Then make block B invisible by matching its contrast to the solvent:
+
+```{python}
+only_A = dict(parameters, beta_blockB=0.0)
+only_A_normalized = world.EvaluateFormFactor("diblock", only_A, q.tolist())
+only_A_scattering = world.EvaluateFormFactorUnnormalized("diblock", only_A, q.tolist())
+```
+
+The block is still part of the model. Its zero excess scattering length
+means it makes no contribution to the scattering.
+
+## 4. Compare the curves
+
+The left panel divides each curve by its own forward value. The right panel
+retains the scattering strength. Both panels use the same three cases:
+
+```{python}
+#| code-fold: true
+#| code-summary: "Plot the same diblock with and without normalization"
+fig, axes = plt.subplots(1, 2, figsize=(10, 4), sharex=True)
+
+axes[0].loglog(q, normalized, label="Both blocks: beta = 1")
+axes[0].loglog(q, doubled_normalized, "--", label="Both blocks: beta = 2")
+axes[0].loglog(q, only_A_normalized, label="Only block A visible")
+axes[0].set(xlabel=r"$q$ [nm$^{-1}$]", ylabel="Normalized F(q)", title="Compare shapes")
+axes[0].legend()
+
+axes[1].loglog(q, scattering, label="Both blocks: beta = 1")
+axes[1].loglog(q, doubled_scattering, "--", label="Both blocks: beta = 2")
+axes[1].loglog(q, only_A_scattering, label="Only block A visible")
+axes[1].set(xlabel=r"$q$ [nm$^{-1}$]", ylabel="Single-particle scattering", title="Keep the scattering strength")
+axes[1].legend()
+
+fig.tight_layout()
+plt.show()
+```
+
+| Case | Total beta | Normalized F(0) | Unnormalized scattering at q = 0 |
+| --- | ---: | ---: | ---: |
+| Both blocks have beta = 1 | 2 | 1 | 4 |
+| Both blocks have beta = 2 | 4 | 1 | 16 |
+| Only block A is visible | 1 | 1 | 1 |
+
+**Doubling both weights leaves the normalized curve unchanged.** Their
+relative weights are the same, while the unnormalized scattering increases
+fourfold.
+
+**Hiding block B changes the normalized curve too.** Scattering now sees only
+block A rather than the whole diblock. Normalization removes the overall
+strength, not the relative weights or interference of the visible parts.
+
+A curve that falls faster after normalization therefore does not necessarily
+represent less scattering. Each curve has been divided by a different
+forward value.
+
+## 5. From one particle to a measurement
+
+The unnormalized result is single-particle scattering, not yet the intensity
+of a solution. For dilute, independent identical particles,
+
+$$
+I(q)=n I_{\mathrm{single}}(q)+B,
+$$
+
+where n is particle number density and B is background. Absolute intensity
+also requires consistent units. Here the unnormalized curves are in the
+squared scattering-length units chosen for beta.
+
+If positive and negative contrasts cancel so **total beta is zero**, dividing
+by beta squared is undefined. Use `EvaluateFormFactorUnnormalized`; scattering
+can still be nonzero at finite q.
+
+## Continue
+
+- [What is a reference point?](reference-points.qmd): see where subunits can attach using two ring–polymer views.
+- [Rod–coil copolymer](rod-coil.qmd): compare a rigid and a flexible block, then change their contrast.
+- [Fit three SANS contrasts](fit-real-sans-data.qmd): connect scattering lengths to experimental intensity.

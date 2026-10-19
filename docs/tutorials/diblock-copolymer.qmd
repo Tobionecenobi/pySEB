@@ -19,9 +19,9 @@ structure `diblock`, and evaluates its normalized form factor.
 If this is your first time using pySEB, begin with
 [Introduction to pySEB](introduction.qmd) and
 [Your First Scattering Model](first-model.qmd). This page repeats the
-installation commands so it can also be used independently. The next tutorial,
-[What is a reference point?](reference-points.qmd), explores the attachment
-locations introduced here.
+installation commands so it can also be used independently. Next,
+[Normalized form factor and scattering strength](normalized-form-factor.qmd)
+compares the two kinds of scattering curve using the same diblock.
 
 ## Install the Python package
 
@@ -171,8 +171,8 @@ run_tutorial("diblock")
 
 ## Next steps
 
-Continue with [What is a reference point?](reference-points.qmd) to compare
-attachment locations using a ring and an attached polymer.
+Continue with [Normalized form factor and scattering strength](normalized-form-factor.qmd)
+to see what changes when you adjust the scattering weights of these two blocks.
 
 - [Compare a rod–coil with a size-matched flexible chain](rod-coil.qmd)
 - [Compare a comb polymer with a linear chain](comb-polymer.qmd)

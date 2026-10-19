@@ -16,7 +16,7 @@ conventions, see [Theory](../theory.qmd).
 
 ## 1. Start here
 
-**Before starting:** No prior pySEB experience is required. Follow these four
+**Before starting:** No prior pySEB experience is required. Follow these five
 tutorials in order:
 
 | Step | Tutorial | What you will learn |
@@ -24,7 +24,8 @@ tutorials in order:
 | 1 | [Introduction to pySEB](introduction.qmd) | Understand scattering, subunits, reference points, structure graphs, parameters, and q |
 | 2 | [Your first scattering model](first-model.qmd) | Install pySEB, evaluate a solid sphere, make a plot, and change its radius |
 | 3 | [Your first composite model](diblock-copolymer.qmd) | Connect two Gaussian polymers and use the same structure from Python and C++ |
-| 4 | [What is a reference point?](reference-points.qmd) | Distinguish scattering material from attachment locations, including fixed and distributed references |
+| 4 | [Normalized form factor and scattering strength](normalized-form-factor.qmd) | Compare shape and strength using the same two connected polymers |
+| 5 | [What is a reference point?](reference-points.qmd) | Distinguish scattering material from attachment locations, including fixed and distributed references |
 
 ## 2. Build larger structures
 
@@ -34,17 +35,17 @@ adding subunits, linking reference points, and supplying model parameters.
 | Tutorial | What you will learn |
 | --- | --- |
 | [Rod–coil copolymer](rod-coil.qmd) | Compare rigid and flexible blocks at matched overall size, then change contrast |
+| [Use a structure as a subunit](nested-structures.qmd) | Build a rod–cylinder arm once, then link nine copies into a star |
 | [Comb polymer](comb-polymer.qmd) | Compare branched and linear connectivity at fixed composition |
 | [Sphere–polymer micelle](micelle.qmd) | Attach tagged chains to distributed sphere-surface references |
 | [Random-walk rod chain](random-walk-rods.qmd) | Link rigid segments, calculate the chain size, and compare with a Gaussian polymer |
-| [Reuse a composite component](nested-structures.qmd) | Instantiate a diblock twice and share its parameters |
 | [Assemble multiple hierarchy levels](nested-hierarchy.qmd) | Reuse a component inside a larger structure and address deeper paths |
 | [Parameter sweeps](parameter-sweeps.qmd) | Reuse one graph with several parameter sets |
 
 ## 3. Understand the calculations
 
 **Before starting:** Complete Your first scattering model and
-[What is a reference point?](reference-points.qmd). Start with the
+[What is a reference point?](reference-points.qmd). Use the
 point-cloud example to calculate the three factors from coordinates, or the
 distance-vector derivation to derive an analytical subunit. Composite models
 and basic symbolic algebra are useful for the expression-export page.

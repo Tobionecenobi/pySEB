@@ -124,8 +124,9 @@ Mixing the two shifts every feature of the predicted curve.
 
 1. [Build and plot one solid sphere](first-model.qmd).
 2. [Connect two Gaussian polymers](diblock-copolymer.qmd).
-3. [Explore reference points with a ring](reference-points.qmd).
-4. Choose a task from the [tutorial index](index.qmd).
+3. [Compare normalized form factors and scattering strength](normalized-form-factor.qmd).
+4. [Explore reference points with a ring](reference-points.qmd).
+5. Choose a task from the [tutorial index](index.qmd).
 
 After those first two models, terms such as `World`, subunit, link, reference,
 parameter, and q will recur with the same meaning throughout the documentation.
