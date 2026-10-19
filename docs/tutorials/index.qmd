@@ -23,8 +23,8 @@ tutorials in order:
 | --- | --- | --- |
 | 1 | [Introduction to pySEB](introduction.qmd) | Understand scattering, subunits, reference points, structure graphs, parameters, and q |
 | 2 | [Your first scattering model](first-model.qmd) | Install pySEB, evaluate a solid sphere, make a plot, and change its radius |
-| 3 | [What is a reference point?](reference-points.qmd) | Distinguish scattering material from attachment locations, including fixed and distributed references |
-| 4 | [Your first composite model](diblock-copolymer.qmd) | Connect two Gaussian polymers and use the same structure from Python and C++ |
+| 3 | [Your first composite model](diblock-copolymer.qmd) | Connect two Gaussian polymers and use the same structure from Python and C++ |
+| 4 | [What is a reference point?](reference-points.qmd) | Distinguish scattering material from attachment locations, including fixed and distributed references |
 
 ## 2. Build larger structures
 

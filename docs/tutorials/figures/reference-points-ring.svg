@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 315" role="img" aria-labelledby="title desc">
+<title id="title">A ring and its reference locations</title>
+<desc id="desc">Both panels show the same continuous scattering ring. The right panel labels its empty centre and one possible contour attachment. Reference markers add no material.</desc>
+<rect width="960" height="315" fill="white"/>
+<g font-family="sans-serif" fill="#202f3f" font-size="18">
+<text x="225" y="32" text-anchor="middle">Scattering ring</text>
+<text x="690" y="32" text-anchor="middle">Same ring, with references</text>
+<circle cx="225" cy="160" r="85" fill="none" stroke="#247b96" stroke-width="9"/>
+<circle cx="690" cy="160" r="85" fill="none" stroke="#247b96" stroke-width="9"/>
+<g fill="none" stroke="#b95024" stroke-width="2.5">
+<path d="M 690 147 L 703 160 L 690 173 L 677 160 Z"/>
+<path d="M 775 147 L 788 160 L 775 173 L 762 160 Z"/>
+<path d="M 792 153 L 838 107" stroke-width="1.5"/>
+</g>
+<text x="690" y="201" text-anchor="middle" font-size="16">center: empty</text>
+<text x="843" y="84" text-anchor="middle" font-size="16">contour</text>
+<text x="843" y="108" text-anchor="middle" font-size="13">one possible location</text>
+<text x="225" y="288" text-anchor="middle" font-size="16">Blue: scattering material</text>
+<text x="690" y="288" text-anchor="middle" font-size="16">Diamonds: reference markers, not beads</text>
+</g></svg>

@@ -212,8 +212,9 @@ values is central to parameter sweeps and fitting workflows.
 
 ## Next steps
 
-Read [What is a reference point?](reference-points.qmd) next, before linking
-subunits or working with reference amplitudes and phase factors.
+Continue with [Diblock copolymer](diblock-copolymer.qmd) to connect your first
+two subunits. Then read [What is a reference point?](reference-points.qmd)
+to explore attachment locations in more detail.
 
 - [Connect two subunits in a diblock](diblock-copolymer.qmd)
 - [Calculate scattering from a point cloud](scattering-quantities.qmd)

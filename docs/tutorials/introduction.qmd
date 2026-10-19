@@ -54,8 +54,8 @@ ensemble from attaching at an independently sampled position along its
 contour.
 
 Reference locations do not add scattering material. For a diagram and a
-small example, read [What is a reference point?](reference-points.qmd) before
-connecting subunits or calculating reference amplitudes.
+visual example, the [reference-point tutorial](reference-points.qmd) explores
+this distinction after you have built a diblock copolymer.
 
 ### A World and its graphs
 
@@ -124,7 +124,8 @@ Mixing the two shifts every feature of the predicted curve.
 
 1. [Build and plot one solid sphere](first-model.qmd).
 2. [Connect two Gaussian polymers](diblock-copolymer.qmd).
-3. Choose a task from the [tutorial index](index.qmd).
+3. [Explore reference points with a ring](reference-points.qmd).
+4. Choose a task from the [tutorial index](index.qmd).
 
 After those first two models, terms such as `World`, subunit, link, reference,
 parameter, and q will recur with the same meaning throughout the documentation.

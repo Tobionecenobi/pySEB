@@ -23,8 +23,8 @@ project:
     - tutorials/index.qmd
     - tutorials/introduction.qmd
     - tutorials/first-model.qmd
-    - tutorials/reference-points.qmd
     - tutorials/diblock-copolymer.qmd
+    - tutorials/reference-points.qmd
     - tutorials/rod-coil.qmd
     - tutorials/comb-polymer.qmd
     - tutorials/micelle.qmd
@@ -92,8 +92,8 @@ website:
           contents:
             - tutorials/introduction.qmd
             - tutorials/first-model.qmd
-            - tutorials/reference-points.qmd
             - tutorials/diblock-copolymer.qmd
+            - tutorials/reference-points.qmd
         - section: "Build structures"
           contents:
             - tutorials/rod-coil.qmd

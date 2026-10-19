@@ -1,6 +1,6 @@
 ---
 title: "What Is a Reference Point?"
-subtitle: "Separate scattering material from the locations used to connect it"
+subtitle: "Use a ring to distinguish scattering material from attachment locations"
 jupyter: python3
 format:
   html:
@@ -14,145 +14,156 @@ execute:
 ---
 
 ::: {.callout-note title="Before you start"}
-Read [Introduction to pySEB](introduction.qmd). No scattering derivation or
-calculus is needed. To run the short Python example, use the environment from
-[Your first scattering model](first-model.qmd), with pySEB and NumPy installed.
+Complete [Diblock copolymer](diblock-copolymer.qmd) first. This page builds on
+its `Add` and `Link` calls to explore different attachment locations.
 :::
 
-A **scatterer** contributes to the scattering signal. A **reference point**
-is a named location used to measure distances or connect subunits.
-Naming a reference point does not add any scattering material.
+A **reference point** tells SEB where a subunit can connect to another subunit,
+or from where to measure distances. Defining one adds no scattering material.
+It can lie on the material or in an empty region.
 
-## 1. A location and a scatterer are different things
+## 1. Start with a ring
 
-Imagine two point scatterers at $x=-1$ and $x=1$. Both have scattering
-weight one. We can name three reference locations:
+A thin ring has scattering material along its circumference and an empty
+centre. pySEB provides this analytical model as `ThinCircle`, which we will
+use in the two examples below.
 
-| Reference | Coordinate | Is there a scatterer there? |
+The ring comes with two references:
+
+| Reference | Meaning | Is scattering material there? |
 | --- | --- | --- |
-| `left` | $x=-1$ | Yes: it coincides with the first scatterer |
-| `middle` | $x=0$ | No: it lies between the scatterers |
-| `outside` | $x=2$ | No: it lies outside the scattering material |
+| `ring.center` | The fixed centre of the ring | No |
+| `ring.contour` | A location sampled uniformly along the ring | Yes |
 
-![Adding reference locations leaves the same two scattering points. A reference can coincide with a scatterer, lie between scatterers, or lie outside the cloud.](figures/reference-points-vs-scatterers.svg){#fig-reference-points-vs-scatterers fig-alt="The left panel has two filled scattering points at minus one and one. The right panel has the same two filled points, plus hollow diamond references at minus one, zero, and two. The reference at minus one surrounds an existing scattering point without adding another." width="100%"}
+![The same scattering ring with and without reference markers. The centre is empty; a contour attachment lies on the material.](figures/reference-points-ring.svg){#fig-reference-points-ring fig-alt="Two continuous rings. The second has a hollow diamond at its empty centre and another on its circumference. The contour diamond illustrates one possible attachment location sampled along the ring. Neither marker adds material." width="100%"}
 
-The cloud still has **two scatterers**, regardless of how many reference
-locations we name. `left` has two roles at the same coordinate: scattering
-material is already there, and we have also given that location a reference
-name. Naming it does not count the scatterer twice.
+**A reference is allowed to coincide with scattering material.** The material
+contributes scattering; the reference identifies a location. These are two
+roles at the same position, rather than two contributions to the signal.
+Likewise, the `center` reference does not fill the hole in the ring.
 
-A reference carries no scattering weight of its own. The marker used to draw
-it is a label in the visualization, not an extra bead in the model.
+The hollow diamonds in the diagram are labels, not extra beads. The two
+panels contain exactly the same scattering ring.
 
-## 2. References belong to a subunit
+## 2. Choose where to attach a polymer
 
-The two-point cloud is one subunit. Its reference names identify locations
-relative to that cloud, and move with it when the cloud is placed in a larger
-structure. In pySEB, a reference path combines the instance name and the
-reference name: `cloud.middle` means the `middle` reference of the instance
-called `cloud`.
+There are two different models we could build:
 
-Other subunits expose references suited to their geometry:
+- Connect the polymer endpoint to the **empty centre**.
+- Connect it to a location on the **scattering ring**.
 
-| Subunit | Reference examples | What they identify |
-| --- | --- | --- |
-| Solid sphere | `center`, `surface` | Its centre or a location sampled on its surface |
-| Thin rod | `end1`, `middle`, `end2` | Its two endpoints and midpoint |
-| Gaussian polymer | `end1`, `end2`, `contour` | Its endpoints or a location sampled along its contour |
+Both examples use the same ring radius, polymer size, and scattering weights:
 
-A **fixed reference** identifies a particular location on the subunit.
-For a flexible polymer, even a fixed endpoint moves as the chain changes
-conformation. Fixed does not mean fixed in the laboratory.
+```{python}
+import pyseb
 
-A **distributed reference** specifies how an attachment location is sampled,
-such as uniformly over a sphere surface. `surface` names that distribution;
-it does not name one permanent point or add scatterers across the surface.
-The scattering calculation averages over the specified locations.
+parameters = {
+    "R_ring": 10.0,
+    "beta_ring": 1.0,
+    "Rg_chain": 5.0,
+    "beta_chain": 1.0,
+}
+```
 
-## 3. Try it: add references without adding scatterers
+### Attach at the empty centre
 
-Construct two copies of the same scattering material. Add reference labels
-to only the second copy:
+The `Link` call places `chain.end1` at `ring.center`. Run the code to build
+and view the complete ring–polymer structure:
+
+```{python}
+center_linked = pyseb.World("CenterLinkedRing")
+graph = center_linked.Add("ThinCircle", "ring")
+center_linked.Link("GaussianPolymer", "chain.end1", "ring.center")
+center_linked.Add(graph, "assembly")
+
+center_view = pyseb.visualize(center_linked, "assembly", parameters, height=420)
+```
+
+The chain starts in the **empty middle** of the ring. The ring still contains
+no material at its centre; the visible chain belongs to the added polymer.
+Drag the view to see the attachment from another direction.
+
+### Attach on the scattering ring
+
+Now build a second structure, with the endpoint linked to `ring.contour#join`:
+
+```{python}
+contour_linked = pyseb.World("ContourLinkedRing")
+graph = contour_linked.Add("ThinCircle", "ring")
+contour_linked.Link("GaussianPolymer", "chain.end1", "ring.contour#join")
+contour_linked.Add(graph, "assembly")
+
+contour_view = pyseb.visualize(contour_linked, "assembly", parameters, height=420)
+```
+
+This time the chain starts **on the circumference**, where ring material is
+present. `contour` samples an attachment location uniformly along the ring;
+`#join` names this particular use of that distributed reference. It adds no
+scatterer.
+
+Each viewer shows one representative polymer conformation. In the second
+view it also shows one sampled contour attachment. The scattering model
+averages over these possibilities; the pictures are not unique structures
+inferred from data. Reference markers can be shown using the settings button
+inside each viewer.
+
+In each realization, the two linked reference locations coincide. The added
+polymer supplies its own scattering material. The link itself supplies none.
+These are freely jointed SEB models; a link does not impose a fixed relative
+orientation or automatically introduce a physical connector across the hole.
+
+## 3. Does the attachment change the scattering?
+
+Use the same parameters to calculate the scattering of both structures:
 
 ```{python}
 import numpy as np
-import pyseb
 
-scatterers = [
-    pyseb.SphereScatterer(-1.0, 0.0, 0.0, 0.0, 1.0),
-    pyseb.SphereScatterer( 1.0, 0.0, 0.0, 0.0, 1.0),
-]
-# Arguments are x, y, z, radius, scattering weight. Radius zero means a point.
-plain = pyseb.DebyeSphereCloud(scatterers)
-labelled = pyseb.DebyeSphereCloud(scatterers)
-labelled.addReferencePoint("left", -1.0, 0.0, 0.0)
-labelled.addReferencePoint("middle", 0.0, 0.0, 0.0)
-labelled.addReferencePoint("outside", 2.0, 0.0, 0.0)
+q = np.linspace(0.0, 0.8, 150)
 
-assert plain.scattererCount() == labelled.scattererCount() == 2
-print("Both clouds still contain two scatterers.")
+center_curve = center_linked.EvaluateFormFactor("assembly", parameters, q.tolist())
+contour_curve = contour_linked.EvaluateFormFactor("assembly", parameters, q.tolist())
 ```
 
-`SphereScatterer` supplies the scattering material. `addReferencePoint`
-supplies a name and coordinate. These are separate operations.
-
-Their isolated form factors must be identical because the scatterers and
-their weights are identical:
+The two curves differ because the attachment changes the distances between
+the polymer and ring material. It does not change the ring's own geometry
+or scattering weight.
 
 ```{python}
-world = pyseb.World("ReferencePointsTutorial")
-world.Add(plain, "plain")
-graph = world.Add(labelled, "labelled")
-q = np.linspace(0.0, 3.0, 80)
+#| code-fold: true
+#| code-summary: "Compare the two attachment choices"
+import matplotlib.pyplot as plt
 
-F_plain = np.asarray(world.EvaluateFormFactor("plain", {}, q.tolist()))
-F_labelled = np.asarray(world.EvaluateFormFactor("labelled", {}, q.tolist()))
-np.testing.assert_allclose(F_plain, F_labelled, rtol=1e-12, atol=1e-12)
-print("Adding reference labels leaves the cloud's form factor unchanged.")
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.plot(q, center_curve, label="Chain attached at the centre")
+ax.plot(q, contour_curve, label="Chain attached along the contour")
+ax.set(xlabel=r"$q$ [Å$^{-1}$]", ylabel="Normalized form factor")
+ax.legend()
+fig.tight_layout()
+plt.show()
 ```
 
-## 4. Why do we need references?
+A reference is therefore more than a marker in a picture: **choosing the
+attachment changes the composite model**. But merely defining references
+on an isolated ring does not change its scattering.
 
-They supply the starting or ending locations for two scattering quantities:
+## 4. Recognize references in other subunits
 
-| Quantity | Which locations does it use? |
-| --- | --- |
-| Form factor $F$ | Scatterer to scatterer; no reference is needed |
-| Form-factor amplitude $A$ | One chosen reference to every scatterer |
-| Phase factor $\Psi$ | One reference to another reference |
+| Subunit | Fixed reference examples | Distributed reference examples |
+| --- | --- | --- |
+| Thin circle | `center` | `contour` |
+| Solid sphere | `center` | `surface` |
+| Thin rod | `end1`, `middle`, `end2` | `contour` |
+| Gaussian polymer | `end1`, `end2`, `middle` | `contour` |
 
-Choosing `middle` or `outside` gives different reference-to-scatterer
-distances, and therefore generally different amplitudes. The phase factor
-between them uses their separation. Neither calculation requires scattering
-material at the reference locations.
-
-Moving only `outside` changes its amplitude and its phase factors to other
-references. It leaves the isolated cloud's form factor unchanged because no
-scatterer has moved. The next two tutorials show how to calculate these factors.
-
-## 5. Connect subunits through their references
-
-A link joins reference locations, rather than searching for the nearest
-scatterers. For example, a polymer endpoint can connect to `labelled.outside`
-even though no cloud scatterer occupies that location.
-
-```{python}
-world.Link("GaussianPolymer", "chain.end1", "labelled.outside")
-world.Add(graph, "cloudWithChain")
-```
-
-The endpoint and the chosen cloud reference coincide in each linked
-realization. The added polymer supplies its own scattering material; the
-link itself adds no extra scatterer. Its conformations and allowed relative
-orientations are handled by the subunit and linking model.
-
-Changing an attachment reference can change the scattering of the **complete
-assembly**, because it changes the distances between material in different
-subunits. This is consistent with the cloud's **own** form factor staying
-unchanged.
+A fixed reference identifies a particular location on its subunit. A polymer
+endpoint is fixed in this sense even though it moves as the polymer changes
+conformation. A distributed reference describes how a location is sampled.
+In either case, the scattering calculation averages over the model's allowed
+positions and conformations.
 
 ## Continue
 
-- [Connect two subunits in a diblock](diblock-copolymer.qmd) to use references in a composite model.
-- [Scattering from a point cloud](scattering-quantities.qmd) to calculate $F$, $A$, and $\Psi$ from coordinates.
-- [Derive a subunit from distance vectors](scattering-from-phases.qmd) to derive the same quantities for a continuous shape.
+- [Rod–coil copolymer](rod-coil.qmd) to connect rigid and flexible subunits.
+- [Scattering from a point cloud](scattering-quantities.qmd) to calculate form factors, amplitudes, and phase factors from coordinates.
+- [Derive a subunit from distance vectors](scattering-from-phases.qmd) for the mathematical definitions behind those quantities.
