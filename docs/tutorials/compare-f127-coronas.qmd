@@ -107,7 +107,9 @@ shows where the arms attach.
 
 The views and downloadable OpenUSD scenes are generated here. The dropdown
 loads one complete structure at a time, keeping the page responsive even for
-32-segment arms.
+32-segment arms. Scene exports are cached separately from notebook results.
+An unchanged fitted model reuses its existing scene and interactive view;
+changed parameters, display settings, or implementation inputs regenerate it.
 
 ```{python}
 #| code-fold: true
@@ -117,6 +119,7 @@ VIEW_KEYS = [("gaussian", 0), ("cylinder", 1), ("rod", 4), ("sphere", 4),
              ("cylinder", 4), ("spheroid", 4), ("cylinder", 32)]
 from IPython.display import HTML
 from html import escape
+from _scene_cache import scene_key, reuse_scene, record_scene
 
 # Reduced mesh detail keeps these full-micelle views manageable.
 # It changes the display only, not the fitted dimensions or scattering.
@@ -136,22 +139,28 @@ for key in VIEW_KEYS:
     fit = results[key]
     radius = fit["p"][0]
     count = int(round(2*(4*np.pi*radius**3/3)/6283))
-    fitted_world, _ = build_graph(*key, arms=count)
     # Long chains use a seeded random realization; their links permit overlap.
     gallery_options.layout_mode = (pyseb.LayoutMode.Random if key[1] >= 32
                                    else pyseb.LayoutMode.Readable)
     path = SCENE_DIR / f"{key[0]}-{key[1]}-fitted-micelle.usda"
-    fitted_world.export_usd("micelle", str(path), fitted_parameters(fit), gallery_options)
-    figure = compact_structure_view(
-        fitted_world, fitted_parameters(fit), gallery_options,
-        f"{fit['label']} — {count} attached arms")
     view_path = path.with_suffix(".html")
-    figure.write_html(str(view_path), include_plotlyjs="directory", full_html=True,
-                      config={"displaylogo": False, "scrollZoom": True})
+    parameters = fitted_parameters(fit)
+    title = f"{fit['label']} — {count} attached arms"
+    cache_key = scene_key(ROOT, key, count, parameters, gallery_options, title)
+    if reuse_scene(path, cache_key):
+        print(f"Reuse scene: {title}", flush=True)
+    else:
+        print(f"Generate scene: {title}", flush=True)
+        fitted_world, _ = build_graph(*key, arms=count)
+        fitted_world.export_usd("micelle", str(path), parameters, gallery_options)
+        figure = compact_structure_view(fitted_world, parameters, gallery_options, title)
+        figure.write_html(str(view_path), include_plotlyjs="directory", full_html=True,
+                          config={"displaylogo": False, "scrollZoom": True})
+        record_scene(path, cache_key)
     scene_paths.append(path)
     view_paths.append(view_path)
 
-# These local HTML views are freshly generated above, not precomputed inputs.
+# These local views are generated above or reused from matching scene exports.
 view_urls = [path.relative_to(ROOT / "docs/tutorials").as_posix() for path in view_paths]
 choices = "".join(
     f'<option value="{escape(url, quote=True)}">{escape(results[key]["label"])}</option>'
@@ -215,6 +224,7 @@ for name, opacity in (("hidden", 0.), ("visible", .25)):
     best_views[name] = compact_structure_view(
         best_world, fitted_parameters(best), options,
         "Anchor hidden" if name == "hidden" else "Anchor visible")
+
 ```
 
 ::: {.grid}
@@ -255,62 +265,65 @@ the scattering by combining the subunit form factors, amplitudes, and phase
 factors specified by our connections. The OpenUSD meshes and their random
 conformations are illustrations; they do not enter the scattering calculation.
 
-For the single-cylinder-arm candidate in this comparison, a core carries
-$N$ arms, each consisting of **one cylinder**. Its normalized form factor at a
-fixed core size is:
+Use the complete best-fitting micelle constructed above, with the same arm
+count as its fitted mean-size realization. `FormFactor()` generates its
+normalized expression. At `depth=1`, `varForm=1` keeps subunit functions
+symbolic so we can inspect the connectivity without expanding their geometry.
+SymPy then combines the identical arms and factors the result.
 
 ```{python}
 #| code-fold: true
-#| code-summary: "Obtain the graph expression and verify its compact analytical form"
+#| code-summary: "Generate and compact the original fitted micelle's normalized form factor"
 import sympy as sp
 from IPython.display import Math
 import re
 
-q_symbol, core_R = sp.symbols("q R_core")
-beta_c, beta_a, beta_anchor = sp.symbols("beta_core beta_a beta_anchor")
-C, F, A, phase = sp.symbols("C F_a A_a s")
-N = sp.Symbol("N", integer=True, positive=True)
-core_amplitude = 3*(sp.sin(q_symbol*core_R)-q_symbol*core_R*sp.cos(q_symbol*core_R))/(q_symbol*core_R)**3
+normalized = pyseb.to_sympy(best_world.FormFactor("micelle", depth=1, varForm=1))
 
+# Identical arms share functions and scattering lengths. These substitutions
+# rename generated symbols; they do not supply a micelle formula.
+aliases = {}
+for symbol in normalized.free_symbols:
+    name = str(symbol)
+    if name == "beta_anchor":
+        aliases[symbol] = sp.Integer(0)
+    elif re.fullmatch(r"beta_arm\d+", name):
+        aliases[symbol] = sp.Symbol("beta_a")
+    elif re.fullmatch(r"F_arm\d+", name):
+        aliases[symbol] = sp.Symbol("F_a")
+    elif re.fullmatch(r"A_arm\d+:segment0\..+", name):
+        aliases[symbol] = sp.Symbol("A_a")
+    elif re.fullmatch(r"Psi_anchor:center,surface#p\d+", name):
+        aliases[symbol] = sp.Symbol("s")
+    elif re.fullmatch(r"Psi_anchor:surface#p\d+,surface#p\d+", name):
+        aliases[symbol] = sp.Symbol("t")
+    elif name == "A_core:center":
+        aliases[symbol] = sp.Symbol("A_c")
+    elif name == "F_core":
+        aliases[symbol] = sp.Symbol("F_c")
 
-def compact_micelle(n, core):
-    numerator = (beta_c**2*core**2 + n*beta_a**2*F
-                 + n*(n-1)*beta_a**2*A**2*phase**2
-                 + 2*n*beta_c*beta_a*core*A*phase)
-    return numerator/(beta_c+n*beta_a)**2
-
-
-# Small explicit graphs verify the self/pair multiplicities used for general N.
-# Depth 1 leaves each reusable cylinder arm as its form factor and root amplitude.
-for n in (2, 3):
-    equation_world, _ = build_graph("cylinder", 1, arms=n)
-    with contextlib.redirect_stdout(io.StringIO()):
-        graph_expression = str(equation_world.FormFactor("micelle", 1))
-    aliases = [
-        (r"A_arm\d+:segment0\.bottom", "A_a"),
-        (r"F_arm\d+", "F_a"),
-        (r"beta_arm\d+", "beta_a"),
-        (r"Psi_anchor:center,surface#p\d+", "s"),
-        (r"Psi_anchor:surface#p\d+,surface#p\d+", "s**2"),
-    ]
-    for pattern, replacement in aliases:
-        graph_expression = re.sub(pattern, replacement, graph_expression)
-    generated = sp.sympify(graph_expression).subs(beta_anchor, 0)
-    assert sp.cancel(generated-compact_micelle(n, core_amplitude)) == 0
-
-# Display the compact N-arm identity checked against the generated graph above.
-display(Math(r"P(q) = " + sp.latex(compact_micelle(N, C))))
+shared = normalized.xreplace(aliases)
+numerator, denominator = sp.fraction(sp.cancel(shared))
+compact = sp.collect(sp.expand(numerator), sp.Symbol("A_a")) / sp.factor(denominator)
+assert sp.cancel(shared - compact) == 0
+display(Markdown(f"Normalized form factor for **{best['label']}**, "
+                 f"with **{arm_count} arms**:"))
+display(Math(r"F_{micelle}(q) = " + sp.latex(compact)))
 ```
 
-Here $C$ is the sphere's amplitude, $F_a$ the cylinder's form factor, and $A_a$
-its amplitude measured from the attached end. The attachment sphere contributes
-$s=\sin(qR_{\mathrm{anchor}})/(qR_{\mathrm{anchor}})$.
-The excess scattering lengths are $\beta_{\mathrm{core}}$ and $\beta_a$.
-The numerator includes the core scattering, the scattering from individual
-arms, and interference between arms and between the core and arms. Those
-interference terms are what make this a connected micelle rather than a sum
-of unrelated spheres and cylinders. pySEB constructs them from our `Link`
-calls: changing the connections changes the analytical model.
+Here $F_c$ and $A_c$ are the core form factor and amplitude from its centre;
+$F_a$ and $A_a$ are the complete arm form factor and amplitude from its
+attached end. The $\beta$ symbols are excess scattering lengths. The phase
+factors $s$ and $t$ describe propagation from the anchor centre to an
+attachment and between two independently distributed attachments,
+respectively. For this spherical anchor,
+$s=\sin(qR_{\mathrm{anchor}})/(qR_{\mathrm{anchor}})$ and $t=s^2$.
+The anchor has zero contrast, as in the fit.
+
+The expression includes interference between arms and between the core and
+arms. pySEB constructs these terms from our `Link` calls: changing the
+connections changes the analytical model. The arm count in the displayed
+coefficients comes from the original graph.
 
 The cylinder functions include orientational integrals, evaluated numerically.
 For fitting, we use the unnormalized expression, average over core sizes,
