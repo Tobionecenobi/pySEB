@@ -7,13 +7,34 @@ pySEB is the Python interface to the Scattering Equation Builder. It constructs
 small-angle-scattering expressions for composite structures assembled by
 connecting reusable subunits at named or distributed reference points.
 
-## From a model to a scattering expression
+## Connect subunits, calculate, and explore
 
-![A four-step SEB workflow: choose a target structure, assemble it from subunits, derive the symbolic scattering expression, and evaluate or plot it.](assets/seb-workflow.png){fig-alt="SEB workflow from a target structure through subunit construction and symbolic derivation to a scattering plot." width="95%"}
+![Install pySEB, connect cloud and analytical subunits in Python, then request an expression or evaluate directly. The LaTeX equation is schematic. The plotted curves use the same cloud–cylinder–sphere assembly with three sphere radii.](figures/about-workflow.svg){#fig-about-workflow fig-alt="Install pySEB with pip install pyseb. Choose point clouds and analytical shapes, then connect named reference points using Python World.Add and World.Link calls. The assembly branches to an expression with a schematic LaTeX equation or direct numerical evaluation. A plot shows three sphere-radius choices." width="100%"}
 
-The same structure graph supports symbolic output, direct numerical
-evaluation, parameter sweeps, and contrast changes. Python and C++ use the
-same `World`, `Add`, `Link`, names, tags, and reference-point concepts.
+Think of subunits as building blocks that “click” together at reference points.
+Each block can be an analytical model or a point cloud; both can coexist in
+one assembly. In Python, `Add` introduces a block and `Link` connects named
+reference points.
+
+From the same structure graph, request a scattering expression with
+`FormFactor`, or supply parameters and a q grid to `EvaluateFormFactor`
+for direct numerical results. Expressions involving clouds retain numerical
+cloud terms. Plot the results, change dimensions or contrasts, and evaluate
+again without rebuilding the topology.
+
+Follow [the mixed cloud and analytical model example](tutorials/mixed-model-evaluation.qmd)
+to run the assembly shown here, or explore
+[symbolic expressions](tutorials/symbolic-expressions.qmd) and
+[parameter sweeps](tutorials/first-model.qmd#9-reuse-the-graph-with-other-radii).
+
+## Explore the full workflow
+
+Follow the branches from analytical models and PDB-derived clouds through
+assembly, symbolic output, fitting, and 3D visualization.
+
+![The full pySEB workflow, including optional hydration, SymPy, the SasView model engine, OpenUSD export to Blender, and the Python 3D viewer. The fitting example uses simulated data.](figures/about-workflow-full.svg){#fig-about-workflow-full fig-alt="Analytical and custom subunits, PDB files, and optionally hydrated numerical clouds feed a connected Python assembly. The model can be nested or saved, converted to SymPy and LaTeX, evaluated directly, or used with the SasView model engine through sasmodels. Outputs include parameter sweeps, a simulated-data fit, OpenUSD export for Blender, and a screenshot of the Python Plotly viewer with an active hover label." width="100%"}
+
+[View full size](figures/about-workflow-full.svg){target="_blank" rel="noopener"}
 
 ## What pySEB provides
 

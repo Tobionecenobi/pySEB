@@ -11,6 +11,9 @@ You do not need to understand the full scattering theory before starting.
 The [Theory Overview](https://github.com/Tobionecenobi/pySEB/wiki/Theory-Overview)
 is available when you want the mathematical details.
 
+For a visual map of model building, fitting, and 3D visualization, see
+[the full workflow](../about.qmd#explore-the-full-workflow) on the About page.
+
 ## What problem does pySEB solve?
 
 Small-angle scattering experiments measure how a sample scatters radiation as
