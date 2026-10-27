@@ -1,11 +1,11 @@
 ---
 title: "Fit Analytic Domains and a Linker"
-subtitle: "Inspect a fitted curve and its physical parameter bounds"
+subtitle: "Build a linked model, evaluate its scattering, and inspect a fit"
 jupyter: python3
 format:
   html:
     toc: true
-    code-fold: show
+    code-fold: true
     code-tools: true
 execute:
   echo: true
@@ -13,56 +13,226 @@ execute:
   error: false
 ---
 
+In this tutorial you will build a titin doublet from two `Spheroid` subunits
+and three `GaussianPolymer` chains. You will use `World.Link` to connect them,
+`EvaluateFormFactor` to calculate their scattering, and `visualize` to inspect
+the fitted dimensions.
+
+The question is simple: **does a good fit also give a sensible linker size?**
+
 ::: {.callout-note title="Before you start"}
-Read [Your first composite model](diblock-copolymer.qmd) and
-[Your first scattering model](first-model.qmd#reuse-the-graph-with-other-radii) first. For the fitting workflow,
-complete [Fit the corona to F127 data](fit-f127-data.qmd), or arrive comfortable
-with bounded least squares, uncertainty-weighted residuals, and fit diagnostics.
-You do not need PDB parsing or atomic scattering for this first page.
+Work through [Your first composite model](diblock-copolymer.qmd) first.
+For the SciPy fitting pattern, see [Fit the corona to F127 data](fit-f127-data.qmd).
+Here we concentrate on the pySEB model supplied to the optimizer.
 :::
 
-This sequence follows two titin I27 domains joined by a short linker. Each
-page changes one modelling assumption and compares the result with the same
-SAXS measurement:
+This four-page sequence reuses the same SAXS data and connected topology:
 
-1. **This page:** fit analytic domains and inspect linker bounds.
-2. [Coordinate domains](titin-coordinate-domains.qmd): fix the internal domain geometry.
-3. [Atomic scattering and hydration](titin-hydration.qmd): test scattering and solvent assumptions.
-4. [Relative scattering weights](titin-relative-weights.qmd): diagnose the domain-to-chain contrast ratio.
+| Page | What you will do in pySEB |
+| --- | --- |
+| **1. This page** | Connect analytical subunits and evaluate a parameter dictionary |
+| [2. Coordinate domains](titin-coordinate-domains.qmd) | Build coordinate clouds with named terminal references |
+| [3. Atomic scattering and hydration](titin-hydration.qmd) | Configure atomic scattering and solvent options |
+| [4. Relative scattering weights](titin-relative-weights.qmd) | Change subunit amplitudes through `beta` parameters |
 
-The measurement is [SASBDB entry SASDKC2](https://www.sasbdb.org/data/SASDKC2/).
-The [data notice](data/TITIN-DATA-NOTICE.txt) records experimental and coordinate
-sources. The disordered linker and tails remain Gaussian polymers throughout.
-Fits use the saved, provenance-checked bundle. Views rebuild the displayed
-world from the saved fit values and prepare both model and unfolded layouts.
-Expensive fitting cells are
-shown with execution disabled for documentation builds; the generator below
-runs the full calculation sequence when you want to reproduce it.
+## Prepare your environment
 
-## Install dependencies
-
-To regenerate the calculations, use the pySEB environment from the introductory
-tutorials and install the fitting and viewing dependencies:
+Use a pySEB installation with the `visualization` extra enabled. The worked
+example also uses NumPy, Matplotlib, IPython, and SciPy:
 
 ```bash
-python -m pip install scipy matplotlib plotly usd-core ipython
+python -m pip install numpy scipy matplotlib plotly usd-core ipython
 ```
 
-Rendering each page requires pySEB with the `visualization` extra, NumPy,
-Matplotlib, and IPython; it does not rerun SciPy fits. Run pages from
-`docs/tutorials` in a repository checkout so the data and shared setup are
-available. Each page loads the saved bundle in a fresh kernel.
+Run the page from `docs/tutorials` in a repository checkout. The website loads
+saved fits so you can explore the model without waiting for optimization.
+The complete calculation source is expandable at the end of each page;
+[one command](#reproduce-the-saved-calculations) runs all four stages.
 
-## Load the measured curve
+{{< include _titin-setup.qmd >}}
 
-The local file contains every fourth deposited point through
-$q=0.30\;\mathrm{\AA}^{-1}$. Its q, intensity, and uncertainty columns are
-otherwise unchanged. The saved calculation fits every second local point,
-then evaluates the fitted curves at every stored q value.
+## 1. Connect the five subunits
 
-- [Experimental curve](data/SASDKC2-titin.csv){download="SASDKC2-titin.csv"}
-- [Four-model heavy-atom extract of PDB 1TIU](data/1TIU-heavy-ensemble.pdb){download="1TIU-heavy-ensemble.pdb"}
-- [Data provenance and reuse notice](data/TITIN-DATA-NOTICE.txt){download="TITIN-DATA-NOTICE.txt"}
+Our construct has an N-terminal tail, two folded I27 domains, an eight-residue
+linker, and a C-terminal tail:
+
+```text
+N-tail — domain 1 — linker — domain 2 — C-tail
+```
+
+Start a `World`, add the first spheroid, and extend its graph with `Link`.
+Each link names one reference on the new subunit and one on the existing graph.
+For example, `linker.end1` meets `domain1.north`.
+
+```{python}
+#| code-fold: false
+world = pyseb.World("TitinTutorial")
+graph = world.Add("Spheroid", "domain1")
+world.Link("GaussianPolymer", "ntail.end2", "domain1.south")
+world.Link("GaussianPolymer", "linker.end1", "domain1.north")
+world.Link("Spheroid", "domain2.south", "linker.end2")
+world.Link("GaussianPolymer", "ctail.end1", "domain2.north")
+_ = world.Add(graph, "titin")
+```
+The final `Add` names the assembled graph `titin`. Use that name when
+evaluating or displaying the whole structure. Both domains use the same
+spheroid dimensions, but they remain distinct instances with their own links.
+
+## 2. Supply dimensions and scattering weights
+
+pySEB separates topology from parameter values. The same `world` can be reused
+with different dimensions by passing a new dictionary to the evaluator.
+Here we start with the saved constrained fit:
+
+```{python}
+#| code-fold: false
+a, c, linker_rg, tail_rg8 = results["fits"]["analytical_constrained"]["x"][:4]
+parameters = {
+    "Rg_linker": linker_rg, "beta_linker": 8.0,
+    "Rg_ntail": tail_rg8 * np.sqrt(24.0 / 8.0), "beta_ntail": 24.0,
+    "Rg_ctail": tail_rg8 * np.sqrt(7.0 / 8.0), "beta_ctail": 7.0,
+}
+for name in ("domain1", "domain2"):
+    parameters.update({
+        f"a_{name}": a, f"c_{name}": c, f"beta_{name}": 89.0,
+    })
+```
+The suffix selects the subunit instance: `Rg_linker` changes the linker,
+while `a_domain1` changes domain 1. The `beta` values set relative scattering
+amplitudes. For now, use residue counts: **24:89:8:89:7**. Page 4 will test
+this assumption.
+
+Both terminal tails share a chain-size parameter, `tail_rg8`, scaled by the
+square root of residue count. The central linker has its own independent
+`Rg_linker`. Lengths are in ångströms throughout this example.
+
+## 3. Evaluate the connected model
+
+Pass the structure name, parameter dictionary, and q values to
+`EvaluateFormFactor`. pySEB includes scattering from each part and the
+interference between connected parts:
+
+```{python}
+#| code-fold: false
+form_factor = np.asarray(
+    world.EvaluateFormFactor("titin", parameters, q.tolist())
+)
+scale, background = results["fits"]["analytical_constrained"]["x"][4:]
+model_intensity = scale * form_factor + background
+compare_curves({"Constrained analytical model": model_intensity})
+```
+The normalized form factor has $P(0)=1$. To compare it with the measurement,
+we use $I(q)=S P(q)+B$, with fitted scale $S$ and flat background $B$.
+SciPy varies the parameter values; pySEB evaluates the connected structure.
+The full fit uses six variables: two shared spheroid semi-axes, linker size,
+terminal-chain size, scale, and background.
+
+The measurement is [SASBDB SASDKC2](https://www.sasbdb.org/data/SASDKC2/).
+The local curve retains every fourth deposited point through
+$q=0.30\;\mathrm{\AA}^{-1}$. The optimizer uses alternating local points;
+the remaining points provide a held-point check. The score on those nearby
+points is a diagnostic, not independent experimental validation.
+
+## 4. Inspect the linker before accepting the fit
+
+First allow $0.5 \le R_{g,\mathrm{linker}} \le 9$ Å. The saved diagnostic fit
+looks convincing by its score:
+
+```{python}
+#| echo: false
+fit_table("analytical_collapsed")
+```
+But the linker reaches its **0.5 Å lower bound**. For a Gaussian polymer,
+the RMS end-to-end distance is $\sqrt{6}R_g$, only about 1.2 Å here.
+That is an implausibly small ensemble size for an eight-residue peptide.
+The adjustable domain shapes and chain dimensions are compensating for one another.
+
+Refit with a broad working constraint of **4–9 Å**. An ideal chain with eight
+3.8 Å steps gives $R_g \approx 4.4$ Å, which motivates the scale without
+establishing exact bounds for a short peptide.
+
+```{python}
+#| echo: false
+fit_table("analytical_constrained")
+```
+
+```{python}
+#| echo: false
+compare_curves({
+    "Weak bound: Rg >= 0.5 A": curves["analytical_collapsed"],
+    "Physical working bound: Rg >= 4 A": curves["analytical_constrained"],
+})
+```
+The training reduced chi-squared changes from about **1.34 to 1.44**, while
+the linker moves to the new **4 Å lower bound**. The curve changes little;
+the bound supplies physical information that this fit does not identify by itself.
+
+## 5. View the model and try another linker size
+
+Use the same `world` and `parameters` with `pyseb.visualize`:
+
+```{python}
+#| code-fold: false
+options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+options.seed = 42
+_ = pyseb.visualize(
+    world, "titin", parameters, options, height=440,
+    layouts=["random", "readable"],
+)
+```
+Rotate the view and switch between layouts. The chains show illustrative
+realizations of an ensemble model; the scattering data do not recover one
+unique conformation. The readable layout adjusts the display orientations.
+It does not add excluded volume to the Gaussian-chain calculation.
+
+**Try it:** change only the linker size and reuse the assembled graph.
+Keep scale and background fixed so you can see the direct effect:
+
+```{python}
+#| code-fold: false
+trial_curves = {}
+for trial_rg in (0.5, 4.0, 9.0):
+    trial_parameters = {**parameters, "Rg_linker": trial_rg}
+    trial_p = np.asarray(world.EvaluateFormFactor(
+        "titin", trial_parameters, q.tolist()))
+    trial_curves[f"Linker Rg = {trial_rg:g} Å; no refit"] = scale * trial_p + background
+compare_curves(trial_curves)
+```
+Which q range responds most to the change? These curves are a parameter
+sweep, so they need not match fits in which all six variables were reoptimized.
+
+## Continue
+
+You can now connect analytical subunits, pass dimensions and amplitudes to
+the evaluator, and inspect the resulting model. Next,
+[replace the spheroids with coordinate domains](titin-coordinate-domains.qmd)
+while retaining the analytical linker and tails.
+
+## Reproduce the saved calculations
+
+From the repository root, run:
+
+```bash
+python Examples/generate_linked_titin.py
+```
+
+The generator executes the tagged calculation cells below and on the following
+three pages in order. It saves curves, fit parameters, and OpenUSD scenes under
+`docs/tutorials/data/titin-results/`. The page setup verifies the saved bundle
+against its inputs and calculation source. Rendering rebuilds the interactive
+views from saved parameters without rerunning the fits.
+
+- [Experimental curve](data/SASDKC2-titin.csv)
+- [Four-model heavy-atom extract of PDB 1TIU](data/1TIU-heavy-ensemble.pdb)
+- [Data sources and reuse notice](data/TITIN-DATA-NOTICE.txt)
+- [Fit parameters](data/titin-results/results.json), [numerical curves](data/titin-results/curves.npz), and [provenance manifest](data/titin-results/manifest.json)
+
+::: {.callout-note collapse="true" title="Complete calculation source: analytical fits and scene export"}
+
+These are the complete calculation cells used by the sequence generator.
+They run in sequence order across the four pages; fitting and export cells
+are disabled during website rendering. The short examples above can be run
+after this page's setup without regenerating the fits.
 
 ```{python}
 #| tags: [titin-generation]
@@ -97,39 +267,6 @@ print(f"Points used by the optimizer: {fit_q.size}")
 print(f"Alternating points held out: {held_q.size}")
 print(f"q range: {q.min():.4f}--{q.max():.4f} A^-1")
 ```
-
-{{< include _titin-setup.qmd >}}
-
-The SASBDB graph displays reciprocal nanometres, whereas the numeric source
-curve uses reciprocal ångströms. The two representations are consistent:
-$0.028\;\mathrm{\AA}^{-1}=0.28\;\mathrm{nm}^{-1}$.
-
-For all three rounds we fit
-
-$$
-I(q)=S\,P_{\mathrm{pySEB}}(q)+B,
-$$
-
-where $P_{\mathrm{pySEB}}(0)=1$, $S$ is an intensity scale, and $B$ is a flat
-background. The deposited intensity is therefore not treated as an absolute
-contrast calibration. The [deposited construct sequence](https://www.sasbdb.org/molecule/SASDKC2/2620.fasta)
-contains a 24-residue N-terminal segment, two 89-residue I27 domains, the
-8-residue interdomain sequence `GGGSGGGG`, and a 7-residue C-terminal segment
-`LPETGSS`. We use residue-count weights of 24:89:8:89:7 in all three main
-rounds.
-
-The two terminal segments and the interdomain linker are Gaussian polymers in
-the three main rounds. The interdomain linker $R_g$ is fitted independently
-from one shared terminal-chain scale, $R_{g,8}$. Assuming the same mean-square
-step length for the two terminal segments gives
-$R_{g,\mathrm{tail}}=R_{g,8}\sqrt{N_\mathrm{tail}/8}$. This avoids forcing the
-terminal conformations to follow the central linker while using only one
-additional parameter for both tails.
-
-We will initially allow the linker to become almost point-like. This is a
-**diagnostic fit**, not a claim that such a conformation is physical. Do not
-add the physical linker bound yet: first see what the optimizer does with the
-freedom we give it.
 
 ```{python}
 #| tags: [titin-generation]
@@ -174,12 +311,6 @@ def reduced_chi_squared(residual, number_of_parameters):
     return np.sum(residual**2) / degrees_of_freedom
 ```
 
-## Fit the analytical model
-
-The first structure connects two spheroids through the central Gaussian
-polymer and attaches the N- and C-terminal Gaussian polymers to their exposed
-opposite poles. The domains are therefore adjacent rather than superimposed.
-
 ```{python}
 #| tags: [titin-generation]
 #| eval: false
@@ -213,11 +344,6 @@ print("domain1.north = linker.end1")
 print("linker.end2 = domain2.south")
 print("domain2.north = ctail.end1")
 ```
-
-Six variables are fitted simultaneously: the shared equatorial and polar
-semi-axes, the linker $R_g$, the shared terminal-chain scale $R_{g,8}$, the
-intensity scale, and the background. Sharing the domain dimensions enforces
-the fact that the construct contains two copies of I27.
 
 ```{python}
 #| tags: [titin-generation]
@@ -273,43 +399,11 @@ print("Reduced chi-squared:",
 ```
 
 ```{python}
-fit_table("analytical_collapsed")
-```
-
-### Stop and inspect the linker
-
-The diagnostic fit drives the linker down to approximately **0.5 Å**, its
-numerical lower bound. That is not a measured linker size. The optimizer would
-like a still smaller chain, because the smooth domain shapes and chain sizes
-can compensate for each other.
-
-For a Gaussian chain, the root-mean-square end-to-end distance is
-$\sqrt{6}R_g$. A 0.5 Å radius therefore implies only about 1.2 Å between its
-ends on average. An eight-residue peptide cannot reasonably be represented by
-that almost point-like chain. A single folded-back conformation can have nearby
-ends; that is different from assigning the whole chain ensemble this tiny size.
-
-```{python}
 #| tags: [titin-generation]
 #| eval: false
 print(f"Linker Rg = {unconstrained_fit.x[2]:.3f} A")
 print(f"RMS end-to-end distance = {np.sqrt(6)*unconstrained_fit.x[2]:.3f} A")
 ```
-
-```{python}
-linker_rg = results["fits"]["analytical_collapsed"]["x"][2]
-print(f"Linker Rg = {linker_rg:.3f} A")
-print(f"RMS end-to-end distance = {np.sqrt(6)*linker_rg:.3f} A")
-```
-
-### Add physical information and fit again
-
-We now use $4 \le R_g \le 9$ Å as a deliberately broad working constraint for
-the eight-residue linker. For scale, an ideal chain with eight 3.8 Å steps
-would have $R_g \approx 3.8\sqrt{8/6}=4.4$ Å. This estimate motivates the
-order of magnitude; it does not derive exact bounds for a short peptide.
-The Gaussian model also lacks excluded volume and a strict contour-length
-limit, so the constraint improves plausibility without making it atomistic.
 
 ```{python}
 #| tags: [titin-generation]
@@ -327,13 +421,6 @@ for name, value in zip(spheroid_names, spheroid_fit.x):
 print_derived_tail_radii(spheroid_fit.x[3])
 print("Reduced chi-squared:", reduced_chi_squared(spheroid_fit.fun, 6))
 ```
-
-```{python}
-fit_table("analytical_constrained")
-```
-
-A result at 4 or 9 Å means the fit is constrained, rather than the linker size
-being identified by these data. Compare both the residuals and the geometry.
 
 ```{python}
 #| tags: [titin-generation]
@@ -364,25 +451,6 @@ compare_curves({
     "Physical working bound: Rg >= 4 A": spheroid_curve(spheroid_fit.x, q),
 })
 ```
-
-```{python}
-compare_curves({
-    "Weak bound: Rg >= 0.5 A": curves["analytical_collapsed"],
-    "Physical working bound: Rg >= 4 A": curves["analytical_constrained"],
-})
-```
-
-### Look at the analytical structure with OpenUSD
-
-The two spheroids are the domains; the chain between them is the central
-linker, and the outer chains are the terminal tails. Drag to rotate and scroll to zoom.
-These are seeded illustrative realizations of an averaged scattering model,
-not structures recovered uniquely from SAXS. The readable layout adjusts
-orientations for display; it does not add excluded volume to the fit.
-
-The shared visualization helper opens the exported file with `pxr.Usd`, applies its world
-transforms, and displays its meshes, polymer curves and cloud points in Plotly.
-Cloud marker sizes are display sizes, not fitted atomic radii.
 
 ```{python}
 #| tags: [titin-generation]
@@ -434,86 +502,4 @@ show_structure(spheroid_world, spheroid_parameters(spheroid_fit.x),
                "analytical-constrained")
 ```
 
-```{python}
-show_saved_structure("analytical-collapsed")
-```
-
-### Preview the fitted analytical model
-
-The saved parameter vector can also be used with `pyseb.visualize`, without
-rerunning the optimizer. Compare it with the collapsed-linker scene above.
-Rebuild the same two-domain topology and supply the
-constrained fit's dimensions. The saved-scene comparisons remain useful
-for inspecting every expensive fitting stage without regenerating it.
-
-```{python}
-import pyseb
-
-preview_world = pyseb.World("FittedTitinPreview")
-preview_graph = preview_world.Add("Spheroid", "domain1")
-preview_world.Link("GaussianPolymer", "ntail.end2", "domain1.south")
-preview_world.Link("GaussianPolymer", "linker.end1", "domain1.north")
-preview_world.Link("Spheroid", "domain2.south", "linker.end2")
-preview_world.Link("GaussianPolymer", "ctail.end1", "domain2.north")
-preview_world.Add(preview_graph, "titin")
-a, c, linker_rg, tail_rg8 = results["fits"]["analytical_constrained"]["x"][:4]
-preview_parameters = {
-    "Rg_linker": linker_rg, "beta_linker": 8.0,
-    "Rg_ntail": tail_rg8 * np.sqrt(n_tail_beta / 8.0), "beta_ntail": n_tail_beta,
-    "Rg_ctail": tail_rg8 * np.sqrt(7.0 / 8.0), "beta_ctail": 7.0,
-}
-for domain in ("domain1", "domain2"):
-    preview_parameters.update({f"a_{domain}": a, f"c_{domain}": c,
-                               f"beta_{domain}": 89.0})
-preview_options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
-preview_options.seed = 42
-preview_options.layout_mode = pyseb.LayoutMode.Readable
-preview_options.orientation_trials = 32
-preview_options.relaxation_sweeps = 2
-preview_options.color_overrides = {
-    "domain1": (0.10, 0.55, 0.78), "domain2": (0.92, 0.43, 0.12),
-    "linker": (0.2, 0.7, 0.3), "ntail": (0.6, 0.6, 0.6),
-    "ctail": (0.6, 0.6, 0.6),
-}
-_ = pyseb.visualize(preview_world, "titin", preview_parameters, preview_options, height=440, layouts=["random", "readable"])
-display(Markdown("[Download the constrained-fit OpenUSD scene](data/titin-results/scenes/analytical-constrained.usda)"))
-```
-
-
-## Reproduce the saved calculations
-
-A normal website build loads the bundled results and rebuilds each display
-world in both layouts. It does not rerun the fits or overwrite archived scenes.
-To regenerate all stages, run from the repository root:
-
-```bash
-python Examples/generate_linked_titin.py
-```
-
-The generator executes the Python cells tagged `titin-generation` across the four
-pages, in sequence order. These are the same cells marked `eval: false`
-when they perform expensive work. There is no separate copy of the fitting
-or OpenUSD-export implementation. Results are saved under
-`docs/tutorials/data/titin-results/`: numerical curves in NPZ, fit parameters
-and optimizer status in JSON, and self-contained USDA scenes. A manifest
-records input, generating-code, and output hashes plus software versions.
-The loader stops with a regeneration message if these no longer match. A
-recorded viewer-only migration retains the original calculation hash and
-checks the updated display code without changing the saved scientific results.
-
-- [Fit parameters and settings](data/titin-results/results.json)
-- [Numerical curves](data/titin-results/curves.npz)
-- [Provenance manifest](data/titin-results/manifest.json)
-
-Scene generation still appears at each stage, including the complete
-`world.export_usd(...)` example. The interactive views rebuild the same display topologies
-from the saved parameters, then export both layouts through OpenUSD. The
-archived scenes remain available as downloads. These are seeded illustrative
-realizations, not unique
-structures inferred from the scattering data.
-
-## Continue
-
-Check whether the linker is at a bound and how the constraint changes
-the residuals. Then continue to
-[Connect coordinate domains](titin-coordinate-domains.qmd).
+:::

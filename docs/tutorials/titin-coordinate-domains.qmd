@@ -1,11 +1,11 @@
 ---
 title: "Connect Coordinate Domains"
-subtitle: "Keep domain geometry fixed while fitting a flexible linker"
+subtitle: "Build atom clouds and connect polymers at named terminal references"
 jupyter: python3
 format:
   html:
     toc: true
-    code-fold: show
+    code-fold: true
     code-tools: true
 execute:
   echo: true
@@ -13,58 +13,183 @@ execute:
   error: false
 ---
 
+Here you will replace the two spheroids with `DebyeSphereCloud` subunits
+built from PDB coordinates. You will use `PDBParser`, `AtomParameterProfile`,
+and `AtomCloudBuilder`, then connect the same analytical chains to named
+N- and C-terminal references.
+
+**Keep:** the five-part topology and Gaussian linker and tails.
+**Change:** the internal domain geometry, which is now fixed by coordinates.
+
 ::: {.callout-note title="Before you start"}
-Complete [Fit analytic domains and a linker](fit-linked-titin.qmd) first.
-Also read [PDB cloud with an attached polymer](pdb-polymer.qmd) to learn PDB
-parsing, atom profiles, and named attachment references before fitting two
-coordinate domains here.
+Complete [page 1](fit-linked-titin.qmd). For a smaller introduction to cloud
+building, see [PDB cloud with an attached polymer](pdb-polymer.qmd).
 :::
 
-The question is whether fixed domain coordinates remove the compensation
-we saw with adjustable spheroid dimensions. This page ends with a Debye-cloud
-fit, its residuals, and a view of the terminal attachments.
+## Open the worked example
 
-## Load the saved calculation
-
-Run the setup below in a fresh kernel from `docs/tutorials` in a repository
-checkout. It verifies the shared inputs, outputs, and calculation source, then
-loads numerical curves and viewer helpers. It does not execute previous fits.
-For dependencies and full regeneration, see
-[Reproduce the saved calculations](fit-linked-titin.qmd#reproduce-the-saved-calculations).
-The disabled fitting cells build on earlier stages when executed by
-`python Examples/generate_linked_titin.py` from the repository root.
+Run this page from `docs/tutorials` in a repository checkout, using the
+[environment from page 1](fit-linked-titin.qmd#prepare-your-environment).
+The setup loads the measured curve, saved fit values, and display helpers.
+You can start a fresh kernel here; you do not need to run the previous page's fits.
 
 {{< include _titin-setup.qmd >}}
 
-## Replace the analytic domains with coordinate clouds
+The visible examples below run with this setup. Expand the calculation source
+at the end if you want the complete fitting implementation.
 
-We have constrained the chain, but the fitted spheroid dimensions can still
-compensate for errors in the domain shape. Can fixed coordinates help?
+## 1. Parse one domain
 
-`AtomCloudBuilder` creates a `DebyeSphereCloud` from the 688 heavy-atom
-coordinates of model 1 in the local [PDB 1TIU](https://www.rcsb.org/structure/1TIU)
-extract. Give each atom a zero radius and a constant weight proportional to its
-atomic number. This retains atomic geometry while deliberately postponing
-q-dependent form factors, implicit hydrogens and solvent to step 3.
-The Debye sum retains all pair distances:
+Select model 1 from the local four-model PDB extract. `PDBParser` returns
+atoms that you can inspect before building a scattering subunit:
 
-$$P(q)=\frac{\sum_{i,j}b_i b_j\operatorname{sinc}(q r_{ij})}
-{(\sum_i b_i)^2}, \qquad \operatorname{sinc}(x)=\sin(x)/x.$$
+```{python}
+#| code-fold: false
+parse_options = pyseb.StructureParseOptions()
+parse_options.model_number = 1
+atoms = pyseb.PDBParser().parse_file(
+    "data/1TIU-heavy-ensemble.pdb", parse_options)
+alpha_carbons = [atom for atom in atoms if atom.atom_name == "CA"]
+print("Heavy atoms:", len(atoms))
+print("Terminal C-alpha serials:", alpha_carbons[0].serial, alpha_carbons[-1].serial)
+```
+The domain contains **688 heavy atoms**. Use the first and last C-alpha
+atoms as attachment references. This gives `nterminus` and `cterminus` a
+structural meaning while every heavy atom contributes to scattering.
 
-We normalize the weights to sum to 89 per domain to preserve the same
-24:89:8:89:7 relative subunit weights. These are approximate construct weights,
-not an absolute electron-count calibration. Choose the first and last C-alpha
-atoms as attachment references, so the chain endpoints have a clear structural
-meaning even though every heavy atom scatters.
+## 2. Assign weights and name the attachment points
 
-The template domains have 89 residues but differ from the construct by three
-substitutions (F21L, T42V and A78T, template to construct). We use the deposited
-coordinates without rebuilding those side chains.
+An `AtomParameterProfile` assigns a radius and amplitude weight to each element.
+For this step, use zero-radius scatterers with constant weights proportional
+to atomic number. Normalize their sum to 89 so the domain-to-chain weights
+stay comparable to page 1.
 
-The deposited PDB coordinates are kept fixed. The fit varies linker $R_g$,
-the shared terminal-chain scale $R_{g,8}$, intensity scale, and background.
-This prevents the optimizer from improving the curve by unphysically expanding
-or contracting the folded I27 domain.
+```{python}
+#| code-fold: false
+atomic_numbers = {"C": 6, "N": 7, "O": 8, "S": 16}
+total_electrons = sum(atomic_numbers[atom.element] for atom in atoms)
+profile = pyseb.AtomParameterProfile()
+for element, electrons in atomic_numbers.items():
+    profile.set_element(element, radius=0.0,
+                        beta=89.0 * electrons / total_electrons)
+
+build_options = pyseb.AtomCloudBuildOptions()
+build_options.reference_atom_serials = {
+    "nterminus": alpha_carbons[0].serial,
+    "cterminus": alpha_carbons[-1].serial,
+}
+domain1 = pyseb.AtomCloudBuilder.build(atoms, profile, build_options)
+domain2 = pyseb.AtomCloudBuilder.build(atoms, profile, build_options)
+```
+`AtomCloudBuilder.build` returns a subunit you can pass directly to
+`World.Add` or `World.Link`. Its Debye sum retains all atom-pair distances.
+We have introduced coordinate geometry; q-dependent atomic form factors and
+solvent corrections come on the next page.
+
+## 3. Connect the clouds using their named references
+
+The graph-building API is the same as for analytical shapes. Replace the
+spheroid type names with the cloud objects and use their terminal references:
+
+```{python}
+#| code-fold: false
+world = pyseb.World("CoordinateTitinTutorial")
+graph = world.Add(domain1, "domain1")
+world.Link("GaussianPolymer", "ntail.end2", "domain1.nterminus")
+world.Link("GaussianPolymer", "linker.end1", "domain1.cterminus")
+world.Link(domain2, "domain2.nterminus", "linker.end2")
+world.Link("GaussianPolymer", "ctail.end1", "domain2.cterminus")
+_ = world.Add(graph, "titin")
+```
+Follow the central connection: `domain1.cterminus` → `linker.end1`, then
+`linker.end2` → `domain2.nterminus`. The remaining domain termini carry the
+tails. Each domain keeps its internal coordinates; pySEB averages relative
+orientations and the analytical chain statistics.
+
+## 4. Evaluate with the same parameter interface
+
+Only four variables remain in the fit: linker size, terminal-chain size,
+scale, and background. There are no adjustable domain semi-axes.
+
+```{python}
+#| code-fold: false
+linker_rg, tail_rg8, scale, background = results["fits"]["debye"]["x"]
+parameters = {
+    "Rg_linker": linker_rg, "beta_linker": 8.0,
+    "Rg_ntail": tail_rg8 * np.sqrt(24.0 / 8.0), "beta_ntail": 24.0,
+    "Rg_ctail": tail_rg8 * np.sqrt(7.0 / 8.0), "beta_ctail": 7.0,
+}
+form_factor = np.asarray(world.EvaluateFormFactor(
+    "titin", parameters, q.tolist()))
+compare_curves({
+    "Constrained spheroids": curves["analytical_constrained"],
+    "Coordinate domains": scale * form_factor + background,
+})
+```
+
+```{python}
+#| echo: false
+fit_table("debye")
+```
+The saved fit gets **worse**: training reduced chi-squared rises from about
+1.44 to **50.43**, and the linker reaches its **9 Å upper bound**. Fixing the
+domain geometry removes one way for the optimizer to compensate. The remaining
+chain and scattering assumptions do not describe the measurement well.
+
+This is useful information from the model change. Keep the deposited domain
+coordinates fixed and investigate the scattering assumptions next.
+
+::: {.callout-note collapse="true" title="Coordinate and weight assumptions"}
+The [1TIU](https://www.rcsb.org/structure/1TIU) template has 89 residues and
+differs from the measured construct by three substitutions: F21L, T42V, and
+A78T, from template to construct. We use its coordinates without rebuilding
+those side chains. The 24:89:8:89:7 weights are approximate residue-count
+weights, rather than absolute electron-count contrasts.
+:::
+
+## 5. Inspect the attachments
+
+Display the coordinate-based world with the same visualization API:
+
+```{python}
+#| code-fold: false
+options = pyseb.USDExportOptions(pyseb.LengthUnit.Angstrom)
+options.seed = 42
+_ = pyseb.visualize(
+    world, "titin", parameters, options, height=440,
+    layouts=["random", "readable"],
+)
+```
+Locate the linker endpoints and the two outer tails. The picture shows a
+realization of the model, while the evaluated scattering averages over its
+orientations and Gaussian chains.
+
+**Try it:** vary the N-tail size without rebuilding either cloud:
+
+```{python}
+#| code-fold: false
+trial_curves = {}
+for factor in (0.5, 1.0, 1.5):
+    trial = {**parameters, "Rg_ntail": factor * parameters["Rg_ntail"]}
+    trial_p = np.asarray(world.EvaluateFormFactor("titin", trial, q.tolist()))
+    trial_curves[f"N-tail Rg × {factor:g}; no refit"] = scale * trial_p + background
+compare_curves(trial_curves)
+```
+This experiment changes one chain independently; the saved fit uses a shared
+size scale for both tails. The cloud geometry and attachment references stay fixed.
+
+## Continue
+
+You can now turn parsed atoms into linked pySEB subunits. Next,
+[configure atomic scattering and hydration](titin-hydration.qmd) to test the
+weights assigned to those coordinates.
+
+::: {.callout-note collapse="true" title="Complete calculation source: coordinate-domain fit"}
+
+These are the complete calculation cells used by the sequence generator.
+They run in sequence order across the four pages; fitting and export cells
+are disabled during website rendering. The short examples above can be run
+after this page's setup without regenerating the fits.
 
 ```{python}
 #| tags: [titin-generation]
@@ -77,11 +202,6 @@ terminal_atoms = [atom for atom in unscaled_atoms if atom.atom_name == "CA"]
 print(f"Heavy-atom scatterers per I27 cloud: {len(unscaled_atoms)}")
 print("Terminal C-alpha serials:", terminal_atoms[0].serial,
       terminal_atoms[-1].serial)
-```
-
-```{python}
-print(f"Heavy-atom groups per domain: {results['heavy_atom_count']}")
-print("Terminal C-alpha serials:", *results["terminal_serials"])
 ```
 
 ```{python}
@@ -175,17 +295,6 @@ print(
 ```
 
 ```{python}
-fit_table("debye")
-```
-
-### Inspect the terminal attachments and the new fit
-
-The named reference points do the work: `domain1.cterminus` attaches to
-`linker.end1`, and `linker.end2` attaches to `domain2.nterminus`. The outer
-termini carry the tails. The cloud coordinates are fixed internally, while
-pySEB averages the relative orientations and Gaussian chain statistics.
-
-```{python}
 #| tags: [titin-generation]
 #| eval: false
 show_structure(pdb_world, construct_polymer_parameters(*pdb_fit.x[:2]),
@@ -196,20 +305,4 @@ compare_curves({
 })
 ```
 
-```{python}
-show_saved_structure("debye-domains")
-compare_curves({
-    "Constrained spheroids": curves["analytical_constrained"],
-    "Heavy-atom Debye clouds": curves["debye"],
-})
-```
-
-A worse fit would not justify stretching the PDB coordinates. It would tell us
-that fixed domain geometry plus this simple chain model and contrast model
-is insufficient. Next we change the domain scattering physics.
-
-
-## Continue
-
-Continue to [Test atomic scattering and hydration](titin-hydration.qmd)
-to change the domain scattering physics while retaining the hybrid topology.
+:::

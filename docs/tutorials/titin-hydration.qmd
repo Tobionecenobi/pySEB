@@ -1,11 +1,11 @@
 ---
 title: "Test Atomic Scattering and Hydration"
-subtitle: "Compare fixed solvent controls before refining solvent parameters"
+subtitle: "Configure atomic cloud options and compare solvent contributions"
 jupyter: python3
 format:
   html:
     toc: true
-    code-fold: show
+    code-fold: true
     code-tools: true
 execute:
   echo: true
@@ -13,90 +13,256 @@ execute:
   error: false
 ---
 
+Here you will build an `AtomicSAXSCloud`, select an atomic parameter profile,
+and switch displaced solvent and hydration on and off with `AtomicSAXSOptions`.
+Then you will compare the saved fits of the connected titin model.
+
+**Keep:** fixed domain coordinates and analytical linker and tails.
+**Change:** the atomic and solvent scattering model. The full fits also average
+four domain conformations; we will distinguish that from the single-domain
+experiment below.
+
 ::: {.callout-note title="Before you start"}
-Complete [Connect coordinate domains](titin-coordinate-domains.qmd) first.
-Read [Combine point clouds and analytical geometries](mixed-model-evaluation.qmd)
-for connecting coordinate clouds to analytical subunits. You should understand training versus held-point residuals and why
-a lower training error alone does not establish a better model. This is an
-advanced application; the expensive calculations are available through the
-generator rather than repeated during rendering.
+Complete [page 2](titin-coordinate-domains.qmd). You will reuse its parser,
+cloud-building pattern, and named terminal references.
 :::
 
-We now ask whether atomic form factors, displaced solvent, and hydration
-explain the remaining residuals. Start with the fixed-control table; only then
-consider allowing solvent parameters to vary.
+## Open the worked example
 
-## Load the saved calculation
-
-Run the setup below in a fresh kernel from `docs/tutorials` in a repository
-checkout. It verifies the shared inputs, outputs, and calculation source, then
-loads numerical curves and viewer helpers. It does not execute previous fits.
-For dependencies and full regeneration, see
-[Reproduce the saved calculations](fit-linked-titin.qmd#reproduce-the-saved-calculations).
-The disabled fitting cells build on earlier stages when executed by
-`python Examples/generate_linked_titin.py` from the repository root.
+Run this page from `docs/tutorials` in a repository checkout, using the
+[environment from page 1](fit-linked-titin.qmd#prepare-your-environment).
+The setup loads the measured curve, saved fit values, and display helpers.
+You can start a fresh kernel here; you do not need to run the previous page's fits.
 
 {{< include _titin-setup.qmd >}}
 
-## Separate atomic and solvent contributions
+The visible examples below run with this setup. Expand the calculation source
+at the end if you want the complete fitting implementation.
 
-We now keep the heavy-atom resolution and change the scattering weights.
-The local extract also provides models 7, 13 and 19 of the 1TIU NMR ensemble;
-we average these with model 1 to include a small amount of domain flexibility.
-This changes both the domain sampling and the scattering physics relative to
-step 2. Within the atomic controls below, all six models use the same four
-conformations, so their differences isolate the solvent terms.
+## 1. Build an atomic scattering cloud
 
-`AtomicSAXSCloud` assigns q-dependent Cromer--Mann form factors, standard
-implicit protein hydrogens, and a Gaussian excluded-solvent contribution to
-each heavy-atom group. The default solvent electron density is
-$0.334\;e\,\mathrm{\AA}^{-3}$. We compare the Fraser 1978 displaced volumes
-with the Pontius 1996 protein-core group means. The full FoXS reciprocal
-excluded-solvent convention has a different q dependence and is not selected here.
-Implicit hydrogens contribute both electrons and their group volume without
-adding overlapping hydrogen centres. The deposited coordinates are never
-rescaled.
+On page 2, we assigned constant atomic weights ourselves. Now choose a protein
+profile with `AtomicSAXSParameterProfile.protein_defaults`. `AtomicSAXSCloud`
+adds q-dependent form factors, implicit protein hydrogens, and solvent terms.
 
-Hydration uses the validated Pepsi 3 spatial-shell grid and bonded-water
-form factor. The fixed control uses contrast
-$0.0135\;e\,\mathrm{\AA}^{-3}$. Shell points have effective weights
-$h^3\rho_s$ with the default 3 Å grid spacing; fractional atomic exposure
-does not set their weights. pySEB performs these calculations internally;
-FoXS and Pepsi-SAXS remain optional external validation tools, not runtime
-dependencies.
+Parse model 1 and keep the same terminal references:
 
-The [saved calculation](data/titin-results/results.json) records the
-results with this convention. Fixed hydration improves the Fraser training
-reduced chi-squared from 55.213 to 43.953. Solvent refinement reaches 23.711,
-but hits the hydration bound and the evaluation limit. This remains a poor
-structural fit despite the independently validated hydration calculation.
+```{python}
+#| code-fold: false
+parse_options = pyseb.StructureParseOptions()
+parse_options.model_number = 1
+atoms = pyseb.PDBParser().parse_file(
+    "data/1TIU-heavy-ensemble.pdb", parse_options)
+alpha_carbons = [atom for atom in atoms if atom.atom_name == "CA"]
 
-### Separate the three scattering contributions
+profile = pyseb.AtomicSAXSParameterProfile.protein_defaults(
+    pyseb.AtomicSAXSVolumeModel.Fraser1978)
+build_options = pyseb.AtomicSAXSCloudBuildOptions()
+build_options.reference_atom_serials = {
+    "nterminus": alpha_carbons[0].serial,
+    "cterminus": alpha_carbons[-1].serial,
+}
+build_options.calculate_solvent_accessibility = True
+build_options.sasa_probe_radius = 1.4
+build_options.sasa_point_count = 960
+```
+The profile sets the atomic-group parameters. Build options control the
+geometry preparation and attachment references. Scattering options control
+which contributions are evaluated:
 
-For each heavy-atom group, the amplitude has the schematic form
+```{python}
+#| code-fold: false
+options = pyseb.AtomicSAXSOptions()
+options.solvent_electron_density = 0.334
+options.hydration_model = pyseb.AtomicSAXSHydrationModel.SpatialShell
+options.hydration_water_model = pyseb.AtomicSAXSHydrationWaterModel.BondedWater
+build_options.hydration_shell_convention = pyseb.AtomicSAXSHydrationShellConvention.Pepsi3
 
-$$b_i(q)=f_i(q)-\rho_s V_i(q)+\Delta\rho_h H_i(q).$$
+cloud = pyseb.AtomicSAXSCloudBuilder.build(
+    atoms, profile, options, build_options)
+domain_world = pyseb.World("AtomicDomainTutorial")
+_ = domain_world.Add(cloud, "domain")
+```
+The solvent electron density is in $e\,\mathrm{\AA}^{-3}$. This example uses
+the Pepsi 3 spatial-shell convention with bonded-water form factors. The
+builder prepares solvent-accessible geometry and shell points; pySEB evaluates
+their contributions internally.
 
-The first term scatters in vacuum, the second subtracts displaced bulk water,
-and the third adds the hydration contrast around exposed groups. We will
-switch these terms on in controls before fitting solvent parameters. The
-hydration-only control is diagnostic; the complete solution model includes
-both displaced solvent and hydration.
+## 2. Switch scattering contributions without rebuilding coordinates
 
-We use the validated Pepsi 3 spatial hydration convention: a grid of shell
-points around each domain, with bonded-water form factors. Its effective point
-weights include the reference bulk-density prefactor; they are not physical
-water voxel volumes. This matches the hydration component independently of
-fitting this experimental curve. The atomic and displaced-solvent conventions
-still have small differences from Pepsi.
+Use `get_options` and `set_options` on the cloud to compare three controls:
 
-### Precompute the expensive cloud terms
+| Control | `include_excluded_solvent` | `include_hydration` |
+| --- | :---: | :---: |
+| Vacuum | `False` | `False` |
+| Displaced solvent | `True` | `False` |
+| Displaced solvent + hydration | `True` | `True` |
 
-Each domain contains 688 heavy-atom groups plus spatial hydration points.
-Cloud construction calculates exposure, shell geometry, and pair distances once. Fixed
-controls are then evaluated on a dense q grid and interpolated during the
-linker fit. The later solvent refinement changes only amplitudes, reusing the
-same exposure and geometry caches.
+The displaced-solvent term subtracts the scattering of bulk water replaced by
+the protein. Hydration adds the excess scattering of the surrounding shell.
+
+```{python}
+#| code-fold: false
+domain_curves = {}
+for label, excluded, hydrated in (
+    ("Vacuum", False, False),
+    ("Displaced solvent", True, False),
+    ("Displaced solvent + hydration", True, True),
+):
+    scattering = cloud.get_options()
+    scattering.include_excluded_solvent = excluded
+    scattering.excluded_volume_scale = 1.0
+    scattering.include_hydration = hydrated
+    scattering.hydration_shell_contrast = 0.0135
+    cloud.set_options(scattering)
+    domain_curves[label] = np.asarray(domain_world.EvaluateFormFactor(
+        "domain", {}, q.tolist()))
+
+figure, axis = plt.subplots(figsize=(7, 4))
+for label, values in domain_curves.items():
+    axis.plot(q, values, label=label)
+axis.set(xlabel=r"$q$ [Å$^{-1}$]", ylabel="Normalized domain P(q)", yscale="log")
+axis.legend()
+plt.show()
+```
+You have changed the scattering while retaining the same coordinates and
+reference atoms. These are **normalized single-domain curves**, so this plot
+compares shape changes; it does not show absolute contrast or a fit to the
+whole construct. Normalization removes differences in forward intensity.
+
+**Try it:** change `hydration_shell_contrast` from `0.0135` to `0.0` and rerun
+the loop. The last two curves should coincide. Restore `0.0135` afterwards.
+
+## 3. Use the atomic domains in the linked model
+
+An atomic cloud supports the same `World.Add` and `World.Link` interface as
+the cloud on page 2. For a single-conformation model, build two independent
+clouds and connect `domain1.cterminus` and `domain2.nterminus` to the linker.
+The tails remain `GaussianPolymer` subunits.
+
+The saved fits go one step further: they average models **1, 7, 13, and 19**
+of the NMR ensemble. This changes domain sampling as well as scattering
+physics relative to page 2. Within the atomic controls, every fit uses the
+same four conformations, allowing comparison of the solvent settings.
+
+::: {.callout-note collapse="true" title="How pySEB connects ensemble-averaged domains"}
+The calculation evaluates each domain's form factor, amplitudes about its two
+terminal references, and the phase factor between those references. It averages
+each quantity over the four conformations, then supplies them as callbacks to a
+`NumericalSubunit`. That subunit has named `nterminus` and `cterminus` references
+and can be linked to analytical polymers using the usual graph API.
+
+The quantities come from `EvaluateFormFactor`, `EvaluateFormFactorAmplitude`,
+and `EvaluatePhaseFactor`. The two domain copies are selected independently
+from the ensemble in the resulting interference terms. Geometry is cached so
+fitting the chains does not repeatedly rebuild atom-pair distances. Expand the
+complete calculation source below for the callback implementation.
+:::
+
+The full comparison includes two displaced-volume profiles, **Fraser1978** and
+**Pontius1996**, and a hydration-only diagnostic. Each fit varies the same four
+parameters as page 2: linker size, terminal-chain size, scale, and background.
+Solvent values stay fixed in this first comparison:
+
+```{python}
+#| echo: false
+rows = ["| Fixed atomic control | Training reduced chi² | Held-point score |",
+        "| --- | ---: | ---: |"]
+for name, control in results["controls"].items():
+    fit = results["fits"][f"fixed_{name}"]
+    rows.append(f"| {control['label']} | {fit['training_reduced_chi2']:.3f} | {fit['held_score']:.3f} |")
+display(Markdown("\n".join(rows)))
+```
+Read each excluded-solvent row against its matching hydrated row. For Fraser,
+adding hydration lowers training reduced chi-squared from **55.21 to 43.95**,
+and the held-point score from **50.76 to 40.34**. Pontius also improves with
+hydration, but both complete models retain large residuals.
+
+The solvent options affect the curve, yet they do not resolve the mismatch
+between this hybrid model and the experiment.
+
+```{python}
+#| echo: false
+compare_curves({
+    "Atomic vacuum": curves["fixed_vacuum"],
+    "Fraser displaced solvent": curves["fixed_fraser_excluded"],
+    "Fraser displaced solvent + hydration": curves["fixed_fraser_complete"],
+})
+```
+## 4. Inspect an atomic realization
+
+The fitted ensemble has no single coordinate realization. These views use two
+copies of model 1 and the saved fitted chain sizes. Purple shell markers in
+the hydrated view identify the spatial hydration contribution:
+
+```{python}
+#| echo: false
+show_saved_structure("atomic-displaced-solvent")
+show_saved_structure("atomic-hydrated")
+```
+Use the views to inspect topology and shell geometry. The fitted scattering
+averages all four domain conformations, while these pictures show one.
+
+## Optional: fit the solvent options too
+
+Once you understand the fixed controls, you can expose
+`excluded_volume_scale` and `hydration_shell_contrast` as optimizer variables.
+The saved refinement bounds the volume multiplier to $0.95^3$–$1.05^3$ and
+hydration contrast to $-0.027$–$+0.054\;e\,\mathrm{\AA}^{-3}$.
+
+::: {.callout-note collapse="true" title="Inspect the saved solvent refinement"}
+The optimizer updates cloud options and reevaluates the domain scattering at
+each solvent trial. Geometry preparation is reused; amplitudes change.
+
+```{python}
+#| echo: false
+rows = ["| Complete model | Volume multiplier | Hydration contrast | Training reduced chi² | Held-point score | Accepted improvement? |",
+        "| --- | ---: | ---: | ---: | ---: | :---: |"]
+for profile in ("fraser", "pontius"):
+    fit = results["fits"][f"refined_{profile}"]
+    metrics = results["refined_metrics"][profile]
+    print(f"{profile.title()} optimizer: {fit['message']}")
+    rows.append(f"| {profile.title()} plus hydration | {fit['x'][4]:.6f} | "
+                f"{fit['x'][5]:+.6f} | {fit['training_reduced_chi2']:.3f} | "
+                f"{fit['held_score']:.3f} | {'yes' if metrics['accepted'] else 'no'} |")
+display(Markdown("\n".join(rows)))
+```
+Both refinements reduce the scores, but neither meets the screening rule:
+convergence, improved held-point score, and no solvent parameter at a bound.
+Both reach the evaluation limit and the hydration bound. Fraser training
+reduced chi-squared reaches **23.71**, which still leaves a poor fit.
+
+This screening rule is a practical diagnostic, rather than a significance test.
+The alternating held points are close to training points and may be correlated.
+:::
+
+::: {.callout-note collapse="true" title="Atomic and hydration conventions"}
+Atomic clouds use Cromer–Mann form factors, standard implicit protein hydrogens,
+and Gaussian displaced-solvent terms. Fraser and Pontius select different
+atomic-group volume tables; the full FoXS reciprocal excluded-solvent convention
+is a separate choice.
+
+The Pepsi 3 spatial hydration shell uses a default 3 Å grid and bonded-water
+form factors. Its effective point weights include a reference bulk-density
+prefactor; fractional atomic exposure does not directly set those weights.
+The hydration implementation was independently validated, but agreement of one
+component does not validate the complete titin model. FoXS and Pepsi-SAXS are
+optional external validation tools, rather than runtime dependencies.
+:::
+
+## Continue
+
+You can now build an atomic cloud and change solvent contributions through
+its options. The linked model still assigns domain and chain amplitudes by
+residue count. Next, [change their relative scattering weights](titin-relative-weights.qmd)
+through the analytical subunits' parameter dictionaries.
+
+::: {.callout-note collapse="true" title="Complete calculation source: atomic controls and solvent refinement"}
+
+These are the complete calculation cells used by the sequence generator.
+They run in sequence order across the four pages; fitting and export cells
+are disabled during website rendering. The short examples above can be run
+after this page's setup without regenerating the fits.
 
 ```{python}
 #| tags: [titin-generation]
@@ -283,17 +449,6 @@ print(
 ```
 
 ```{python}
-print(f"NMR conformations retained: {len(results['ensemble_models'])}")
-print(f"Atomic plus shell points per cloud: {results['atomic_scatterer_count']}")
-```
-
-Each averaged form factor describes one domain selected from the four-model
-ensemble. The two terminal amplitudes and their phase factor retain distinct
-N- and C-terminal reference points. Averaging these quantities separately
-means the two I27 copies are independently selected from that ensemble when
-pySEB constructs their interference terms.
-
-```{python}
 #| tags: [titin-generation]
 #| eval: false
 #| code-fold: true
@@ -403,13 +558,6 @@ atomic_worlds = {
 }
 ```
 
-### Fit the cached ensemble
-
-The four fitted variables match round 2: linker $R_g$, terminal-chain
-$R_{g,8}$, intensity scale, and background. The PDB coordinates remain fixed.
-The optimizer sees an ordinary linked pySEB structure; only the numerical
-domain callbacks now read from ensemble-averaged curves.
-
 ```{python}
 #| tags: [titin-generation]
 #| eval: false
@@ -482,30 +630,6 @@ display(Markdown("\n".join(fixed_rows)))
 ```
 
 ```{python}
-rows = ["| Fixed atomic control | Training reduced chi² | Held-point score |",
-        "| --- | ---: | ---: |"]
-for name, control in results["controls"].items():
-    fit = results["fits"][f"fixed_{name}"]
-    rows.append(f"| {control['label']} | {fit['training_reduced_chi2']:.3f} | {fit['held_score']:.3f} |")
-display(Markdown("\n".join(rows)))
-```
-
-These are fixed-physics controls: the excluded-volume multiplier is exactly
-1.0 and the enabled hydration contrast is exactly
-$+0.0135\;e\,\mathrm{\AA}^{-3}$. Only the linker, terminal-chain, intensity
-scale, and background were fitted. The alternating q points were not seen by
-the optimizer.
-
-### Look at an atomic realization before interpreting hydration
-
-The fitted domains above are averages of scattering functions, which have no
-single set of coordinates. For visualization we rebuild the same topology with
-two copies of NMR model 1 and use the fitted chain sizes. This scene illustrates
-one representative geometry, not the full four-model average. Hydration changes
-the explicit shell-point amplitudes, which are included in the hydrated scene
-as smaller purple markers. The dry scene contains atomic groups only.
-
-```{python}
 #| tags: [titin-generation]
 #| eval: false
 def atomic_visual_world(profile_name, hydrated):
@@ -559,26 +683,6 @@ for profile in ("fraser", "pontius"):
           f"from {dry:.3f} to {wet:.3f} "
           f"({'improves' if wet < dry else 'does not improve'}).")
 ```
-
-```{python}
-show_saved_structure("atomic-displaced-solvent")
-show_saved_structure("atomic-hydrated")
-compare_curves({results["controls"][name]["label"]: curves[f"fixed_{name}"]
-                for name in ("vacuum", "fraser_excluded", "fraser_complete")})
-for profile in ("fraser", "pontius"):
-    dry = results["fits"][f"fixed_{profile}_excluded"]["held_score"]
-    wet = results["fits"][f"fixed_{profile}_complete"]["held_score"]
-    print(f"{profile.title()}: hydration changes held-point score from {dry:.3f} to {wet:.3f}.")
-```
-
-### Refine the complete solvent models within physical bounds
-
-We now fit the Fraser-plus-hydration and Pontius-plus-hydration models again,
-adding only two tightly bounded solvent variables. The excluded-volume
-multiplier is restricted to $0.95^3$--$1.05^3$ and hydration contrast to
-$-0.027$--$+0.054\;e\,\mathrm{\AA}^{-3}$. Exact Debye profiles are evaluated
-at every solvent trial; a small memoization cache avoids repeating them when
-the optimizer perturbs only linker or intensity parameters.
 
 ```{python}
 #| tags: [titin-generation]
@@ -704,120 +808,4 @@ for profile_name, fit in refined_fits.items():
 display(Markdown("\n".join(refined_rows)))
 ```
 
-```{python}
-rows = ["| Complete model | Volume multiplier | Hydration contrast | Training reduced chi² | Held-point score | Accepted improvement? |",
-        "| --- | ---: | ---: | ---: | ---: | :---: |"]
-for profile in ("fraser", "pontius"):
-    fit = results["fits"][f"refined_{profile}"]
-    metrics = results["refined_metrics"][profile]
-    print(f"{profile.title()} optimizer: {fit['message']}")
-    rows.append(f"| {profile.title()} plus hydration | {fit['x'][4]:.6f} | "
-                f"{fit['x'][5]:+.6f} | {fit['training_reduced_chi2']:.3f} | "
-                f"{fit['held_score']:.3f} | {'yes' if metrics['accepted'] else 'no'} |")
-display(Markdown("\n".join(rows)))
-```
-
-“Accepted improvement” is intentionally stricter than a lower training loss:
-the held-out mean squared standardized residual must also improve relative to the matching fixed
-complete model, the optimizer must converge, and neither solvent parameter
-may finish at a bound. This is a practical screening rule, not a formal
-statistical significance test. The table
-uses a $10^{-4}$ bound tolerance and reports the result instead of assuming in
-advance that either published volume convention must fit this dataset better.
-
-## Compare the rounds
-
-```{python}
-#| label: fig-linked-titin-fits
-#| fig-cap: "Analytical and hybrid cloud fits with standardized experimental residuals; curves loaded from saved calculations."
-spheroid_model = curves["analytical_constrained"]
-ca_model = curves["debye"]
-vacuum_model = curves["fixed_vacuum"]
-fraser_model = curves["refined_fraser"]
-pontius_model = curves["refined_pontius"]
-figure, (axis, residual_axis) = plt.subplots(
-    2,
-    1,
-    figsize=(7.2, 7.0),
-    sharex=True,
-    gridspec_kw={"height_ratios": [3, 1]},
-)
-
-axis.errorbar(
-    q,
-    intensity,
-    yerr=uncertainty,
-    fmt=".",
-    markersize=3,
-    color="black",
-    alpha=0.65,
-    label="SASDKC2 experiment",
-)
-axis.plot(q, spheroid_model, label="Spheroid--polymer--spheroid")
-axis.plot(q, ca_model, label="688-point heavy-atom Debye clouds")
-axis.plot(q, vacuum_model, label="Atomic ensemble: vacuum form factors")
-axis.plot(q, fraser_model, label="Atomic ensemble: refined Fraser solvent")
-axis.plot(q, pontius_model, label="Atomic ensemble: refined Pontius solvent")
-axis.set_yscale("log")
-axis.set_ylabel("Intensity [a.u.]")
-axis.legend()
-
-residual_axis.axhline(0.0, color="0.5", linewidth=1)
-residual_axis.plot(
-    q,
-    (spheroid_model - intensity) / uncertainty,
-    label="spheroid residual",
-)
-residual_axis.plot(
-    q,
-    (ca_model - intensity) / uncertainty,
-    label="Debye-cloud residual",
-)
-residual_axis.plot(
-    q,
-    (vacuum_model - intensity) / uncertainty,
-    label="atomic-vacuum residual",
-)
-residual_axis.plot(
-    q,
-    (fraser_model - intensity) / uncertainty,
-    label="atomic-Fraser residual",
-)
-residual_axis.plot(
-    q,
-    (pontius_model - intensity) / uncertainty,
-    label="atomic-Pontius residual",
-)
-residual_axis.set_xlabel(r"$q\;[\mathrm{\AA}^{-1}]$")
-residual_axis.set_ylabel(r"$(I_{model}-I)/\sigma$")
-residual_axis.legend(fontsize="small")
-plt.tight_layout()
-plt.show()
-```
-
-The six fixed controls separate vacuum form factors, displaced solvent, and
-hydration instead of attributing every change to one combined correction. The
-two refined models then ask whether a tightly bounded adjustment is supported
-outside the training points. Read the rendered tables for the numerical
-answer: no conclusion about Fraser versus Pontius is inserted before those
-training and held-out values are calculated.
-
-More coordinates do **not** automatically make a better solution model. The
-atomic rounds still omit atomistic conformations for the construct tails and
-linker, and correlations between linker extension and domain orientation.
-Their fitted linker and terminal-chain sizes, backgrounds, and structured
-residuals show how the remaining model compensates for those omissions even
-when the deposited coordinates are held fixed.
-
-This is the main lesson of the three rounds. A PDB cloud is a more detailed
-representation, but only a better scattering model when its solution-state
-assumptions are also better. The [deposited SASBDB fit](https://www.sasbdb.org/data/SASDKC2/)
-reports $\chi^2=1.068$; that result is a useful benchmark, not a value these
-pedagogical pySEB models are expected to reproduce.
-
-
-## Continue
-
-Before adding another parameter, compare training and held-point scores.
-Continue to [Test relative scattering weights](titin-relative-weights.qmd)
-for one further diagnostic of the same hybrid model.
+:::

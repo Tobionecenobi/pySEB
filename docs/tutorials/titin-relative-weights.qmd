@@ -1,11 +1,11 @@
 ---
 title: "Test Relative Scattering Weights"
-subtitle: "Diagnose the contrast ratio between domains and analytical chains"
+subtitle: "Change beta parameters to test domain-to-chain scattering weights"
 jupyter: python3
 format:
   html:
     toc: true
-    code-fold: show
+    code-fold: true
     code-tools: true
 execute:
   echo: true
@@ -13,60 +13,199 @@ execute:
   error: false
 ---
 
+Here you will change analytical-chain `beta` values without rebuilding the
+linked structure. You will separate amplitude weights from intensity scale,
+then inspect a saved fit with one extra chain-to-domain multiplier.
+
+**Keep:** the atomic domain model, four-conformation average, and fixed Fraser
+solvent settings from page 3.
+**Change:** the relative scattering amplitudes of the analytical chains.
+
 ::: {.callout-note title="Before you start"}
-Complete [Test atomic scattering and hydration](titin-hydration.qmd) first.
-You need its fixed Fraser-solvent hybrid as the reference model. Be comfortable
-with the distinction between amplitudes and intensities; review
-[Scattering from a point cloud](scattering-quantities.qmd) if necessary.
+Complete [page 3](titin-hydration.qmd). The starting point is its fixed
+Fraser-plus-hydration model. For amplitudes and intensities, see
+[Scattering from a point cloud](scattering-quantities.qmd).
 :::
 
-Keep the domain coordinates and solvent settings fixed. This page tests
-whether a single chain-to-domain amplitude multiplier explains residuals,
-then inspects the fitted parameters for compensation.
+## Open the worked example
 
-## Load the saved calculation
-
-Run the setup below in a fresh kernel from `docs/tutorials` in a repository
-checkout. It verifies the shared inputs, outputs, and calculation source, then
-loads numerical curves and viewer helpers. It does not execute previous fits.
-For dependencies and full regeneration, see
-[Reproduce the saved calculations](fit-linked-titin.qmd#reproduce-the-saved-calculations).
-The disabled fitting cells build on earlier stages when executed by
-`python Examples/generate_linked_titin.py` from the repository root.
+Run this page from `docs/tutorials` in a repository checkout, using the
+[environment from page 1](fit-linked-titin.qmd#prepare-your-environment).
+The setup loads the measured curve, saved fit values, and display helpers.
+You can start a fresh kernel here; you do not need to run the previous page's fits.
 
 {{< include _titin-setup.qmd >}}
 
-## Change one relative amplitude weight
+The visible examples below run with this setup. Expand the calculation source
+at the end if you want the complete fitting implementation.
 
-We want to keep the useful hybrid: atomic clouds for the folded domains and
-analytical Gaussian polymers for the linker and tails. Before adding more
-coordinates, ask whether these two descriptions have been combined with
-reasonable relative scattering strengths.
+## 1. Identify the parameters to change
 
-A normalized domain curve describes its shape but has forward intensity one.
-The earlier hybrid assigns each domain amplitude weight 89 and each chain its
-residue count. That assumes the same excess scattering amplitude per residue
-in both descriptions. Atomic composition and solvent contrast need not obey
-that assumption. The overall intensity scale cannot correct a wrong ratio
-between parts, because that ratio also changes their interference.
+So far, each domain has amplitude weight 89 and each chain has its residue
+count. That assumes equal excess scattering amplitude per residue in the
+atomic and analytical descriptions. Their composition and solvent contrast
+need not support that approximation.
 
-Here we make a **diagnostic fit**, not a new absolute contrast calculation.
-Keep the Fraser domain profiles, volume multiplier 1, and hydration contrast
-+0.0135 e/Å³ fixed. Multiply all three analytical-chain amplitude weights by
-one positive parameter $r$:
+Introduce one multiplier $r$ for all three chains:
 
 $$
 \beta_{\mathrm{domain}}=89,\qquad
 \beta_{\mathrm{chain}}=r N_{\mathrm{chain}}.
 $$
 
-Thus $r=1$ reproduces the previous hybrid exactly. This changes amplitudes,
-not intensities: chain self-terms contain $r^2$ and domain–chain cross-terms
-contain $r$. Linker and tail conformations remain analytical. Their sizes,
-intensity scale, and background are refitted with the same bounds as before.
-The exploratory interval $0.25\le r\le4$ is a diagnostic range, not a
-measured physical constraint. We use the same four domain conformations and
-the same alternating training and held points.
+In a pySEB parameter dictionary, the change is:
+
+```python
+weighted_parameters = dict(parameters)
+for name in ("ntail", "linker", "ctail"):
+    weighted_parameters[f"beta_{name}"] *= ratio
+```
+
+Keep the `Rg` entries unchanged to isolate the amplitude change. Chain
+self-terms contain $r^2$ and domain–chain cross-terms contain $r$, so this
+changes the scattering shape as well as relative contributions. An overall
+intensity scale cannot perform the same correction.
+
+## 2. Explore the effect with a reusable world
+
+The display helper can rebuild a single-conformation atomic world from the
+saved model. Use it for a quick parameter experiment; the four-conformation
+fit comparison follows in step 3.
+
+```{python}
+#| code-fold: false
+world, parameters, options = fitted_views.model("atomic-hydrated")
+trial_curves = {}
+for ratio in (0.5, 1.0, 2.75):
+    weighted_parameters = dict(parameters)
+    for name in ("ntail", "linker", "ctail"):
+        weighted_parameters[f"beta_{name}"] *= ratio
+    trial_curves[ratio] = np.asarray(world.EvaluateFormFactor(
+        "titin", weighted_parameters, q.tolist()))
+
+figure, axis = plt.subplots(figsize=(7, 4))
+for ratio, values in trial_curves.items():
+    axis.plot(q, values, label=f"Chain amplitude multiplier r = {ratio:g}")
+axis.set(xlabel=r"$q$ [Å$^{-1}$]", ylabel="Normalized construct P(q)", yscale="log")
+axis.legend()
+plt.show()
+```
+Each evaluation reuses the same world and chain sizes. Only `beta_ntail`,
+`beta_linker`, and `beta_ctail` change. All curves are normalized to one at
+$q=0$, so differences away from zero reveal a change in shape.
+
+**Try it:** change only `beta_linker`, keeping the two tail weights fixed.
+Compare this with scaling all three chains. Which has the larger effect?
+
+## 3. Compare the saved ensemble fits
+
+The full fit starts from the four-conformation Fraser-plus-hydration model.
+It fixes the volume multiplier at 1 and hydration contrast at
+$+0.0135\;e\,\mathrm{\AA}^{-3}$. It refits the chain sizes, scale, background,
+and the new multiplier in an exploratory interval $0.25 \le r \le 4$.
+
+At $r=1$, the evaluator must reproduce the previous hybrid. The complete
+calculation source checks that equality before fitting the extra parameter.
+
+```{python}
+#| echo: false
+fit_table("weighted_hybrid")
+print("Active parameter bounds (-1 lower, +1 upper):",
+      results["fits"]["weighted_hybrid"]["active_mask"])
+rows = ["| Hybrid with fixed solvent | Training reduced chi² | Held-point score |",
+        "| --- | ---: | ---: |"]
+for key, label in (("fixed_fraser_complete", "Residue-count weights, r = 1"),
+                   ("weighted_hybrid", "Fitted relative chain weight")):
+    fit = results["fits"][key]
+    rows.append(f"| {label} | {fit['training_reduced_chi2']:.3f} | {fit['held_score']:.3f} |")
+display(Markdown("\n".join(rows)))
+compare_curves({
+    "Hybrid, residue-count weights": curves["fixed_fraser_complete"],
+    "Hybrid, fitted chain weight": curves["weighted_hybrid"],
+})
+```
+The optimizer converges at **$r=2.752$**. Training reduced chi-squared falls
+from **43.95 to 2.47**, and the held-point score falls from **40.34 to 2.39**.
+Changing relative weights explains much of the mismatch without adding
+coordinates to the analytical chains.
+
+Now inspect the other parameters. The linker still reaches its **9 Å upper
+bound**, and the terminal-chain scale rises to **18.29 Å**. The multiplier is
+an empirical correction; this fit has not measured physical contrasts or
+established the chain conformations.
+
+## 4. View the fitted dimensions
+
+Rebuild a representative view with the saved weighted-fit parameters:
+
+```{python}
+#| code-fold: false
+weighted_world, weighted_parameters, view_options = fitted_views.model(
+    "atomic-weighted-hybrid")
+_ = pyseb.visualize(
+    weighted_world, "titin", weighted_parameters, view_options, height=440,
+    layouts=["random", "readable"],
+)
+```
+Compare the large tails with the earlier views. A change in scattering
+weight does not directly move coordinates; here the dimensions change because
+the fit also reoptimizes the chain sizes. This picture uses one domain
+conformation and illustrates the fitted model, rather than a uniquely recovered
+structure.
+
+## What you can now do with pySEB
+
+| Task | pySEB functionality |
+| --- | --- |
+| Assemble analytical domains and chains | `World.Add`, `World.Link`, named references |
+| Reuse a topology with different dimensions | Parameter dictionaries and `EvaluateFormFactor` |
+| Replace shapes with coordinate domains | `PDBParser`, `AtomParameterProfile`, `AtomCloudBuilder` |
+| Configure atomic scattering and solvent | `AtomicSAXSCloudBuilder`, profiles, `get_options` / `set_options` |
+| Test relative subunit amplitudes | Instance-specific `beta` parameters |
+| Inspect a fitted model | `visualize` with the same world and parameters |
+
+The sequence also shows why you should inspect parameters alongside curves.
+The analytical fit has a good score but an implausibly small linker. Fixed
+coordinate domains expose a mismatch. Solvent corrections help, and a relative
+weight adjustment helps much more, yet the chain dimensions still show
+compensation.
+
+For a physical contrast model, the next step is to calculate domain excess
+amplitudes and sequence-dependent chain amplitudes in consistent units, while
+retaining the analytical chain form factors. The current four domain templates
+also omit linker–orientation correlations, inter-subunit excluded volume,
+complete disordered-chain conformations, and exact construct substitutions.
+
+## Try another controlled change
+
+Choose one experiment and keep the others fixed:
+
+- Sweep `Rg_linker` and inspect which q region responds.
+- Scale only one chain's `beta` to separate its contribution from the tails.
+- Refit with different linker bounds and record how the other parameters move.
+- In the full fitting source, hold out contiguous q intervals instead of alternating points.
+
+For a score comparison, rerun the fit; a parameter sweep alone does not
+reoptimize scale, background, or chain sizes. The alternating held-point check
+is weaker than independent data because neighboring q points may be correlated.
+
+## Reproduce or export the result
+
+Use the [sequence generation command](fit-linked-titin.qmd#reproduce-the-saved-calculations)
+to rerun all fits. The expandable source below saves the numerical bundle and
+exports the final representative scene with `world.export_usd(...)` through
+the shared export helper.
+
+- [Saved parameters and scores](data/titin-results/results.json)
+- [Numerical curves](data/titin-results/curves.npz)
+- [Weighted hybrid OpenUSD scene](data/titin-results/scenes/atomic-weighted-hybrid.usda)
+
+::: {.callout-note collapse="true" title="Complete calculation source: amplitude fit and results export"}
+
+These are the complete calculation cells used by the sequence generator.
+They run in sequence order across the four pages; fitting and export cells
+are disabled during website rendering. The short examples above can be run
+after this page's setup without regenerating the fits.
 
 ```{python}
 #| tags: [titin-generation]
@@ -125,98 +264,6 @@ compare_curves({
     "Hybrid, fitted chain weight": weight_model,
 })
 ```
-
-```{python}
-fit_table("weighted_hybrid")
-print("Active parameter bounds (-1 lower, +1 upper):",
-      results["fits"]["weighted_hybrid"]["active_mask"])
-rows = ["| Hybrid with fixed solvent | Training reduced chi² | Held-point score |",
-        "| --- | ---: | ---: |"]
-for key, label in (("fixed_fraser_complete", "Residue-count weights, r = 1"),
-                   ("weighted_hybrid", "Fitted relative chain weight")):
-    fit = results["fits"][key]
-    rows.append(f"| {label} | {fit['training_reduced_chi2']:.3f} | {fit['held_score']:.3f} |")
-display(Markdown("\n".join(rows)))
-compare_curves({
-    "Hybrid, residue-count weights": curves["fixed_fraser_complete"],
-    "Hybrid, fitted chain weight": curves["weighted_hybrid"],
-})
-show_saved_structure("atomic-weighted-hybrid")
-```
-
-In the 2026-10-15 execution, the optimizer converges with $r=2.752$.
-Training reduced chi-squared falls from 43.953 to 2.466, while the held-point
-score falls from 40.339 to 2.394. The solvent settings and domain coordinates
-have not changed. This supports investigating relative scattering weights
-before replacing the analytical chains with coordinates.
-
-There is still a warning in the parameters: linker $R_g$ reaches its 9 Å
-upper bound, and terminal-chain $R_{g,8}$ increases to 18.292 Å. The fitted
-multiplier is an empirical correction, not a measured contrast. A much
-better curve therefore does not yet establish the chain conformations.
-The [saved diagnostic results](data/titin-results/results.json)
-record the parameters and optimizer status.
-
-Read the parameter values alongside the curves. Does the held-point score
-improve as well as the training score? Does the multiplier remain inside its
-exploratory interval? Do the chain sizes or background reach a bound? A lower
-score obtained by suppressing the chains or pushing their sizes to a limit
-would still indicate compensation in the model.
-
-Even a successful diagnostic would not mean we have calculated consistent
-physical contrasts. The next physical version would derive domain excess
-amplitudes and sequence-dependent chain contrasts in the same units, while
-retaining analytical chain form factors. Conversely, little improvement
-would tell us that relative weights alone cannot explain the residuals.
-Neither outcome requires replacing the analytical linker with atomic
-coordinates. This is how we continue the fitting story: isolate one
-assumption, test it against the same data, and inspect both the curve and the
-parameters before adding another degree of freedom.
-
-## What have we learned?
-
-The first fit teaches us to inspect parameters as well as curves. A linker
-at 0.5 Å exposes compensation between the analytical domain shape and chain
-size. Adding a physical bound makes that assumption explicit.
-
-The Debye cloud fixes the internal domain geometry and makes the terminal
-attachments concrete. It still uses constant atomic weights without solvent.
-The atomic model adds q-dependent scattering and solvent corrections, but
-retains approximate residue-count weights between domains and polymers.
-Hydration can change a curve without changing the atomic coordinates.
-
-The fourth step keeps that hybrid and tests one more assumption: the relative
-amplitude weights of the domains and analytical chains. Fitting a multiplier
-is a diagnostic for compensation, rather than a substitute for calculating
-physical contrasts from composition and solvent.
-
-Read the fixed-control table first: compare each excluded-solvent model with
-its matching hydrated model. Then read the refined table to see whether extra
-solvent freedom improves predictions. Alternating q points are nearby and may
-be correlated, so this check is weaker than independent experimental data or
-holding out contiguous q intervals. A bound hit or structured residual is a
-reason to revisit the model, even if the score improves.
-
-Our four domain templates are not a complete solution ensemble. Linker/domain
-orientation correlations, excluded volume between subunits, disordered-residue
-coordinates and the exact construct substitutions remain possible sources of
-error. The pictures show model assumptions; the data do not uniquely determine
-any one displayed conformation.
-
-## What to try next
-
-- Vary the linker bounds and record how the domain sizes and fit scores move.
-- Hold out contiguous q blocks to make the predictive check harder.
-- Cross-check the atomic solvent calculation against an independent SAXS program.
-- Add complete-construct conformations with explicit linker and tail coordinates.
-
-## Save the numerical results and final hybrid scene
-
-The generation command finishes with the following export. Rendering the page
-loads these numerical arrays and makes the tables and plots above; no saved
-plot images or HTML outputs are required. The final scene uses one domain
-conformation, with the fitted chain sizes and relative weights. It illustrates
-the topology and dimensions rather than the full four-conformation average.
 
 ```{python}
 #| tags: [titin-generation]
@@ -293,3 +340,5 @@ import json
     },
 }, indent=2) + "\n")
 ```
+
+:::
