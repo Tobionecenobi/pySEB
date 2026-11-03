@@ -13,7 +13,7 @@ int main()
     sebsym::set_backend("portable");
 
     World world("Figure11Dendrimer");
-    GraphID graph = world.Add("Point", "center");
+    GraphID graph = world.Add("InvisiblePoint", "center");
     const int functionality = 3;
     int nextIndex = 0;
 

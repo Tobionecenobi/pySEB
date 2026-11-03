@@ -5,14 +5,11 @@ api_name: Point
 model_version: "1.0.0"
 
 metadata:
-  title: Invisible point connector
-  description: A zero-scattering point used to connect subunits.
+  title: Point scatterer
+  description: An ideal zero-size scatterer with adjustable excess scattering length beta.
   authors: []
   citations: []
   license: BSD-3-Clause
-
-behavior:
-  scattering: invisible
 
 parameters: {}
 references:
@@ -20,9 +17,9 @@ references:
   distributed: []
 
 expressions:
-  form_factor: "0"
+  form_factor: "1"
   amplitudes:
-    point: "0"
+    point: "1"
   phases: []
 
 sizes:
@@ -35,10 +32,24 @@ validation:
   absolute_tolerance: 1.0e-12
   relative_tolerance: 1.0e-10
   cases:
-    - name: zero scattering
-      quantity: form_factor_unnormalized
+    - name: normalized zero-angle scattering
+      quantity: form_factor
       q: 0.0
-      expected: 0.0
+      expected: 1.0
+    - name: normalized finite-q scattering
+      quantity: form_factor
+      q: 10.0
+      expected: 1.0
+    - name: squared scattering length
+      quantity: form_factor_unnormalized
+      beta: -2.0
+      q: 0.5
+      expected: 4.0
+    - name: point amplitude
+      quantity: amplitude
+      references: [point]
+      q: 0.5
+      expected: 1.0
 
     - name: point phase
       quantity: phase

@@ -371,7 +371,11 @@ TEST(FileDefinedSchema, LoadsAndValidatesBundledModels) {
         std::string(PYSEB_MODEL_DIR) + "/Spheroid.pyseb.yaml");
     EXPECT_EQ(point.id, "pyseb/Point");
     EXPECT_EQ(point.apiName, "Point");
-    EXPECT_TRUE(point.invisible);
+    EXPECT_FALSE(point.invisible);
+    const auto invisiblePoint = pyseb::LoadSubunitDefinitionFile(
+        std::string(PYSEB_MODEL_DIR) + "/InvisiblePoint.pyseb.yaml");
+    EXPECT_TRUE(invisiblePoint.invisible);
+    EXPECT_TRUE(pyseb::ValidateSubunitDefinition(invisiblePoint).ok());
     EXPECT_EQ(polymer.amplitudes.size(), 4u);
     EXPECT_EQ(spheroid.integrals.at("surfaceAmplitude").dimensions.size(), 2u);
     EXPECT_EQ(spheroid.integrals.at("surfaceSurfacePhase").dimensions.size(), 3u);
@@ -468,11 +472,23 @@ TEST(FileDefinedWorld, BundledCatalogueContainsEveryConfiguredModel) {
 
 TEST(FileDefinedWorld, InvisiblePointPreservesCountingAndPhaseBehavior) {
     World world("points");
-    world.Add("Point", "legacy");
-    world.Add("pyseb/Point", "canonical");
+    world.Add("InvisiblePoint", "legacy");
+    world.Add("pyseb/InvisiblePoint", "canonical");
     EXPECT_DOUBLE_EQ(world.Count("legacy.point").eval(), 0.0);
     EXPECT_DOUBLE_EQ(world.Count("canonical.point").eval(), 0.0);
     EXPECT_DOUBLE_EQ(world.PhaseFactor("canonical.point", "canonical.point").eval(), 1.0);
+}
+
+TEST(FileDefinedWorld, PointScattersAndCountsAsASubunit) {
+    World world("point-scatterer");
+    world.Add("Point", "site");
+    const ParameterList values{{"beta_site", -2.0}};
+    EXPECT_DOUBLE_EQ(world.Count("site.point").eval(), 1.0);
+    for (double q : {0.0, 0.1, 10.0}) {
+        EXPECT_DOUBLE_EQ(world.EvaluateFormFactor("site", values, q), 1.0);
+        EXPECT_DOUBLE_EQ(world.EvaluateFormFactorUnnormalized("site", values, q), 4.0);
+        EXPECT_DOUBLE_EQ(world.EvaluateFormFactorAmplitudeUnnormalized("site.point", values, q), -2.0);
+    }
 }
 
 TEST(FileDefinedWorld, RegistrationRejectsConflictingIds) {

@@ -25,7 +25,7 @@ four restores the published topology.
 
 ## Recursive construction
 
-A zero-scattering `Point` supplies the root. Functionality three creates three
+A zero-scattering `InvisiblePoint` supplies the root. Functionality three creates three
 branches at the root and two children at every later branch: one connection is
 already occupied by the branch's parent.
 
@@ -39,7 +39,7 @@ import pyseb
 
 def build_dendrimer(model, link_mode, generations=3, functionality=3):
     world = pyseb.World(f"Figure11-{model}-{link_mode}")
-    graph = world.Add("Point", "center")
+    graph = world.Add("InvisiblePoint", "center")
     next_index = 0
 
     def attach(generation, parent_reference):

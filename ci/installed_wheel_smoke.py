@@ -50,7 +50,7 @@ def main():
         catalogue_world.Add(definition.api_name, f"alias{index}")
 
     definitions_by_id = {definition.id: definition for definition in definitions}
-    required_models = {"pyseb/Point", "pyseb/GaussianPolymer"}
+    required_models = {"pyseb/Point", "pyseb/InvisiblePoint", "pyseb/GaussianPolymer"}
     missing_models = required_models.difference(definitions_by_id)
     if missing_models:
         raise AssertionError(f"required bundled models are missing: {sorted(missing_models)!r}")

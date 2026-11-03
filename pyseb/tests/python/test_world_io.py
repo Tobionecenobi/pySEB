@@ -45,7 +45,7 @@ def nested_world_yaml(depth: int) -> str:
         "format: pyseb-world",
         "schema_version: 1",
         "world: {id: deep}",
-        "subunits: [{name: A, model: pyseb/Point, tag: A}]",
+        "subunits: [{name: A, model: pyseb/InvisiblePoint, tag: A}]",
         "structures:",
     ]
     lines.extend(

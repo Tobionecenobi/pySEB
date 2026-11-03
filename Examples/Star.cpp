@@ -30,8 +30,8 @@ int main()
 
     int N=3;
 
-    // Point core.
-    GraphID g1 = w.Add("Point", "p");
+    // Invisible connector at the star center.
+    GraphID g1 = w.Add("InvisiblePoint", "p");
     for (int i=0; i<N; i++)
           {
              string name = string("p")+to_string(i)+".end1";             
@@ -49,10 +49,10 @@ int main()
     cout << F1 << endl;
 
     
-    cout << "Counting sub-units (automatically neglecting points):" << endl;
+    cout << "Counting sub-units (automatically neglecting invisible points):" << endl;
     cout << w.Count("star:p.point") << endl;
 
-    cout << "Counting sub-units pairs (automatically neglecting points):" << endl;
+    cout << "Counting sub-units pairs (automatically neglecting invisible points):" << endl;
     cout << w.CountPairs("star") << endl;
 
 }

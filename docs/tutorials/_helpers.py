@@ -160,11 +160,11 @@ def bundled_subunit_figure(catalogue, *, columns=3):
             traces = [trace for trace in go.Figure(variant['data']).data
                       if trace.meta['pyseb']['role'] == 'geometry']
             if not traces:
-                # Point is an invisible connector; show its location in the catalogue.
+                # Point models have no extended geometry; show their reference location.
                 rgb = "rgb({},{},{})".format(*(round(255*c) for c in color))
                 traces = [go.Scatter3d(x=[0], y=[0], z=[0], mode="markers",
                     marker={"color": rgb, "size": 8, "symbol": "diamond"},
-                    hovertemplate=f"{model['api_name']}: fixed connector reference<extra></extra>",
+                    hovertemplate=f"{model['api_name']}: fixed point reference<extra></extra>",
                     showlegend=False)]
             for trace in traces:
                 trace.name = model['api_name']

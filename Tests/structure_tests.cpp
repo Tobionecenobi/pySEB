@@ -30,7 +30,7 @@ TEST(StructureTest, PathSearchPreservesEndpointsReversalAndBranchOrder) {
     EXPECT_THROW(world.findpath("particle:p0.bad", "particle:p2.end2"), SEBException);
 
     World star("branchOrder");
-    const GraphID arms = star.Add("Point", "core");
+    const GraphID arms = star.Add("InvisiblePoint", "core");
     for (int i=0; i<3; ++i)
         star.Link("GaussianPolymer", "a"+std::to_string(i)+".end1", "core.point");
     star.Add(arms, "particle");
@@ -144,7 +144,7 @@ TEST(StructureTest, DendrimerCreation) {
     const int g = 2;
     
     // Create core
-    GraphID dendrimer = world.Add("Point", "core");
+    GraphID dendrimer = world.Add("InvisiblePoint", "core");
     
     // First generation
     for(int i = 1; i <= f; i++) {
@@ -210,7 +210,7 @@ TEST(StructureTest, StarPolymerStructure) {
     
     // Create star with f arms
     const int f = 6;
-    GraphID star = world.Add("Point", "center");
+    GraphID star = world.Add("InvisiblePoint", "center");
     
     for(int i = 1; i <= f; i++) {
         world.Link("GaussianPolymer", "arm" + std::to_string(i) + ".end1", "center.point");

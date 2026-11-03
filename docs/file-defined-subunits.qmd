@@ -207,8 +207,15 @@ This includes `Point`, `GaussianPolymer`, `ThinDisk`, and `SolidCylinder`.
 Use `World.Add()` or `World.Link()` instead. Executable, callback, and
 coordinate-cloud subunits retain their existing class APIs.
 
-`behavior.scattering: invisible` defines a connector such as Point. Its form
+`behavior.scattering: invisible` defines a connector such as `InvisiblePoint`. Its form
 factor and amplitudes must be literal zero expressions.
+
+`Point` is now a scattering site with unit normalized form factor and amplitude,
+and a caller-supplied `beta`. The former invisible `Point` is named
+`InvisiblePoint`. Update old junction constructions to use `InvisiblePoint`;
+in saved world YAML, change their model ID from `pyseb/Point` to
+`pyseb/InvisiblePoint`. The attachment reference remains `.point`. World YAML
+does not store the model version, so this migration must be explicit.
 
 ## Describe a 3D visualization
 

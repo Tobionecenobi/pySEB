@@ -28,7 +28,7 @@ int main()
 {
    World w;
    
-   GraphID dendrimer = w.Add("Point","center");
+   GraphID dendrimer = w.Add("InvisiblePoint","center");
    int count=0;
    Attach(4, 3, "center.point", count, w);
    w.Add(dendrimer, "Dendrimer");
