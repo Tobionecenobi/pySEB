@@ -2,7 +2,7 @@ format: pyseb-subunit
 schema_version: 1
 id: pyseb/ThinCircle
 api_name: ThinCircle
-model_version: "1.0.0"
+model_version: "1.0.1"
 
 metadata:
   title: Thin circle
@@ -38,7 +38,7 @@ expressions:
       expression: F
 
 sizes:
-  radius_of_gyration_squared: "R^2 / 2"
+  radius_of_gyration_squared: "R^2"
   reference_to_scatterer:
     center: "R^2"
     contour: "2 * R^2"
@@ -60,7 +60,7 @@ validation:
     - name: radius of gyration
       quantity: radius_of_gyration_squared
       parameters: {R: 3.0}
-      expected: 4.5
+      expected: 9.0
     - name: center-to-scatterer distance
       quantity: reference_to_scatterer
       parameters: {R: 3.0}

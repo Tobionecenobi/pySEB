@@ -13,6 +13,22 @@ MODELS = ROOT / "models"
 
 
 class TestFileDefinedSubunits(unittest.TestCase):
+    def test_thin_circle_radius_of_gyration_matches_guinier_expansion(self):
+        world = pyseb.World("ring-guinier")
+        world.Add("ThinCircle", "ring")
+        for radius in (0.5, 1.0, 3.0):
+            with self.subTest(radius=radius):
+                parameters = {"R_ring": radius, "beta_ring": 1.0}
+                reported = world.EvaluateRadiusOfGyration2("ring", parameters)
+                self.assertAlmostEqual(reported, radius**2, places=12)
+                q = 0.02 / radius
+                estimates = [
+                    3 * (1 - world.EvaluateFormFactor("ring", parameters, step)) / step**2
+                    for step in (q, q / 2)
+                ]
+                extrapolated = (4 * estimates[1] - estimates[0]) / 3
+                self.assertAlmostEqual(reported, extrapolated, delta=1e-7 * radius**2)
+
     def test_sphere_kernel_remains_stable_through_variable_aliases(self):
         source = (MODELS / "SolidSphere.pyseb.yaml").read_text()
         source = source.replace("pyseb/SolidSphere", "test/AliasedSphere").replace(
