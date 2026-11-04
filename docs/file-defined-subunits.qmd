@@ -174,8 +174,10 @@ all declared local dimensions.
 Integration is finite iterated scalar quadrature: the implementation
 recursively applies QAG or CQUAD from the innermost dimension outward. It is
 not a general cubature method. Named integral results cannot be used inside
-another integral or in size expressions in this version; this keeps local
-scoping and caching unambiguous. Reversed finite bounds are valid and reverse
+another integral. Size expressions may use integrals whose integrands and
+bounds are independent of q, including through reusable definitions. Symbolic
+size queries retain the integrals; numerical size evaluation uses quadrature.
+Reversed finite bounds are valid and reverse
 the corresponding sign. High-dimensional integrals can become expensive
 quickly, so keep the number of dimensions and tolerances appropriate to the
 model.

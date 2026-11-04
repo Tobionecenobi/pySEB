@@ -295,6 +295,11 @@ TEST(FileDefinedIntegral, RejectsInvalidSettingsScopeAndNesting) {
     integralSize +=
         "integrals:\n"
         "  I: {variable: t, lower: \"0\", upper: \"1\", integrand: \"t\"}\n";
+    EXPECT_NO_THROW(
+        pyseb::LoadSubunitDefinitionYaml(integralSize, "size.pyseb.yaml"));
+    integralSize.replace(integralSize.find("integrand: \"t\""),
+                         std::string("integrand: \"t\"").size(),
+                         "integrand: \"q * t\"");
     EXPECT_THROW(
         pyseb::LoadSubunitDefinitionYaml(integralSize, "size.pyseb.yaml"),
         SEBException);

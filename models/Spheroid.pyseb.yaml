@@ -2,11 +2,11 @@ format: pyseb-subunit
 schema_version: 1
 id: pyseb/Spheroid
 api_name: Spheroid
-model_version: "1.1.0"
+model_version: "1.2.0"
 
 metadata:
   title: Axial spheroid
-  description: A homogeneous spheroid with equatorial radius a and polar radius c. Surface references are distributed uniformly in the angular parameterization (theta, phi), rather than uniformly by area.
+  description: A homogeneous spheroid with equatorial radius a and polar radius c. Surface references are distributed uniformly over the physical surface area.
   authors: []
   citations: []
   license: BSD-3-Clause
@@ -23,7 +23,26 @@ variables:
   x: "q * a"
   y: "q * c"
 
+definitions:
+  surfaceMeanR2: "surfaceSecondMoment / surfaceArea"
+
 integrals:
+  # Reduced area: the azimuthal factor 2*pi cancels in every surface average.
+  surfaceArea:
+    variable: theta
+    lower: "0"
+    upper: "pi"
+    integrand: "a * sin(theta) * sqrt(c^2 * sin(theta)^2 + a^2 * cos(theta)^2)"
+  surfaceSecondMoment:
+    variable: theta
+    lower: "0"
+    upper: "pi"
+    integrand: "a * sin(theta) * sqrt(c^2 * sin(theta)^2 + a^2 * cos(theta)^2) * (a^2 * sin(theta)^2 + c^2 * cos(theta)^2)"
+  centerSurfacePhase:
+    variable: theta
+    lower: "0"
+    upper: "pi"
+    integrand: "a * sin(theta) * sqrt(c^2 * sin(theta)^2 + a^2 * cos(theta)^2) * sinc(q * sqrt(a^2 * sin(theta)^2 + c^2 * cos(theta)^2))"
   volumeFormFactor:
     variable: theta
     lower: "0"
@@ -43,18 +62,18 @@ integrals:
     variables:
       - {variable: orientation, lower: "0", upper: "pi / 2"}
       - {variable: theta, lower: "0", upper: "pi"}
-    integrand: "sin(orientation) * sin(theta) * (3 * (sin(sqrt((q * a)^2 * sin(orientation)^2 + (q * c)^2 * cos(orientation)^2)) - sqrt((q * a)^2 * sin(orientation)^2 + (q * c)^2 * cos(orientation)^2) * cos(sqrt((q * a)^2 * sin(orientation)^2 + (q * c)^2 * cos(orientation)^2))) / sqrt((q * a)^2 * sin(orientation)^2 + (q * c)^2 * cos(orientation)^2)^3) * bessel_j0(q * a * sin(theta) * sin(orientation)) * cos(q * c * cos(theta) * cos(orientation)) / 2"
+    integrand: "sin(orientation) * a * sin(theta) * sqrt(c^2 * sin(theta)^2 + a^2 * cos(theta)^2) * (3 * (sin(sqrt((q * a)^2 * sin(orientation)^2 + (q * c)^2 * cos(orientation)^2)) - sqrt((q * a)^2 * sin(orientation)^2 + (q * c)^2 * cos(orientation)^2) * cos(sqrt((q * a)^2 * sin(orientation)^2 + (q * c)^2 * cos(orientation)^2))) / sqrt((q * a)^2 * sin(orientation)^2 + (q * c)^2 * cos(orientation)^2)^3) * bessel_j0(q * a * sin(theta) * sin(orientation)) * cos(q * c * cos(theta) * cos(orientation))"
   poleSurfacePhase:
     variables:
       - {variable: theta, lower: "0", upper: "pi"}
       - {variable: phi, lower: "0", upper: "2 * pi"}
-    integrand: "sin(theta) * sinc(q * sqrt(a^2 * sin(theta)^2 + c^2 * (cos(theta) - 1)^2)) / (4 * pi)"
+    integrand: "a * sin(theta) * sqrt(c^2 * sin(theta)^2 + a^2 * cos(theta)^2) * sinc(q * sqrt(a^2 * sin(theta)^2 + c^2 * (cos(theta) - 1)^2)) / (2 * pi)"
   surfaceSurfacePhase:
     variables:
       - {variable: theta1, lower: "0", upper: "pi"}
       - {variable: theta2, lower: "0", upper: "pi"}
       - {variable: phi, lower: "0", upper: "2 * pi"}
-    integrand: "sin(theta1) * sin(theta2) * sinc(q * sqrt(a^2 * (sin(theta1)^2 + sin(theta2)^2 - 2 * sin(theta1) * sin(theta2) * cos(phi)) + c^2 * (cos(theta1) - cos(theta2))^2)) / (8 * pi)"
+    integrand: "a^2 * sin(theta1) * sin(theta2) * sqrt(c^2 * sin(theta1)^2 + a^2 * cos(theta1)^2) * sqrt(c^2 * sin(theta2)^2 + a^2 * cos(theta2)^2) * sinc(q * sqrt(a^2 * (sin(theta1)^2 + sin(theta2)^2 - 2 * sin(theta1) * sin(theta2) * cos(phi)) + c^2 * (cos(theta1) - cos(theta2))^2)) / (2 * pi)"
 
 references:
   specific: [center, pole, north, south]
@@ -67,7 +86,7 @@ expressions:
     pole: poleAmplitude
     north: poleAmplitude
     south: poleAmplitude
-    surface: surfaceAmplitude
+    surface: "surfaceAmplitude / surfaceArea"
   phases:
     - references: [center, pole]
       expression: "sinc(y)"
@@ -82,15 +101,15 @@ expressions:
     - references: [north, south]
       expression: "sinc(2 * y)"
     - references: [center, surface]
-      expression: surfaceAmplitude
+      expression: "centerSurfacePhase / surfaceArea"
     - references: [pole, surface]
-      expression: poleSurfacePhase
+      expression: "poleSurfacePhase / surfaceArea"
     - references: [north, surface]
-      expression: poleSurfacePhase
+      expression: "poleSurfacePhase / surfaceArea"
     - references: [south, surface]
-      expression: poleSurfacePhase
+      expression: "poleSurfacePhase / surfaceArea"
     - references: [surface, surface]
-      expression: surfaceSurfacePhase
+      expression: "surfaceSurfacePhase / surfaceArea^2"
 
 sizes:
   radius_of_gyration_squared: "(2 * a^2 + c^2) / 5"
@@ -99,7 +118,7 @@ sizes:
     pole: "(2 * a^2 + c^2) / 5 + c^2"
     north: "(2 * a^2 + c^2) / 5 + c^2"
     south: "(2 * a^2 + c^2) / 5 + c^2"
-    surface: "(2 * a^2 + c^2) / 3"
+    surface: "(2 * a^2 + c^2) / 5 + surfaceMeanR2"
   reference_to_reference:
     - references: [center, pole]
       expression: "c^2"
@@ -114,15 +133,15 @@ sizes:
     - references: [north, south]
       expression: "4 * c^2"
     - references: [center, surface]
-      expression: "(2 * a^2 + c^2) / 3"
+      expression: surfaceMeanR2
     - references: [pole, surface]
-      expression: "(2 * a^2 + 4 * c^2) / 3"
+      expression: "c^2 + surfaceMeanR2"
     - references: [north, surface]
-      expression: "(2 * a^2 + 4 * c^2) / 3"
+      expression: "c^2 + surfaceMeanR2"
     - references: [south, surface]
-      expression: "(2 * a^2 + 4 * c^2) / 3"
+      expression: "c^2 + surfaceMeanR2"
     - references: [surface, surface]
-      expression: "2 * (2 * a^2 + c^2) / 3"
+      expression: "2 * surfaceMeanR2"
 
 validation:
   absolute_tolerance: 1.0e-10
@@ -166,11 +185,17 @@ validation:
       quantity: radius_of_gyration_squared
       parameters: {a: 2.0, c: 3.0}
       expected: 3.4
-    - name: center to surface distance
+    - name: sphere-limit surface to scatterer distance
       quantity: reference_to_scatterer
-      parameters: {a: 2.0, c: 3.0}
+      parameters: {a: 2.0, c: 2.0}
       references: [surface]
-      expected: 5.666666666666667
+      expected: 6.4
+    - name: sphere-limit center to surface phase
+      quantity: phase
+      parameters: {a: 2.0, c: 2.0}
+      references: [center, surface]
+      q: 0.5
+      expected: 0.8414709848078965
     - name: center to pole distance
       quantity: reference_to_reference
       parameters: {a: 2.0, c: 3.0}

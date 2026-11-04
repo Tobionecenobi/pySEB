@@ -684,12 +684,26 @@ void validateExpressionDependencies(const SubunitDefinition& definition) {
     std::function<bool(const std::string&)> dependsOnQ = [&](const std::string& name) {
         const auto cached = qDependencies.find(name);
         if (cached != qDependencies.end()) return cached->second;
-        const auto variable = definition.variables.find(name);
-        const ParsedExpression& expression = variable != definition.variables.end()
-            ? variable->second : definition.definitions.at(name);
-        bool depends = expression.identifiers().count("q") != 0;
-        for (const auto& id : expression.identifiers()) {
-            if (variables.count(id) || namedDefinitions.count(id)) depends = depends || dependsOnQ(id);
+        bool depends = false;
+        const auto inspect = [&](const ParsedExpression& expression) {
+            if (expression.identifiers().count("q")) depends = true;
+            for (const auto& id : expression.identifiers()) {
+                if (variables.count(id) || namedDefinitions.count(id) || integrals.count(id)) {
+                    depends = depends || dependsOnQ(id);
+                }
+            }
+        };
+        if (integrals.count(name)) {
+            const auto& integral = definition.integrals.at(name);
+            inspect(integral.integrand);
+            for (const auto& dimension : integral.dimensions) {
+                inspect(dimension.lower);
+                inspect(dimension.upper);
+            }
+        } else {
+            const auto variable = definition.variables.find(name);
+            inspect(variable != definition.variables.end()
+                ? variable->second : definition.definitions.at(name));
         }
         qDependencies[name] = depends;
         return depends;
@@ -714,14 +728,8 @@ void validateExpressionDependencies(const SubunitDefinition& definition) {
     const auto requireSizeIndependent = [&](const ParsedExpression& expression, const std::string& path) {
         if (expression.identifiers().count("q")) schemaError(source, path, "size expressions cannot depend on q");
         for (const auto& id : expression.identifiers()) {
-            if (integrals.count(id)) {
-                schemaError(source, path, "size expressions cannot depend on integrals");
-            }
-            if ((variables.count(id) || namedDefinitions.count(id)) && dependsOnQ(id)) {
+            if ((variables.count(id) || namedDefinitions.count(id) || integrals.count(id)) && dependsOnQ(id)) {
                 schemaError(source, path, "size expressions cannot depend on q through '" + id + "'");
-            }
-            if ((variables.count(id) || namedDefinitions.count(id)) && dependsOnIntegral(id)) {
-                schemaError(source, path, "size expressions cannot depend on integrals through '" + id + "'");
             }
         }
     };

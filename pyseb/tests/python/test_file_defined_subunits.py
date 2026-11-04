@@ -13,6 +13,90 @@ MODELS = ROOT / "models"
 
 
 class TestFileDefinedSubunits(unittest.TestCase):
+    def test_spheroid_surface_moments_and_center_phase(self):
+        world = pyseb.World("spheroid-area")
+        world.Add("Spheroid", "shape")
+        # Independent 60-digit surface-area integrals, including the sphere limit.
+        for a, c, surface_moment in (
+            (2.0, 3.0, 5.507228480390443),
+            (3.0, 1.0, 5.5240378791693595),
+            (2.0, 2.0, 4.0),
+        ):
+            with self.subTest(a=a, c=c):
+                parameters = {"a_shape": a, "c_shape": c, "beta_shape": 1.0}
+                volume_moment = (2 * a*a + c*c) / 5
+                for first, second, expected in (
+                    ("center", "surface", surface_moment),
+                    ("pole", "surface", c*c + surface_moment),
+                    ("surface", "surface", 2 * surface_moment),
+                ):
+                    self.assertAlmostEqual(
+                        world.EvaluateSMSDRef2Ref(
+                            "shape." + first, "shape." + second, parameters
+                        ), expected, places=9,
+                    )
+                self.assertAlmostEqual(
+                    world.EvaluateSMSDRef2Scat("shape.surface", parameters),
+                    volume_moment + surface_moment, places=9,
+                )
+                q = 0.04 / max(a, c)
+                for method, refs, moment in (
+                    (world.EvaluateFormFactorAmplitude, ("shape.surface",),
+                     volume_moment + surface_moment),
+                    (world.EvaluatePhaseFactor, ("shape.center", "shape.surface"),
+                     surface_moment),
+                ):
+                    slopes = [6 * (1 - method(*refs, parameters, step)) / step**2
+                              for step in (q, q / 2)]
+                    self.assertAlmostEqual(
+                        (4 * slopes[1] - slopes[0]) / 3, moment, delta=2e-5,
+                    )
+        parameters = {"a_shape": 2.0, "c_shape": 2.0, "beta_shape": 1.0}
+        self.assertAlmostEqual(
+            world.EvaluatePhaseFactor("shape.center", "shape.surface", parameters, 0.5),
+            math.sin(1.0), places=10,
+        )
+
+    def test_surface_linked_spheroid_pair_size_matches_guinier(self):
+        world = pyseb.World("spheroid-pair")
+        graph = world.Add("Spheroid", "first", "shape")
+        world.Link("Spheroid", "second.surface#join", "first.surface#join", "shape")
+        world.Add(graph, "pair")
+        parameters = {"a_shape": 2.0, "c_shape": 3.0, "beta_shape": 1.0}
+        # Equal-volume bodies: Rg_pair^2 = Rg_body^2 + <center separation^2>/4.
+        # Independent surface draws give <center separation^2> = 2*Ms.
+        expected = 17/5 + 5.507228480390443/2
+        reported = world.EvaluateRadiusOfGyration2("pair", parameters)
+        self.assertAlmostEqual(reported, expected, places=9)
+        slopes = [3 * (1 - world.EvaluateFormFactor("pair", parameters, q)) / q**2
+                  for q in (0.01, 0.005)]
+        self.assertAlmostEqual((4 * slopes[1] - slopes[0]) / 3, reported, delta=2e-5)
+
+    def test_size_integrals_require_q_independence(self):
+        source = (MODELS / "Point.pyseb.yaml").read_text()
+        source = source.split("\nvalidation:\n", 1)[0]
+        source = source.replace(
+            'radius_of_gyration_squared: "0"',
+            'radius_of_gyration_squared: "moment"',
+        )
+        source += ('\ndefinitions: {moment: "geometry / 2"}\n'
+                   'integrals:\n'
+                   '  geometry: {variable: t, lower: "0", upper: "2", integrand: "t^2"}\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "integral-size.pyseb.yaml"
+            path.write_text(source)
+            world = pyseb.World("integral-size")
+            world.add_subunit_file(str(path), "unit")
+            self.assertAlmostEqual(
+                world.EvaluateRadiusOfGyration2("unit", {"beta_unit": 1.0}), 4/3
+            )
+            for integrand in ("q * t^2", "qAlias * t^2"):
+                invalid = source.replace('integrand: "t^2"', f'integrand: "{integrand}"')
+                invalid += '\nvariables: {qAlias: "q"}\n'
+                path.write_text(invalid)
+                with self.assertRaisesRegex(RuntimeError, "size expressions cannot depend on q"):
+                    pyseb.load_subunit_definition(str(path))
+
     def test_thin_circle_radius_of_gyration_matches_guinier_expansion(self):
         world = pyseb.World("ring-guinier")
         world.Add("ThinCircle", "ring")

@@ -149,6 +149,7 @@ void FileDefinedSubunit::Init(string name, string tag, SymbolInterface* GEX) {
     expandedResolve = [&](const std::string& identifier) -> Expression {
         if (definition_.variables.count(identifier)) return expandVariable(identifier);
         if (definition_.definitions.count(identifier)) return materializeExpandedDefinition(identifier);
+        if (definition_.integrals.count(identifier)) return materializeIntegral(identifier).subs(expand);
         return baseResolve(identifier);
     };
     materializeExpandedDefinition = [&](const std::string& name) -> Expression {
@@ -182,6 +183,31 @@ void FileDefinedSubunit::Init(string name, string tag, SymbolInterface* GEX) {
     for (const auto& size : definition_.referenceToReference) {
         sigmaMSDref2ref[size.first.first][size.first.second] =
             pyseb::MaterializeSubunitExpression(size.second, expandedResolve);
+    }
+
+    if (requiresParsedNumericalEvaluation(definition_.radiusOfGyrationSquared)) {
+        setNumericalRadiusOfGyration2Provider(
+            [this](const ParameterList& values) {
+                return evaluateNumerically(definition_.radiusOfGyrationSquared, 0.0, values);
+            });
+    }
+    for (const auto& size : definition_.referenceToScatterer) {
+        if (!requiresParsedNumericalEvaluation(size.second)) continue;
+        const std::string reference = size.first;
+        setNumericalSigmaMSDRef2ScatProvider(
+            reference,
+            [this, reference](const ParameterList& values) {
+                return evaluateNumerically(definition_.referenceToScatterer.at(reference), 0.0, values);
+            });
+    }
+    for (const auto& size : definition_.referenceToReference) {
+        if (!requiresParsedNumericalEvaluation(size.second)) continue;
+        const pyseb::ReferencePair references = size.first;
+        setNumericalSigmaMSDRef2RefProvider(
+            references.first, references.second,
+            [this, references](const ParameterList& values) {
+                return evaluateNumerically(definition_.referenceToReference.at(references), 0.0, values);
+            });
     }
 
     if (requiresParsedNumericalEvaluation(definition_.formFactor)) {
