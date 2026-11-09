@@ -25,7 +25,7 @@ TUTORIAL = ROOT / "docs/tutorials/fit-linked-titin.qmd"
 sys.path.insert(0, str(TUTORIAL.parent))
 from _titin_sources import generation_cells as tutorial_generation_cells
 DESTINATION = ROOT / "docs/tutorials/data/titin-results"
-INPUT_NAMES = ("SASDKC2-titin.csv", "1TIU-heavy-ensemble.pdb")
+INPUT_NAMES = ("SASDKC2-titin.csv", "1TIT-heavy.pdb")
 
 
 def generation_cells():
@@ -84,6 +84,8 @@ def main():
                     versions[package] = "local build"
             manifest = {
                 "schema_version": 1,
+                "coordinate_template": "1TIT",
+                "coordinate_models": [1],
                 "generated_utc": datetime.now(timezone.utc).isoformat(),
                 "generation_sha256": hashlib.sha256("\n".join(cells).encode()).hexdigest(),
                 "generator_sha256": digest(Path(__file__).resolve()),

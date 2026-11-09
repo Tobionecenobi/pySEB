@@ -17,7 +17,7 @@ Here you will change analytical-chain `beta` values without rebuilding the
 linked structure. You will separate amplitude weights from intensity scale,
 then inspect a saved fit with one extra chain-to-domain multiplier.
 
-**Keep:** the atomic domain model, four-conformation average, and fixed Fraser
+**Keep:** the atomic domain model, single 1TIT conformation, and fixed Fraser
 solvent settings from page 3.
 **Change:** the relative scattering amplitudes of the analytical chains.
 
@@ -69,7 +69,7 @@ intensity scale cannot perform the same correction.
 ## 2. Explore the effect with a reusable world
 
 The display helper can rebuild a single-conformation atomic world from the
-saved model. Use it for a quick parameter experiment; the four-conformation
+saved model. Use it for a quick parameter experiment; the single-conformation
 fit comparison follows in step 3.
 
 ```{python}
@@ -97,9 +97,9 @@ $q=0$, so differences away from zero reveal a change in shape.
 **Try it:** change only `beta_linker`, keeping the two tail weights fixed.
 Compare this with scaling all three chains. Which has the larger effect?
 
-## 3. Compare the saved ensemble fits
+## 3. Compare the saved hybrid fits
 
-The full fit starts from the four-conformation Fraser-plus-hydration model.
+The full fit starts from the single-conformation Fraser-plus-hydration model.
 It fixes the volume multiplier at 1 and hydration contrast at
 $+0.0135\;e\,\mathrm{\AA}^{-3}$. It refits the chain sizes, scale, background,
 and the new multiplier in an exploratory interval $0.25 \le r \le 4$.
@@ -124,13 +124,13 @@ compare_curves({
     "Hybrid, fitted chain weight": curves["weighted_hybrid"],
 })
 ```
-The optimizer converges at **$r=2.752$**. Training reduced chi-squared falls
-from **43.95 to 2.47**, and the held-point score falls from **40.34 to 2.39**.
+The optimizer converges at **$r=2.778$**. Training reduced chi-squared falls
+from **45.06 to 2.34**, and the held-point score falls from **41.34 to 2.27**.
 Changing relative weights explains much of the mismatch without adding
 coordinates to the analytical chains.
 
 Now inspect the other parameters. The linker still reaches its **9 Å upper
-bound**, and the terminal-chain scale rises to **18.29 Å**. The multiplier is
+bound**, and the terminal-chain scale rises to **18.09 Å**. The multiplier is
 an empirical correction; this fit has not measured physical contrasts or
 established the chain conformations.
 
@@ -172,7 +172,7 @@ compensation.
 
 For a physical contrast model, the next step is to calculate domain excess
 amplitudes and sequence-dependent chain amplitudes in consistent units, while
-retaining the analytical chain form factors. The current four domain templates
+retaining the analytical chain form factors. The current domain template
 also omit linker–orientation correlations, inter-subunit excluded volume,
 complete disordered-chain conformations, and exact construct substitutions.
 

@@ -71,22 +71,22 @@
         "background"
       ],
       "x": [
-        8.999999870258302,
-        13.238719939619589,
-        0.03450342619561386,
-        6.713832577671185e-14
+        8.999999936495184,
+        13.315350062316098,
+        0.034302310494659254,
+        4.561345804767622e-13
       ],
       "active_mask": [
-        0,
+        1,
         0,
         0,
         -1
       ],
       "success": true,
       "message": "`ftol` termination condition is satisfied.",
-      "nfev": 43,
-      "training_reduced_chi2": 50.434086602021544,
-      "held_score": 46.49332704551876
+      "nfev": 42,
+      "training_reduced_chi2": 52.4100520105484,
+      "held_score": 48.185448422547424
     },
     "weighted_hybrid": {
       "parameter_names": [
@@ -98,10 +98,10 @@
       ],
       "x": [
         8.999999999999998,
-        18.292044012543457,
-        0.044424344857966584,
-        9.14574500493592e-05,
-        2.7517416504734196
+        18.087684984410025,
+        0.044354863462201244,
+        9.309381658014284e-05,
+        2.778010395232989
       ],
       "active_mask": [
         1,
@@ -112,9 +112,9 @@
       ],
       "success": true,
       "message": "`ftol` termination condition is satisfied.",
-      "nfev": 11,
-      "training_reduced_chi2": 2.465640620504164,
-      "held_score": 2.3942464747235186
+      "nfev": 13,
+      "training_reduced_chi2": 2.338550152224308,
+      "held_score": 2.2677771470209978
     },
     "fixed_vacuum": {
       "parameter_names": [
@@ -124,22 +124,22 @@
         "background"
       ],
       "x": [
-        8.999999982606202,
-        13.403743793735197,
-        0.03443116901489909,
-        9.739647468376741e-13
+        8.999999814772162,
+        13.347170566941385,
+        0.03435525204240965,
+        3.3369733831220574e-12
       ],
       "active_mask": [
-        1,
+        0,
         0,
         0,
         -1
       ],
       "success": true,
       "message": "`ftol` termination condition is satisfied.",
-      "nfev": 35,
-      "training_reduced_chi2": 49.73660713614348,
-      "held_score": 45.70312982479781
+      "nfev": 40,
+      "training_reduced_chi2": 51.36391340961092,
+      "held_score": 47.21520178801363
     },
     "fixed_fraser_excluded": {
       "parameter_names": [
@@ -149,10 +149,10 @@
         "background"
       ],
       "x": [
-        8.999999810973717,
-        13.278906059175329,
-        0.03412779434940546,
-        2.30235950280003e-13
+        8.999999878214824,
+        13.241300301792403,
+        0.03407528287525498,
+        1.3178191479675556e-13
       ],
       "active_mask": [
         0,
@@ -162,9 +162,9 @@
       ],
       "success": true,
       "message": "`ftol` termination condition is satisfied.",
-      "nfev": 43,
-      "training_reduced_chi2": 55.212949963854435,
-      "held_score": 50.760646225536554
+      "nfev": 44,
+      "training_reduced_chi2": 56.64204558775495,
+      "held_score": 52.05794741105704
     },
     "fixed_pontius_excluded": {
       "parameter_names": [
@@ -174,10 +174,10 @@
         "background"
       ],
       "x": [
-        8.99999824262007,
-        12.382396720636292,
-        0.03274434504381307,
-        3.711027983905293e-22
+        8.9999975665248,
+        12.352052909316095,
+        0.03269176862117622,
+        7.6017683210855045e-22
       ],
       "active_mask": [
         0,
@@ -187,9 +187,9 @@
       ],
       "success": true,
       "message": "`ftol` termination condition is satisfied.",
-      "nfev": 56,
-      "training_reduced_chi2": 91.76473320203031,
-      "held_score": 84.58745506687599
+      "nfev": 53,
+      "training_reduced_chi2": 94.05436447446517,
+      "held_score": 86.71362421320975
     },
     "fixed_hydration_only": {
       "parameter_names": [
@@ -199,10 +199,10 @@
         "background"
       ],
       "x": [
-        8.999999955525858,
-        13.497040599030889,
-        0.03457142429212517,
-        1.1959909288652382e-11
+        8.999999911572152,
+        13.43917918680881,
+        0.034496862108663755,
+        2.8234964183701036e-12
       ],
       "active_mask": [
         1,
@@ -212,9 +212,9 @@
       ],
       "success": true,
       "message": "`ftol` termination condition is satisfied.",
-      "nfev": 40,
-      "training_reduced_chi2": 47.322227987970486,
-      "held_score": 43.46750342823647
+      "nfev": 33,
+      "training_reduced_chi2": 48.817689038701474,
+      "held_score": 44.85736171632292
     },
     "fixed_fraser_complete": {
       "parameter_names": [
@@ -224,10 +224,10 @@
         "background"
       ],
       "x": [
-        8.999999999104123,
-        13.697499288591867,
-        0.03477501015826951,
-        8.590761599736262e-12
+        8.999999998152486,
+        13.653670824267572,
+        0.03472644402932386,
+        1.658196268804559e-11
       ],
       "active_mask": [
         1,
@@ -237,9 +237,9 @@
       ],
       "success": true,
       "message": "`ftol` termination condition is satisfied.",
-      "nfev": 44,
-      "training_reduced_chi2": 43.95276282371875,
-      "held_score": 40.3388758353582
+      "nfev": 43,
+      "training_reduced_chi2": 45.06185971901258,
+      "held_score": 41.34261319660686
     },
     "fixed_pontius_complete": {
       "parameter_names": [
@@ -249,10 +249,10 @@
         "background"
       ],
       "x": [
-        8.999999883957022,
-        12.834679102100317,
-        0.03355945112784452,
-        1.9590209638944411e-16
+        8.999999459345977,
+        12.80460250686987,
+        0.03351532427806656,
+        2.0798106913075985e-17
       ],
       "active_mask": [
         0,
@@ -262,9 +262,9 @@
       ],
       "success": true,
       "message": "`ftol` termination condition is satisfied.",
-      "nfev": 42,
-      "training_reduced_chi2": 68.27050433040415,
-      "held_score": 62.88673079292694
+      "nfev": 49,
+      "training_reduced_chi2": 69.8153906860261,
+      "held_score": 64.3231154008719
     },
     "refined_fraser": {
       "parameter_names": [
@@ -277,11 +277,11 @@
       ],
       "x": [
         8.999999999999998,
-        16.12768866707078,
-        0.037053097211959235,
-        0.00024945120262943844,
-        1.141297835770225,
-        0.05399071010390626
+        16.0690954949359,
+        0.03701653367892844,
+        0.00027695252985852475,
+        1.1455672196845992,
+        0.05396155559507013
       ],
       "active_mask": [
         1,
@@ -294,8 +294,8 @@
       "success": false,
       "message": "The maximum number of function evaluations is exceeded.",
       "nfev": 30,
-      "training_reduced_chi2": 23.711347428712614,
-      "held_score": 21.65807196156858
+      "training_reduced_chi2": 23.73995140291876,
+      "held_score": 21.685504918851404
     },
     "refined_pontius": {
       "parameter_names": [
@@ -308,25 +308,25 @@
       ],
       "x": [
         8.999999999999998,
-        15.065529333932298,
-        0.03636378967257705,
-        9.516793719429457e-05,
-        1.1576249970137507,
-        0.0539999999336058
+        15.085513263840276,
+        0.03638823931859932,
+        0.00010396873633898427,
+        1.157624925011711,
+        0.05399999845409273
       ],
       "active_mask": [
         1,
         0,
         0,
         0,
-        1,
+        0,
         1
       ],
       "success": false,
       "message": "The maximum number of function evaluations is exceeded.",
       "nfev": 30,
-      "training_reduced_chi2": 25.635604624346936,
-      "held_score": 22.991836622523238
+      "training_reduced_chi2": 25.41524343133917,
+      "held_score": 22.806710414683348
     }
   },
   "controls": {
@@ -369,23 +369,20 @@
   },
   "refined_metrics": {
     "fraser": {
-      "training": 23.711347428712614,
-      "held": 21.65807196156858,
+      "training": 23.73995140291876,
+      "held": 21.685504918851404,
       "reached_bound": true,
       "accepted": false
     },
     "pontius": {
-      "training": 25.635604624346936,
-      "held": 22.991836622523238,
+      "training": 25.41524343133917,
+      "held": 22.806710414683348,
       "reached_bound": true,
       "accepted": false
     }
   },
   "ensemble_models": [
-    1,
-    7,
-    13,
-    19
+    1
   ],
   "heavy_atom_count": 688,
   "terminal_serials": [
@@ -479,7 +476,7 @@
     1343,
     1358
   ],
-  "atomic_scatterer_count": 1032,
+  "atomic_scatterer_count": 1026,
   "settings": {
     "linker_rg_bounds": [
       4.0,

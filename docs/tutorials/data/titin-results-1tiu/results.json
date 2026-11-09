@@ -1,0 +1,511 @@
+{
+  "schema_version": 1,
+  "fits": {
+    "analytical_collapsed": {
+      "parameter_names": [
+        "equatorial a [A]",
+        "polar c [A]",
+        "linker Rg [A]",
+        "tail Rg8 [A]",
+        "scale",
+        "background"
+      ],
+      "x": [
+        12.705521947301902,
+        32.57889796362587,
+        0.5000266128991362,
+        10.568782736355379,
+        0.04291776332588428,
+        0.00014097257465748572
+      ],
+      "active_mask": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "success": true,
+      "message": "`ftol` termination condition is satisfied.",
+      "nfev": 52,
+      "training_reduced_chi2": 1.3409344649612225,
+      "held_score": 1.2434762962518264
+    },
+    "analytical_constrained": {
+      "parameter_names": [
+        "equatorial a [A]",
+        "polar c [A]",
+        "linker Rg [A]",
+        "tail Rg8 [A]",
+        "scale",
+        "background"
+      ],
+      "x": [
+        12.805985063296452,
+        32.431555886423126,
+        4.000000190065936,
+        10.364127143748444,
+        0.04302177500379259,
+        0.0001740155360555822
+      ],
+      "active_mask": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "success": true,
+      "message": "`ftol` termination condition is satisfied.",
+      "nfev": 32,
+      "training_reduced_chi2": 1.4379843547894067,
+      "held_score": 1.3093613748586133
+    },
+    "debye": {
+      "parameter_names": [
+        "linker Rg [A]",
+        "terminal-chain Rg8 [A]",
+        "scale",
+        "background"
+      ],
+      "x": [
+        8.999999870258302,
+        13.238719939619589,
+        0.03450342619561386,
+        6.713832577671185e-14
+      ],
+      "active_mask": [
+        0,
+        0,
+        0,
+        -1
+      ],
+      "success": true,
+      "message": "`ftol` termination condition is satisfied.",
+      "nfev": 43,
+      "training_reduced_chi2": 50.434086602021544,
+      "held_score": 46.49332704551876
+    },
+    "weighted_hybrid": {
+      "parameter_names": [
+        "linker Rg [A]",
+        "terminal-chain Rg8 [A]",
+        "scale",
+        "background",
+        "chain/domain multiplier r"
+      ],
+      "x": [
+        8.999999999999998,
+        18.292044012543457,
+        0.044424344857966584,
+        9.14574500493592e-05,
+        2.7517416504734196
+      ],
+      "active_mask": [
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "success": true,
+      "message": "`ftol` termination condition is satisfied.",
+      "nfev": 11,
+      "training_reduced_chi2": 2.465640620504164,
+      "held_score": 2.3942464747235186
+    },
+    "fixed_vacuum": {
+      "parameter_names": [
+        "linker Rg [A]",
+        "terminal-chain Rg8 [A]",
+        "scale",
+        "background"
+      ],
+      "x": [
+        8.999999982606202,
+        13.403743793735197,
+        0.03443116901489909,
+        9.739647468376741e-13
+      ],
+      "active_mask": [
+        1,
+        0,
+        0,
+        -1
+      ],
+      "success": true,
+      "message": "`ftol` termination condition is satisfied.",
+      "nfev": 35,
+      "training_reduced_chi2": 49.73660713614348,
+      "held_score": 45.70312982479781
+    },
+    "fixed_fraser_excluded": {
+      "parameter_names": [
+        "linker Rg [A]",
+        "terminal-chain Rg8 [A]",
+        "scale",
+        "background"
+      ],
+      "x": [
+        8.999999810973717,
+        13.278906059175329,
+        0.03412779434940546,
+        2.30235950280003e-13
+      ],
+      "active_mask": [
+        0,
+        0,
+        0,
+        -1
+      ],
+      "success": true,
+      "message": "`ftol` termination condition is satisfied.",
+      "nfev": 43,
+      "training_reduced_chi2": 55.212949963854435,
+      "held_score": 50.760646225536554
+    },
+    "fixed_pontius_excluded": {
+      "parameter_names": [
+        "linker Rg [A]",
+        "terminal-chain Rg8 [A]",
+        "scale",
+        "background"
+      ],
+      "x": [
+        8.99999824262007,
+        12.382396720636292,
+        0.03274434504381307,
+        3.711027983905293e-22
+      ],
+      "active_mask": [
+        0,
+        0,
+        0,
+        -1
+      ],
+      "success": true,
+      "message": "`ftol` termination condition is satisfied.",
+      "nfev": 56,
+      "training_reduced_chi2": 91.76473320203031,
+      "held_score": 84.58745506687599
+    },
+    "fixed_hydration_only": {
+      "parameter_names": [
+        "linker Rg [A]",
+        "terminal-chain Rg8 [A]",
+        "scale",
+        "background"
+      ],
+      "x": [
+        8.999999955525858,
+        13.497040599030889,
+        0.03457142429212517,
+        1.1959909288652382e-11
+      ],
+      "active_mask": [
+        1,
+        0,
+        0,
+        -1
+      ],
+      "success": true,
+      "message": "`ftol` termination condition is satisfied.",
+      "nfev": 40,
+      "training_reduced_chi2": 47.322227987970486,
+      "held_score": 43.46750342823647
+    },
+    "fixed_fraser_complete": {
+      "parameter_names": [
+        "linker Rg [A]",
+        "terminal-chain Rg8 [A]",
+        "scale",
+        "background"
+      ],
+      "x": [
+        8.999999999104123,
+        13.697499288591867,
+        0.03477501015826951,
+        8.590761599736262e-12
+      ],
+      "active_mask": [
+        1,
+        0,
+        0,
+        -1
+      ],
+      "success": true,
+      "message": "`ftol` termination condition is satisfied.",
+      "nfev": 44,
+      "training_reduced_chi2": 43.95276282371875,
+      "held_score": 40.3388758353582
+    },
+    "fixed_pontius_complete": {
+      "parameter_names": [
+        "linker Rg [A]",
+        "terminal-chain Rg8 [A]",
+        "scale",
+        "background"
+      ],
+      "x": [
+        8.999999883957022,
+        12.834679102100317,
+        0.03355945112784452,
+        1.9590209638944411e-16
+      ],
+      "active_mask": [
+        0,
+        0,
+        0,
+        -1
+      ],
+      "success": true,
+      "message": "`ftol` termination condition is satisfied.",
+      "nfev": 42,
+      "training_reduced_chi2": 68.27050433040415,
+      "held_score": 62.88673079292694
+    },
+    "refined_fraser": {
+      "parameter_names": [
+        "linker Rg [A]",
+        "terminal-chain Rg8 [A]",
+        "scale",
+        "background",
+        "volume multiplier",
+        "hydration contrast [e/A^3]"
+      ],
+      "x": [
+        8.999999999999998,
+        16.12768866707078,
+        0.037053097211959235,
+        0.00024945120262943844,
+        1.141297835770225,
+        0.05399071010390626
+      ],
+      "active_mask": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "success": false,
+      "message": "The maximum number of function evaluations is exceeded.",
+      "nfev": 30,
+      "training_reduced_chi2": 23.711347428712614,
+      "held_score": 21.65807196156858
+    },
+    "refined_pontius": {
+      "parameter_names": [
+        "linker Rg [A]",
+        "terminal-chain Rg8 [A]",
+        "scale",
+        "background",
+        "volume multiplier",
+        "hydration contrast [e/A^3]"
+      ],
+      "x": [
+        8.999999999999998,
+        15.065529333932298,
+        0.03636378967257705,
+        9.516793719429457e-05,
+        1.1576249970137507,
+        0.0539999999336058
+      ],
+      "active_mask": [
+        1,
+        0,
+        0,
+        0,
+        1,
+        1
+      ],
+      "success": false,
+      "message": "The maximum number of function evaluations is exceeded.",
+      "nfev": 30,
+      "training_reduced_chi2": 25.635604624346936,
+      "held_score": 22.991836622523238
+    }
+  },
+  "controls": {
+    "vacuum": {
+      "label": "vacuum",
+      "profile": "fraser",
+      "excluded": false,
+      "hydration": false
+    },
+    "fraser_excluded": {
+      "label": "Fraser excluded solvent",
+      "profile": "fraser",
+      "excluded": true,
+      "hydration": false
+    },
+    "pontius_excluded": {
+      "label": "Pontius excluded solvent",
+      "profile": "pontius",
+      "excluded": true,
+      "hydration": false
+    },
+    "hydration_only": {
+      "label": "hydration only",
+      "profile": "fraser",
+      "excluded": false,
+      "hydration": true
+    },
+    "fraser_complete": {
+      "label": "Fraser plus hydration",
+      "profile": "fraser",
+      "excluded": true,
+      "hydration": true
+    },
+    "pontius_complete": {
+      "label": "Pontius plus hydration",
+      "profile": "pontius",
+      "excluded": true,
+      "hydration": true
+    }
+  },
+  "refined_metrics": {
+    "fraser": {
+      "training": 23.711347428712614,
+      "held": 21.65807196156858,
+      "reached_bound": true,
+      "accepted": false
+    },
+    "pontius": {
+      "training": 25.635604624346936,
+      "held": 22.991836622523238,
+      "reached_bound": true,
+      "accepted": false
+    }
+  },
+  "ensemble_models": [
+    1,
+    7,
+    13,
+    19
+  ],
+  "heavy_atom_count": 688,
+  "terminal_serials": [
+    2,
+    20,
+    39,
+    54,
+    70,
+    85,
+    107,
+    121,
+    140,
+    161,
+    168,
+    184,
+    199,
+    215,
+    235,
+    251,
+    258,
+    273,
+    287,
+    297,
+    314,
+    334,
+    349,
+    368,
+    383,
+    402,
+    413,
+    428,
+    442,
+    454,
+    470,
+    487,
+    494,
+    511,
+    535,
+    557,
+    576,
+    598,
+    605,
+    622,
+    636,
+    655,
+    669,
+    679,
+    690,
+    704,
+    716,
+    727,
+    742,
+    761,
+    780,
+    795,
+    807,
+    814,
+    836,
+    858,
+    875,
+    894,
+    913,
+    932,
+    951,
+    968,
+    982,
+    993,
+    1010,
+    1029,
+    1036,
+    1053,
+    1067,
+    1074,
+    1089,
+    1105,
+    1116,
+    1136,
+    1153,
+    1163,
+    1173,
+    1187,
+    1197,
+    1219,
+    1230,
+    1240,
+    1250,
+    1264,
+    1283,
+    1305,
+    1321,
+    1343,
+    1358
+  ],
+  "atomic_scatterer_count": 1032,
+  "settings": {
+    "linker_rg_bounds": [
+      4.0,
+      9.0
+    ],
+    "excluded_volume_bounds": [
+      0.8573749999999999,
+      1.1576250000000001
+    ],
+    "hydration_contrast_bounds": [
+      -0.027,
+      0.054
+    ],
+    "chain_weight_ratio_bounds": [
+      0.25,
+      4.0
+    ],
+    "fixed_excluded_volume_scale": 1.0,
+    "fixed_hydration_contrast": 0.0135,
+    "solvent_electron_density": 0.334,
+    "hydration_model": "SpatialShell",
+    "shell_convention": "Pepsi3",
+    "water_model": "BondedWater",
+    "solvent_refinement_max_nfev": 30,
+    "chain_weight_max_nfev": 300,
+    "scene_seed": 42,
+    "scene_layout": "Readable"
+  }
+}

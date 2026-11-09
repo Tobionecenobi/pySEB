@@ -40,7 +40,7 @@ at the end if you want the complete fitting implementation.
 
 ## 1. Parse one domain
 
-Select model 1 from the local four-model PDB extract. `PDBParser` returns
+Load the single coordinate model from the local 1TIT heavy-atom extract. `PDBParser` returns
 atoms that you can inspect before building a scattering subunit:
 
 ```{python}
@@ -48,7 +48,7 @@ atoms that you can inspect before building a scattering subunit:
 parse_options = pyseb.StructureParseOptions()
 parse_options.model_number = 1
 atoms = pyseb.PDBParser().parse_file(
-    "data/1TIU-heavy-ensemble.pdb", parse_options)
+    "data/1TIT-heavy.pdb", parse_options)
 alpha_carbons = [atom for atom in atoms if atom.atom_name == "CA"]
 print("Heavy atoms:", len(atoms))
 print("Terminal C-alpha serials:", alpha_carbons[0].serial, alpha_carbons[-1].serial)
@@ -132,7 +132,7 @@ compare_curves({
 fit_table("debye")
 ```
 The saved fit gets **worse**: training reduced chi-squared rises from about
-1.44 to **50.43**, and the linker reaches its **9 Å upper bound**. Fixing the
+1.44 to **52.41**, and the linker reaches its **9 Å upper bound**. Fixing the
 domain geometry removes one way for the optimizer to compensate. The remaining
 chain and scattering assumptions do not describe the measurement well.
 
@@ -140,10 +140,14 @@ This is useful information from the model change. Keep the deposited domain
 coordinates fixed and investigate the scattering assumptions next.
 
 ::: {.callout-note collapse="true" title="Coordinate and weight assumptions"}
-The [1TIU](https://www.rcsb.org/structure/1TIU) template has 89 residues and
+The [1TIT](https://www.rcsb.org/structure/1TIT) template has 89 residues and
 differs from the measured construct by three substitutions: F21L, T42V, and
 A78T, from template to construct. We use its coordinates without rebuilding
-those side chains. The 24:89:8:89:7 weights are approximate residue-count
+those side chains. We use 1TIT because the original study identifies it as
+the domain template for its RanCH/GAJOE fitting. Its single coordinate model
+replaces our previous four-conformer 1TIU representation; that comparison
+modestly improves the weighted hybrid but leaves its linker at the upper bound.
+The 24:89:8:89:7 weights are approximate residue-count
 weights, rather than absolute electron-count contrasts.
 :::
 
@@ -194,7 +198,7 @@ after this page's setup without regenerating the fits.
 ```{python}
 #| tags: [titin-generation]
 #| eval: false
-pdb_path = data_directory / "1TIU-heavy-ensemble.pdb"
+pdb_path = data_directory / "1TIT-heavy.pdb"
 parse_options = pyseb.StructureParseOptions()
 parse_options.model_number = 1
 unscaled_atoms = pyseb.PDBParser().parse_file(str(pdb_path), parse_options)

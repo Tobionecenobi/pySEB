@@ -18,9 +18,8 @@ and switch displaced solvent and hydration on and off with `AtomicSAXSOptions`.
 Then you will compare the saved fits of the connected titin model.
 
 **Keep:** fixed domain coordinates and analytical linker and tails.
-**Change:** the atomic and solvent scattering model. The full fits also average
-four domain conformations; we will distinguish that from the single-domain
-experiment below.
+**Change:** the atomic and solvent scattering model. All fits retain the
+single 1TIT coordinate model used in the domain example below.
 
 ::: {.callout-note title="Before you start"}
 Complete [page 2](titin-coordinate-domains.qmd). You will reuse its parser,
@@ -52,7 +51,7 @@ Parse model 1 and keep the same terminal references:
 parse_options = pyseb.StructureParseOptions()
 parse_options.model_number = 1
 atoms = pyseb.PDBParser().parse_file(
-    "data/1TIU-heavy-ensemble.pdb", parse_options)
+    "data/1TIT-heavy.pdb", parse_options)
 alpha_carbons = [atom for atom in atoms if atom.atom_name == "CA"]
 
 profile = pyseb.AtomicSAXSParameterProfile.protein_defaults(
@@ -140,21 +139,22 @@ the cloud on page 2. For a single-conformation model, build two independent
 clouds and connect `domain1.cterminus` and `domain2.nterminus` to the linker.
 The tails remain `GaussianPolymer` subunits.
 
-The saved fits go one step further: they average models **1, 7, 13, and 19**
-of the NMR ensemble. This changes domain sampling as well as scattering
-physics relative to page 2. Within the atomic controls, every fit uses the
-same four conformations, allowing comparison of the solvent settings.
+The saved fits use the same single **1TIT** coordinate model as page 2.
+Each solvent control retains this geometry while changing the atomic and
+solvent scattering settings. The original study also used 1TIT, but generated
+10,000 conformations with RanCH and selected subensembles with GAJOE (EOM).
+Our statistical assembly does not reproduce that ensemble selection.
 
-::: {.callout-note collapse="true" title="How pySEB connects ensemble-averaged domains"}
+::: {.callout-note collapse="true" title="How pySEB connects cached atomic domains"}
 The calculation evaluates each domain's form factor, amplitudes about its two
-terminal references, and the phase factor between those references. It averages
-each quantity over the four conformations, then supplies them as callbacks to a
+terminal references, and the phase factor between those references. It caches
+the quantities for the single 1TIT conformation, then supplies them as callbacks to a
 `NumericalSubunit`. That subunit has named `nterminus` and `cterminus` references
 and can be linked to analytical polymers using the usual graph API.
 
 The quantities come from `EvaluateFormFactor`, `EvaluateFormFactorAmplitude`,
-and `EvaluatePhaseFactor`. The two domain copies are selected independently
-from the ensemble in the resulting interference terms. Geometry is cached so
+and `EvaluatePhaseFactor`. The two domain copies share the same internal coordinates; their attachment
+orientations remain independently averaged in the resulting interference terms. Geometry is cached so
 fitting the chains does not repeatedly rebuild atom-pair distances. Expand the
 complete calculation source below for the callback implementation.
 :::
@@ -174,7 +174,7 @@ for name, control in results["controls"].items():
 display(Markdown("\n".join(rows)))
 ```
 Read each excluded-solvent row against its matching hydrated row. For Fraser,
-adding hydration lowers training reduced chi-squared from **55.21 to 43.95**,
+adding hydration lowers training reduced chi-squared from **56.64 to 45.06**,
 and the held-point score from **50.76 to 40.34**. Pontius also improves with
 hydration, but both complete models retain large residuals.
 
@@ -191,7 +191,7 @@ compare_curves({
 ```
 ## 4. Inspect an atomic realization
 
-The fitted ensemble has no single coordinate realization. These views use two
+The fitted Gaussian chains have no single coordinate realization. These views use two
 copies of model 1 and the saved fitted chain sizes. Purple shell markers in
 the hydrated view identify the spatial hydration contribution:
 
@@ -200,8 +200,8 @@ the hydrated view identify the spatial hydration contribution:
 show_saved_structure("atomic-displaced-solvent")
 show_saved_structure("atomic-hydrated")
 ```
-Use the views to inspect topology and shell geometry. The fitted scattering
-averages all four domain conformations, while these pictures show one.
+Use the views to inspect topology and shell geometry. The fitted scattering and these pictures use the same 1TIT domain coordinates.
+The displayed chains remain illustrative configurations.
 
 ## Optional: fit the solvent options too
 
@@ -269,8 +269,8 @@ after this page's setup without regenerating the fits.
 #| eval: false
 #| code-fold: true
 #| code-summary: "Build the atomic clouds and evaluate the six controls"
-ensemble_path = data_directory / "1TIU-heavy-ensemble.pdb"
-ensemble_models = (1, 7, 13, 19)
+ensemble_path = data_directory / "1TIT-heavy.pdb"
+ensemble_models = (1,)
 cache_q = np.linspace(0.0, q.max(), 401)
 
 atomic_profiles = {

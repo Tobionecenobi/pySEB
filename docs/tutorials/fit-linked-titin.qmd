@@ -223,7 +223,7 @@ against its inputs and calculation source. Rendering rebuilds the interactive
 views from saved parameters without rerunning the fits.
 
 - [Experimental curve](data/SASDKC2-titin.csv)
-- [Four-model heavy-atom extract of PDB 1TIU](data/1TIU-heavy-ensemble.pdb)
+- [Heavy-atom extract of PDB 1TIT](data/1TIT-heavy.pdb)
 - [Data sources and reuse notice](data/TITIN-DATA-NOTICE.txt)
 - [Fit parameters](data/titin-results/results.json), [numerical curves](data/titin-results/curves.npz), and [provenance manifest](data/titin-results/manifest.json)
 
