@@ -142,6 +142,9 @@ add_library(seb STATIC
     ${CMAKE_CURRENT_BINARY_DIR}/generated/BundledModels.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/SymbolInterface.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/World.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/WorldGraph.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/WorldSymbolic.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/WorldNumerical.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/USDExport.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/StructureIO/PDBParser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/StructureIO/AtomParameterProfile.cpp
