@@ -146,6 +146,9 @@ add_library(seb STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/WorldSymbolic.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/WorldNumerical.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/USDExport.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/USDGeometry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/USDLayout.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/seb/USDWriter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/StructureIO/PDBParser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/StructureIO/AtomParameterProfile.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/seb/StructureIO/AtomCloudBuilder.cpp
@@ -283,6 +286,7 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/seb/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/seb
         FILES_MATCHING
             PATTERN "*.hpp"
+            PATTERN "USDExportInternal.hpp" EXCLUDE
             PATTERN "build" EXCLUDE
             PATTERN "__pycache__" EXCLUDE)
 
@@ -290,6 +294,7 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/seb-symbolic/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/seb-symbolic
         FILES_MATCHING
             PATTERN "*.hpp"
+            PATTERN "USDExportInternal.hpp" EXCLUDE
             PATTERN "build" EXCLUDE
             PATTERN "__pycache__" EXCLUDE)
 
@@ -298,6 +303,7 @@ if(SEB_ENABLE_GINAC_BACKEND)
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/seb-symbolic-ginac
             FILES_MATCHING
                 PATTERN "*.hpp"
+            PATTERN "USDExportInternal.hpp" EXCLUDE
                 PATTERN "build" EXCLUDE
                 PATTERN "__pycache__" EXCLUDE)
 endif()
