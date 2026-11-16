@@ -1,5 +1,13 @@
 Examples
 
+Python examples are in python/. After installing pySEB, run them from the
+repository root, for example:
+
+    python Examples/python/diblock_evaluation.py
+
+These scripts are also bundled with the installed Python package under
+examples/python/. C++ examples remain directly in this directory.
+
 pyprism_seb.py             Optional SEB-to-pyPRISM prototype: discrete chain input, solution scattering, and reference checks (see pyprism_seb.md).
 
 Chain_Rod_end-to-end.cpp    Polymer build by end-to-end linking N rods
@@ -17,4 +25,3 @@ SymbolInterface.cpp         Example of how to interface with SEBs symbol interfa
 TriBlockCopolymer.cpp       Generates an ABC block-copolymer
 TriBlockSymbolic.cpp        Example of how to use symbolic sub-units to generate a tri-block structure. Symbolic sub-units can not be evaluated to numbers.
 Validation_*.cpp            These are all examples of how we validate scattering expressions in sub-units.
-

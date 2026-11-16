@@ -23,7 +23,7 @@ def source_inputs(root):
     workflow = root / '.github/workflows/documentation.yml'
     if workflow.is_file():
         yield workflow.relative_to(root).as_posix(), workflow.read_bytes()
-    for directory in ('seb', 'seb-symbolic', 'pyseb', 'models', 'third_party', 'cmake'):
+    for directory in ('seb', 'seb-symbolic', 'pyseb', 'Examples/python', 'models', 'third_party', 'cmake'):
         files.update(path for path in (root / directory).rglob('*')
                      if path.is_file() and (path.suffix in SOURCE_SUFFIXES
                                            or path.name == 'CMakeLists.txt'))

@@ -18,6 +18,7 @@ on:
       - "third_party/**"
       - "docs/**"
       - "pyseb/**"
+      - "Examples/python/**"
       - "seb/**"
       - "seb-symbolic/**"
   pull_request:
@@ -29,6 +30,7 @@ on:
       - "third_party/**"
       - "docs/**"
       - "pyseb/**"
+      - "Examples/python/**"
       - "seb/**"
       - "seb-symbolic/**"
 

@@ -8,7 +8,7 @@ import pyseb
 from pyseb.cli import subunit_main
 
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 MODELS = ROOT / "models"
 
 

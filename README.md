@@ -107,6 +107,9 @@ figures and links them to current executable tutorials and reference material.
 
 ## Development
 
+Python tests live in `Tests/python/`, and Python examples live in
+`Examples/python/`. The examples are also bundled with the installed package.
+
 The canonical build uses CMake 3.18+, C++14, Ninja, and GSL. Development build,
 test, validation, release, and contribution procedures live in the wiki:
 

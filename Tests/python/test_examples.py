@@ -7,8 +7,8 @@ import unittest
 
 class TestExamples(unittest.TestCase):
     def test_sympy_example_runs_when_launched_by_absolute_path(self):
-        repo_root = Path(__file__).resolve().parents[3]
-        script = repo_root / "pyseb" / "examples" / "python" / "sympy_example.py"
+        repo_root = Path(__file__).resolve().parents[2]
+        script = repo_root / "Examples" / "python" / "sympy_example.py"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = subprocess.run(
@@ -23,8 +23,8 @@ class TestExamples(unittest.TestCase):
         self.assertIn("Form Factor Expression:", result.stdout)
 
     def test_python_examples_run_when_launched_by_absolute_path(self):
-        repo_root = Path(__file__).resolve().parents[3]
-        examples_dir = repo_root / "pyseb" / "examples" / "python"
+        repo_root = Path(__file__).resolve().parents[2]
+        examples_dir = repo_root / "Examples" / "python"
 
         expected_output = {
             "backend_simplification_comparison.py": "Backend simplification comparison",

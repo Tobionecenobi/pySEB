@@ -1,6 +1,7 @@
 # Tests
 
-This folder contains unit tests for the project, written using Google Test. The purpose of these tests is to ensure the correctness and reliability of the codebase.
+This folder contains the C++ Google Test suite and the Python unittest suite
+in `python/`. Shared reference data lives in `data/`.
 
 ## Structure
 - Each test file corresponds to a specific module or functionality in the project.
@@ -21,6 +22,18 @@ Or run the CTest build manually:
    cmake --build Tests/build-ninja
    ctest --test-dir Tests/build-ninja --output-on-failure
    ```
+
+## Python tests
+
+After building or installing the Python extension, run from the repository root:
+
+```sh
+PYTHONPATH="$PWD/build-python/pyseb:$PWD" python -m unittest discover -s Tests/python -p 'test_*.py'
+```
+
+The CTest commands above run the C++ suite; the Python suite runs separately.
+Optional integrations may require additional dependencies. Tests locate models,
+fixtures, documentation, and `Examples/python/` relative to the repository root.
 
 ## Reference-data validation
 

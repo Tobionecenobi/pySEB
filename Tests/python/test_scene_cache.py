@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('scene_cache', ROOT / 'docs/tutorials/_scene_cache.py')
 cache = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cache)

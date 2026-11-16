@@ -6,7 +6,11 @@ import os
 import sys
 import tempfile
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+# Allow running the source example from any working directory. Installed
+# examples use the package already available on Python's import path.
+repository = Path(__file__).resolve().parents[2]
+if (repository / "pyseb" / "__init__.py").is_file():
+    sys.path.insert(0, str(repository))
 
 os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "pyseb-matplotlib"))
 

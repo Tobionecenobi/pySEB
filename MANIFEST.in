@@ -278,8 +278,8 @@ recursive-include Tests *.cpp *.pdb
 recursive-include Tests/data/hydration_reference *.json README.md
 recursive-include docs *.md *.qmd
 recursive-include pyseb/bindings *.cpp *.hpp
-recursive-include pyseb/examples/python *.py
-recursive-include pyseb/tests/python *.py
+recursive-include Examples/python *.py
+recursive-include Tests/python *.py
 include seb/SubunitIO/BundledModels.cpp.in
 
 prune _cmake_test_compile

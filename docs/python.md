@@ -483,19 +483,20 @@ Pepsi-SAXS a runtime dependency.
 
 ## Examples
 
-Packaged examples live in `pyseb/examples/python/`:
+Source examples live in `Examples/python/`. Wheels also bundle these scripts
+in the installed package under `examples/python/`:
 
 ```bash
-python pyseb/examples/python/sympy_example.py
-python pyseb/examples/python/backend_simplification_comparison.py
-python pyseb/examples/python/diblock_evaluation.py
-python pyseb/examples/python/figure13_star_chain.py
-python pyseb/examples/python/micelle_evaluation.py
-python pyseb/examples/python/nested_structures.py
-python pyseb/examples/python/symbolic_backend.py
-python pyseb/examples/python/debye_sphere_cloud.py
-python pyseb/examples/python/crambin_form_factor.py
-python pyseb/examples/python/crambin_polymer_form_factor.py
+python Examples/python/sympy_example.py
+python Examples/python/backend_simplification_comparison.py
+python Examples/python/diblock_evaluation.py
+python Examples/python/figure13_star_chain.py
+python Examples/python/micelle_evaluation.py
+python Examples/python/nested_structures.py
+python Examples/python/symbolic_backend.py
+python Examples/python/debye_sphere_cloud.py
+python Examples/python/crambin_form_factor.py
+python Examples/python/crambin_polymer_form_factor.py
 ```
 
 These cover SymPy export, numeric evaluation over `q`, a small micelle model,
@@ -533,5 +534,5 @@ Run the Python smoke tests against a local extension build:
 
 ```bash
 make python
-PYTHONPATH="$PWD/build-python/pyseb:$PWD" python -m unittest discover -s pyseb/tests/python
+PYTHONPATH="$PWD/build-python/pyseb:$PWD" python -m unittest discover -s Tests/python
 ```

@@ -268,8 +268,7 @@ if(BUILD_PYTHON)
 
     install(TARGETS _pyseb DESTINATION ${PYSEB_PYTHON_PACKAGE_DESTINATION})
 
-    file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pyseb/examples/python)
-    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pyseb/examples/python/
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Examples/python/
             DESTINATION examples/python
             FILES_MATCHING PATTERN "*.py")
 
@@ -294,7 +293,6 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/seb-symbolic/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/seb-symbolic
         FILES_MATCHING
             PATTERN "*.hpp"
-            PATTERN "USDExportInternal.hpp" EXCLUDE
             PATTERN "build" EXCLUDE
             PATTERN "__pycache__" EXCLUDE)
 
@@ -303,7 +301,6 @@ if(SEB_ENABLE_GINAC_BACKEND)
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/seb-symbolic-ginac
             FILES_MATCHING
                 PATTERN "*.hpp"
-            PATTERN "USDExportInternal.hpp" EXCLUDE
                 PATTERN "build" EXCLUDE
                 PATTERN "__pycache__" EXCLUDE)
 endif()

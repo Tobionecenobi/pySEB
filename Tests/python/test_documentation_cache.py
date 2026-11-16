@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('docs_cache', ROOT / 'docs/_prepare_cache.py')
 cache = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cache)
@@ -50,6 +50,7 @@ class TestDocumentationCache(unittest.TestCase):
                      'docs/tutorials/models/Custom.pyseb.yaml',
                      'docs/tutorials/_helper.py', 'docs/tutorials/data/measurement.csv',
                      'docs/tutorials/cpp/example.cpp', 'pyseb/evaluation.py',
+                     'Examples/python/example.py',
                      'cmake/Backend.cmake.in', '.github/workflows/documentation.yml'):
             with self.subTest(input=name):
                 path = self.write(name, 'original calculation input')

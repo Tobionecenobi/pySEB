@@ -374,27 +374,27 @@ For example, a cone needs no C++ registration: define a `surface` patch with
 `u: {lower: 0, upper: 1}`, and `v: {lower: 0, upper: "2*pi"}` in YAML.
 
 The complete sphere-and-rods example is available in
-`pyseb/examples/python/usd_sphere_rods.py`.
+`Examples/python/usd_sphere_rods.py`.
 The corresponding sphere-and-polymers example is in
-`pyseb/examples/python/usd_sphere_polymers.py`.
+`Examples/python/usd_sphere_polymers.py`.
 A contour-linked binary rod dendrimer is demonstrated in
-`pyseb/examples/python/usd_rod_dendrimer.py`.
+`Examples/python/usd_rod_dendrimer.py`.
 The contour-to-contour variant is in
-`pyseb/examples/python/usd_contour_linked_rod_dendrimer.py`.
+`Examples/python/usd_contour_linked_rod_dendrimer.py`.
 A 100-circle center-to-contour chain is demonstrated in
-`pyseb/examples/python/usd_circle_chain.py`.
+`Examples/python/usd_circle_chain.py`.
 A 100-sphere center-to-surface chain is demonstrated in
-`pyseb/examples/python/usd_sphere_chain.py`.
+`Examples/python/usd_sphere_chain.py`.
 A 20-cylinder end-to-end chain, selecting opposite cap variants on every
 interior cylinder, is demonstrated in
-`pyseb/examples/python/usd_cylinder_chain.py`.
+`Examples/python/usd_cylinder_chain.py`.
 An alternating 10-rod/10-polymer chain joined exclusively through `end1` and
-`end2` is demonstrated in `pyseb/examples/python/usd_rod_polymer_chain.py`.
+`end2` is demonstrated in `Examples/python/usd_rod_polymer_chain.py`.
 A 20-spheroid chain joined from each `north` pole to the next `south` pole is
-demonstrated in `pyseb/examples/python/usd_spheroid_chain.py`.
+demonstrated in `Examples/python/usd_spheroid_chain.py`.
 A Debye sphere cloud attached through its named `join` reference to an analytic
 spheroid is demonstrated in
-`pyseb/examples/python/usd_debye_cloud_attachment.py`.
+`Examples/python/usd_debye_cloud_attachment.py`.
 
 Debye clouds include a translucent visualization-only envelope by default.
 The envelope is a triangulated union of inflated scatterer spheres; automatic

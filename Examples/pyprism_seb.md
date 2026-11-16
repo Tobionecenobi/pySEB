@@ -99,7 +99,7 @@ matched omega to about 1.1e-7 relative error. Exact errors depend on the numeric
 environment. Regression checks can be run with:
 
 ```bash
-python -m unittest discover -s pyseb/tests/python -p test_pyprism_prototype.py
+python -m unittest discover -s Tests/python -p test_pyprism_prototype.py
 ```
 
 This validates the connection and normalization, not the physical accuracy of

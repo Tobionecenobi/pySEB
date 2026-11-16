@@ -1,6 +1,8 @@
 """Minimal smoke test for an installed pyseb wheel."""
 
 import math
+import subprocess
+import sys
 from importlib import resources
 from pathlib import Path
 import tempfile
@@ -14,6 +16,17 @@ def main():
         raise AssertionError(f"portable backend missing from {backends!r}")
 
     pyseb.set_backend("portable")
+
+    example = resources.files("pyseb").joinpath("examples/python/diblock_evaluation.py")
+    if not example.is_file():
+        raise AssertionError("bundled Python examples are missing")
+    with resources.as_file(example) as script, tempfile.TemporaryDirectory() as directory:
+        result = subprocess.run(
+            [sys.executable, str(script)], cwd=directory,
+            text=True, capture_output=True, check=True,
+        )
+        if "Diblock copolymer form factor" not in result.stdout:
+            raise AssertionError("bundled Python example did not produce its expected output")
 
     models = resources.files("pyseb").joinpath("models")
     model_files = sorted(

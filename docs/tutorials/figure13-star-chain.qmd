@@ -228,5 +228,5 @@ run_tutorial("figure13-star-chain")
 
 - [Review multiple hierarchy levels](nested-hierarchy.qmd)
 - [Theory overview](https://github.com/Tobionecenobi/pySEB/wiki/Theory-Overview)
-- [Complete maintained Python source](https://github.com/Tobionecenobi/pySEB/blob/main/pyseb/examples/python/figure13_star_chain.py)
+- [Complete maintained Python source](https://github.com/Tobionecenobi/pySEB/blob/main/Examples/python/figure13_star_chain.py)
 - [Original C++ example](https://github.com/Tobionecenobi/pySEB/blob/main/Examples/DiBlockStarChain.cpp)

@@ -5,7 +5,11 @@ from pathlib import Path
 import sys
 import time
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+# Allow running the source example from any working directory. Installed
+# examples use the package already available on Python's import path.
+repository = Path(__file__).resolve().parents[2]
+if (repository / "pyseb" / "__init__.py").is_file():
+    sys.path.insert(0, str(repository))
 
 import numpy as np
 import pyseb

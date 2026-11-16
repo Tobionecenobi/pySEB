@@ -1,16 +1,90 @@
-This is the SEB code
+SEB C++ core
+============
 
+This directory implements structure construction, symbolic scattering expressions,
+numerical evaluation, and USD scene export. C++ applications normally include
+SEB.hpp. The Python bindings in ../pyseb/bindings use the same core library.
 
-Abstract_subunit.hpp    Defines ABSSubUnit which is the base class for sub-units and structures.
-Constants.hpp           Enums of constants used by SEB
-Exceptions.hpp          SEB exception handling class
-SEB.hpp                 header file used by users to import all functionality
-SpecialFunctions.*      Extends Ginac such that it can evaluate certain special functions using GNU scientific library as backend.
-Structure.hpp           Defines Structure class, which is derived from ABSSubUnit
-Subunit.*               Defines SubUnit class, which is derived from ABSSubUnit. This is the parent of all sub-units.
-SymbolInterface.*       Interface to GiNaC functionality.
-Types.hpp               Defines globally used typenames.
-World.*                 Implements the SEB user interface i.e. all the methods a user can call to make structures, and get their scattering expressions
+World interface and implementation
+----------------------------------
 
-Subunits                This folder contains the actual code defining all the scattering expressions for specific sub-units.
+World.hpp              Declares the World class and its public API. The following
+                       source files implement the same class; they do not define
+                       separate World classes.
+World.cpp              Adds and links subunits and structures, registers models,
+                       describes worlds, and prints structural information.
+WorldGraph.cpp         Graph queries, path searches, reference-point discovery,
+                       and reference-name parsing and validation.
+WorldSymbolic.cpp      Generates symbolic form factors, amplitudes, phase factors,
+                       and size expressions, including recursive builders.
+WorldNumerical.cpp     Parameter handling, numerical scattering evaluation, and
+                       numerical size calculations through Guinier coefficients.
 
+USD export
+----------
+
+USDExport.hpp          Public units, layout modes, and export options.
+USDExport.cpp          World::ExportUSD orchestration: expands nested occurrences,
+                       assembles scenes, places instances, and commits the file.
+USDGeometry.cpp        Realizes geometry, samples references, and supplies vector,
+                       quaternion, and rotation helpers.
+USDLayout.cpp          Geometry proxies, clearance calculations, and scoring for
+                       readable layouts.
+USDWriter.cpp          Writes USD primitives, metadata, and relationships, and
+                       constructs Debye-cloud envelope meshes.
+USDExportInternal.hpp  Private types and helper declarations shared by these
+                       source files. Excluded from installed public headers.
+
+Core types and numerical support
+--------------------------------
+
+SEB.hpp                Main include for C++ applications.
+Abstract_subunit.hpp   ABSSubUnit base class for subunits and structures.
+Structure.hpp          Structure wrapper around a graph of connected objects.
+Subunit.*              SubUnit base implementation: scattering terms, reference
+                       points, numerical evaluation, and validation helpers.
+SymbolInterface.*      Symbol creation, parameter naming, and expression output
+                       through the symbolic backend interface.
+Types.hpp              Shared type aliases and containers.
+Constants.hpp          Core enums and constants.
+Exceptions.hpp         SEBException and call-stack reporting.
+SpecialFunctions.*     Numerical special functions using GSL where needed.
+SpecialFunctionsWrapper.*
+                       Expression wrappers for special functions.
+NumericalIntegration.* Quadrature support for integral-defined subunits.
+SphereAmplitude.hpp    Stable numerical solid-sphere amplitude near zero.
+Geometry/              Shared geometric types.
+
+Models and file formats
+-----------------------
+
+Subunits/              Analytic, integrated, callback-defined, Debye-cloud, and
+                       atomic SAXS subunit implementations.
+SubunitIO/             YAML model parsing, expression parsing, registration,
+                       bundled-model catalogue, and reference validation.
+StructureIO/           PDB parsing, atom parameter profiles, and builders for
+                       coordinate clouds and atomic SAXS models.
+WorldIO/               YAML world definitions, parsing, and serialization.
+
+Most bundled analytic models are defined in ../models/*.pyseb.yaml rather than
+in individual C++ classes. Their catalogue is generated during CMake
+configuration. See ../docs/file-defined-subunits.qmd for the model format.
+
+The symbolic backend implementations live outside this directory:
+../seb-symbolic/ contains the common interface and portable backend;
+../seb-symbolic-ginac/ contains the optional GiNaC backend.
+
+Building and testing
+--------------------
+
+Run these commands from the repository root, not from this directory:
+
+    make core      Build the portable C++ core.
+    make ginac     Build with the optional GiNaC backend.
+    make python    Build the Python extension with the portable backend.
+    make tests     Build the GiNaC core and run the C++ tests.
+
+CMakeLists.txt in the repository root is the source of truth for library sources
+and dependencies. Add new implementation files there. Tests and their build
+instructions are in ../Tests/README.md; Python tests are in
+../Tests/python/. See ../README.md for installation and documentation links.

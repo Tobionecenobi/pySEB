@@ -13,7 +13,7 @@ import numpy as np
 class TestPyprismPrototype(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        path = Path(__file__).resolve().parents[3] / "Examples" / "pyprism_seb.py"
+        path = Path(__file__).resolve().parents[2] / "Examples" / "pyprism_seb.py"
         cls.data = runpy.run_path(str(path))
 
     def test_chain_normalization_and_independent_bond_sum(self):

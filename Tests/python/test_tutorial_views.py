@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pyseb
 
-TUTORIALS = Path(__file__).resolve().parents[3] / 'docs/tutorials'
+TUTORIALS = Path(__file__).resolve().parents[2] / 'docs/tutorials'
 HAS_VIEWER = bool(importlib.util.find_spec('plotly') and importlib.util.find_spec('pxr'))
 
 

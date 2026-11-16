@@ -330,7 +330,7 @@ _ = pyseb.visualize(world, 'model',
                 ['quarto', 'render', str(path), '--to', 'html'],
                 capture_output=True, text=True, env={
                     **os.environ, 'QUARTO_PYTHON': sys.executable,
-                    'PYTHONPATH': str(Path(__file__).resolve().parents[3]),
+                    'PYTHONPATH': str(Path(__file__).resolve().parents[2]),
                 },
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

@@ -7,7 +7,7 @@ import numpy as np
 import pyseb
 
 
-FIXTURES = Path(__file__).resolve().parents[3]/'Tests/data/hydration_reference'
+FIXTURES = Path(__file__).resolve().parents[2]/'Tests/data/hydration_reference'
 
 
 class TestHydrationReferences(unittest.TestCase):

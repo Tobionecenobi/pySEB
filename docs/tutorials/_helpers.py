@@ -52,7 +52,7 @@ def run_usd_example(script_name, output_name):
     subprocess.run(
         [
             sys.executable,
-            repository / "pyseb" / "examples" / "python" / script_name,
+            repository / "Examples" / "python" / script_name,
         ],
         cwd=workspace.name,
         env=environment,
