@@ -22,6 +22,19 @@ Or run the CTest build manually:
    ctest --test-dir Tests/build-ninja --output-on-failure
    ```
 
+## Reference-data validation
+
+`validation_test` compares the legacy subunit expressions and their Guinier
+limits with the numerical data in `Examples/Validation/`. A failed comparison
+or exception fails the test. Reference files must contain two finite numbers
+per nonblank line (q and the expected value); missing, empty, and malformed
+files are errors. Regression tests exercise these failure paths.
+
+New bundled YAML models are covered automatically by
+`file_defined_subunit_test`, which runs each model's `validation.cases`.
+Expected reference values must be supplied in the YAML; a model without cases
+currently produces a warning rather than a failure.
+
 ## Adding New Tests
 1. Create a new test file in this folder.
 2. Write test cases using the Google Test framework.

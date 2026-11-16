@@ -1,6 +1,8 @@
 #include "Subunit.hpp"
 #include "ExpressionFunctions.hpp"
 
+#include <sstream>
+
 using sebsym::Expression;
 
 namespace {
@@ -599,6 +601,10 @@ bool SubUnit::ValidateExpressionFile( Expression term, Expression SRMS2ex, strin
     Expression q = GLEX->getSymbol("q");
     if (!is_a_numeric(SRMS2ex)) throw SEBException("Expression for sigma<R^2> of "+str+" did not evaluate to a number.\n  Expression after parameter substitution: "+SRMS2ex.to_string()+"\n  Check that all required parameters are set.","ValidateExpressionFile()");
     double SRMS2=ex_to_numeric(SRMS2ex);
+    if (!std::isfinite(SRMS2) || !std::isfinite(tolerance) || tolerance <= 0.0) {
+        throw SEBException("Validation requires a finite size and a positive finite tolerance",
+                           "ValidateExpressionFile()");
+    }
     if (FF) SRMS2/=3;
        else SRMS2/=6;
 
@@ -606,11 +612,26 @@ bool SubUnit::ValidateExpressionFile( Expression term, Expression SRMS2ex, strin
     if (!fi.is_open()) throw SEBException("Can not open input file "+filename,"ValidateExpressionFile()");
 
     double qval,Ival;
-    while (fi >> qval >> Ival)
+    std::string line;
+    std::size_t lineNumber = 0;
+    while (std::getline(fi, line))
        {
+           ++lineNumber;
+           if (line.find_first_not_of(" \t\r\n") == std::string::npos) continue;
+           std::istringstream row(line);
+           std::string extra;
+           if (!(row >> qval >> Ival) || (row >> extra) ||
+               !std::isfinite(qval) || !std::isfinite(Ival)) {
+               throw SEBException("Invalid reference data in " + filename + ":" +
+                                  std::to_string(lineNumber), "ValidateExpressionFile()");
+           }
            Expression Iex = term.subs("q", qval).evalf();
            if (!is_a_numeric(Iex)) throw SEBException("Expression for "+str+" did not evaluate to a number at q="+std::to_string(qval)+".\n  Expression after parameter substitution: "+term.to_string()+"\n  Value at q="+std::to_string(qval)+": "+Iex.to_string()+"\n  Check that all required parameters are set.","ValidateExpressionFile()");
            double I=ex_to_numeric(Iex);
+           if (!std::isfinite(I)) {
+               throw SEBException("Non-finite validation result in " + filename + ":" +
+                                  std::to_string(lineNumber), "ValidateExpressionFile()");
+           }
 
            // Test max deviation between data in file and SEB calculation
            if (fabs(I-Ival) > dev) dev=fabs(I-Ival);
@@ -625,6 +646,11 @@ bool SubUnit::ValidateExpressionFile( Expression term, Expression SRMS2ex, strin
 
            count++;
        }
+
+     if (fi.bad() || count == 0) {
+         throw SEBException("Unable to read reference data from " + filename,
+                            "ValidateExpressionFile()");
+     }
 
      if (dev<tolerance)   cout << "OK validated " << str << " against " << filename << "   max|dev|=" << dev << "  for " << count << " data points" << endl;
                      else cout << "WARNING validation " << str << " against "<< filename << "   max|dev|=" << dev << "  for " << count << " data points" << endl;

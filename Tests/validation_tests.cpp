@@ -1,4 +1,9 @@
 #include "gtest/gtest.h"
+#include "gtest/gtest-spi.h"
+
+#include <cstdio>
+#include <fstream>
+#include <limits>
 #include "World.hpp"
 #include "GiNaCSymbolic.hpp"
 #include "SEB.hpp"
@@ -19,11 +24,77 @@ struct SymbolicFactoryInitializer {
 static const std::string VALIDATION_DATA_DIR = VALIDATION_DIR;
 
 template <typename Fn>
-void RunValidationDiagnostic(Fn fn) {
+void AssertValidationSucceeds(Fn fn) {
     try {
-        (void)fn();
+        ASSERT_TRUE(fn());
     } catch (const SEBException& e) {
-        std::cout << "WARNING validation diagnostic threw:\n" << e << std::endl;
+        FAIL() << "Validation threw:\n" << e;
+    }
+}
+
+// These checks ensure validation failures cannot silently become passing tests.
+TEST(ValidationAssertions, RejectsFalseResult) {
+    EXPECT_FATAL_FAILURE(AssertValidationSucceeds([]() { return false; }), "fn()");
+}
+
+TEST(ValidationAssertions, RejectsException) {
+    EXPECT_FATAL_FAILURE(AssertValidationSucceeds([]() -> bool {
+        throw SEBException("validation regression");
+    }), "validation regression");
+}
+
+class ValidationReferenceFile : public ::testing::Test {
+protected:
+    World world;
+    ParameterList parameters;
+    SubUnit* subunit;
+    std::string path;
+
+    void SetUp() override {
+        world.Add("Point", "point");
+        subunit = world.getSubunit("point");
+        path = ::testing::TempDir() + "pyseb-validation-" +
+            ::testing::UnitTest::GetInstance()->current_test_info()->name() + ".dat";
+        std::remove(path.c_str());
+    }
+
+    void TearDown() override { std::remove(path.c_str()); }
+
+    void write(const std::string& data) {
+        std::ofstream output(path);
+        output << data;
+        ASSERT_TRUE(output.good());
+    }
+};
+
+TEST_F(ValidationReferenceFile, AcceptsMatchingData) {
+    write("0.01\t1\n0.1 1\n");
+    EXPECT_TRUE(subunit->ValidateFormFactorFile(parameters, path));
+}
+
+TEST_F(ValidationReferenceFile, RejectsNumericalMismatch) {
+    write("0.01 0.5\n");
+    EXPECT_FALSE(subunit->ValidateFormFactorFile(parameters, path));
+}
+
+TEST_F(ValidationReferenceFile, RejectsMissingFile) {
+    EXPECT_THROW(subunit->ValidateFormFactorFile(parameters, path), SEBException);
+}
+
+TEST_F(ValidationReferenceFile, RejectsInvalidTolerance) {
+    write("0.01 1\n");
+    for (double tolerance : {0.0, -1.0, std::numeric_limits<double>::infinity(),
+                             std::numeric_limits<double>::quiet_NaN()}) {
+        EXPECT_THROW(subunit->ValidateFormFactorFile(parameters, path, tolerance), SEBException);
+    }
+}
+
+TEST_F(ValidationReferenceFile, RejectsEmptyOrMalformedData) {
+    for (const auto& data : {"", " \n", "invalid\n", "0.01", "0.01 1\n0.1",
+                             "0.01 1 extra\n", "nan 1\n", "0.01 inf\n"}) {
+        SCOPED_TRACE(data);
+        write(data);
+        EXPECT_THROW(subunit->ValidateFormFactorFile(parameters, path), SEBException);
     }
 }
 
@@ -54,51 +125,51 @@ TEST_F(GaussianPolymerValidation, ValidateSymbolically) {
 }
 
 TEST_F(GaussianPolymerValidation, FormFactor) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorFile(pl, dir + "F.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorFile(pl, dir + "F.dat"); });
 }
 
 TEST_F(GaussianPolymerValidation, FormFactorAmplitude_end1) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("end1", pl, dir + "Aend.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("end1", pl, dir + "Aend.dat"); });
 }
 
 TEST_F(GaussianPolymerValidation, FormFactorAmplitude_end2) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("end2", pl, dir + "Aend.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("end2", pl, dir + "Aend.dat"); });
 }
 
 TEST_F(GaussianPolymerValidation, FormFactorAmplitude_middle) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("middle", pl, dir + "Amiddle.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("middle", pl, dir + "Amiddle.dat"); });
 }
 
 TEST_F(GaussianPolymerValidation, FormFactorAmplitude_contour) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("contour", pl, dir + "F.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("contour", pl, dir + "F.dat"); });
 }
 
 TEST_F(GaussianPolymerValidation, PhaseFactor_end1_end2) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("end1", "end2", pl, dir + "Psi_end2end.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("end1", "end2", pl, dir + "Psi_end2end.dat"); });
 }
 
 TEST_F(GaussianPolymerValidation, PhaseFactor_end1_middle) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("end1", "middle", pl, dir + "Psi_middle2end.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("end1", "middle", pl, dir + "Psi_middle2end.dat"); });
 }
 
 TEST_F(GaussianPolymerValidation, PhaseFactor_end2_middle) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("end2", "middle", pl, dir + "Psi_middle2end.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("end2", "middle", pl, dir + "Psi_middle2end.dat"); });
 }
 
 TEST_F(GaussianPolymerValidation, PhaseFactor_contour_end1) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("contour", "end1", pl, dir + "Aend.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("contour", "end1", pl, dir + "Aend.dat"); });
 }
 
 TEST_F(GaussianPolymerValidation, PhaseFactor_contour_end2) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("contour", "end2", pl, dir + "Aend.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("contour", "end2", pl, dir + "Aend.dat"); });
 }
 
 TEST_F(GaussianPolymerValidation, PhaseFactor_contour_middle) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("contour", "middle", pl, dir + "Psi_middle2contour.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("contour", "middle", pl, dir + "Psi_middle2contour.dat"); });
 }
 
 TEST_F(GaussianPolymerValidation, PhaseFactor_contour_contour) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("contour", "contour", pl, dir + "F.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("contour", "contour", pl, dir + "F.dat"); });
 }
 
 // ===========================================================================================
@@ -124,15 +195,15 @@ TEST_F(GaussianLoopValidation, ValidateDefinedTerms) {
 }
 
 TEST_F(GaussianLoopValidation, FormFactor) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorFile(pl, dir + "F.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorFile(pl, dir + "F.dat"); });
 }
 
 TEST_F(GaussianLoopValidation, FormFactorAmplitude_contour) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("contour", pl, dir + "F.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("contour", pl, dir + "F.dat"); });
 }
 
 TEST_F(GaussianLoopValidation, PhaseFactor_contour_contour) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("contour", "contour", pl, dir + "F.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("contour", "contour", pl, dir + "F.dat"); });
 }
 
 // ===========================================================================================
@@ -158,47 +229,47 @@ TEST_F(ThinRodValidation, ValidateDefinedTerms) {
 }
 
 TEST_F(ThinRodValidation, FormFactor) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorFile(pl, dir + "F.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorFile(pl, dir + "F.dat"); });
 }
 
 TEST_F(ThinRodValidation, FormFactorAmplitude_contour) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("contour", pl, dir + "F.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("contour", pl, dir + "F.dat"); });
 }
 
 TEST_F(ThinRodValidation, FormFactorAmplitude_end1) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("end1", pl, dir + "A_end.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("end1", pl, dir + "A_end.dat"); });
 }
 
 TEST_F(ThinRodValidation, FormFactorAmplitude_end2) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("end2", pl, dir + "A_end.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("end2", pl, dir + "A_end.dat"); });
 }
 
 TEST_F(ThinRodValidation, FormFactorAmplitude_middle) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("middle", pl, dir + "A_middle.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("middle", pl, dir + "A_middle.dat"); });
 }
 
 TEST_F(ThinRodValidation, PhaseFactor_end1_middle) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("end1", "middle", pl, dir + "Psi_end2middle.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("end1", "middle", pl, dir + "Psi_end2middle.dat"); });
 }
 
 TEST_F(ThinRodValidation, PhaseFactor_end2_middle) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("end2", "middle", pl, dir + "Psi_end2middle.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("end2", "middle", pl, dir + "Psi_end2middle.dat"); });
 }
 
 TEST_F(ThinRodValidation, PhaseFactor_contour_end1) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("contour", "end1", pl, dir + "A_end.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("contour", "end1", pl, dir + "A_end.dat"); });
 }
 
 TEST_F(ThinRodValidation, PhaseFactor_contour_end2) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("contour", "end2", pl, dir + "A_end.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("contour", "end2", pl, dir + "A_end.dat"); });
 }
 
 TEST_F(ThinRodValidation, PhaseFactor_contour_middle) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("contour", "middle", pl, dir + "Psi_contour2middle.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("contour", "middle", pl, dir + "Psi_contour2middle.dat"); });
 }
 
 TEST_F(ThinRodValidation, PhaseFactor_contour_contour) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("contour", "contour", pl, dir + "F.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("contour", "contour", pl, dir + "F.dat"); });
 }
 
 // ===========================================================================================
@@ -224,35 +295,35 @@ TEST_F(ThinDiskValidation, ValidateDefinedTerms) {
 }
 
 TEST_F(ThinDiskValidation, FormFactor) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorFile(pl, dir + "FF.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorFile(pl, dir + "FF.dat"); });
 }
 
 TEST_F(ThinDiskValidation, FormFactorAmplitude_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("surface", pl, dir + "FF.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("surface", pl, dir + "FF.dat"); });
 }
 
 TEST_F(ThinDiskValidation, PhaseFactor_surface_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("surface", "surface", pl, dir + "FF.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("surface", "surface", pl, dir + "FF.dat"); });
 }
 
 TEST_F(ThinDiskValidation, FormFactorAmplitude_center) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("center", pl, dir + "FFA_center.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("center", pl, dir + "FFA_center.dat"); });
 }
 
 TEST_F(ThinDiskValidation, FormFactorAmplitude_rim) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("rim", pl, dir + "FFA_rim.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("rim", pl, dir + "FFA_rim.dat"); });
 }
 
 TEST_F(ThinDiskValidation, PhaseFactor_rim_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("rim", "surface", pl, dir + "FFA_rim.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("rim", "surface", pl, dir + "FFA_rim.dat"); });
 }
 
 TEST_F(ThinDiskValidation, PhaseFactor_center_rim) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("center", "rim", pl, dir + "Psi_center2rim.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("center", "rim", pl, dir + "Psi_center2rim.dat"); });
 }
 
 TEST_F(ThinDiskValidation, PhaseFactor_rim_rim) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("rim", "rim", pl, dir + "Psi_rim2rim.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("rim", "rim", pl, dir + "Psi_rim2rim.dat"); });
 }
 
 // ===========================================================================================
@@ -305,59 +376,59 @@ TEST_F(SolidCylinderValidation_R1_L1p5, ValidateDefinedTerms) {
 }
 
 TEST_F(SolidCylinderValidation_R1_L1p5, FormFactor) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorFile(pl, dir + "F.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorFile(pl, dir + "F.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R1_L1p5, FormFactorAmplitude_center) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("center", pl, dir + "FFA_center.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("center", pl, dir + "FFA_center.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R1_L1p5, FormFactorAmplitude_ends) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("ends", pl, dir + "FFA_ends.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("ends", pl, dir + "FFA_ends.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R1_L1p5, FormFactorAmplitude_hull) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("hull", pl, dir + "FFA_hull.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("hull", pl, dir + "FFA_hull.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R1_L1p5, FormFactorAmplitude_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("surface", pl, dir + "FFA_surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("surface", pl, dir + "FFA_surface.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R1_L1p5, PhaseFactor_center_ends) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("center", "ends", pl, dir + "PF_center2ends.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("center", "ends", pl, dir + "PF_center2ends.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R1_L1p5, PhaseFactor_center_hull) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("center", "hull", pl, dir + "PF_center2hull.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("center", "hull", pl, dir + "PF_center2hull.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R1_L1p5, PhaseFactor_center_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("center", "surface", pl, dir + "PF_center2surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("center", "surface", pl, dir + "PF_center2surface.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R1_L1p5, PhaseFactor_ends_ends) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("ends", "ends", pl, dir + "PF_end2end.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("ends", "ends", pl, dir + "PF_end2end.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R1_L1p5, PhaseFactor_ends_hull) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("ends", "hull", pl, dir + "PF_end2hull.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("ends", "hull", pl, dir + "PF_end2hull.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R1_L1p5, PhaseFactor_ends_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("ends", "surface", pl, dir + "PF_end2surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("ends", "surface", pl, dir + "PF_end2surface.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R1_L1p5, PhaseFactor_hull_hull) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("hull", "hull", pl, dir + "PF_hull2hull.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("hull", "hull", pl, dir + "PF_hull2hull.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R1_L1p5, PhaseFactor_hull_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("hull", "surface", pl, dir + "PF_hull2surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("hull", "surface", pl, dir + "PF_hull2surface.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R1_L1p5, PhaseFactor_surface_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("surface", "surface", pl, dir + "PF_surface2surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("surface", "surface", pl, dir + "PF_surface2surface.dat"); });
 }
 
 // --- Parameter set 2: R=2, L=0.5 ---
@@ -378,59 +449,59 @@ protected:
 };
 
 TEST_F(SolidCylinderValidation_R2_L0p5, FormFactor) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorFile(pl, dir + "F.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorFile(pl, dir + "F.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R2_L0p5, FormFactorAmplitude_center) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("center", pl, dir + "FFA_center.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("center", pl, dir + "FFA_center.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R2_L0p5, FormFactorAmplitude_ends) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("ends", pl, dir + "FFA_ends.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("ends", pl, dir + "FFA_ends.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R2_L0p5, FormFactorAmplitude_hull) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("hull", pl, dir + "FFA_hull.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("hull", pl, dir + "FFA_hull.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R2_L0p5, FormFactorAmplitude_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("surface", pl, dir + "FFA_surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("surface", pl, dir + "FFA_surface.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R2_L0p5, PhaseFactor_center_ends) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("center", "ends", pl, dir + "PF_center2ends.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("center", "ends", pl, dir + "PF_center2ends.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R2_L0p5, PhaseFactor_center_hull) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("center", "hull", pl, dir + "PF_center2hull.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("center", "hull", pl, dir + "PF_center2hull.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R2_L0p5, PhaseFactor_center_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("center", "surface", pl, dir + "PF_center2surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("center", "surface", pl, dir + "PF_center2surface.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R2_L0p5, PhaseFactor_ends_ends) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("ends", "ends", pl, dir + "PF_end2end.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("ends", "ends", pl, dir + "PF_end2end.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R2_L0p5, PhaseFactor_ends_hull) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("ends", "hull", pl, dir + "PF_end2hull.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("ends", "hull", pl, dir + "PF_end2hull.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R2_L0p5, PhaseFactor_ends_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("ends", "surface", pl, dir + "PF_end2surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("ends", "surface", pl, dir + "PF_end2surface.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R2_L0p5, PhaseFactor_hull_hull) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("hull", "hull", pl, dir + "PF_hull2hull.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("hull", "hull", pl, dir + "PF_hull2hull.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R2_L0p5, PhaseFactor_hull_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("hull", "surface", pl, dir + "PF_hull2surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("hull", "surface", pl, dir + "PF_hull2surface.dat"); });
 }
 
 TEST_F(SolidCylinderValidation_R2_L0p5, PhaseFactor_surface_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("surface", "surface", pl, dir + "PF_surface2surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("surface", "surface", pl, dir + "PF_surface2surface.dat"); });
 }
 
 // ===========================================================================================
@@ -457,51 +528,51 @@ TEST_F(SolidSphericalShellValidation, ValidateDefinedTerms) {
 }
 
 TEST_F(SolidSphericalShellValidation, FormFactor) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorFile(pl, dir + "FF.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorFile(pl, dir + "FF.dat"); });
 }
 
 TEST_F(SolidSphericalShellValidation, FormFactorAmplitude_center) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("center", pl, dir + "FFA_center.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("center", pl, dir + "FFA_center.dat"); });
 }
 
 TEST_F(SolidSphericalShellValidation, FormFactorAmplitude_surfacei) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("surfacei", pl, dir + "FFA_inner.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("surfacei", pl, dir + "FFA_inner.dat"); });
 }
 
 TEST_F(SolidSphericalShellValidation, FormFactorAmplitude_surfaceo) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("surfaceo", pl, dir + "FFA_outer.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("surfaceo", pl, dir + "FFA_outer.dat"); });
 }
 
 TEST_F(SolidSphericalShellValidation, FormFactorAmplitude_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidateFormFactorAmplitudeFile("surface", pl, dir + "FFA_surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidateFormFactorAmplitudeFile("surface", pl, dir + "FFA_surface.dat"); });
 }
 
 TEST_F(SolidSphericalShellValidation, PhaseFactor_center_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("center", "surface", pl, dir + "PF_center_surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("center", "surface", pl, dir + "PF_center_surface.dat"); });
 }
 
 TEST_F(SolidSphericalShellValidation, PhaseFactor_surfacei_surfacei) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("surfacei", "surfacei", pl, dir + "PF_inner_inner.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("surfacei", "surfacei", pl, dir + "PF_inner_inner.dat"); });
 }
 
 TEST_F(SolidSphericalShellValidation, PhaseFactor_surfacei_surfaceo) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("surfacei", "surfaceo", pl, dir + "PF_inner_outer.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("surfacei", "surfaceo", pl, dir + "PF_inner_outer.dat"); });
 }
 
 TEST_F(SolidSphericalShellValidation, PhaseFactor_surfaceo_surfaceo) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("surfaceo", "surfaceo", pl, dir + "PF_outer_outer.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("surfaceo", "surfaceo", pl, dir + "PF_outer_outer.dat"); });
 }
 
 TEST_F(SolidSphericalShellValidation, PhaseFactor_surface_surfacei) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("surface", "surfacei", pl, dir + "PF_inner_surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("surface", "surfacei", pl, dir + "PF_inner_surface.dat"); });
 }
 
 TEST_F(SolidSphericalShellValidation, PhaseFactor_surface_surfaceo) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("surface", "surfaceo", pl, dir + "PF_outer_surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("surface", "surfaceo", pl, dir + "PF_outer_surface.dat"); });
 }
 
 TEST_F(SolidSphericalShellValidation, PhaseFactor_surface_surface) {
-    RunValidationDiagnostic([&]() { return s->ValidatePhaseFactorFile("surface", "surface", pl, dir + "PF_surface_surface.dat"); });
+    AssertValidationSucceeds([&]() { return s->ValidatePhaseFactorFile("surface", "surface", pl, dir + "PF_surface_surface.dat"); });
 }
 
 // ===========================================================================================
