@@ -17,7 +17,7 @@ Figure 11 of the original SEB paper constructs dendrimers from Gaussian
 polymers and thin rods. Each new generation branches from a free endpoint or
 from a newly sampled contour position.
 
-![Published Figure 11: recursively assembled polymer and rod dendrimers.](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/PaperFigs/fig11.png){fig-alt="Published Figure 11 comparing endpoint-linked and contour-linked dendrimers assembled from Gaussian polymers and thin rods." width="90%"}
+![Published Figure 11: recursively assembled polymer and rod dendrimers.](../images/paper-figures/fig11.png){fig-alt="Published Figure 11 comparing endpoint-linked and contour-linked dendrimers assembled from Gaussian polymers and thin rods." width="90%"}
 
 The publication uses four generations. This page executes three generations
 to keep routine documentation builds responsive; changing `generations` to
@@ -173,4 +173,4 @@ run_tutorial("figure11-dendrimers")
 - [Reuse a composite component](nested-structures.qmd)
 - [Figure 12 surface attachments](figure12-surface-attachments.qmd)
 - [Core concepts](https://github.com/Tobionecenobi/pySEB/wiki/Core-Concepts)
-- [Original Figure 11 sources](https://github.com/Tobionecenobi/pySEB/tree/main/PaperFigs)
+- [Original Figure 11 sources](https://github.com/Tobionecenobi/pySEB/tree/main/Examples/paper-figures)

@@ -6,7 +6,8 @@ repository root, for example:
     python Examples/python/diblock_evaluation.py
 
 These scripts are also bundled with the installed Python package under
-examples/python/. C++ examples remain directly in this directory.
+examples/python/. General C++ examples remain directly in this directory.
+The original paper figure programs are in paper-figures/; see its README.md.
 
 pyprism_seb.py             Optional SEB-to-pyPRISM prototype: discrete chain input, solution scattering, and reference checks (see pyprism_seb.md).
 

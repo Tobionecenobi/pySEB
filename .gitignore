@@ -31,8 +31,9 @@ Examples/TriBlockCopolymer
 Examples/TriBlockSymbolic
 Examples/Validation_*
 
-# PaperFigs executables
-PaperFigs/fig*
+# Paper figure executables
+Examples/paper-figures/fig*
+!Examples/paper-figures/*.cpp
 
 # Generated data files
 *.q

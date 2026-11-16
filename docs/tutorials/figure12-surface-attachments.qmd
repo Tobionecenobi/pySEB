@@ -18,7 +18,7 @@ attach Gaussian polymers and thin rods to solid spheres, spherical shells,
 and cylinders. The reference name selects the geometric region over which an
 attachment is averaged.
 
-![Published Figure 12: rods and polymers attached to sphere, shell, and cylinder surfaces.](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/PaperFigs/fig12.png){fig-alt="Published Figure 12 showing polymers and rods attached to solid spheres, spherical shells, and solid cylinders through several distributed surface references." width="95%"}
+![Published Figure 12: rods and polymers attached to sphere, shell, and cylinder surfaces.](../images/paper-figures/fig12.png){fig-alt="Published Figure 12 showing polymers and rods attached to solid spheres, spherical shells, and solid cylinders through several distributed surface references." width="95%"}
 
 The publication attaches 50 polymers and 50 rods in each case. The executable
 tutorial uses six pairs; increase `pair_count` to 50 for the published grafting
@@ -211,4 +211,4 @@ run_tutorial("figure12-surface-attachments")
 - [Sphere–polymer micelle](micelle.qmd)
 - [OpenUSD visualization](../visualization.qmd)
 - [Naming and linking](https://github.com/Tobionecenobi/pySEB/wiki/Naming-and-Linking)
-- [Original Figure 12 sources](https://github.com/Tobionecenobi/pySEB/tree/main/PaperFigs)
+- [Original Figure 12 sources](https://github.com/Tobionecenobi/pySEB/tree/main/Examples/paper-figures)

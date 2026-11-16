@@ -18,7 +18,7 @@ Gaussian polymers, thin rods, Gaussian loops, and thin circles. It also shows
 that the choice of reference point is part of the model: joining fixed ends is
 not equivalent to joining independently sampled positions on two contours.
 
-![Published Figure 10: form factors for linear chains assembled from different subunits and reference-point choices.](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/PaperFigs/fig10.png){fig-alt="Published Figure 10 comparing endpoint-linked and contour-linked linear chains of Gaussian polymers, thin rods, Gaussian loops, and thin circles." width="90%"}
+![Published Figure 10: form factors for linear chains assembled from different subunits and reference-point choices.](../images/paper-figures/fig10.png){fig-alt="Published Figure 10 comparing endpoint-linked and contour-linked linear chains of Gaussian polymers, thin rods, Gaussian loops, and thin circles." width="90%"}
 
 The paper uses 100 subunits per chain. The executable comparison below uses 12
 so the documentation remains quick to rebuild. Set `segment_count = 100` to
@@ -166,4 +166,4 @@ run_tutorial("figure10-linear-chains")
 - [Figure 11 dendrimers](figure11-dendrimers.qmd)
 - [Random-walk rod chain](random-walk-rods.qmd)
 - [Naming and linking](https://github.com/Tobionecenobi/pySEB/wiki/Naming-and-Linking)
-- [Original Figure 10 sources](https://github.com/Tobionecenobi/pySEB/tree/main/PaperFigs)
+- [Original Figure 10 sources](https://github.com/Tobionecenobi/pySEB/tree/main/Examples/paper-figures)

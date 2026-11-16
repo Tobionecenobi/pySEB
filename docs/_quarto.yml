@@ -4,6 +4,7 @@ project:
   pre-render: python3 _prepare_cache.py
   post-render: python3 _prepare_cache.py --record-outputs
   resources:
+    - images/paper-figures/*.png
     - derivations/mathematica/*.nb
     - derivations/mathematica/*.pdf
     - derivations/spheroid/saved/

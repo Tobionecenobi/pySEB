@@ -99,9 +99,9 @@ for capabilities and selection.
 
 | Linear chains | Dendrimers |
 | --- | --- |
-| ![Linear chains assembled from different subunits](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/PaperFigs/fig10.png) | ![Recursively assembled dendrimers](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/PaperFigs/fig11.png) |
+| ![Linear chains assembled from different subunits](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/docs/images/paper-figures/fig10.png) | ![Recursively assembled dendrimers](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/docs/images/paper-figures/fig11.png) |
 | Surface-linked structures | Diblock-star chain |
-| ![Rods and polymers attached to geometric surfaces](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/PaperFigs/fig12.png) | ![Five linked diblock-copolymer stars](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/PaperFigs/fig13.png) |
+| ![Rods and polymers attached to geometric surfaces](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/docs/images/paper-figures/fig12.png) | ![Five linked diblock-copolymer stars](https://raw.githubusercontent.com/Tobionecenobi/pySEB/main/docs/images/paper-figures/fig13.png) |
 
 The [Pages overview](https://tobionecenobi.github.io/pySEB/) explains these
 figures and links them to current executable tutorials and reference material.
