@@ -185,6 +185,14 @@ best-effort layout rather than a collision-free guarantee.  Its USD metadata
 identifies the orientations as optimized for readability rather than uniformly
 sampled.
 
+### Export scope {#export-scope}
+
+pySEB exports a static representative realization. Scenes edited in Blender
+or another authoring tool are not imported back as scattering models. Motion
+added in those tools does not define the conformational statistics used by
+the scattering calculation; change the model and its parameters in pySEB to
+change the calculated scattering.
+
 The exporter writes a deterministic representative realization as text USDA;
 no OpenUSD runtime is required.  Use `.usda` for explicit text or `.usd` when
 an interchange tool expects that extension:

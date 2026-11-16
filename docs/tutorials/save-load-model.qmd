@@ -153,6 +153,9 @@ does not require an OpenUSD runtime to write it. The seed makes the
 representative random walks and layout
 repeatable. Change it when you want another equally valid realization.
 
+See [export scope](../visualization.qmd#export-scope) for the distinction
+between editing the exported scene and changing the scattering model.
+
 Use `pyseb.visualize` to inspect the reloaded world with the same parameters
 and export options. Viewing dependencies are optional: install
 `pyseb[visualization]` to enable the interactive display. The explicit export
