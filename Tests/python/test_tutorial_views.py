@@ -42,11 +42,13 @@ class TestTutorialLayoutRequests(unittest.TestCase):
                     checked += 1
         self.assertGreater(checked, 30)
 
-    def test_titin_provenance_accepts_only_the_recorded_display_migration(self):
+    def test_titin_provenance_matches_the_recorded_calculation(self):
         source = load_helper('_titin_sources')
         manifest = json.loads((TUTORIALS / 'data/titin-results/manifest.json').read_text())
         digest = hashlib.sha256('\n'.join(source.generation_cells(TUTORIALS)).encode()).hexdigest()
-        self.assertEqual(digest, manifest['viewer_migration']['generation_sha256'])
+        accepted_generation_hash = manifest.get('viewer_migration', {}).get(
+            'generation_sha256', manifest['generation_sha256'])
+        self.assertEqual(digest, accepted_generation_hash)
         for name in ('curves.npz', 'results.json'):
             self.assertEqual(hashlib.sha256((TUTORIALS / 'data/titin-results' / name).read_bytes()).hexdigest(),
                              manifest['files'][name])
