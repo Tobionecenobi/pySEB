@@ -100,14 +100,19 @@ In the Python implementation, we added the same methods to the `SymPyExpression`
 
 ## Testing
 
-To ensure that the abstraction layer works correctly, we created a test program
-(`seb/test_expression.cpp`) that exercises the key functionality of the
-`Expression` class:
-- Basic arithmetic operations
-- Mathematical functions
-- Substitution and evaluation
-- Series expansion and coefficient extraction
-- Numeric evaluation and conversion
+The maintained C++ expression tests are in `Tests/seb_symbolic_test.cpp`.
+CMake builds them as `seb_symbolic_test`, registered with CTest as
+`SebSymbolicTest`. They assert arithmetic, substitution, numerical conversion,
+constant predicates, expression output, and agreement between the portable and
+GiNaC backends. GiNaC-specific checks verify sine-series coefficients and
+conversion to an evaluable polynomial; the portable backend is checked for
+explicit rejection of unsupported series operations.
+
+Run these tests from the repository root after building the C++ test targets:
+
+```sh
+ctest --test-dir Tests/build-ninja -R '^SebSymbolicTest$' --output-on-failure
+```
 
 ## Conclusion
 

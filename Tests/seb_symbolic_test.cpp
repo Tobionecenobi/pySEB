@@ -76,6 +76,63 @@ double evaluate_special_function_expression_with_ginac()
 
 } // namespace
 
+TEST_F(SebSymbolicFixture, ArithmeticAndSubstitutionEvaluateAcrossBackends)
+{
+    for (const auto& backend : sebsym::available_backends()) {
+        SCOPED_TRACE(backend);
+        ASSERT_TRUE(sebsym::set_backend(backend));
+        const auto x = sebsym::symbol("arithmetic_x");
+        const auto y = sebsym::symbol("arithmetic_y");
+        const auto evaluate = [](const Expression& expression) {
+            return expression.subs("arithmetic_x", 3.0).subs("arithmetic_y", 2.0).eval();
+        };
+        EXPECT_DOUBLE_EQ(evaluate(x + y), 5.0);
+        EXPECT_DOUBLE_EQ(evaluate(x - y), 1.0);
+        EXPECT_DOUBLE_EQ(evaluate(x * y), 6.0);
+        EXPECT_DOUBLE_EQ(evaluate(x / y), 1.5);
+        EXPECT_DOUBLE_EQ(evaluate(-x), -3.0);
+        EXPECT_DOUBLE_EQ(evaluate(x * x + y), 11.0);
+        EXPECT_NEAR(evaluate(x.cos()), std::cos(3.0), 1e-12);
+        // Substitution must leave the original expression symbolic.
+        EXPECT_FALSE(x.is_numeric());
+    }
+}
+
+TEST_F(SebSymbolicFixture, NumericConstantsAndPredicatesWorkAcrossBackends)
+{
+    for (const auto& backend : sebsym::available_backends()) {
+        SCOPED_TRACE(backend);
+        ASSERT_TRUE(sebsym::set_backend(backend));
+        const auto zero = sebsym::constant(0.0);
+        const auto one = sebsym::constant(1.0);
+        EXPECT_TRUE(zero.is_zero());
+        EXPECT_FALSE(one.is_zero());
+        EXPECT_TRUE(zero.is_numeric());
+        EXPECT_TRUE(one.is_numeric());
+        EXPECT_FALSE(sebsym::symbol("predicate_x").is_numeric());
+        EXPECT_DOUBLE_EQ((sebsym::constant(3.0) * sebsym::constant(4.0)).eval(), 12.0);
+        EXPECT_NEAR((sebsym::pi() / sebsym::constant(4.0)).to_double(), std::acos(-1.0) / 4.0, 1e-12);
+        EXPECT_NEAR(sebsym::e().eval(), std::exp(1.0), 1e-12);
+    }
+}
+
+TEST_F(SebSymbolicFixture, GiNaCSineSeriesConvertsToPolynomialWithExpectedCoefficients)
+{
+    if (!sebsym::set_backend("ginac")) {
+        GTEST_SKIP() << "GiNaC backend is not available";
+    }
+    const auto x = sebsym::symbol("series_x");
+    const auto series = x.sin().series(x, sebsym::constant(0.0), 5);
+    const auto polynomial = series.series_to_poly(series);
+    EXPECT_DOUBLE_EQ(polynomial.coeff(x, 1).eval(), 1.0);
+    EXPECT_NEAR(polynomial.coeff(x, 3).eval(), -1.0 / 6.0, 1e-12);
+    for (int power : {0, 2, 4}) {
+        EXPECT_TRUE(polynomial.coeff(x, power).is_zero());
+    }
+    // Evaluating away from zero also checks that the O(x^5) term was removed.
+    EXPECT_NEAR(polynomial.subs("series_x", 0.2).eval(), 0.2 - std::pow(0.2, 3) / 6.0, 1e-12);
+}
+
 TEST_F(SebSymbolicFixture, PortableBackendBuildsAndExports)
 {
     auto x = sebsym::symbol("x");

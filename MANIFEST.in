@@ -230,7 +230,6 @@ include seb/SymbolInterface.hpp
 include seb/Types.hpp
 include seb/World.cpp
 include seb/World.hpp
-include seb/test_expression.cpp
 include seb/utility.cpp
 include seb-symbolic/Expression.hpp
 include seb-symbolic/ExpressionFunctions.hpp
@@ -244,7 +243,6 @@ include seb-symbolic-ginac/GiNaCSymbolic.cpp
 include seb-symbolic-ginac/GiNaCSymbolic.hpp
 include seb-symbolic-ginac/RegisterSpecialFunctions.cpp
 include Tests/CMakeLists.txt
-include Tests/PaperFigs_test.cpp
 include Tests/README.md
 include Tests/Sample_SolidCylinder_test.cpp
 include Tests/Sample_SolidSphere_test.cpp
@@ -271,7 +269,6 @@ include pyseb/bindings/bindings.cpp
 include pyseb/bindings/bindingsTypes.cpp
 include pyseb/bindings/bindingsSymbolic.cpp
 include pyseb/bindings/bindingsSymbolic.hpp
-include work/Evaluating.cpp
 
 # Keep packaging robust as bindings evolve
 recursive-include seb *.cpp *.hpp
@@ -283,7 +280,6 @@ recursive-include docs *.md *.qmd
 recursive-include pyseb/bindings *.cpp *.hpp
 recursive-include pyseb/examples/python *.py
 recursive-include pyseb/tests/python *.py
-include work/README
 include seb/SubunitIO/BundledModels.cpp.in
 
 prune _cmake_test_compile
