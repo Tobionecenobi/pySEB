@@ -1,4 +1,4 @@
-#include "../Mathematica/Sampled/Sample_SolidSphericalShell.cpp"
+#include "sampling/Sample_SolidSphericalShell.cpp"
 #include <gtest/gtest.h>
 #include <cmath>
 

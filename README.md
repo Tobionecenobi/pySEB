@@ -80,6 +80,7 @@ for the schema, expression language, C++ API, and registration workflow.
 | Browse supported models | [Subunit catalogue](https://github.com/Tobionecenobi/pySEB/wiki/Subunit-Catalogue) |
 | Use Python or C++ APIs | [Python API](https://github.com/Tobionecenobi/pySEB/wiki/Python-API-Reference) · [C++ API](https://github.com/Tobionecenobi/pySEB/wiki/Cpp-API-Reference) |
 | Install or build from source | [Linux](https://github.com/Tobionecenobi/pySEB/wiki/Building-on-Linux) · [macOS](https://github.com/Tobionecenobi/pySEB/wiki/Building-on-macOS) · [Windows](https://github.com/Tobionecenobi/pySEB/wiki/Building-on-Windows) |
+| Derive the spheroid scattering terms | [Worked SymPy derivation](docs/derivations/spheroid/spheroid.qmd) |
 | Understand the formalism | [Theory](https://github.com/Tobionecenobi/pySEB/wiki/Theory-Overview) · [Publications](https://github.com/Tobionecenobi/pySEB/wiki/Publications-and-Citation) |
 | Contribute code | [Repository architecture](https://github.com/Tobionecenobi/pySEB/wiki/Repository-Architecture) · [Adding a subunit](https://github.com/Tobionecenobi/pySEB/wiki/Adding-a-Subunit) |
 

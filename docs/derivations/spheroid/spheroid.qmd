@@ -1,0 +1,2325 @@
+---
+title: 'Tutorial: deriving a spheroid SEB subunit with SymPy'
+jupyter: python3
+---
+
+This notebook is a second worked example for deriving a SEB subunit. The shape is a homogeneous spheroid: an axisymmetric ellipsoid with equatorial semi-axis `a` and polar semi-axis `c`.
+
+The spheroid is the special case `a = b` of the triaxial ellipsoid:
+
+$$\frac{x^2+y^2}{a^2}+\frac{z^2}{c^2}\le 1.$$
+
+The picture below uses the same convention throughout the derivation: `a` is an equatorial semi-axis and `c` is the polar semi-axis.
+
+::: {#fig-spheroid-axes}
+```{=html}
+<svg viewBox="0 0 320 420" role="img" aria-label="Spheroid with a and c axes" style="max-width:320px;width:100%;height:auto">
+  <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8z"/></marker></defs>
+  <ellipse cx="160" cy="220" rx="100" ry="32" fill="none" stroke="#333" stroke-width="2" stroke-dasharray="7 6"/>
+  <ellipse cx="160" cy="220" rx="100" ry="175" fill="#8ecae6" fill-opacity="0.25" stroke="#333" stroke-width="2"/>
+  <path d="M160 45 C215 120 215 320 160 395 M160 45 C105 120 105 320 160 395" fill="none" stroke="#333" stroke-width="1.5"/>
+  <line x1="160" y1="220" x2="255" y2="220" stroke="#c1121f" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="160" y1="220" x2="160" y2="50" stroke="#c1121f" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="205" y="210" fill="#c1121f" font-size="28" font-style="italic">a</text>
+  <text x="172" y="130" fill="#c1121f" font-size="28" font-style="italic">c</text>
+</svg>
+```
+
+Spheroid geometry with equatorial semi-axis `a` and polar semi-axis `c`.
+:::
+
+We will derive the formulas in the same order a subunit implementation usually needs them. First we describe the geometry. Then we write the centered scattering amplitude. After that we move the reference point away from the center, first to named axis tips and then to a distributed point on the surface. Finally we expand everything near `q = 0` and use small numerical functions to check that the expressions behave as expected.
+
+The main simplification is symmetry. A triaxial ellipsoid needs two orientation variables because all three axes are different. A spheroid can spin freely around its polar axis without changing its shape, so one orientation variable is enough. Most of this notebook is about using that symmetry carefully without losing the reference-point names SEB expects.
+
+We use the same reference-point style as in the triaxial tutorial:
+
+- `center`
+- the four equatorial axis-tip points `pole_a_plus`, `pole_a_minus`, `pole_b_plus`, `pole_b_minus`
+- the two polar axis-tip points `pole_c_plus`, `pole_c_minus`
+- the distributed reference point `equator`, chosen uniformly around the equatorial ring
+- the distributed reference point `surface`, chosen uniformly over the spheroid surface area
+
+The two equatorial axes are symmetry-equivalent. We still keep both `pole_a_*` and `pole_b_*` as names because a SEB subunit often needs stable, explicit reference-point names.
+
+## 0. Shared scattering idea
+
+Before touching the spheroid, we start with the one idea that all the later expressions reuse: scattering is phase bookkeeping. Each point in the object emits a wave contribution, and the detector sees the result of adding those contributions.
+
+For a scatterer at position `r`, the phase for a detector pixel selected by scattering vector `q` is
+
+$$e^{i\mathbf q\cdot\mathbf r}.$$
+
+For a randomly oriented object, pair phases average to the Debye factor
+
+$$\left\langle e^{i\mathbf q\cdot\mathbf r}\right\rangle
+=\frac{\sin(qr)}{qr}.$$
+
+SEB subunits need three related quantities:
+
+- the form factor `F(q)`, comparing all pairs of scatterers inside the body
+- form factor amplitudes `A_ref(q)`, comparing the body to one reference point
+- phase factors `Psi_ref1_ref2(q)`, comparing two reference points
+
+The normalized amplitude of a homogeneous sphere is the kernel
+
+$$K(z)=3\frac{\sin z-z\cos z}{z^3}.$$
+
+::: {.callout-note collapse="true"}
+## Derivation of the spherical kernel
+
+Start with a homogeneous sphere of radius `R`. Its normalized amplitude is the volume average of the phase factor:
+
+$$K(qR)=\frac{1}{V}\int_{|\mathbf r|\le R} e^{i\mathbf q\cdot\mathbf r}\,d^3r,$$
+
+where
+
+$$V=\frac{4\pi R^3}{3}.$$
+
+Because the sphere is rotationally symmetric, choose the polar axis along `q`. Then
+
+$$\mathbf q\cdot\mathbf r = qr\cos\theta,$$
+
+and the angular average at fixed `r` is the Debye factor:
+
+$$\frac{1}{4\pi}\int e^{iqr\cos\theta}\,d\Omega
+=\frac{\sin(qr)}{qr}.$$
+
+So the normalized amplitude becomes
+
+$$K(qR)
+=\frac{4\pi}{V}\int_0^R r^2\frac{\sin(qr)}{qr}\,dr.$$
+
+Substitute the sphere volume:
+
+$$K(qR)
+=\frac{3}{R^3}\int_0^R r^2\frac{\sin(qr)}{qr}\,dr
+=\frac{3}{qR^3}\int_0^R r\sin(qr)\,dr.$$
+
+The remaining integral is
+
+$$\int r\sin(qr)\,dr
+=-\frac{r\cos(qr)}{q}+\frac{\sin(qr)}{q^2}.$$
+
+Evaluating from `0` to `R` gives
+
+$$K(qR)
+=\frac{3}{qR^3}
+\left(
+-\frac{R\cos(qR)}{q}
++\frac{\sin(qR)}{q^2}
+\right).$$
+
+Collecting powers of `qR`,
+
+$$K(qR)
+=3\frac{\sin(qR)-qR\cos(qR)}{(qR)^3}.$$
+
+Finally define
+
+$$z=qR.$$
+
+Then
+
+$$K(z)=3\frac{\sin z-z\cos z}{z^3}.$$
+:::
+
+We reuse this kernel for the spheroid by stretching a unit sphere. The next cell only loads the small visual helper. It is not part of the derivation, but it is useful for keeping the physical picture in mind: moving along the detector means changing `q`.
+
+```{python}
+from pathlib import Path
+import sys
+
+for candidate in (Path.cwd(), *Path.cwd().parents):
+    if (candidate / "wave_interference_demo.py").exists():
+        sys.path.insert(0, str(candidate))
+        break
+
+try:
+    from wave_interference_demo import show_wave_interference_demo
+except ModuleNotFoundError as error:
+    if error.name != "wave_interference_demo":
+        raise
+    print("Optional wave-interference visual helper is not included; continue with the derivation below.")
+else:
+    _ = show_wave_interference_demo()
+```
+
+## 1. Geometry
+
+Now we turn the physical picture into a formula. The trick is to avoid integrating directly over a spheroid. Instead, we start with a sphere, where the answer is already known, and stretch the coordinates. The price of that stretch is that the sphere radius inside `K(qR)` becomes an orientation-dependent effective radius.
+
+Start from a unit sphere with coordinates `(X,Y,Z)` and stretch it into a spheroid:
+
+$$x=aX,\qquad y=aY,\qquad z=cZ.$$
+
+For a fixed orientation,
+
+$$\mathbf q\cdot\mathbf r=(aq_x)X+(aq_y)Y+(cq_z)Z.$$
+
+So the sphere kernel is evaluated at an effective length
+
+$$R_{\mathrm{eff}}=\sqrt{a^2(e^2+f^2)+c^2g^2},$$
+
+where `(e,f,g)` are direction cosines of the scattering direction relative to the spheroid axes. By axial symmetry, only the magnitude of the polar direction cosine matters. We fold the full range `-1 <= g <= 1` onto
+
+$$u=|g|,\qquad 0\le u\le 1.$$
+
+::: {#fig-spheroid-u}
+```{=html}
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 522.0917358398438 551.8493549156562" width="522.0917358398438" height="551.8493549156562"><!-- svg-source:excalidraw --><metadata></metadata><defs><symbol id="image-710f136f1c22e4b7b7b59fb477f52ebb68fb5891"><image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiBzdHlsZT0idmVydGljYWwtYWxpZ246IC0wLjU2NmV4OyIgd2lkdGg9IjEwMS42IiBoZWlnaHQ9IjIyLjYyIiByb2xlPSJpbWciIGZvY3VzYWJsZT0iZmFsc2UiIHZpZXdCb3g9IjAgLTc1MCA0NDkwLjYgMTAwMCI+PGRlZnM+PHBhdGggaWQ9Ik1KWC0zLVRFWC1JLTFENDYyIiBkPSJNMjEgMjg3UTIxIDI5NSAzMCAzMThUNTUgMzcwVDk5IDQyMFQxNTggNDQyUTIwNCA0NDIgMjI3IDQxN1QyNTAgMzU4UTI1MCAzNDAgMjE2IDI0NlQxODIgMTA1UTE4MiA2MiAxOTYgNDVUMjM4IDI3VDI5MSA0NFQzMjggNzhMMzM5IDk1UTM0MSA5OSAzNzcgMjQ3UTQwNyAzNjcgNDEzIDM4N1Q0MjcgNDE2UTQ0NCA0MzEgNDYzIDQzMVE0ODAgNDMxIDQ4OCA0MjFUNDk2IDQwMkw0MjAgODRRNDE5IDc5IDQxOSA2OFE0MTkgNDMgNDI2IDM1VDQ0NyAyNlE0NjkgMjkgNDgyIDU3VDUxMiAxNDVRNTE0IDE1MyA1MzIgMTUzUTU1MSAxNTMgNTUxIDE0NFE1NTAgMTM5IDU0OSAxMzBUNTQwIDk4VDUyMyA1NVQ0OTggMTdUNDYyIC04UTQ1NCAtMTAgNDM4IC0xMFEzNzIgLTEwIDM0NyA0NlEzNDUgNDUgMzM2IDM2VDMxOCAyMVQyOTYgNlQyNjcgLTZUMjMzIC0xMVExODkgLTExIDE1NSA3UTEwMyAzOCAxMDMgMTEzUTEwMyAxNzAgMTM4IDI2MlQxNzMgMzc5UTE3MyAzODAgMTczIDM4MVExNzMgMzkwIDE3MyAzOTNUMTY5IDQwMFQxNTggNDA0SDE1NFExMzEgNDA0IDExMiAzODVUODIgMzQ0VDY1IDMwMlQ1NyAyODBRNTUgMjc4IDQxIDI3OEgyN1EyMSAyODQgMjEgMjg3WiIvPjxwYXRoIGlkPSJNSlgtMy1URVgtTi0zRCIgZD0iTTU2IDM0N1E1NiAzNjAgNzAgMzY3SDcwN1E3MjIgMzU5IDcyMiAzNDdRNzIyIDMzNiA3MDggMzI4TDM5MCAzMjdINzJRNTYgMzMyIDU2IDM0N1pNNTYgMTUzUTU2IDE2OCA3MiAxNzNINzA4UTcyMiAxNjMgNzIyIDE1M1E3MjIgMTQwIDcwNyAxMzNINzBRNTYgMTQwIDU2IDE1M1oiLz48cGF0aCBpZD0iTUpYLTMtVEVYLU4tNjMiIGQ9Ik0zNzAgMzA1VDM0OSAzMDVUMzEzIDMyMFQyOTcgMzU4UTI5NyAzODEgMzEyIDM5NlEzMTcgNDAxIDMxNyA0MDJUMzA3IDQwNFEyODEgNDA4IDI1OCA0MDhRMjA5IDQwOCAxNzggMzc2UTEzMSAzMjkgMTMxIDIxOVExMzEgMTM3IDE2MiA5MFEyMDMgMjkgMjcyIDI5UTMxMyAyOSAzMzggNTVUMzc0IDExN1EzNzYgMTI1IDM3OSAxMjdUMzk1IDEyOUg0MDlRNDE1IDEyMyA0MTUgMTIwUTQxNSAxMTYgNDExIDEwNFQzOTUgNzFUMzY2IDMzVDMxOCAyVDI0OSAtMTFRMTYzIC0xMSA5OSA1M1QzNCAyMTRRMzQgMzE4IDk5IDM4M1QyNTAgNDQ4VDM3MCA0MjFUNDA0IDM1N1E0MDQgMzM0IDM4NyAzMjBaIi8+PHBhdGggaWQ9Ik1KWC0zLVRFWC1OLTZGIiBkPSJNMjggMjE0UTI4IDMwOSA5MyAzNzhUMjUwIDQ0OFEzNDAgNDQ4IDQwNSAzODBUNDcxIDIxNVE0NzEgMTIwIDQwNyA1NVQyNTAgLTEwUTE1MyAtMTAgOTEgNTdUMjggMjE0Wk0yNTAgMzBRMzcyIDMwIDM3MiAxOTNWMjI1VjI1MFEzNzIgMjcyIDM3MSAyODhUMzY0IDMyNlQzNDggMzYyVDMxNyAzOTBUMjY4IDQxMFEyNjMgNDExIDI1MiA0MTFRMjIyIDQxMSAxOTUgMzk5UTE1MiAzNzcgMTM5IDMzOFQxMjYgMjQ2VjIyNlExMjYgMTMwIDE0NSA5MVExNzcgMzAgMjUwIDMwWiIvPjxwYXRoIGlkPSJNSlgtMy1URVgtTi03MyIgZD0iTTI5NSAzMTZRMjk1IDM1NiAyNjggMzg1VDE5MCA0MTRRMTU0IDQxNCAxMjggNDAxUTk4IDM4MiA5OCAzNDlROTcgMzQ0IDk4IDMzNlQxMTQgMzEyVDE1NyAyODdRMTc1IDI4MiAyMDEgMjc4VDI0NSAyNjlUMjc3IDI1NlEyOTQgMjQ4IDMxMCAyMzZUMzQyIDE5NVQzNTkgMTMzUTM1OSA3MSAzMjEgMzFUMTk4IC0xMEgxOTBRMTM4IC0xMCA5NCAyNkw4NiAxOUw3NyAxMFE3MSA0IDY1IC0xTDU0IC0xMUg0Nkg0MlEzOSAtMTEgMzMgLTVWNzRWMTMyUTMzIDE1MyAzNSAxNTdUNDUgMTYySDU0UTY2IDE2MiA3MCAxNThUNzUgMTQ2VDgyIDExOVQxMDEgNzdRMTM2IDI2IDE5OCAyNlEyOTUgMjYgMjk1IDEwNFEyOTUgMTMzIDI3NyAxNTFRMjU3IDE3NSAxOTQgMTg3VDExMSAyMTBRNzUgMjI3IDU0IDI1NlQzMyAzMThRMzMgMzU3IDUwIDM4NFQ5MyA0MjRUMTQzIDQ0MlQxODcgNDQ3SDE5OFEyMzggNDQ3IDI2OCA0MzJMMjgzIDQyNEwyOTIgNDMxUTMwMiA0NDAgMzE0IDQ0OEgzMjJIMzI2UTMyOSA0NDggMzM1IDQ0MlYzMTBMMzI5IDMwNEgzMDFRMjk1IDMxMCAyOTUgMzE2WiIvPjxwYXRoIGlkPSJNSlgtMy1URVgtTi0yMDYxIiBkPSIiLz48cGF0aCBpZD0iTUpYLTMtVEVYLU4tMjgiIGQ9Ik05NCAyNTBROTQgMzE5IDEwNCAzODFUMTI3IDQ4OFQxNjQgNTc2VDIwMiA2NDNUMjQ0IDY5NVQyNzcgNzI5VDMwMiA3NTBIMzE1SDMxOVEzMzMgNzUwIDMzMyA3NDFRMzMzIDczOCAzMTYgNzIwVDI3NSA2NjdUMjI2IDU4MVQxODQgNDQzVDE2NyAyNTBUMTg0IDU4VDIyNSAtODFUMjc0IC0xNjdUMzE2IC0yMjBUMzMzIC0yNDFRMzMzIC0yNTAgMzE4IC0yNTBIMzE1SDMwMkwyNzQgLTIyNlExODAgLTE0MSAxMzcgLTE0VDk0IDI1MFoiLz48cGF0aCBpZD0iTUpYLTMtVEVYLUktMUQ3MDMiIGQ9Ik0zNSAyMDBRMzUgMzAyIDc0IDQxNVQxODAgNjEwVDMxOSA3MDRRMzIwIDcwNCAzMjcgNzA0VDMzOSA3MDVRMzkzIDcwMSA0MjMgNjU2UTQ2MiA1OTYgNDYyIDQ5NVE0NjIgMzgwIDQxNyAyNjFUMzAyIDY2VDE2OCAtMTBIMTYxUTEyNSAtMTAgOTkgMTBUNjAgNjNUNDEgMTMwVDM1IDIwMFpNMzgzIDU2NlEzODMgNjY4IDMzMCA2NjhRMjk0IDY2OCAyNjAgNjIzVDIwNCA1MjFUMTcwIDQyMVQxNTcgMzcxUTIwNiAzNzAgMjU0IDM3MEwzNTEgMzcxUTM1MiAzNzIgMzU5IDQwNFQzNzUgNDg0VDM4MyA1NjZaTTExMyAxMzJRMTEzIDI2IDE2NiAyNlExODEgMjYgMTk4IDM2VDIzOSA3NFQyODcgMTYxVDMzNSAzMDdMMzQwIDMyNEgxNDVRMTQ1IDMyMSAxMzYgMjg2VDEyMCAyMDhUMTEzIDEzMloiLz48cGF0aCBpZD0iTUpYLTMtVEVYLU4tMjkiIGQ9Ik02MCA3NDlMNjQgNzUwUTY5IDc1MCA3NCA3NTBIODZMMTE0IDcyNlEyMDggNjQxIDI1MSA1MTRUMjk0IDI1MFEyOTQgMTgyIDI4NCAxMTlUMjYxIDEyVDIyNCAtNzZUMTg2IC0xNDNUMTQ1IC0xOTRUMTEzIC0yMjdUOTAgLTI0NlE4NyAtMjQ5IDg2IC0yNTBINzRRNjYgLTI1MCA2MyAtMjUwVDU4IC0yNDdUNTUgLTIzOFE1NiAtMjM3IDY2IC0yMjVRMjIxIC02NCAyMjEgMjUwVDY2IDcyNVE1NiA3MzcgNTUgNzM4UTU1IDc0NiA2MCA3NDlaIi8+PC9kZWZzPjxnIHN0cm9rZT0iY3VycmVudENvbG9yIiBmaWxsPSJjdXJyZW50Q29sb3IiIHN0cm9rZS13aWR0aD0iMCIgdHJhbnNmb3JtPSJzY2FsZSgxLC0xKSI+PGcgZGF0YS1tbWwtbm9kZT0ibWF0aCI+PGcgZGF0YS1tbWwtbm9kZT0ibXN0eWxlIiBmaWxsPSJncmVlbiIgc3Ryb2tlPSJncmVlbiI+PGcgZGF0YS1tbWwtbm9kZT0ibWkiPjx1c2UgZGF0YS1jPSIxRDQ2MiIgeGxpbms6aHJlZj0iI01KWC0zLVRFWC1JLTFENDYyIi8+PC9nPjxnIGRhdGEtbW1sLW5vZGU9Im1vIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg4NDkuOCwwKSI+PHVzZSBkYXRhLWM9IjNEIiB4bGluazpocmVmPSIjTUpYLTMtVEVYLU4tM0QiLz48L2c+PGcgZGF0YS1tbWwtbm9kZT0ibWkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE5MDUuNiwwKSI+PHVzZSBkYXRhLWM9IjYzIiB4bGluazpocmVmPSIjTUpYLTMtVEVYLU4tNjMiLz48dXNlIGRhdGEtYz0iNkYiIHhsaW5rOmhyZWY9IiNNSlgtMy1URVgtTi02RiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDQ0LDApIi8+PHVzZSBkYXRhLWM9IjczIiB4bGluazpocmVmPSIjTUpYLTMtVEVYLU4tNzMiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDk0NCwwKSIvPjwvZz48ZyBkYXRhLW1tbC1ub2RlPSJtbyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzI0My42LDApIj48dXNlIGRhdGEtYz0iMjA2MSIgeGxpbms6aHJlZj0iI01KWC0zLVRFWC1OLTIwNjEiLz48L2c+PGcgZGF0YS1tbWwtbm9kZT0ibW8iIHRyYW5zZm9ybT0idHJhbnNsYXRlKDMyNDMuNiwwKSI+PHVzZSBkYXRhLWM9IjI4IiB4bGluazpocmVmPSIjTUpYLTMtVEVYLU4tMjgiLz48L2c+PGcgZGF0YS1tbWwtbm9kZT0ibWkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDM2MzIuNiwwKSI+PHVzZSBkYXRhLWM9IjFENzAzIiB4bGluazpocmVmPSIjTUpYLTMtVEVYLUktMUQ3MDMiLz48L2c+PGcgZGF0YS1tbWwtbm9kZT0ibW8iIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQxMDEuNiwwKSI+PHVzZSBkYXRhLWM9IjI5IiB4bGluazpocmVmPSIjTUpYLTMtVEVYLU4tMjkiLz48L2c+PC9nPjwvZz48L2c+PHN0eWxlPi5tangtc29saWQgeyBzdHJva2Utd2lkdGg6IDgwcHg7IH08L3N0eWxlPjwvc3ZnPg==" preserveAspectRatio="none" width="100%" height="100%"></image></symbol><symbol id="image-2cea2c701a4a54e2a28dba8c9cc07bae6d93b798"><image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiBzdHlsZT0idmVydGljYWwtYWxpZ246IC0wLjMzZXg7IiB3aWR0aD0iODQuODYiIGhlaWdodD0iMjguNTEiIHJvbGU9ImltZyIgZm9jdXNhYmxlPSJmYWxzZSIgdmlld0JveD0iMCAtMTExNC4yIDM3NTEgMTI2MCI+PGRlZnM+PHBhdGggaWQ9Ik1KWC0xLVRFWC1TTy0yMjFBIiBkPSJNMjYzIDI0OVEyNjQgMjQ5IDMxNSAxMzBUNDE3IC0xMDhUNDcwIC0yMjhMNzI1IDMwMlE5ODEgODM3IDk4MiA4MzlROTg5IDg1MCAxMDAxIDg1MFExMDA4IDg1MCAxMDEzIDg0NFQxMDIwIDgzMlY4MjZMNzQxIDI0M1E2NDUgNDMgNTQwIC0xNzZRNDc5IC0zMDMgNDY5IC0zMjRUNDUzIC0zNDhRNDQ5IC0zNTAgNDM2IC0zNTBMNDI0IC0zNDlMMzE1IC05NlEyMDYgMTU2IDIwNSAxNTZMMTcxIDEzMFExMzggMTA0IDEzNyAxMDRMMTExIDEzMEwyNjMgMjQ5WiIvPjxwYXRoIGlkPSJNSlgtMS1URVgtTi0zMSIgZD0iTTIxMyA1NzhMMjAwIDU3M1ExODYgNTY4IDE2MCA1NjNUMTAyIDU1Nkg4M1Y2MDJIMTAyUTE0OSA2MDQgMTg5IDYxN1QyNDUgNjQxVDI3MyA2NjNRMjc1IDY2NiAyODUgNjY2UTI5NCA2NjYgMzAyIDY2MFYzNjFMMzAzIDYxUTMxMCA1NCAzMTUgNTJUMzM5IDQ4VDQwMSA0Nkg0MjdWMEg0MTZRMzk1IDMgMjU3IDNRMTIxIDMgMTAwIDBIODhWNDZIMTE0UTEzNiA0NiAxNTIgNDZUMTc3IDQ3VDE5MyA1MFQyMDEgNTJUMjA3IDU3VDIxMyA2MVY1NzhaIi8+PHBhdGggaWQ9Ik1KWC0xLVRFWC1OLTIyMTIiIGQ9Ik04NCAyMzdUODQgMjUwVDk4IDI3MEg2NzlRNjk0IDI2MiA2OTQgMjUwVDY3OSAyMzBIOThRODQgMjM3IDg0IDI1MFoiLz48cGF0aCBpZD0iTUpYLTEtVEVYLUktMUQ0NjIiIGQ9Ik0yMSAyODdRMjEgMjk1IDMwIDMxOFQ1NSAzNzBUOTkgNDIwVDE1OCA0NDJRMjA0IDQ0MiAyMjcgNDE3VDI1MCAzNThRMjUwIDM0MCAyMTYgMjQ2VDE4MiAxMDVRMTgyIDYyIDE5NiA0NVQyMzggMjdUMjkxIDQ0VDMyOCA3OEwzMzkgOTVRMzQxIDk5IDM3NyAyNDdRNDA3IDM2NyA0MTMgMzg3VDQyNyA0MTZRNDQ0IDQzMSA0NjMgNDMxUTQ4MCA0MzEgNDg4IDQyMVQ0OTYgNDAyTDQyMCA4NFE0MTkgNzkgNDE5IDY4UTQxOSA0MyA0MjYgMzVUNDQ3IDI2UTQ2OSAyOSA0ODIgNTdUNTEyIDE0NVE1MTQgMTUzIDUzMiAxNTNRNTUxIDE1MyA1NTEgMTQ0UTU1MCAxMzkgNTQ5IDEzMFQ1NDAgOThUNTIzIDU1VDQ5OCAxN1Q0NjIgLThRNDU0IC0xMCA0MzggLTEwUTM3MiAtMTAgMzQ3IDQ2UTM0NSA0NSAzMzYgMzZUMzE4IDIxVDI5NiA2VDI2NyAtNlQyMzMgLTExUTE4OSAtMTEgMTU1IDdRMTAzIDM4IDEwMyAxMTNRMTAzIDE3MCAxMzggMjYyVDE3MyAzNzlRMTczIDM4MCAxNzMgMzgxUTE3MyAzOTAgMTczIDM5M1QxNjkgNDAwVDE1OCA0MDRIMTU0UTEzMSA0MDQgMTEyIDM4NVQ4MiAzNDRUNjUgMzAyVDU3IDI4MFE1NSAyNzggNDEgMjc4SDI3UTIxIDI4NCAyMSAyODdaIi8+PHBhdGggaWQ9Ik1KWC0xLVRFWC1OLTMyIiBkPSJNMTA5IDQyOVE4MiA0MjkgNjYgNDQ3VDUwIDQ5MVE1MCA1NjIgMTAzIDYxNFQyMzUgNjY2UTMyNiA2NjYgMzg3IDYxMFQ0NDkgNDY1UTQ0OSA0MjIgNDI5IDM4M1QzODEgMzE1VDMwMSAyNDFRMjY1IDIxMCAyMDEgMTQ5TDE0MiA5M0wyMTggOTJRMzc1IDkyIDM4NSA5N1EzOTIgOTkgNDA5IDE4NlYxODlINDQ5VjE4NlE0NDggMTgzIDQzNiA5NVQ0MjEgM1YwSDUwVjE5VjMxUTUwIDM4IDU2IDQ2VDg2IDgxUTExNSAxMTMgMTM2IDEzN1ExNDUgMTQ3IDE3MCAxNzRUMjA0IDIxMVQyMzMgMjQ0VDI2MSAyNzhUMjg0IDMwOFQzMDUgMzQwVDMyMCAzNjlUMzMzIDQwMVQzNDAgNDMxVDM0MyA0NjRRMzQzIDUyNyAzMDkgNTczVDIxMiA2MTlRMTc5IDYxOSAxNTQgNjAyVDExOSA1NjlUMTA5IDU1MFExMDkgNTQ5IDExNCA1NDlRMTMyIDU0OSAxNTEgNTM1VDE3MCA0ODlRMTcwIDQ2NCAxNTQgNDQ3VDEwOSA0MjlaIi8+PC9kZWZzPjxnIHN0cm9rZT0iY3VycmVudENvbG9yIiBmaWxsPSJjdXJyZW50Q29sb3IiIHN0cm9rZS13aWR0aD0iMCIgdHJhbnNmb3JtPSJzY2FsZSgxLC0xKSI+PGcgZGF0YS1tbWwtbm9kZT0ibWF0aCI+PGcgZGF0YS1tbWwtbm9kZT0ibXN0eWxlIiBmaWxsPSJncmVlbiIgc3Ryb2tlPSJncmVlbiI+PGcgZGF0YS1tbWwtbm9kZT0ibXNxcnQiPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwMjAsMCkiPjxnIGRhdGEtbW1sLW5vZGU9Im1uIj48dXNlIGRhdGEtYz0iMzEiIHhsaW5rOmhyZWY9IiNNSlgtMS1URVgtTi0zMSIvPjwvZz48ZyBkYXRhLW1tbC1ub2RlPSJtbyIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNzIyLjIsMCkiPjx1c2UgZGF0YS1jPSIyMjEyIiB4bGluazpocmVmPSIjTUpYLTEtVEVYLU4tMjIxMiIvPjwvZz48ZyBkYXRhLW1tbC1ub2RlPSJtc3VwIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNzIyLjQsMCkiPjxnIGRhdGEtbW1sLW5vZGU9Im1pIj48dXNlIGRhdGEtYz0iMUQ0NjIiIHhsaW5rOmhyZWY9IiNNSlgtMS1URVgtSS0xRDQ2MiIvPjwvZz48ZyBkYXRhLW1tbC1ub2RlPSJtbiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNjA1LDI4OSkgc2NhbGUoMC43MDcpIj48dXNlIGRhdGEtYz0iMzIiIHhsaW5rOmhyZWY9IiNNSlgtMS1URVgtTi0zMiIvPjwvZz48L2c+PC9nPjxnIGRhdGEtbW1sLW5vZGU9Im1vIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwLDIwNC4yKSI+PHVzZSBkYXRhLWM9IjIyMUEiIHhsaW5rOmhyZWY9IiNNSlgtMS1URVgtU08tMjIxQSIvPjwvZz48cmVjdCB3aWR0aD0iMjczMSIgaGVpZ2h0PSI2MCIgeD0iMTAyMCIgeT0iOTk0LjIiLz48L2c+PC9nPjwvZz48L2c+PHN0eWxlPi5tangtc29saWQgeyBzdHJva2Utd2lkdGg6IDgwcHg7IH08L3N0eWxlPjwvc3ZnPg==" preserveAspectRatio="none" width="100%" height="100%"></image></symbol><style class="style-fonts">
+      @font-face { font-family: Nunito; src: url(data:font/woff2;base64,d09GMgABAAAAAAkEAA8AAAAAEZgAAAioAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGkgbhCocgVIGYD9TVEFURAB6EQgKkVSOBgs0AAE2AiQDZAQgBYQkByAbkQ5RlHLSXMi+KrCJTAvcg2uGEm/t5ZZJ+QNyNLy620UIWrMt95bH54UQcqEwm4HS3/HQM1b7MyveThDTJqJZrXKNt5lQrEFLhEJSyRYZeF6W8/1/YwxFkGNqFEHNeOKncWep0RdfW+k7xDY71JXRcEb3YNGwr8q43r/cfxBDqDrz/cD1pY2rTJ8yrqDW06slftqfk9qc+kqYS1lfVimsUgZ8d78P0kuEhtGjtVZ3TrB2T/qGekiipVPKi+2LYoupVrxRRRPRPLknkoZIJhJaYzO3iWEarNeFNBMPJl9+PImAdYAhdKkWH0IVxBAmCQJ4KrQ35BAejwjkEAUUjUDfTAT9wKG2PhBd6xnygOh+Q+QDEQZ4xjS4dyPkAxoUPpPmaizDWO0jwUDcjm3YAtMy1Kc29nRAXdnRBfbg6stTfGayrWgk1ckdAzRPVPOi4pT1apUOaKkqGlb/gAsBPnMvJ/j1HUKP3tg0awwsawsjzbkksqiXK7zf46PDXpPBqO4y0QGcQ+kSSgDOOBHEvpFBOJdiQvA4g9Q3mCw+l0hEm8/RufHK56hAwFJBx5sc8TWtFuSLGgPFh5kqbUUSICoxONT+vgqE8IUsNupq6wmgA9dMZfTdoKuELmKLdrOgnTpRF0V2oVJrFP4QaLrc9o4rafXG/Tt2I0Tdb2/2gGLlXgQIUCKWwPYkS6ZgSIuqB9cqZCsLAwWagNjisGgmEG+qRNIJim0V5DAOM0PxgYx8nEPAcVhIXKSKGNPwQfQH0y8A+yBKj8bv//NBc3ukLYI8AcTXPAAWoZ/TeEys0LJ6M7ccCIMfuzBGpSsxWMka2jKoSI8W8kWDhIZqgiMCa4YH5juuTRMODdd38QhARgsAhDNz8HxCS9S/2tSCmg8Wc9a8mluzWpQ8xDS+zRHrpaQAD5gNYAtgDpBvQGMGWAWYB5wvUClEFSiUyjDLAgpseXJhq5rrsBq4bC7KlhmEXPsOlH6nxcXG2FUj165hw+g6MwDMUWgPbTxg/fQOYzKw6NeMTFk2a9ZsuPu67gJfhRwQqBdC6Kw5+SvGJEbqOlozOnXmjClLsFXHiBL1PQiMsZtas09fGkaJVxiJvRwtkz4wDIlB0MwkR7rgSrW5+DLYQJhflKilIbl4A4wUEcIxEKpzvjhTliq740rVyCqEmUWuNcwSWlLoqyfGC7w6U8SGI+cAK0PoxQloA4zU7EJHJ3NzMwhz4HBgAmiWKRir6+UoTt0GuliV+WWzZk+Hx6/00ejKhKm/a4qCLRgbpk+djDRMWZLJQGBVaCXoRFdhjK5I07IZyWQzBPbCiY4FBgSqG7JMxKxRfWmldOYKgyFUQx0NsWluynJ051Wyag8ZkqFqx2TXWE8mOlWuDcaZYNUixBXTitjS1mpJrAQttfKz+A7xlC2lZ8mrg4HV2U5pL1qVObi03KzGTEkVpH9hxopxvg+rxuoTpM0zSC1nmJCsg8YxaQNMIgsS1l82C66ejyhH7YtBmZGeNWnk93+cuatgduTaQnX7y9q4Y06yBidHbW7oMU1RWTvHv0S1+YJKz/oOKSPaahSYiMoWa5WcTGl1VNwcFmahTVwF5ErcqWgnKqapncRraCN6Es1crq9/ZzwLdkqMw9sIcXvV8gbFktTA45We8pou+16KAlombkgEO5FUoAPcHUHUxb+ytLAZhnWDnWB3DO0Oay98Xq/aXujArbryeA2ydo4dt+jDf4iqA5KVBxLJDmRZomOr7HwvpemrqBHha4TVYtmcgKpoqcOT69BXCKbX6q9dUZPDe3gx+w9Mv5F+l4FJHFl32DMh9PEFXmHV4caG9ZrUzrh9qKqcd39NvVGnzHIuLPQK+D5Rs55u0JUi7g47wW4o1g0qOUW6aDJeajNWJdKlzTGsO0QIZRgvo3LfsFySxD3heEmPX9hDMh62xOrI38hkr5TKUwrJmSOXAsy9x9pdAu/2awShs9JuGNoNHquwUOVmxmZxEgvFrYZ34JNze40q34re633eIkvWhQZrc1ERQzeAXy2Y4YA2g5XWIWsQOTtCRc5ktCMZ09RJEtV0IQU6UHX7D3ZtGXwP7Y6Rhe7eDNZe+K0ukUPUTwQ7UGSg02lCRM4frPuyn2ywitIhB+gQmTxCkVbq/ZPM/+rJHPqLh04LEXwivaEx+5W0OXjhrCXuuWyI4X7NVtMmgSHcXaugmtcR3q3A/U5PTnV91EFh37ZZ6u72nB7ta0ItdTIkXEeIc6rLAnmtKCAQp6ym8tg3/BSugbeF3TCsGWzb87Sdtue7wuv5omlMS0fEHVbabIYeMrcie38NcS48fkFNmOe0njNynWaeM6c1j09gfhZULKsv31fnLHzKLvWkXbPbXCJbNqjTuHbmAbJvnH+f+WtPxqwD87EWklGwJsR6wq7XxjIZ9RR3ZLJbCsXZfoVHxjmNmdK1aS1RWKGRy/7L5QwDOi4b1JLvlkh3SGUrpNJVHFFWyIS29iEg7SGtTEcQVYR0xkf2/QOwZ4h99bGe+4j1yH75SlkR8SIPYdB4Pr/dvevOJd6Ov+j0F4A3cHwNeO8bt//PABUprckDtCkQ+DrAZwjEHQNiut3s+JCTYoG4kJatPSTZJfoQM6HYIyjzFurWeIVqpCvGTLmJR5rjgbv8F+lhq28KObMkjc1AxLj3B4IM8AsUA9WCwWx1kH2Qypeq+w18EUkzC+Cln72j2DjhqGJ/joaj4Z4m7Wjp1XGwrbgqIYChqQ0IW0Ma638lLSac4+dl5NPOysIJ59UMMfJwMhtk5WTngHTA+TghfvVGISFGbVTv9BxcD7AKCf/UzyeKn0uIh2/rM47SqUN9V+YMPdhuYw/dO5Su/6gwYNTitfwCxoSo5Xw8vAI0qmhgbSNHUkEIsAtVmbmEgEO8g7+F8VEseRAkoJAS7pmqebr6DjiTDI1lFiHY75a387CyyYIRG2dCi5LSk9FNI6oEFQAAAA==); }
+      @font-face { font-family: Lilita One; src: url(data:font/woff2;base64,d09GMgABAAAAAAIwAA4AAAAABGQAAAHhAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGhQbDBwYBmAANBEIClRyCwYAATYCJAMIBCAFgyQHIBuLA8g+DPBkNF7PEBbUuW91rUXRhsXLjwdOCJxqwBoPX/u9nrv7AgSS3BcqYNGCcJnYeLKZCJPxMSYWoa1qfdkB7z3r+tkD20XPuyRE+lsLMOT486H2P3OV9ZNHU1VXxwm2W+SppkvyFP7epB6gOGGVCxHA9bVoudPAA775u7XX1jJtAbUFmFkgcVugYVFgSVuUYHbLpLCxGX7SZbhBXxBoBYRJmimBZv2txDbpaJABpDiJUUc6TcJhLxbv1PyTACAAYG394RGWXG6uBMjH3gIB8TuNSTEkZPSKC/RKmAQqlcBO2Ug5FPAuyoAEKgTGgEnAp7mxzSrttvQsqdS1Wz6nmo8x0RuiL/lbWJscfLXK3ZxFzPufYPGc7cnPPwOWgKlysWKBcJDClvAtI7+Hm64llUWFWV40SiDIx4UgfwXiDSUAAMkFSJMaCCTLUiAAANBgQ1xUTTiFo4fQK0LSbhvZnE5YYdQZVvhvvW5giUghcpBuaVgvWBabSKdBQz0DAyNnLpLmmk7j0FlYJI1uDDkGnae7RwaGhh6weC4FyVqe39AZQhYRT+BADbQmweKFODqvjQT1cuqn0ilINAGphyKKNHUgn8ghQA9YNpbFw2KgPdlDN0gqlEb105vq4kBJTQE=); }</style></defs><rect x="0" y="0" width="522.0917358398438" height="551.8493549156562" fill="#ffffff"></rect><g stroke-linecap="round" transform="translate(123.64225115717451 299.84935491565625) rotate(0 131 36.5)"><path d="M262 36.5 C262 37.69, 261.79 38.89, 261.37 40.08 C260.95 41.26, 260.32 42.45, 259.48 43.62 C258.65 44.79, 257.6 45.95, 256.36 47.1 C255.12 48.24, 253.67 49.37, 252.03 50.47 C250.39 51.57, 248.55 52.65, 246.53 53.71 C244.51 54.76, 242.3 55.79, 239.92 56.78 C237.54 57.77, 234.98 58.73, 232.26 59.66 C229.55 60.58, 226.66 61.47, 223.63 62.31 C220.6 63.15, 217.41 63.96, 214.11 64.71 C210.8 65.47, 207.34 66.19, 203.78 66.85 C200.22 67.51, 196.53 68.13, 192.75 68.69 C188.98 69.25, 185.09 69.77, 181.13 70.22 C177.18 70.68, 173.12 71.08, 169.03 71.43 C164.93 71.77, 160.75 72.07, 156.56 72.3 C152.36 72.53, 148.1 72.71, 143.84 72.82 C139.58 72.94, 135.28 73, 131 73 C126.72 73, 122.42 72.94, 118.16 72.82 C113.9 72.71, 109.64 72.53, 105.44 72.3 C101.25 72.07, 97.07 71.77, 92.97 71.43 C88.88 71.08, 84.82 70.68, 80.87 70.22 C76.91 69.77, 73.02 69.25, 69.25 68.69 C65.47 68.13, 61.78 67.51, 58.22 66.85 C54.66 66.19, 51.2 65.47, 47.89 64.71 C44.59 63.96, 41.4 63.15, 38.37 62.31 C35.34 61.47, 32.45 60.58, 29.74 59.66 C27.02 58.73, 24.46 57.77, 22.08 56.78 C19.7 55.79, 17.49 54.76, 15.47 53.71 C13.45 52.65, 11.61 51.57, 9.97 50.47 C8.33 49.37, 6.88 48.24, 5.64 47.1 C4.4 45.95, 3.35 44.79, 2.52 43.62 C1.68 42.45, 1.05 41.26, 0.63 40.08 C0.21 38.89, 0 37.69, 0 36.5 C0 35.31, 0.21 34.11, 0.63 32.92 C1.05 31.74, 1.68 30.55, 2.52 29.38 C3.35 28.21, 4.4 27.05, 5.64 25.9 C6.88 24.76, 8.33 23.63, 9.97 22.53 C11.61 21.43, 13.45 20.35, 15.47 19.29 C17.49 18.24, 19.7 17.21, 22.08 16.22 C24.46 15.23, 27.02 14.27, 29.74 13.34 C32.45 12.42, 35.34 11.53, 38.37 10.69 C41.4 9.85, 44.59 9.04, 47.89 8.29 C51.2 7.53, 54.66 6.81, 58.22 6.15 C61.78 5.49, 65.47 4.87, 69.25 4.31 C73.02 3.75, 76.91 3.23, 80.87 2.78 C84.82 2.32, 88.88 1.92, 92.97 1.57 C97.07 1.23, 101.25 0.93, 105.44 0.7 C109.64 0.47, 113.9 0.29, 118.16 0.18 C122.42 0.06, 126.72 0, 131 0 C135.28 0, 139.58 0.06, 143.84 0.18 C148.1 0.29, 152.36 0.47, 156.56 0.7 C160.75 0.93, 164.93 1.23, 169.03 1.57 C173.12 1.92, 177.18 2.32, 181.13 2.78 C185.09 3.23, 188.98 3.75, 192.75 4.31 C196.53 4.87, 200.22 5.49, 203.78 6.15 C207.34 6.81, 210.8 7.53, 214.11 8.29 C217.41 9.04, 220.6 9.85, 223.63 10.69 C226.66 11.53, 229.55 12.42, 232.26 13.34 C234.98 14.27, 237.54 15.23, 239.92 16.22 C242.3 17.21, 244.51 18.24, 246.53 19.29 C248.55 20.35, 250.39 21.43, 252.03 22.53 C253.67 23.63, 255.12 24.76, 256.36 25.9 C257.6 27.05, 258.65 28.21, 259.48 29.38 C260.32 30.55, 260.95 31.74, 261.37 32.92 C261.79 34.11, 261.89 35.9, 262 36.5 C262.11 37.1, 262.11 35.9, 262 36.5" stroke="#1e1e1e" stroke-width="2.5" fill="none" stroke-dasharray="8 10"></path></g><g stroke-linecap="round" transform="translate(204.6422511571745 95.84935491565625) rotate(0 52 222.5)"><path d="M104 222.5 C104 228.04, 103.95 233.6, 103.85 239.13 C103.76 244.65, 103.61 250.18, 103.42 255.66 C103.23 261.14, 102.98 266.61, 102.7 272.01 C102.41 277.41, 102.07 282.79, 101.69 288.08 C101.31 293.38, 100.88 298.63, 100.41 303.79 C99.93 308.95, 99.41 314.05, 98.85 319.04 C98.29 324.03, 97.68 328.95, 97.03 333.75 C96.39 338.55, 95.69 343.26, 94.96 347.84 C94.23 352.42, 93.46 356.89, 92.66 361.23 C91.85 365.56, 91 369.78, 90.12 373.84 C89.24 377.9, 88.32 381.83, 87.37 385.6 C86.42 389.37, 85.43 393, 84.42 396.46 C83.41 399.91, 82.36 403.22, 81.29 406.34 C80.22 409.46, 79.12 412.42, 78 415.19 C76.88 417.96, 75.73 420.56, 74.56 422.97 C73.39 425.37, 72.2 427.59, 71 429.62 C69.79 431.64, 68.57 433.48, 67.33 435.11 C66.09 436.75, 64.83 438.19, 63.57 439.42 C62.31 440.65, 61.03 441.69, 59.75 442.51 C58.47 443.34, 57.18 443.96, 55.89 444.38 C54.59 444.79, 53.3 445, 52 445 C50.7 445, 49.41 444.79, 48.11 444.38 C46.82 443.96, 45.53 443.34, 44.25 442.51 C42.97 441.69, 41.69 440.65, 40.43 439.42 C39.17 438.19, 37.91 436.75, 36.67 435.11 C35.43 433.48, 34.21 431.64, 33 429.62 C31.8 427.59, 30.61 425.37, 29.44 422.97 C28.27 420.56, 27.12 417.96, 26 415.19 C24.88 412.42, 23.78 409.46, 22.71 406.34 C21.64 403.22, 20.59 399.91, 19.58 396.46 C18.57 393, 17.58 389.37, 16.63 385.6 C15.68 381.83, 14.76 377.9, 13.88 373.84 C13 369.78, 12.15 365.56, 11.34 361.23 C10.54 356.89, 9.77 352.42, 9.04 347.84 C8.31 343.26, 7.61 338.55, 6.97 333.75 C6.32 328.95, 5.71 324.03, 5.15 319.04 C4.59 314.05, 4.07 308.95, 3.59 303.79 C3.12 298.63, 2.69 293.38, 2.31 288.08 C1.93 282.79, 1.59 277.41, 1.3 272.01 C1.02 266.61, 0.77 261.14, 0.58 255.66 C0.39 250.18, 0.24 244.65, 0.15 239.13 C0.05 233.6, 0 228.04, 0 222.5 C0 216.96, 0.05 211.4, 0.15 205.87 C0.24 200.35, 0.39 194.82, 0.58 189.34 C0.77 183.86, 1.02 178.39, 1.3 172.99 C1.59 167.59, 1.93 162.21, 2.31 156.92 C2.69 151.62, 3.12 146.37, 3.59 141.21 C4.07 136.05, 4.59 130.95, 5.15 125.96 C5.71 120.97, 6.32 116.05, 6.97 111.25 C7.61 106.45, 8.31 101.74, 9.04 97.16 C9.77 92.58, 10.54 88.11, 11.34 83.77 C12.15 79.44, 13 75.22, 13.88 71.16 C14.76 67.1, 15.68 63.17, 16.63 59.4 C17.58 55.63, 18.57 52, 19.58 48.54 C20.59 45.09, 21.64 41.78, 22.71 38.66 C23.78 35.54, 24.88 32.58, 26 29.81 C27.12 27.04, 28.27 24.44, 29.44 22.03 C30.61 19.63, 31.8 17.41, 33 15.38 C34.21 13.36, 35.43 11.52, 36.67 9.89 C37.91 8.25, 39.17 6.81, 40.43 5.58 C41.69 4.35, 42.97 3.31, 44.25 2.49 C45.53 1.66, 46.82 1.04, 48.11 0.62 C49.41 0.21, 50.7 0, 52 0 C53.3 0, 54.59 0.21, 55.89 0.62 C57.18 1.04, 58.47 1.66, 59.75 2.49 C61.03 3.31, 62.31 4.35, 63.57 5.58 C64.83 6.81, 66.09 8.25, 67.33 9.89 C68.57 11.52, 69.79 13.36, 71 15.38 C72.2 17.41, 73.39 19.63, 74.56 22.03 C75.73 24.44, 76.88 27.04, 78 29.81 C79.12 32.58, 80.22 35.54, 81.29 38.66 C82.36 41.78, 83.41 45.09, 84.42 48.54 C85.43 52, 86.42 55.63, 87.37 59.4 C88.32 63.17, 89.24 67.1, 90.12 71.16 C91 75.22, 91.85 79.44, 92.66 83.77 C93.46 88.11, 94.23 92.58, 94.96 97.16 C95.69 101.74, 96.39 106.45, 97.03 111.25 C97.68 116.05, 98.29 120.97, 98.85 125.96 C99.41 130.95, 99.93 136.05, 100.41 141.21 C100.88 146.37, 101.31 151.62, 101.69 156.92 C102.07 162.21, 102.41 167.59, 102.7 172.99 C102.98 178.39, 103.23 183.86, 103.42 189.34 C103.61 194.82, 103.76 200.35, 103.85 205.87 C103.95 211.4, 104 216.96, 104 222.5" stroke="#1e1e1e" stroke-width="2.5" fill="none" stroke-dasharray="1.5 8"></path></g><g stroke-linecap="round"><g transform="translate(256.64225115717454 329.84935491565625) rotate(0 0.005200000000002092 -117)"><path d="M0 0 C0 -57.59, 0.01 -115.18, 0.01 -234 M0 0 C0 -92.27, 0.01 -184.54, 0.01 -234" stroke="#1e1e1e" stroke-width="2" fill="none"></path></g><g transform="translate(256.64225115717454 329.84935491565625) rotate(0 0.005200000000002092 -117)"><path d="M0.01 -234 L6.35 -220.41 L-6.33 -220.41 L0.01 -234" stroke="none" stroke-width="0" fill="#1e1e1e" fill-rule="evenodd"></path><path d="M0.01 -234 C1.57 -230.65, 3.13 -227.31, 6.35 -220.41 M0.01 -234 C2.51 -228.64, 5.01 -223.28, 6.35 -220.41 M6.35 -220.41 C3.73 -220.41, 1.11 -220.41, -6.33 -220.41 M6.35 -220.41 C2.65 -220.41, -1.05 -220.41, -6.33 -220.41 M-6.33 -220.41 C-4.55 -224.22, -2.77 -228.03, 0.01 -234 M-6.33 -220.41 C-4.15 -225.08, -1.97 -229.75, 0.01 -234 M0.01 -234 C0.01 -234, 0.01 -234, 0.01 -234 M0.01 -234 C0.01 -234, 0.01 -234, 0.01 -234" stroke="#1e1e1e" stroke-width="2" fill="none"></path></g></g><mask></mask><g transform="translate(250.5733538366856 70.6257313069977) rotate(0 42.75196838378906 10)"><text x="0" y="15.264000000000001" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="16px" fill="#1e1e1e" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">polar axis, c</text></g><g stroke-linecap="round" transform="translate(123.64225115717451 93.84935491565625) rotate(0 131 224)"><path d="M262 224 C262 229.33, 261.89 234.67, 261.67 239.98 C261.44 245.29, 261.11 250.61, 260.67 255.88 C260.22 261.15, 259.67 266.41, 259.01 271.61 C258.34 276.82, 257.57 282, 256.69 287.11 C255.82 292.22, 254.83 297.29, 253.74 302.28 C252.65 307.27, 251.46 312.21, 250.16 317.05 C248.87 321.9, 247.47 326.68, 245.98 331.35 C244.48 336.03, 242.89 340.62, 241.2 345.1 C239.52 349.58, 237.74 353.97, 235.87 358.24 C234 362.5, 232.04 366.66, 230 370.69 C227.96 374.71, 225.83 378.63, 223.63 382.39 C221.43 386.16, 219.14 389.8, 216.79 393.29 C214.43 396.78, 212 400.13, 209.51 403.32 C207.01 406.51, 204.44 409.56, 201.82 412.44 C199.2 415.32, 196.52 418.05, 193.78 420.6 C191.05 423.15, 188.25 425.54, 185.42 427.76 C182.59 429.97, 179.7 432.02, 176.78 433.88 C173.86 435.74, 170.9 437.43, 167.91 438.93 C164.92 440.43, 161.89 441.75, 158.85 442.88 C155.8 444.01, 152.73 444.96, 149.64 445.72 C146.56 446.48, 143.45 447.05, 140.35 447.43 C137.24 447.81, 134.12 448, 131 448 C127.88 448, 124.76 447.81, 121.65 447.43 C118.55 447.05, 115.44 446.48, 112.36 445.72 C109.27 444.96, 106.2 444.01, 103.15 442.88 C100.11 441.75, 97.08 440.43, 94.09 438.93 C91.1 437.43, 88.14 435.74, 85.22 433.88 C82.3 432.02, 79.41 429.97, 76.58 427.76 C73.75 425.54, 70.95 423.15, 68.22 420.6 C65.48 418.05, 62.8 415.32, 60.18 412.44 C57.56 409.56, 54.99 406.51, 52.49 403.32 C50 400.13, 47.57 396.78, 45.21 393.29 C42.86 389.8, 40.57 386.16, 38.37 382.39 C36.17 378.63, 34.04 374.71, 32 370.69 C29.96 366.66, 28 362.5, 26.13 358.24 C24.26 353.97, 22.48 349.58, 20.8 345.1 C19.11 340.62, 17.52 336.03, 16.02 331.35 C14.53 326.68, 13.13 321.9, 11.84 317.05 C10.54 312.21, 9.35 307.27, 8.26 302.28 C7.17 297.29, 6.18 292.22, 5.31 287.11 C4.43 282, 3.66 276.82, 2.99 271.61 C2.33 266.41, 1.78 261.15, 1.33 255.88 C0.89 250.61, 0.56 245.29, 0.33 239.98 C0.11 234.67, 0 229.33, 0 224 C0 218.67, 0.11 213.33, 0.33 208.02 C0.56 202.71, 0.89 197.39, 1.33 192.12 C1.78 186.85, 2.33 181.59, 2.99 176.39 C3.66 171.18, 4.43 166, 5.31 160.89 C6.18 155.78, 7.17 150.71, 8.26 145.72 C9.35 140.73, 10.54 135.79, 11.84 130.95 C13.13 126.1, 14.53 121.32, 16.02 116.65 C17.52 111.97, 19.11 107.38, 20.8 102.9 C22.48 98.42, 24.26 94.03, 26.13 89.76 C28 85.5, 29.96 81.34, 32 77.31 C34.04 73.29, 36.17 69.37, 38.37 65.61 C40.57 61.84, 42.86 58.2, 45.21 54.71 C47.57 51.22, 50 47.87, 52.49 44.68 C54.99 41.49, 57.56 38.44, 60.18 35.56 C62.8 32.68, 65.48 29.95, 68.22 27.4 C70.95 24.85, 73.75 22.46, 76.58 20.24 C79.41 18.03, 82.3 15.98, 85.22 14.12 C88.14 12.26, 91.1 10.57, 94.09 9.07 C97.08 7.57, 100.11 6.25, 103.15 5.12 C106.2 3.99, 109.27 3.04, 112.36 2.28 C115.44 1.52, 118.55 0.95, 121.65 0.57 C124.76 0.19, 127.88 0, 131 0 C134.12 0, 137.24 0.19, 140.35 0.57 C143.45 0.95, 146.56 1.52, 149.64 2.28 C152.73 3.04, 155.8 3.99, 158.85 5.12 C161.89 6.25, 164.92 7.57, 167.91 9.07 C170.9 10.57, 173.86 12.26, 176.78 14.12 C179.7 15.98, 182.59 18.03, 185.42 20.24 C188.25 22.46, 191.05 24.85, 193.78 27.4 C196.52 29.95, 199.2 32.68, 201.82 35.56 C204.44 38.44, 207.01 41.49, 209.51 44.68 C212 47.87, 214.43 51.22, 216.79 54.71 C219.14 58.2, 221.43 61.84, 223.63 65.61 C225.83 69.37, 227.96 73.29, 230 77.31 C232.04 81.34, 234 85.5, 235.87 89.76 C237.74 94.03, 239.52 98.42, 241.2 102.9 C242.89 107.38, 244.48 111.97, 245.98 116.65 C247.47 121.32, 248.87 126.1, 250.16 130.95 C251.46 135.79, 252.65 140.73, 253.74 145.72 C254.83 150.71, 255.82 155.78, 256.69 160.89 C257.57 166, 258.34 171.18, 259.01 176.39 C259.67 181.59, 260.22 186.85, 260.67 192.12 C261.11 197.39, 261.44 202.71, 261.67 208.02 C261.89 213.33, 262 218.67, 262 224" stroke="#1e1e1e" stroke-width="2" fill="none"></path></g><g stroke-linecap="round"><g transform="translate(256.7520699602792 330.93155883528686) rotate(0 -0.24135730620889717 -65.89015430457962)"><path d="M0 0 C-0.11 -29.92, -0.22 -59.83, -0.48 -131.78 M0 0 C-0.16 -44.08, -0.32 -88.16, -0.48 -131.78" stroke="#1971c2" stroke-width="2" fill="none"></path></g><g transform="translate(256.7520699602792 330.93155883528686) rotate(0 -0.24135730620889717 -65.89015430457962)"><path d="M-0.48 -131.78 L5.91 -118.21 L-6.77 -118.16 L-0.48 -131.78" stroke="none" stroke-width="0" fill="#1971c2" fill-rule="evenodd"></path><path d="M-0.48 -131.78 C0.97 -128.7, 2.42 -125.62, 5.91 -118.21 M-0.48 -131.78 C1.65 -127.24, 3.79 -122.7, 5.91 -118.21 M5.91 -118.21 C2.46 -118.2, -0.98 -118.18, -6.77 -118.16 M5.91 -118.21 C0.93 -118.19, -4.04 -118.17, -6.77 -118.16 M-6.77 -118.16 C-5.28 -121.39, -3.79 -124.61, -0.48 -131.78 M-6.77 -118.16 C-4.42 -123.26, -2.06 -128.37, -0.48 -131.78 M-0.48 -131.78 C-0.48 -131.78, -0.48 -131.78, -0.48 -131.78 M-0.48 -131.78 C-0.48 -131.78, -0.48 -131.78, -0.48 -131.78" stroke="#1971c2" stroke-width="2" fill="none"></path></g></g><mask></mask><g transform="translate(227.426879915497 221.70776214405907) rotate(0 9.791999816894531 20.700000000000003)"><text x="0" y="33.354" font-family="Lilita One, sans-serif, Segoe UI Emoji" font-size="36px" fill="#1971c2" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">u</text></g><g stroke-linecap="round"><g transform="translate(256.2431553478612 330.65658844115165) rotate(0 53.63029038801116 -67.63820205652155)"><path d="M0 0 C35.42 -44.67, 70.83 -89.33, 107.26 -135.28" stroke="#1971c2" stroke-width="2.5" fill="none" stroke-dasharray="1.5 8"></path></g><g transform="translate(256.2431553478612 330.65658844115165) rotate(0 53.63029038801116 -67.63820205652155)"><path d="M107.26 -135.28 L103.78 -120.69 L93.85 -128.56 L107.26 -135.28" stroke="none" stroke-width="0" fill="#1971c2" fill-rule="evenodd"></path><path d="M107.26 -135.28 C106.11 -130.46, 104.96 -125.64, 103.78 -120.69 M103.78 -120.69 C101.21 -122.72, 98.65 -124.76, 93.85 -128.56 M93.85 -128.56 C98.75 -131.02, 103.66 -133.47, 107.26 -135.28 M107.26 -135.28 C107.26 -135.28, 107.26 -135.28, 107.26 -135.28" stroke="#1971c2" stroke-width="2.5" fill="none"></path></g></g><mask></mask><g stroke-linecap="round"><g transform="translate(257.0436074432047 282.6294627205446) rotate(0 15.60881585919725 1.1237774131174234)"><path d="M0 0 C3.07 -0.53, 13.21 -4.14, 18.41 -3.2 C23.61 -2.27, 29.08 4.14, 31.22 5.6 M0 0 C3.07 -0.53, 13.21 -4.14, 18.41 -3.2 C23.61 -2.27, 29.08 4.14, 31.22 5.6" stroke="#1971c2" stroke-width="2" fill="none"></path></g></g><mask></mask><g transform="translate(273.44778440203856 253.1244896717667) rotate(0 5.16943359375 10.694348808206868)"><text x="0" y="17.231850731832456" font-family="Lilita One, sans-serif, Segoe UI Emoji" font-size="18.59886749253368px" fill="#1971c2" text-anchor="start" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">θ</text></g><g stroke-linecap="round"><g transform="translate(257.0436074432047 197.78154061413892) rotate(0 53.63029038801113 -1.6009041906868902)"><path d="M0 0 C26.11 -0.78, 52.21 -1.56, 107.26 -3.2" stroke="#1f8f1f" stroke-width="2.5" fill="none" stroke-dasharray="8 10"></path></g></g><mask></mask><g transform="translate(265.40555667212914 162.96752565849198) rotate(0 41.48620500858881 13.602034429045517)"><use href="#image-2cea2c701a4a54e2a28dba8c9cc07bae6d93b798" width="83" height="27" opacity="1"></use></g><g transform="translate(205.79527758650167 10) rotate(0 49.64742566601611 10.88162754323641)"><use href="#image-710f136f1c22e4b7b7b59fb477f52ebb68fb5891" width="99" height="22" opacity="1"></use></g><g transform="translate(10 33.1119179312476) rotate(0 251.04586791992188 10)"><text x="251.04586791992188" y="15.264000000000001" font-family="Nunito, sans-serif, Segoe UI Emoji" font-size="16px" fill="#1f8f1f" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">polar projection of the scatter direction</text></g></svg>
+```
+
+The variable `u` is the folded cosine of the angle between the scattering direction and the spheroid's polar axis. Equivalently, it is the ordinary polar direction cosine restricted to the half-interval by the symmetry between positive and negative `g`. The transverse part of the same unit direction has length `sqrt(1 - u^2)`.
+:::
+
+The two transverse direction cosines satisfy `e^2 + f^2 = 1 - u^2`, so the two equatorial terms combine. This is the exact step where the spheroid becomes simpler than the general ellipsoid:
+
+Then
+
+$$R_{\mathrm{eff}}(u)=\sqrt{a^2(1-u^2)+c^2u^2}.$$
+
+The orientation average over the full sphere reduces to
+
+$$\langle h\rangle=\int_0^1 h(u)\,du.$$
+
+In the code cell below, we encode just those pieces: the symbols, the effective radius, and the sphere kernel evaluated at `q R_eff(u)`. We keep the expressions symbolic because the notebook is meant to document the formulas, not just produce numbers.
+
+```{python}
+import sympy as sp
+from IPython.display import Math, display
+
+q, a, c = sp.symbols("q a c", positive=True, real=True)
+u = sp.Symbol("u", real=True)
+
+Reff2 = a**2 * (1 - u**2) + c**2 * u**2
+Reff = sp.sqrt(Reff2)
+
+def sphere_kernel(z):
+    return 3 * (sp.sin(z) - z * sp.cos(z)) / z**3
+
+def sinc(z):
+    return sp.sin(z) / z
+
+K = sphere_kernel(q * Reff)
+
+display(Math(r"R_{\mathrm{eff}}(u) = " + sp.latex(Reff)))
+display(Math(r"K(qR_{\mathrm{eff}}(u)) = " + sp.latex(K)))
+```
+
+## 2. Form factor and center amplitude
+
+For one fixed spheroid orientation, the normalized amplitude relative to the center is `K(q R_eff(u))`.
+
+There are two closely related quantities here, and it is easy to mix them up:
+
+- `A_center(q)` is an amplitude. We average `K` itself.
+- `F(q)` is an intensity. We average `K^2`.
+
+That difference is why the two formulas below look almost identical but have different powers of `K`.
+
+The form factor is the orientation average of the squared amplitude:
+
+$$F(q)=\int_0^1 K(qR_{\mathrm{eff}}(u))^2\,du.$$
+
+The center amplitude is
+
+$$A_{\mathrm{center}}(q)=\int_0^1 K(qR_{\mathrm{eff}}(u))\,du.$$
+
+For a general spheroid, these are well-behaved one-dimensional quadratures.
+
+The next cell does not ask SymPy to evaluate the integrals. It writes the integrals explicitly, which is the form we would normally translate into a SEB expression or a numerical quadrature.
+
+```{python}
+F = sp.Integral(K**2, (u, 0, 1))
+A_center = sp.Integral(K, (u, 0, 1))
+
+display(Math(r"F(q) = " + sp.latex(F)))
+display(Math(r"A_{\mathrm{center}}(q) = " + sp.latex(A_center)))
+```
+
+In the sphere limit `a = c = R`, the effective radius is constant and the usual sphere expressions are recovered.
+
+This is our first sanity check. If the spheroid derivation cannot turn back into the sphere when `a` and `c` are equal, then something has gone wrong before we even reach reference points.
+
+```{python}
+R = sp.symbols("R", positive=True, real=True)
+K_sphere = sp.simplify(sphere_kernel(q * R))
+
+display(Math(r"F_{\mathrm{sphere}}(q) = " + sp.latex(sp.simplify(K_sphere**2))))
+display(Math(r"A_{\mathrm{center,sphere}}(q) = " + sp.latex(K_sphere)))
+```
+
+At `q = 0`, direct substitution into the raw kernel gives a removable singularity. Use the kernel limit:
+
+This is a common pattern in scattering code. The formula has `z^3` in the denominator, but the limit is perfectly finite because the numerator vanishes to the same order. In production code, the kernel should be evaluated by a stable helper or by an explicit small-`z` series.
+
+```{python}
+z0 = sp.Symbol("z0")
+K_q0 = sp.limit(sphere_kernel(z0), z0, 0)
+
+F_q0 = sp.simplify(sp.Integral(K_q0**2, (u, 0, 1)).doit())
+A_center_q0 = sp.simplify(sp.Integral(K_q0, (u, 0, 1)).doit())
+
+display(Math(r"F(0) = " + sp.latex(F_q0)))
+display(Math(r"A_{\mathrm{center}}(0) = " + sp.latex(A_center_q0)))
+```
+
+## 3. Specific surface reference points
+
+The centered amplitude measured phases relative to the origin. A named reference point changes the phase origin. This is the step where the vector `r - R_ref` appears, so let us spell it out.
+
+For one fixed orientation, the normalized amplitude relative to the center is the volume average
+
+$$
+A_{\mathrm{center}}(\mathbf q)
+=\frac{1}{V}\int_{\mathrm{body}}
+e^{i\mathbf q\cdot\mathbf r}\,dV.
+$$
+
+Here `r` is the position of a scattering volume element measured from the center of the spheroid. If SEB asks for the amplitude relative to a different reference point, we measure the same scatterer from that reference point instead. The relative vector from the reference point to the scatterer is
+
+$$
+\mathbf r_{\mathrm{from\ ref}}
+=\mathbf r-\mathbf R_{\mathrm{ref}}.
+$$
+
+That subtraction is just ordinary coordinate bookkeeping. If the reference point is at `R_ref` and the scatterer is at `r`, then "scatterer relative to reference" means destination minus origin:
+
+$$
+\mathrm{relative\ position}
+=\mathrm{scatterer\ position}-\mathrm{reference\ position}.
+$$
+
+So the fixed-orientation amplitude relative to `R_ref` is
+
+$$
+A_{\mathrm{ref}}(\mathbf q)
+=\frac{1}{V}\int_{\mathrm{body}}
+e^{i\mathbf q\cdot(\mathbf r-\mathbf R_{\mathrm{ref}})}\,dV.
+$$
+
+Now use linearity of the dot product:
+
+$$
+\mathbf q\cdot(\mathbf r-\mathbf R_{\mathrm{ref}})
+=\mathbf q\cdot\mathbf r-\mathbf q\cdot\mathbf R_{\mathrm{ref}}.
+$$
+
+Then split the exponential:
+
+$$
+e^{i\mathbf q\cdot(\mathbf r-\mathbf R_{\mathrm{ref}})}
+=e^{i\mathbf q\cdot\mathbf r}
+e^{-i\mathbf q\cdot\mathbf R_{\mathrm{ref}}}.
+$$
+
+The second factor does not depend on the integration variable `r`, so it can be pulled outside the volume integral:
+
+$$
+A_{\mathrm{ref}}(\mathbf q)
+=e^{-i\mathbf q\cdot\mathbf R_{\mathrm{ref}}}
+\frac{1}{V}\int_{\mathrm{body}}
+e^{i\mathbf q\cdot\mathbf r}\,dV.
+$$
+
+The integral that remains is exactly the centered fixed-orientation amplitude. For the spheroid, that centered amplitude is the sphere kernel evaluated at the effective radius:
+
+$$
+A_{\mathrm{ref}}(\mathbf q)
+=e^{-i\mathbf q\cdot\mathbf R_{\mathrm{ref}}}
+K(qR_{\mathrm{eff}}).
+$$
+
+This equation is the whole reason reference-point amplitudes are so manageable: moving the reference point does not change the body integral. It only multiplies the centered amplitude by a phase factor.
+
+The sign in the phase is worth noticing. We get a minus sign because the position used in the reference amplitude is `r - R_ref`. If we had written the vector in the opposite direction, `R_ref - r`, the phase convention would be conjugated. SEB's amplitude convention here compares the scatterer position to the reference point by using `r - R_ref`.
+
+For a real randomly oriented solution, orientations with projection `+qhat.R_ref` and `-qhat.R_ref` both occur. Write the scalar projection as
+
+$$
+s_{\mathrm{ref}}=\hat{\mathbf q}\cdot\mathbf R_{\mathrm{ref}}.
+$$
+
+The fixed-orientation phase factor is
+
+$$
+e^{-iqs_{\mathrm{ref}}}
+=\cos(qs_{\mathrm{ref}})-i\sin(qs_{\mathrm{ref}}).
+$$
+
+The matching orientation with projection `-s_ref` gives
+
+$$
+e^{+iqs_{\mathrm{ref}}}
+=\cos(qs_{\mathrm{ref}})+i\sin(qs_{\mathrm{ref}}).
+$$
+
+Averaging these two symmetry-related orientations cancels the imaginary parts:
+
+$$
+\frac{e^{-iqs_{\mathrm{ref}}}+e^{+iqs_{\mathrm{ref}}}}{2}
+=\cos(qs_{\mathrm{ref}}).
+$$
+
+After orientational averaging, the imaginary sine terms cancel by symmetry. What remains is a cosine phase factor multiplying the same body amplitude `K(qR_eff(u))`.
+
+The reference points are
+
+| Reference point | Body-frame position |
+|---|---|
+| `center` | $(0,0,0)$ |
+| `pole_a_plus` | $(a,0,0)$ |
+| `pole_a_minus` | $(-a,0,0)$ |
+| `pole_b_plus` | $(0,a,0)$ |
+| `pole_b_minus` | $(0,-a,0)$ |
+| `pole_c_plus` | $(0,0,c)$ |
+| `pole_c_minus` | $(0,0,-c)$ |
+
+The polar points project onto the scattering direction as
+
+$$s_c=cu.$$
+
+This gives the polar-pole cosine factor immediately:
+
+$$\cos(qs_c)=\cos(qcu).$$
+
+The equatorial points require one extra thought. The body is symmetric around the polar axis, but a named equatorial pole such as `(a,0,0)` still has an azimuthal angle relative to the transverse part of the scattering vector. We average over that azimuthal angle. For a point at equatorial radius `a`, the azimuthal phase average is
+
+$$\frac{1}{2\pi}\int_0^{2\pi}\cos(qa\sqrt{1-u^2}\cos\alpha)\,d\alpha
+=J_0(qa\sqrt{1-u^2}).$$
+
+Therefore
+
+$$A_{\mathrm{pole\_a\_plus}}(q)
+=A_{\mathrm{pole\_a\_minus}}(q)
+=A_{\mathrm{pole\_b\_plus}}(q)
+=A_{\mathrm{pole\_b\_minus}}(q)
+=\int_0^1 J_0(qa\sqrt{1-u^2})K(qR_{\mathrm{eff}}(u))\,du,$$
+
+and
+
+$$A_{\mathrm{pole\_c\_plus}}(q)
+=A_{\mathrm{pole\_c\_minus}}(q)
+=\int_0^1 \cos(qcu)K(qR_{\mathrm{eff}}(u))\,du.$$
+
+Specific reference-reference phase factors use only Euclidean distances:
+
+$$\Psi_{\alpha,\omega}(q)=\frac{\sin(qd_{\alpha,\omega})}{qd_{\alpha,\omega}}.$$
+
+Notice the bookkeeping difference. Amplitudes compare a reference point to all scatterers in the body, so they include `K`. Phase factors compare two reference points only, so they only need the distance between those two named points.
+
+The code below builds these three things in the same order: named point coordinates, pole amplitudes, and distance-based phase factors.
+
+```{python}
+reference_points = {
+    "center": sp.Matrix([0, 0, 0]),
+    "pole_a_plus": sp.Matrix([a, 0, 0]),
+    "pole_a_minus": sp.Matrix([-a, 0, 0]),
+    "pole_b_plus": sp.Matrix([0, a, 0]),
+    "pole_b_minus": sp.Matrix([0, -a, 0]),
+    "pole_c_plus": sp.Matrix([0, 0, c]),
+    "pole_c_minus": sp.Matrix([0, 0, -c]),
+}
+
+A_pole_equator = sp.Integral(
+    sp.besselj(0, q * a * sp.sqrt(1 - u**2)) * K,
+    (u, 0, 1),
+)
+A_pole_polar = sp.Integral(
+    sp.cos(q * c * u) * K,
+    (u, 0, 1),
+)
+
+def reference_distance(ref1, ref2):
+    delta = reference_points[ref1] - reference_points[ref2]
+    return sp.sqrt(sum(component**2 for component in delta))
+
+def specific_reference_phase(ref1, ref2):
+    distance = reference_distance(ref1, ref2)
+    if distance == 0:
+        return sp.Integer(1)
+    return sp.simplify(sinc(q * distance))
+
+Psi_refs = {
+    (ref1, ref2): specific_reference_phase(ref1, ref2)
+    for ref1 in reference_points
+    for ref2 in reference_points
+}
+
+display(Math(r"A_{\mathrm{equatorial\ pole}}(q) = " + sp.latex(A_pole_equator)))
+display(Math(r"A_{\mathrm{polar\ pole}}(q) = " + sp.latex(A_pole_polar)))
+display(Math(r"\Psi_{\mathrm{pole\_c\_plus,pole\_c\_minus}}(q) = " + sp.latex(Psi_refs[("pole_c_plus", "pole_c_minus")])))
+display(Math(r"\Psi_{\mathrm{pole\_c\_plus,pole\_a\_plus}}(q) = " + sp.latex(Psi_refs[("pole_c_plus", "pole_a_plus")])))
+display(Math(r"\Psi_{\mathrm{pole\_a\_plus,pole\_a\_minus}}(q) = " + sp.latex(Psi_refs[("pole_a_plus", "pole_a_minus")])))
+```
+
+## 4. Distributed `equator` reference point
+
+The named equatorial poles are fixed points in the body frame. A different and often cleaner reference is the whole equatorial ring: choose one point uniformly around the circle where the spheroid intersects the plane `z = 0`.
+
+Parameterize this distributed reference as
+
+$$\mathbf R_e(\lambda)=\left(a\cos\lambda,\,a\sin\lambda,\,0\right),
+\qquad 0\le\lambda<2\pi.$$
+
+For one fixed spheroid orientation, the projection of a point on this ring onto the scattering direction has only a transverse part. Averaging the phase around the ring gives
+
+$$B_{\mathrm{equator}}(q,u)
+=\frac{1}{2\pi}\int_0^{2\pi}
+\cos\left(qa\sqrt{1-u^2}\cos\lambda\right)\,d\lambda
+=J_0\left(qa\sqrt{1-u^2}\right).$$
+
+::: {.callout-note collapse="true"}
+## Derivation of the equator ring factor
+
+Use a unit scattering direction whose polar direction cosine relative to the spheroid axis is \(u\). Its transverse length is then
+
+$$\sqrt{1-u^2}.$$
+
+Choose the transverse component along the \(x\)-axis. A point on the equator ring is
+
+$$
+\mathbf R_e(\lambda)=
+\left(a\cos\lambda,\,a\sin\lambda,\,0\right).
+$$
+
+The projection of this point onto the scattering direction is therefore
+
+$$
+\hat{\mathbf q}\cdot\mathbf R_e(\lambda)
+=a\sqrt{1-u^2}\cos\lambda.
+$$
+
+For one fixed orientation \(u\), the ring contribution is the average phase around the ring. The sine part cancels by symmetry, so
+
+$$
+B_{\mathrm{equator}}(q,u)
+=\frac{1}{2\pi}\int_0^{2\pi}
+\cos\left(qa\sqrt{1-u^2}\cos\lambda\right)\,d\lambda.
+$$
+
+Using the Bessel identity
+
+$$
+J_0(z)=\frac{1}{2\pi}\int_0^{2\pi}\cos(z\cos\lambda)\,d\lambda,
+$$
+
+with \(z=qa\sqrt{1-u^2}\), gives
+
+$$
+B_{\mathrm{equator}}(q,u)=J_0\left(qa\sqrt{1-u^2}\right).
+$$
+:::
+
+Therefore the equator-ring amplitude is
+
+$$A_{\mathrm{equator}}(q)
+=\int_0^1 B_{\mathrm{equator}}(q,u)
+K(qR_{\mathrm{eff}}(u))\,du.$$
+
+This is the same formula as the named equatorial-pole amplitude after orientational averaging. The distinction is semantic: `pole_a_plus` is one named point, while `equator` is a distributed point chosen uniformly from the ring.
+
+The equator phase factors are also ring averages. Distances to the center and polar poles are constant:
+
+$$\Psi_{\mathrm{center,equator}}(q)=\frac{\sin(qa)}{qa},$$
+
+and
+
+$$\Psi_{\mathrm{equator,pole\_c}}(q)
+=\frac{\sin\left(q\sqrt{a^2+c^2}\right)}
+{q\sqrt{a^2+c^2}}.$$
+
+For an equatorial named pole, rotational symmetry lets us fix that pole at `(a,0,0)` and average over the ring azimuth:
+
+::: {.callout-note collapse="true"}
+## Derivation of the equator-to-equatorial-pole phase factor
+
+The distributed equator point is
+
+$$\mathbf R_e(\lambda)=\left(a\cos\lambda,\,a\sin\lambda,\,0\right),$$
+
+and rotational symmetry lets us choose the named equatorial pole as
+
+$$\mathbf R_a=(a,0,0).$$
+
+The phase factor between two reference points uses the orientationally averaged Debye factor
+
+$$\operatorname{sinc}(qd)=\frac{\sin(qd)}{qd},$$
+
+where `d` is the Euclidean distance between the two points. For this pair,
+
+$$
+d^2(\lambda)
+=|\mathbf R_e(\lambda)-\mathbf R_a|^2
+=(a\cos\lambda-a)^2+(a\sin\lambda)^2.
+$$
+
+Expanding and using \(\cos^2\lambda+\sin^2\lambda=1\),
+
+$$
+d^2(\lambda)
+=a^2\cos^2\lambda-2a^2\cos\lambda+a^2+a^2\sin^2\lambda
+=2a^2(1-\cos\lambda).
+$$
+
+Therefore
+
+$$d(\lambda)=\sqrt{2a^2(1-\cos\lambda)}.$$
+
+The equator point is chosen uniformly, so the phase factor is the azimuthal average
+
+$$
+\Psi_{\mathrm{equator,pole\_a}}(q)
+=\frac{1}{2\pi}\int_0^{2\pi}
+\frac{\sin(qd(\lambda))}{qd(\lambda)}\,d\lambda.
+$$
+
+Substituting the distance gives the expression below.
+
+This integral can also be rewritten with a Bessel identity. Since
+
+$$
+2a^2(1-\cos\lambda)
+=4a^2\sin^2\frac{\lambda}{2},
+$$
+
+and \(\sin(\lambda/2)\ge 0\) for \(0\le\lambda\le 2\pi\),
+
+$$
+d(\lambda)=2a\sin\frac{\lambda}{2}.
+$$
+
+Use
+
+$$
+\frac{\sin x}{x}=\int_0^1\cos(tx)\,dt.
+$$
+
+Then
+
+$$
+\Psi_{\mathrm{equator,pole\_a}}(q)
+=\int_0^1
+\frac{1}{2\pi}\int_0^{2\pi}
+\cos\left(2aqt\sin\frac{\lambda}{2}\right)\,d\lambda\,dt.
+$$
+
+With \(\theta=\lambda/2\),
+
+$$
+\frac{1}{2\pi}\int_0^{2\pi}
+\cos\left(2aqt\sin\frac{\lambda}{2}\right)\,d\lambda
+=\frac{1}{\pi}\int_0^\pi \cos(2aqt\sin\theta)\,d\theta.
+$$
+
+The Bessel identity
+
+$$
+J_0(z)=\frac{1}{\pi}\int_0^\pi\cos(z\sin\theta)\,d\theta
+$$
+
+therefore gives
+
+$$
+\Psi_{\mathrm{equator,pole\_a}}(q)
+=\int_0^1 J_0(2aqt)\,dt
+=\frac{1}{2aq}\int_0^{2aq}J_0(s)\,ds.
+$$
+:::
+
+$$\Psi_{\mathrm{equator,pole\_a}}(q)
+=\frac{1}{2\pi}\int_0^{2\pi}
+\frac{\sin\left(q\sqrt{2a^2(1-\cos\lambda)}\right)}
+{q\sqrt{2a^2(1-\cos\lambda)}}\,d\lambda.$$
+
+Equivalently,
+
+$$\Psi_{\mathrm{equator,pole\_a}}(q)
+=\int_0^1 J_0(2aqt)\,dt
+=\frac{1}{2aq}\int_0^{2aq}J_0(s)\,ds.$$
+
+The equator-equator phase factor has the same integral, because the relative azimuth between two independently chosen ring points is uniformly distributed.
+
+The `equator,pole_a` formula applies to all four named equatorial poles, and the `equator,pole_c` formula applies to both polar poles.
+
+Finally, the equator-surface phase factor uses the same distance as `surface` to an equatorial pole, averaged over the surface measure and the relative azimuth:
+
+::: {.callout-note collapse="true"}
+## Derivation of the equator-to-surface phase factor
+
+The distributed equator point is
+
+$$
+\mathbf R_e(\lambda_e)
+=\left(a\cos\lambda_e,\,a\sin\lambda_e,\,0\right),
+$$
+
+and a point on the spheroid surface can be parameterized by
+
+$$
+\mathbf R_s(\theta,\lambda_s)
+=\left(a\sin\theta\cos\lambda_s,\,
+a\sin\theta\sin\lambda_s,\,
+c\cos\theta\right),
+\qquad 0\le\theta\le\pi.
+$$
+
+The surface element comes from
+
+$$
+dS=\left|
+\frac{\partial\mathbf R_s}{\partial\theta}
+\times
+\frac{\partial\mathbf R_s}{\partial\lambda_s}
+\right|\,d\theta\,d\lambda_s.
+$$
+
+For the spheroid this gives
+
+$$
+dS
+=a\sin\theta\sqrt{c^2\sin^2\theta+a^2\cos^2\theta}\,
+d\theta\,d\lambda_s.
+$$
+
+The phase factor between two distributed reference points is the normalized average of the Debye factor:
+
+$$
+\Psi_{\mathrm{equator,surface}}(q)
+=
+\frac{
+\int \int \frac{\sin(qd)}{qd}\,dS\,d\lambda_e
+}
+{
+\int\int dS\,d\lambda_e
+}.
+$$
+
+Because the spheroid is rotationally symmetric around the polar axis, the distance depends only on the relative azimuth
+
+$$
+\lambda=\lambda_s-\lambda_e.
+$$
+
+So one absolute azimuth integrates out, leaving the normalized relative-azimuth average
+
+$$
+\frac{1}{2\pi}\int_0^{2\pi}\frac{\sin(qd_{es})}{qd_{es}}\,d\lambda.
+$$
+
+To get the distance, fix the equator point at \((a,0,0)\) and let the surface point have relative azimuth \(\lambda\):
+
+$$
+\mathbf R_e=(a,0,0),
+\qquad
+\mathbf R_s(\theta,\lambda)
+=\left(a\sin\theta\cos\lambda,\,
+a\sin\theta\sin\lambda,\,
+c\cos\theta\right).
+$$
+
+Then
+
+$$
+\begin{aligned}
+d_{es}^2
+&=|\mathbf R_s-\mathbf R_e|^2\\
+&=a^2(\sin\theta\cos\lambda-1)^2
++a^2\sin^2\theta\sin^2\lambda
++c^2\cos^2\theta\\
+&=a^2\left(\sin^2\theta+1-2\sin\theta\cos\lambda\right)
++c^2\cos^2\theta.
+\end{aligned}
+$$
+
+Therefore
+
+$$
+d_{es}
+=\sqrt{
+a^2\left(\sin^2\theta+1-2\sin\theta\cos\lambda\right)
++c^2\cos^2\theta
+}.
+$$
+
+Putting the relative-azimuth average together with the normalized surface-area average gives the expression below. The factor \(2\pi\) from the surface azimuth cancels between numerator and denominator, which is why only the reduced surface weight in \(\theta\) remains outside the inner average.
+:::
+
+$$\Psi_{\mathrm{equator,surface}}(q)
+=
+\frac{
+\int_0^\pi \frac{1}{2\pi}\int_0^{2\pi}
+\frac{\sin(qd_{es})}{qd_{es}}\,d\lambda\,
+a\sin\theta\sqrt{c^2\sin^2\theta+a^2\cos^2\theta}\,d\theta
+}
+{\int_0^\pi a\sin\theta\sqrt{c^2\sin^2\theta+a^2\cos^2\theta}\,d\theta},
+$$
+
+where
+
+$$d_{es}=
+\sqrt{a^2\left(\sin^2\theta+1-2\sin\theta\cos\lambda\right)
++c^2\cos^2\theta}.$$
+
+The code below stores the equator formulas. The surface-related expression is defined in the next section after the surface measure is introduced.
+
+```{python}
+equator_lam = sp.Symbol("lambda_equator", real=True)
+
+B_equator = sp.besselj(0, q * a * sp.sqrt(1 - u**2))
+A_equator = sp.Integral(B_equator * K, (u, 0, 1))
+
+equator_pole_a_distance = sp.sqrt(2 * a**2 * (1 - sp.cos(equator_lam)))
+Psi_center_equator = sinc(q * a)
+Psi_equator_pole_a = sp.Integral(
+    sinc(q * equator_pole_a_distance),
+    (equator_lam, 0, 2 * sp.pi),
+) / (2 * sp.pi)
+Psi_equator_equator = Psi_equator_pole_a
+Psi_equator_pole_c = sinc(q * sp.sqrt(a**2 + c**2))
+
+display(Math(r"B_{\mathrm{equator}}(q,u) = " + sp.latex(B_equator)))
+display(Math(r"A_{\mathrm{equator}}(q) = " + sp.latex(A_equator)))
+display(Math(r"\Psi_{\mathrm{center,equator}}(q) = " + sp.latex(Psi_center_equator)))
+display(Math(r"\Psi_{\mathrm{equator,pole\_a}}(q) = " + sp.latex(Psi_equator_pole_a)))
+display(Math(r"\Psi_{\mathrm{equator,pole\_c}}(q) = " + sp.latex(Psi_equator_pole_c)))
+display(Math(r"\Psi_{\mathrm{equator,equator}}(q) = " + sp.latex(Psi_equator_equator)))
+```
+
+## 5. Distributed `surface` reference point
+
+The distributed `surface` reference point is different from the named poles. It is not one fixed coordinate. It means: choose one point uniformly from the spheroid surface area, then use that point as the reference point.
+
+That creates two jobs:
+
+- for `A_surface(q)`, average the reference-point phase over all possible surface points;
+- for phase factors involving `surface`, average the Debye factor over one or two surface points.
+
+The important detail is that "uniformly on the surface" means uniformly with respect to surface area, not uniformly in the parameters `theta` and `lambda`. That is why we need the surface element.
+
+Parameterize the spheroid surface as
+
+$$\mathbf R_s(\theta,\lambda)
+=\left(a\sin\theta\cos\lambda,\,
+a\sin\theta\sin\lambda,\,
+c\cos\theta\right).$$
+
+The surface-area element is
+
+$$dS=a\sin\theta\sqrt{c^2\sin^2\theta+a^2\cos^2\theta}\,d\theta\,d\lambda.$$
+
+We will write this as
+
+$$dS=w(\theta)\,d\theta\,d\lambda,$$
+
+where the reduced surface weight is
+
+$$w(\theta)=a\sin\theta\sqrt{c^2\sin^2\theta+a^2\cos^2\theta}.$$
+
+The corresponding reduced surface-area normalization is
+
+$$S_{\mathrm{red}}=\int_0^\pi w(\theta)\,d\theta.$$
+
+::: {.callout-note collapse="true"}
+## Derivation of the surface weight
+
+Start from the surface parameterization
+
+$$
+\mathbf R_s(\theta,\lambda)
+=\left(a\sin\theta\cos\lambda,\,
+a\sin\theta\sin\lambda,\,
+c\cos\theta\right).
+$$
+
+A small patch in parameter space has sides given by the tangent vectors
+
+$$
+\frac{\partial\mathbf R_s}{\partial\theta}
+=\left(a\cos\theta\cos\lambda,\,
+a\cos\theta\sin\lambda,\,
+-c\sin\theta\right),
+$$
+
+and
+
+$$
+\frac{\partial\mathbf R_s}{\partial\lambda}
+=\left(-a\sin\theta\sin\lambda,\,
+a\sin\theta\cos\lambda,\,
+0\right).
+$$
+
+The physical area of that patch is the magnitude of their cross product:
+
+$$
+dS=
+\left|
+\frac{\partial\mathbf R_s}{\partial\theta}
+\times
+\frac{\partial\mathbf R_s}{\partial\lambda}
+\right|\,d\theta\,d\lambda.
+$$
+
+The cross product is
+
+$$
+\frac{\partial\mathbf R_s}{\partial\theta}
+\times
+\frac{\partial\mathbf R_s}{\partial\lambda}
+=
+\left(
+ac\sin^2\theta\cos\lambda,\,
+ac\sin^2\theta\sin\lambda,\,
+a^2\sin\theta\cos\theta
+\right).
+$$
+
+Its squared magnitude is
+
+$$
+\begin{aligned}
+\left|
+\frac{\partial\mathbf R_s}{\partial\theta}
+\times
+\frac{\partial\mathbf R_s}{\partial\lambda}
+\right|^2
+&=a^2c^2\sin^4\theta(\cos^2\lambda+\sin^2\lambda)
++a^4\sin^2\theta\cos^2\theta\\
+&=a^2\sin^2\theta
+\left(c^2\sin^2\theta+a^2\cos^2\theta\right).
+\end{aligned}
+$$
+
+Therefore
+
+$$
+dS=
+a\sin\theta\sqrt{c^2\sin^2\theta+a^2\cos^2\theta}\,
+d\theta\,d\lambda.
+$$
+
+So the reduced surface weight used throughout this section is
+
+$$
+w(\theta)
+=a\sin\theta\sqrt{c^2\sin^2\theta+a^2\cos^2\theta}.
+$$
+:::
+
+The factor \(w(\theta)\) tells us how much actual area is represented by a small rectangle in parameter space.
+
+Let
+
+$$S=\int_0^{2\pi}\int_0^\pi dS.$$
+
+For a fixed scattering direction with polar cosine `u`, the projection of a surface point is
+
+$$p_s=a\sqrt{1-u^2}\sin\theta\cos\lambda+cu\cos\theta.$$
+
+The azimuthal `lambda` average of the cosine phase gives a Bessel function:
+
+$$\frac{1}{2\pi}\int_0^{2\pi}\cos(qp_s)\,d\lambda
+=J_0(qa\sqrt{1-u^2}\sin\theta)\cos(qcu\cos\theta).$$
+
+This is the same kind of simplification we used for the equatorial poles. The transverse part becomes `J0`, and the polar part stays as a cosine. Thus the distributed surface phase average can be written as a one-dimensional normalized surface integral:
+
+::: {.callout-note collapse="true"}
+## Derivation of the surface phase factor
+
+For a fixed orientation \(u\), the surface reference contribution is the surface-area average of the reference-point phase:
+
+$$
+B_{\mathrm{surface}}(q,u)
+=\frac{1}{S}\int_{\mathrm{surface}}
+\cos\left(q\,\hat{\mathbf q}\cdot\mathbf R_s\right)\,dS.
+$$
+
+The normalization is the total spheroid surface area,
+
+$$
+S=\int_{\mathrm{surface}}dS.
+$$
+
+Use the surface parameterization
+
+$$
+\mathbf R_s(\theta,\lambda)
+=\left(a\sin\theta\cos\lambda,\,
+a\sin\theta\sin\lambda,\,
+c\cos\theta\right).
+$$
+
+Then
+
+$$
+\frac{\partial\mathbf R_s}{\partial\theta}
+=\left(a\cos\theta\cos\lambda,\,
+a\cos\theta\sin\lambda,\,
+-c\sin\theta\right),
+$$
+
+and
+
+$$
+\frac{\partial\mathbf R_s}{\partial\lambda}
+=\left(-a\sin\theta\sin\lambda,\,
+a\sin\theta\cos\lambda,\,
+0\right).
+$$
+
+So
+
+$$
+dS=
+\left|
+\frac{\partial\mathbf R_s}{\partial\theta}
+\times
+\frac{\partial\mathbf R_s}{\partial\lambda}
+\right|d\theta\,d\lambda
+=a\sin\theta\sqrt{c^2\sin^2\theta+a^2\cos^2\theta}\,d\theta\,d\lambda.
+$$
+
+Substituting this into the normalized average gives
+
+$$
+B_{\mathrm{surface}}(q,u)
+=
+\frac{
+\int_0^{2\pi}\int_0^\pi
+\cos(qp_s)\,
+a\sin\theta\sqrt{c^2\sin^2\theta+a^2\cos^2\theta}\,
+d\theta\,d\lambda
+}
+{
+\int_0^{2\pi}\int_0^\pi
+a\sin\theta\sqrt{c^2\sin^2\theta+a^2\cos^2\theta}\,
+d\theta\,d\lambda
+},
+$$
+
+where
+
+$$
+p_s=\hat{\mathbf q}\cdot\mathbf R_s.
+$$
+
+Choose the transverse part of \(\hat{\mathbf q}\) along the \(x\)-axis. Since the polar direction cosine is \(u\), the transverse length is \(\sqrt{1-u^2}\), and
+
+$$
+p_s=a\sqrt{1-u^2}\sin\theta\cos\lambda+cu\cos\theta.
+$$
+
+The \(\lambda\)-dependent part is only in the transverse cosine term. Using
+
+$$
+\frac{1}{2\pi}\int_0^{2\pi}
+\cos(A\cos\lambda+B)\,d\lambda
+=J_0(A)\cos(B),
+$$
+
+with
+
+$$
+A=qa\sqrt{1-u^2}\sin\theta,
+\qquad
+B=qcu\cos\theta,
+$$
+
+we get
+
+$$
+\frac{1}{2\pi}\int_0^{2\pi}\cos(qp_s)\,d\lambda
+=J_0(qa\sqrt{1-u^2}\sin\theta)\cos(qcu\cos\theta).
+$$
+
+The same factor \(2\pi\) from the \(\lambda\) integration appears in the numerator and denominator, so it cancels. What remains is the reduced surface-weight average over \(\theta\):
+
+$$
+B_{\mathrm{surface}}(q,u)
+=\frac{\int_0^\pi
+J_0(qa\sqrt{1-u^2}\sin\theta)
+\cos(qcu\cos\theta)
+a\sin\theta\sqrt{c^2\sin^2\theta+a^2\cos^2\theta}\,d\theta}
+{\int_0^\pi a\sin\theta\sqrt{c^2\sin^2\theta+a^2\cos^2\theta}\,d\theta}.
+$$
+:::
+
+$$B_{\mathrm{surface}}(q,u)
+=\frac{\int_0^\pi
+J_0(qa\sqrt{1-u^2}\sin\theta)
+\cos(qcu\cos\theta)
+a\sin\theta\sqrt{c^2\sin^2\theta+a^2\cos^2\theta}\,d\theta}
+{\int_0^\pi a\sin\theta\sqrt{c^2\sin^2\theta+a^2\cos^2\theta}\,d\theta}.$$
+
+Once we have `B_surface(q,u)`, the distributed surface amplitude follows the same pattern as all other amplitudes. For one fixed orientation, moving the reference point to a particular surface point contributes only a phase factor, while the volume integral over the spheroid still gives the centered body amplitude `K(qR_eff(u))`. Averaging the surface reference point first gives `B_surface(q,u)`, and then averaging over spheroid orientations gives
+
+$$A_{\mathrm{surface}}(q)
+=\int_0^1 B_{\mathrm{surface}}(q,u)\,
+K(qR_{\mathrm{eff}}(u))\,du.$$
+
+For phase factors, there is no body amplitude. `Psi_center_surface(q)` averages the Debye factor from the center to one surface point. `Psi_surface_pole_a(q)` and `Psi_surface_pole_c(q)` average the Debye factor from one uniformly chosen surface point to one named pole. `Psi_equator_surface(q)` averages the Debye factor between one uniformly chosen equator point and one uniformly chosen surface point. `Psi_surface_surface(q)` averages the Debye factor between two independently chosen surface points. Axial symmetry lets us replace two absolute azimuths by one azimuthal difference, so the surface-surface integral is three-dimensional rather than four-dimensional.
+
+Phase factors average the Debye factor between reference points:
+
+$$
+\Psi_{\alpha,\omega}(q)
+=\left\langle \frac{\sin(qd_{\alpha,\omega})}{qd_{\alpha,\omega}}\right\rangle.
+$$
+
+The center-to-surface distance is
+
+$$
+d_{cs}(\theta)=\sqrt{a^2\sin^2\theta+c^2\cos^2\theta}.
+$$
+
+Therefore
+
+$$
+\Psi_{\mathrm{center,surface}}(q)
+=\frac{\int_0^\pi
+\frac{\sin(qd_{cs})}{qd_{cs}}\,w(\theta)\,d\theta}
+{S_{\mathrm{red}}}.
+$$
+
+::: {.callout-note collapse="true"}
+## Derivation of the center-to-surface phase factor
+
+The center-to-surface distance is the length of the surface point:
+
+$$d_{cs}=|\mathbf R_s(\theta,\lambda)|.$$
+
+Using the spheroid parameterization,
+
+$$
+\begin{aligned}
+d_{cs}^2
+&=a^2\sin^2\theta\cos^2\lambda
++a^2\sin^2\theta\sin^2\lambda
++c^2\cos^2\theta\\
+&=a^2\sin^2\theta+c^2\cos^2\theta.
+\end{aligned}
+$$
+
+The normalized surface average is
+
+$$
+\Psi_{\mathrm{center,surface}}(q)
+=
+\frac{
+\int_{\mathrm{surface}}
+\frac{\sin(qd_{cs})}{qd_{cs}}\,dS
+}
+{
+\int_{\mathrm{surface}}dS
+}.
+$$
+
+Substituting \(dS=w(\theta)d\theta d\lambda\) gives
+
+$$
+\Psi_{\mathrm{center,surface}}(q)
+=
+\frac{
+\int_0^{2\pi}\int_0^\pi
+\frac{\sin(qd_{cs})}{qd_{cs}}\,
+w(\theta)\,d\theta\,d\lambda
+}
+{
+\int_0^{2\pi}\int_0^\pi
+w(\theta)\,d\theta\,d\lambda
+}.
+$$
+
+Since \(d_{cs}\) is independent of \(\lambda\), the numerator and denominator both contain the same factor \(2\pi\). Canceling that factor gives the visible result above.
+:::
+
+For a surface point and a named equatorial pole,
+
+$$
+d_{sa}(\theta,\lambda)
+=\sqrt{
+a^2\left(\sin^2\theta+1-2\sin\theta\cos\lambda\right)
++c^2\cos^2\theta
+}.
+$$
+
+Thus
+
+$$
+\Psi_{\mathrm{surface,pole\_a}}(q)
+=
+\frac{
+\int_0^\pi
+\frac{1}{2\pi}\int_0^{2\pi}
+\frac{\sin(qd_{sa})}{qd_{sa}}\,d\lambda\,
+w(\theta)\,d\theta
+}
+{S_{\mathrm{red}}}.
+$$
+
+::: {.callout-note collapse="true"}
+## Derivation of the surface-to-equatorial-pole phase factor
+
+Fix the named equatorial pole at \((a,0,0)\). By axial symmetry only the relative azimuth matters, so write the surface point as
+
+$$
+\mathbf R_s(\theta,\lambda)
+=\left(a\sin\theta\cos\lambda,\,
+a\sin\theta\sin\lambda,\,
+c\cos\theta\right).
+$$
+
+Then
+
+$$
+\begin{aligned}
+d_{sa}^2
+&=|\mathbf R_s-(a,0,0)|^2\\
+&=a^2(\sin\theta\cos\lambda-1)^2
++a^2\sin^2\theta\sin^2\lambda
++c^2\cos^2\theta\\
+&=a^2\left(\sin^2\theta+1-2\sin\theta\cos\lambda\right)
++c^2\cos^2\theta.
+\end{aligned}
+$$
+
+The surface point is area-weighted by \(w(\theta)d\theta\), while the relative azimuth is averaged uniformly with \((2\pi)^{-1}d\lambda\). This gives the visible \(\Psi_{\mathrm{surface,pole\_a}}\) formula above.
+:::
+
+The equator-to-surface phase factor has the same relative-azimuth integral:
+
+$$
+\Psi_{\mathrm{equator,surface}}(q)
+=
+\frac{
+\int_0^\pi
+\frac{1}{2\pi}\int_0^{2\pi}
+\frac{\sin(qd_{sa})}{qd_{sa}}\,d\lambda\,
+w(\theta)\,d\theta
+}
+{S_{\mathrm{red}}}.
+$$
+
+::: {.callout-note collapse="true"}
+## Derivation of the equator-to-surface phase factor
+
+Choose one point uniformly on the equator and one point uniformly on the surface. Axial symmetry lets us fix the equator point at \((a,0,0)\) and keep only the relative azimuth to the surface point. The resulting distance is exactly \(d_{sa}(\theta,\lambda)\). Therefore \(\Psi_{\mathrm{equator,surface}}\) uses the same relative-azimuth average as \(\Psi_{\mathrm{surface,pole\_a}}\).
+:::
+
+For a surface point and a named polar pole,
+
+$$
+d_{sc}(\theta)
+=\sqrt{a^2\sin^2\theta+c^2(\cos\theta-1)^2}.
+$$
+
+Therefore
+
+$$
+\Psi_{\mathrm{surface,pole\_c}}(q)
+=\frac{\int_0^\pi
+\frac{\sin(qd_{sc})}{qd_{sc}}\,w(\theta)\,d\theta}
+{S_{\mathrm{red}}}.
+$$
+
+::: {.callout-note collapse="true"}
+## Derivation of the surface-to-polar-pole phase factor
+
+Fix the named polar pole at \((0,0,c)\). Then
+
+$$
+\begin{aligned}
+d_{sc}^2
+&=|\mathbf R_s-(0,0,c)|^2\\
+&=a^2\sin^2\theta\cos^2\lambda
++a^2\sin^2\theta\sin^2\lambda
++c^2(\cos\theta-1)^2\\
+&=a^2\sin^2\theta+c^2(\cos\theta-1)^2.
+\end{aligned}
+$$
+
+This distance is independent of azimuth, so the \(2\pi\) from the surface azimuth cancels against the same factor in the total surface area, leaving the visible one-dimensional weighted average.
+:::
+
+For two independently chosen surface points,
+
+$$
+d_{ss}(\theta,\theta_2,\Delta\lambda)
+=\sqrt{
+a^2\left(
+\sin^2\theta+\sin^2\theta_2
+-2\sin\theta\sin\theta_2\cos\Delta\lambda
+\right)
++c^2(\cos\theta-\cos\theta_2)^2
+}.
+$$
+
+The surface-to-surface phase factor is
+
+$$
+\Psi_{\mathrm{surface,surface}}(q)
+=
+\frac{
+\int_0^\pi\int_0^\pi
+\frac{1}{2\pi}\int_0^{2\pi}
+\frac{\sin(qd_{ss})}{qd_{ss}}\,d\Delta\lambda\,
+w(\theta)w(\theta_2)\,d\theta\,d\theta_2
+}
+{S_{\mathrm{red}}^2}.
+$$
+
+::: {.callout-note collapse="true"}
+## Derivation of the surface-to-surface phase factor
+
+Take two surface points \(\mathbf R_s(\theta,\lambda_1)\) and \(\mathbf R_s(\theta_2,\lambda_2)\). Their squared distance is
+
+$$
+\begin{aligned}
+d_{ss}^2
+&=a^2\left(\sin\theta\cos\lambda_1-\sin\theta_2\cos\lambda_2\right)^2
++a^2\left(\sin\theta\sin\lambda_1-\sin\theta_2\sin\lambda_2\right)^2\\
+&\qquad +c^2(\cos\theta-\cos\theta_2)^2.
+\end{aligned}
+$$
+
+Using
+
+$$
+\cos\lambda_1\cos\lambda_2+\sin\lambda_1\sin\lambda_2
+=\cos(\lambda_1-\lambda_2),
+$$
+
+and defining \(\Delta\lambda=\lambda_1-\lambda_2\), this becomes
+
+$$
+d_{ss}^2
+=a^2\left(
+\sin^2\theta+\sin^2\theta_2
+-2\sin\theta\sin\theta_2\cos\Delta\lambda
+\right)
++c^2(\cos\theta-\cos\theta_2)^2.
+$$
+
+One absolute azimuth integrates out by axial symmetry, leaving the uniform relative-azimuth average \((2\pi)^{-1}\int_0^{2\pi}d\Delta\lambda\). The two independent surface choices give the product weight \(w(\theta)w(\theta_2)\) and the normalization \(S_{\mathrm{red}}^2\).
+:::
+
+The next code cell constructs these symbolic integrals. It intentionally leaves them unevaluated; displaying the normalized integrals is more useful for implementation than forcing a fragile closed form.
+
+```{python}
+theta = sp.Symbol("theta", real=True)
+theta2 = sp.Symbol("theta2", real=True)
+dlam = sp.Symbol("Delta_lambda", real=True)
+
+# Simplify algebraic pieces, but keep the surface quadratures unevaluated.
+surface_weight = sp.simplify(
+    a * sp.sin(theta) * sp.sqrt(c**2 * sp.sin(theta)**2 + a**2 * sp.cos(theta)**2)
+)
+surface_weight2 = sp.simplify(surface_weight.subs(theta, theta2))
+surface_area_reduced = sp.Integral(surface_weight, (theta, 0, sp.pi))
+
+B_surface = sp.Integral(
+    sp.besselj(0, q * a * sp.sqrt(1 - u**2) * sp.sin(theta))
+    * sp.cos(q * c * u * sp.cos(theta))
+    * surface_weight,
+    (theta, 0, sp.pi),
+) / surface_area_reduced
+
+A_distributed_surface = sp.Integral(B_surface * K, (u, 0, 1))
+
+surface_radius = sp.sqrt(
+    sp.simplify(a**2 * sp.sin(theta)**2 + c**2 * sp.cos(theta)**2)
+)
+Psi_center_surface = sp.Integral(
+    sinc(q * surface_radius) * surface_weight,
+    (theta, 0, sp.pi),
+) / surface_area_reduced
+
+surface_pole_a_distance = sp.sqrt(
+    sp.simplify(
+        a**2 * (
+            sp.sin(theta)**2
+            + 1
+            - 2 * sp.sin(theta) * sp.cos(dlam)
+        )
+        + c**2 * sp.cos(theta)**2
+    )
+)
+Psi_surface_pole_a = sp.Integral(
+    sp.Integral(
+        sinc(q * surface_pole_a_distance) * surface_weight,
+        (dlam, 0, 2 * sp.pi),
+    ) / (2 * sp.pi),
+    (theta, 0, sp.pi),
+) / surface_area_reduced
+
+Psi_equator_surface = Psi_surface_pole_a
+
+surface_pole_c_distance = sp.sqrt(
+    sp.simplify(
+        a**2 * sp.sin(theta)**2
+        + c**2 * (sp.cos(theta) - 1)**2
+    )
+)
+Psi_surface_pole_c = sp.Integral(
+    sinc(q * surface_pole_c_distance) * surface_weight,
+    (theta, 0, sp.pi),
+) / surface_area_reduced
+
+surface_pair_distance = sp.sqrt(
+    sp.simplify(
+        a**2 * (
+            sp.sin(theta)**2
+            + sp.sin(theta2)**2
+            - 2 * sp.sin(theta) * sp.sin(theta2) * sp.cos(dlam)
+        )
+        + c**2 * (sp.cos(theta) - sp.cos(theta2))**2
+    )
+)
+Psi_surface_surface = sp.Integral(
+    sp.Integral(
+        sp.Integral(
+            sinc(q * surface_pair_distance) * surface_weight * surface_weight2,
+            (dlam, 0, 2 * sp.pi),
+        ) / (2 * sp.pi),
+        (theta, 0, sp.pi),
+    ),
+    (theta2, 0, sp.pi),
+) / surface_area_reduced**2
+
+display(Math(r"B_{\mathrm{surface}}(q,u) = " + sp.latex(B_surface)))
+display(Math(r"A_{\mathrm{surface}}(q) = " + sp.latex(A_distributed_surface)))
+display(Math(r"\Psi_{\mathrm{center,surface}}(q) = " + sp.latex(Psi_center_surface)))
+display(Math(r"\Psi_{\mathrm{surface,pole\_a}}(q) = " + sp.latex(Psi_surface_pole_a)))
+display(Math(r"\Psi_{\mathrm{surface,pole\_c}}(q) = " + sp.latex(Psi_surface_pole_c)))
+display(Math(r"\Psi_{\mathrm{equator,surface}}(q) = " + sp.latex(Psi_equator_surface)))
+display(Math(r"\Psi_{\mathrm{surface,surface}}(q) = " + sp.latex(Psi_surface_surface)))
+```
+
+At `q = 0`, all normalized quantities should be 1. For Debye factors, use the removable-singularity limit `sinc(0)=1`.
+
+This check is not cosmetic. At zero angle, every phase factor is one because all points are in phase. If one of these normalized expressions does not become 1, the normalization or measure is wrong.
+
+```{python}
+B_surface_q0 = sp.simplify(B_surface.subs(q, 0))
+A_distributed_surface_q0 = sp.simplify(sp.Integral(K_q0, (u, 0, 1)).doit())
+Psi_center_surface_q0 = sp.simplify(surface_area_reduced / surface_area_reduced)
+Psi_surface_pole_a_q0 = sp.simplify(
+    sp.Integral(surface_weight, (theta, 0, sp.pi)) / surface_area_reduced
+)
+Psi_surface_pole_c_q0 = sp.simplify(
+    sp.Integral(surface_weight, (theta, 0, sp.pi)) / surface_area_reduced
+)
+Psi_equator_surface_q0 = Psi_surface_pole_a_q0
+Psi_surface_surface_q0 = sp.simplify(
+    surface_area_reduced**2 / surface_area_reduced**2
+)
+
+display(Math(r"B_{\mathrm{surface}}(0,u) = " + sp.latex(B_surface_q0)))
+display(Math(r"A_{\mathrm{surface}}(0) = " + sp.latex(A_distributed_surface_q0)))
+display(Math(r"\Psi_{\mathrm{center,surface}}(0) = " + sp.latex(Psi_center_surface_q0)))
+display(Math(r"\Psi_{\mathrm{surface,pole\_a}}(0) = " + sp.latex(Psi_surface_pole_a_q0)))
+display(Math(r"\Psi_{\mathrm{surface,pole\_c}}(0) = " + sp.latex(Psi_surface_pole_c_q0)))
+display(Math(r"\Psi_{\mathrm{equator,surface}}(0) = " + sp.latex(Psi_equator_surface_q0)))
+display(Math(r"\Psi_{\mathrm{surface,surface}}(0) = " + sp.latex(Psi_surface_surface_q0)))
+```
+
+## 6. Small-`q` checks
+
+The formulas above define the full `q` dependence. For validation and Guinier checks, SEB also needs the first nontrivial term near `q = 0`.
+
+The workflow is:
+
+1. Replace every oscillatory factor by its expansion through `q^2`.
+2. Perform the simple orientation average.
+3. Match the result to SEB's moment convention.
+
+Use
+
+$$K(z)=1-\frac{z^2}{10}+O(z^4),$$
+
+and
+
+$$\cos(x)=1-\frac{x^2}{2}+O(x^4),\qquad
+J_0(x)=1-\frac{x^2}{4}+O(x^4).$$
+
+For an expression
+
+$$A(q)=1-\frac{q^2M}{6}+O(q^4),$$
+
+SEB stores the second moment `M`.
+
+The cell below performs that recipe explicitly. We do not expand the full sine and Bessel formulas; we substitute only the terms needed for the `q^2` moment. That keeps the algebra readable and avoids asking SymPy to do unnecessary work.
+
+```{python}
+def q2_coefficient(expr):
+    return sp.expand(sp.series(expr, q, 0, 4).removeO()).coeff(q, 2)
+
+def seb_second_moment(expr):
+    return sp.simplify(-6 * q2_coefficient(expr))
+
+def truncate_q2(expr):
+    return sp.expand(sp.series(expr, q, 0, 4).removeO())
+
+def orient_average(expr):
+    return sp.simplify(sp.Integral(expr, (u, 0, 1)).doit())
+
+K_to_q2 = 1 - q**2 * Reff2 / 10
+J0_equator_to_q2 = 1 - q**2 * a**2 * (1 - u**2) / 4
+cos_polar_to_q2 = 1 - q**2 * c**2 * u**2 / 2
+
+A_center_q2 = truncate_q2(orient_average(K_to_q2))
+A_equator_q2 = truncate_q2(orient_average(J0_equator_to_q2 * K_to_q2))
+A_polar_q2 = truncate_q2(orient_average(cos_polar_to_q2 * K_to_q2))
+F_q2 = truncate_q2(orient_average((K_to_q2**2).expand()))
+
+mom_A_center = seb_second_moment(A_center_q2)
+mom_A_equator = seb_second_moment(A_equator_q2)
+mom_A_polar = seb_second_moment(A_polar_q2)
+mom_F_sigma = seb_second_moment(F_q2)
+Rg2 = sp.simplify(mom_F_sigma / 2)
+
+display(Math(r"A_{\mathrm{center}}(q) = " + sp.latex(A_center_q2)))
+display(Math(r"A_{\mathrm{equatorial\ pole}}(q) = " + sp.latex(A_equator_q2)))
+display(Math(r"A_{\mathrm{equator}}(q) = " + sp.latex(A_equator_q2)))
+display(Math(r"A_{\mathrm{polar\ pole}}(q) = " + sp.latex(A_polar_q2)))
+display(Math(r"F(q) = " + sp.latex(F_q2)))
+```
+
+```{python}
+def reference_distance2(ref1, ref2):
+    delta = reference_points[ref1] - reference_points[ref2]
+    return sp.simplify(sum(component**2 for component in delta))
+
+surface_mean_r2 = sp.Integral(
+    (a**2 * sp.sin(theta)**2 + c**2 * sp.cos(theta)**2) * surface_weight,
+    (theta, 0, sp.pi),
+) / surface_area_reduced
+
+moments = {
+    "sigmaMSDref2scat[center]": mom_A_center,
+    "sigmaMSDref2scat[pole_a_plus]": mom_A_equator,
+    "sigmaMSDref2scat[pole_a_minus]": mom_A_equator,
+    "sigmaMSDref2scat[pole_b_plus]": mom_A_equator,
+    "sigmaMSDref2scat[pole_b_minus]": mom_A_equator,
+    "sigmaMSDref2scat[pole_c_plus]": mom_A_polar,
+    "sigmaMSDref2scat[pole_c_minus]": mom_A_polar,
+    "sigmaMSDref2scat[equator]": mom_A_equator,
+    "sigmaMSDref2scat[surface]": Rg2 + surface_mean_r2,
+    "sigmaMSDref2ref[center][equator]": a**2,
+    "sigmaMSDref2ref[center][surface]": surface_mean_r2,
+    "sigmaMSDref2ref[equator][pole_a_plus]": 2 * a**2,
+    "sigmaMSDref2ref[equator][pole_a_minus]": 2 * a**2,
+    "sigmaMSDref2ref[equator][pole_b_plus]": 2 * a**2,
+    "sigmaMSDref2ref[equator][pole_b_minus]": 2 * a**2,
+    "sigmaMSDref2ref[equator][pole_c_plus]": a**2 + c**2,
+    "sigmaMSDref2ref[equator][pole_c_minus]": a**2 + c**2,
+    "sigmaMSDref2ref[equator][equator]": 2 * a**2,
+    "sigmaMSDref2ref[equator][surface]": surface_mean_r2 + a**2,
+    "sigmaMSDref2ref[surface][surface]": 2 * surface_mean_r2,
+    "RadiusOfGyration2": Rg2,
+    "form-factor sigma moment": mom_F_sigma,
+}
+
+for ref1 in reference_points:
+    for ref2 in reference_points:
+        if ref1 <= ref2:
+            moments[f"sigmaMSDref2ref[{ref1}][{ref2}]"] = reference_distance2(ref1, ref2)
+
+moments
+```
+
+Expected specific results include
+
+$$R_g^2=\frac{2a^2+c^2}{5},$$
+
+$$\sigma\langle R^2\rangle_{\mathrm{equatorial\ pole}\to\mathrm{scat}}
+=\frac{7a^2+c^2}{5},$$
+
+and
+
+$$\sigma\langle R^2\rangle_{\mathrm{polar\ pole}\to\mathrm{scat}}
+=\frac{2a^2+6c^2}{5}.$$
+
+The distributed surface moments stay in terms of `surfaceMeanR2`, the normalized one-dimensional surface integral. That is deliberate: it keeps the tutorial aligned with the geometry and avoids hiding the surface measure inside a long special-case closed form.
+
+## 7. Numerical helper functions
+
+The following helper functions use SymPy's numerical evaluation of the symbolic expressions derived above.
+
+This section has two purposes. First, it gives runnable checks for the derivation. Second, it shows what a simple numerical implementation would look like before translating formulas into C++ expressions.
+
+The functions follow the tutorial order:
+
+- stable sphere kernel,
+- numerical evaluation of already-defined symbolic integrals,
+- `F` and the specific-reference amplitudes,
+- distance-based specific phase factors,
+- distributed-equator and distributed-surface helper functions.
+
+The expensive `spheroid_Psi_surface_surface` helper is included for completeness but not called in the printed demo. Direct substitution at `q = 0` would create removable `0/0` forms in the raw kernel and sinc expressions, so the helpers return the known normalized zero-angle limits explicitly.
+
+```{python}
+numeric_digits = 30
+numeric_zero_tol = 1e-12
+
+def spheroid_kernel(z_value):
+    z_number = sp.sympify(z_value)
+    if z_number.free_symbols:
+        return sphere_kernel(z_number)
+    z_number = sp.Float(z_number, numeric_digits)
+    if abs(float(z_number)) < numeric_zero_tol:
+        return sp.Float(1, numeric_digits)
+    return sp.N(sphere_kernel(z_number), numeric_digits)
+
+def spheroid_reff(uu, a_value, c_value):
+    return sp.N(
+        Reff.subs({
+            u: sp.Float(uu, numeric_digits),
+            a: sp.Float(a_value, numeric_digits),
+            c: sp.Float(c_value, numeric_digits),
+        }),
+        numeric_digits,
+    )
+
+def spheroid_numeric(expr, q_value, a_value, c_value, extra_subs=None, zero_value=None):
+    q_number = sp.Float(q_value, numeric_digits)
+    substitutions = {
+        q: q_number,
+        a: sp.Float(a_value, numeric_digits),
+        c: sp.Float(c_value, numeric_digits),
+    }
+    if extra_subs:
+        substitutions.update(extra_subs)
+    if abs(float(q_number)) < numeric_zero_tol and zero_value is not None:
+        return sp.Float(zero_value, numeric_digits)
+    return sp.N(expr.subs(substitutions), numeric_digits)
+
+def spheroid_F(q_value, a_value, c_value):
+    return spheroid_numeric(F, q_value, a_value, c_value, zero_value=1)
+
+def spheroid_A_center(q_value, a_value, c_value):
+    return spheroid_numeric(A_center, q_value, a_value, c_value, zero_value=1)
+
+def spheroid_A_pole_equator(q_value, a_value, c_value):
+    return spheroid_numeric(A_pole_equator, q_value, a_value, c_value, zero_value=1)
+
+def spheroid_A_equator(q_value, a_value, c_value):
+    return spheroid_A_pole_equator(q_value, a_value, c_value)
+
+def spheroid_A_pole_polar(q_value, a_value, c_value):
+    return spheroid_numeric(A_pole_polar, q_value, a_value, c_value, zero_value=1)
+
+def spheroid_reference_point(name, a_value, c_value):
+    points = {
+        "center": (0, 0, 0),
+        "pole_a_plus": (a_value, 0, 0),
+        "pole_a_minus": (-a_value, 0, 0),
+        "pole_b_plus": (0, a_value, 0),
+        "pole_b_minus": (0, -a_value, 0),
+        "pole_c_plus": (0, 0, c_value),
+        "pole_c_minus": (0, 0, -c_value),
+    }
+    return points[name]
+
+def spheroid_Psi_refs(ref1, ref2, q_value, a_value, c_value):
+    return spheroid_numeric(Psi_refs[(ref1, ref2)], q_value, a_value, c_value, zero_value=1)
+
+def spheroid_surface_weight(th, a_value, c_value):
+    return sp.N(
+        surface_weight.subs({
+            theta: sp.Float(th, numeric_digits),
+            a: sp.Float(a_value, numeric_digits),
+            c: sp.Float(c_value, numeric_digits),
+        }),
+        numeric_digits,
+    )
+
+def spheroid_surface_theta_interval():
+    return (0, sp.pi / 2, sp.pi)
+
+def spheroid_surface_area_reduced(a_value, c_value):
+    return sp.N(
+        surface_area_reduced.subs({
+            a: sp.Float(a_value, numeric_digits),
+            c: sp.Float(c_value, numeric_digits),
+        }),
+        numeric_digits,
+    )
+
+def spheroid_B_surface(q_value, uu, a_value, c_value):
+    return spheroid_numeric(
+        B_surface,
+        q_value,
+        a_value,
+        c_value,
+        extra_subs={u: sp.Float(uu, numeric_digits)},
+        zero_value=1,
+    )
+
+def spheroid_A_surface(q_value, a_value, c_value):
+    return spheroid_numeric(A_distributed_surface, q_value, a_value, c_value, zero_value=1)
+
+def spheroid_Psi_center_surface(q_value, a_value, c_value):
+    return spheroid_numeric(Psi_center_surface, q_value, a_value, c_value, zero_value=1)
+
+def spheroid_sinc(x):
+    x_number = sp.Float(x, numeric_digits)
+    if abs(float(x_number)) < numeric_zero_tol:
+        return sp.Float(1, numeric_digits)
+    return sp.N(sp.sin(x_number) / x_number, numeric_digits)
+
+def spheroid_Psi_center_equator(q_value, a_value):
+    return spheroid_numeric(Psi_center_equator, q_value, a_value, 1, zero_value=1)
+
+def spheroid_Psi_equator_pole_equator(q_value, a_value):
+    t = sp.Symbol("t_equator_numeric", real=True)
+    expr = sp.Integral(sp.besselj(0, 2 * a * q * t), (t, 0, 1))
+    return spheroid_numeric(expr, q_value, a_value, 1, zero_value=1)
+
+def spheroid_Psi_equator_equator(q_value, a_value):
+    return spheroid_Psi_equator_pole_equator(q_value, a_value)
+
+def spheroid_Psi_equator_pole_polar(q_value, a_value, c_value):
+    return spheroid_numeric(Psi_equator_pole_c, q_value, a_value, c_value, zero_value=1)
+
+def spheroid_disk_rim_surface(q_value, a_value):
+    x = sp.Float(q_value, numeric_digits) * sp.Float(a_value, numeric_digits)
+    th = sp.Symbol("theta_disk_rim_numeric", real=True)
+    return sp.N(
+        sp.Integral(
+            2 * sp.besselj(0, x * sp.sin(th)) * sp.besselj(1, x * sp.sin(th)) / x,
+            (th, 0, sp.pi / 2),
+        ),
+        numeric_digits,
+    )
+
+def spheroid_Psi_surface_pole_equator(q_value, a_value, c_value):
+    if abs(float(q_value)) < numeric_zero_tol:
+        return sp.Float(1, numeric_digits)
+    if abs(float(c_value)) < numeric_zero_tol:
+        return spheroid_disk_rim_surface(q_value, a_value)
+    return spheroid_numeric(Psi_surface_pole_a, q_value, a_value, c_value, zero_value=1)
+
+def spheroid_Psi_equator_surface(q_value, a_value, c_value):
+    return spheroid_Psi_surface_pole_equator(q_value, a_value, c_value)
+
+def spheroid_Psi_surface_pole_polar(q_value, a_value, c_value):
+    return spheroid_numeric(Psi_surface_pole_c, q_value, a_value, c_value, zero_value=1)
+
+def spheroid_Psi_surface_surface(q_value, a_value, c_value):
+    """Expensive 3D integral; defined for spot checks, not called below."""
+    return spheroid_numeric(Psi_surface_surface, q_value, a_value, c_value, zero_value=1)
+
+a_value, c_value = 1.0, 2.0
+
+print(f"Example values for a={a_value}, c={c_value}")
+print(
+    f"{'q':>6}  "
+    f"{'F(q)':>18}  "
+    f"{'A_center(q)':>18}  "
+    f"{'A_pole_equator(q)':>22}  "
+    f"{'A_pole_polar(q)':>20}  "
+    f"{'Psi_pole_c_plus_pole_c_minus(q)':>34}"
+)
+print("-" * 130)
+
+for q_value in [0.0, 0.1, 1.0, 5.0]:
+    values = (
+        q_value,
+        spheroid_F(q_value, a_value, c_value),
+        spheroid_A_center(q_value, a_value, c_value),
+        spheroid_A_pole_equator(q_value, a_value, c_value),
+        spheroid_A_pole_polar(q_value, a_value, c_value),
+        spheroid_Psi_refs("pole_c_plus", "pole_c_minus", q_value, a_value, c_value),
+    )
+    print(
+        f"{float(values[0]):6.2f}  "
+        f"{float(values[1]):18.12g}  "
+        f"{float(values[2]):18.12g}  "
+        f"{float(values[3]):22.12g}  "
+        f"{float(values[4]):20.12g}  "
+        f"{float(values[5]):34.12g}"
+    )
+```
+
+## 8. Optional plots of the derived factors
+
+The Mathematica notebooks include plots of the scattering factors. They are not
+used as proof or validation here, but they are useful for reading the formulas:
+normalization errors, unexpected sign changes, and suspicious oscillations are
+much easier to notice in a curve than in a single table of values.
+
+The plot below evaluates a small representative set for the example spheroid
+`a = 1`, `c = 2`. It uses direct Gauss-Legendre quadrature of the same derived
+integrands. The Bessel-heavy equatorial-pole curve is left out so the tutorial
+does not require SciPy just for this visual aid.
+
+```{python}
+#| label: fig-spheroid-derived-factors
+#| fig-cap: "Representative derived spheroid factors for a=1 and c=2. The plot is a visual aid, not the Monte Carlo validation."
+import numpy as np
+import plotly.graph_objects as go
+
+def kernel_numpy(z_values):
+    z_values = np.asarray(z_values, dtype=float)
+    out = np.ones_like(z_values)
+    mask = np.abs(z_values) > 1e-8
+    z_masked = z_values[mask]
+    out[mask] = 3.0 * (np.sin(z_masked) - z_masked * np.cos(z_masked)) / z_masked**3
+    z_small = z_values[~mask]
+    out[~mask] = 1.0 - z_small**2 / 10.0 + z_small**4 / 280.0
+    return out
+
+def sinc_numpy(z_values):
+    z_values = np.asarray(z_values, dtype=float)
+    out = np.ones_like(z_values)
+    mask = np.abs(z_values) > 1e-8
+    out[mask] = np.sin(z_values[mask]) / z_values[mask]
+    return out
+
+q_plot_values = np.geomspace(0.05, 20.0, 160)
+nodes, weights = np.polynomial.legendre.leggauss(180)
+u_plot = 0.5 * (nodes + 1.0)
+w_plot = 0.5 * weights
+reff_plot = np.sqrt(a_value**2 * (1.0 - u_plot**2) + c_value**2 * u_plot**2)
+
+F_plot = []
+A_center_plot = []
+A_polar_plot = []
+for qi in q_plot_values:
+    K_plot = kernel_numpy(qi * reff_plot)
+    F_plot.append(np.sum(w_plot * K_plot**2))
+    A_center_plot.append(np.sum(w_plot * K_plot))
+    A_polar_plot.append(np.sum(w_plot * np.cos(qi * c_value * u_plot) * K_plot))
+
+plot_series = {
+    "F": F_plot,
+    "A_center": A_center_plot,
+    "A_polar_pole": A_polar_plot,
+    "Psi_center_equator": sinc_numpy(q_plot_values * a_value),
+    "Psi_pole_c_plus_pole_c_minus": sinc_numpy(q_plot_values * 2.0 * c_value),
+}
+
+fig = go.Figure()
+for label, values in plot_series.items():
+    fig.add_trace(
+        go.Scatter(
+            x=q_plot_values,
+            y=[float(value) for value in values],
+            mode="lines",
+            name=label,
+        )
+    )
+
+fig.add_hline(y=0.0, line_width=1, line_color="rgba(80,80,80,0.35)")
+fig.update_layout(
+    title="Derived spheroid factors",
+    xaxis_title="q",
+    yaxis_title="factor value",
+    xaxis_type="log",
+    width=820,
+    height=500,
+    template="plotly_white",
+    legend_title_text="factor",
+    margin=dict(l=60, r=24, t=56, b=56),
+)
+fig.show()
+```
+
+## 9. Numerical verification
+
+Check the removable-singularity limits first. All normalized quantities equal 1 at `q = 0`; the surface-surface helper is intentionally not called here because that three-dimensional quadrature is expensive.
+
+Read this as a small test suite. Each entry is a quantity that should be normalized to one at zero angle. The `assert` statements make the notebook fail during rendering if a future edit breaks one of these basic limits.
+
+```{python}
+tol = sp.Float("1e-10")
+zero_checks = {
+    "F(0)": spheroid_F(0, a_value, c_value),
+    "A_center(0)": spheroid_A_center(0, a_value, c_value),
+    "A_pole_equator(0)": spheroid_A_pole_equator(0, a_value, c_value),
+    "A_equator(0)": spheroid_A_equator(0, a_value, c_value),
+    "A_pole_polar(0)": spheroid_A_pole_polar(0, a_value, c_value),
+    "Psi_center_equator(0)": spheroid_Psi_center_equator(0, a_value),
+    "Psi_equator_pole_equator(0)": spheroid_Psi_equator_pole_equator(0, a_value),
+    "Psi_equator_pole_polar(0)": spheroid_Psi_equator_pole_polar(0, a_value, c_value),
+    "Psi_equator_equator(0)": spheroid_Psi_equator_equator(0, a_value),
+    "B_surface(0,u=0.37)": spheroid_B_surface(0, sp.Float("0.37"), a_value, c_value),
+    "A_surface(0)": spheroid_A_surface(0, a_value, c_value),
+    "Psi_center_surface(0)": spheroid_Psi_center_surface(0, a_value, c_value),
+    "Psi_surface_pole_equator(0)": spheroid_Psi_surface_pole_equator(0, a_value, c_value),
+    "Psi_surface_pole_polar(0)": spheroid_Psi_surface_pole_polar(0, a_value, c_value),
+    "Psi_equator_surface(0)": spheroid_Psi_equator_surface(0, a_value, c_value),
+    "Psi_surface_surface(0)": sp.Float("1.0"),
+    "Psi_pole_c_plus_pole_c_minus(0)": spheroid_Psi_refs(
+        "pole_c_plus", "pole_c_minus", 0, a_value, c_value
+    ),
+}
+
+for label, value in zero_checks.items():
+    assert abs(float(value - 1)) < float(tol), (label, value)
+
+zero_checks
+```
+
+In the sphere limit `a = c = R`, the effective radius is constant:
+
+$$F(q)=K(qR)^2,\qquad A_{\mathrm{center}}(q)=K(qR).$$
+
+For a specific pole on a sphere,
+
+$$A_{\mathrm{pole}}(q)=K(qR)\frac{\sin(qR)}{qR}.$$
+
+This check is stronger than just testing `q = 0`. It verifies that the spheroid formulas collapse to known closed-form sphere formulas at a nonzero `q`.
+
+```{python}
+R_value = sp.Float("1.4")
+q_test = sp.Float("0.8")
+K_sphere_numeric = spheroid_kernel(q_test * R_value)
+
+sphere_checks = {
+    "F sphere": abs(spheroid_F(q_test, R_value, R_value) - K_sphere_numeric**2),
+    "A_center sphere": abs(spheroid_A_center(q_test, R_value, R_value) - K_sphere_numeric),
+    "A_pole_equator sphere": abs(
+        spheroid_A_pole_equator(q_test, R_value, R_value)
+        - K_sphere_numeric * spheroid_Psi_refs("center", "pole_a_plus", q_test, R_value, R_value)
+    ),
+    "A_pole_polar sphere": abs(
+        spheroid_A_pole_polar(q_test, R_value, R_value)
+        - K_sphere_numeric * spheroid_Psi_refs("center", "pole_c_plus", q_test, R_value, R_value)
+    ),
+}
+
+for label, err in sphere_checks.items():
+    assert abs(float(err)) < 1e-8, (label, err)
+
+sphere_checks
+```
+
+The degenerate limit `c = 0` is useful, but it has to be read carefully. The distributed `surface` reference collapses to two coincident disk faces, so normalized surface phase factors become thin-disk area averages. The homogeneous spheroid body, however, does not become a uniform thin disk area distribution; its projected density is inherited from the collapsed volume. Therefore the surface phase factors match the `ThinDisk` formulas, while the body form factor and body amplitudes do not.
+
+To avoid checking this against hand-copied disk formulas, ask pySEB for an actual symbolic `ThinDisk` and compare the collapsed spheroid expressions with those disk expressions. The only housekeeping below is normalization of pySEB's numeric `pi/2` integration bound into SymPy's exact `pi/2`.
+
+```{python}
+from pathlib import Path
+import sys
+
+for candidate in (Path.cwd(), *Path.cwd().parents):
+    if (candidate / "pyseb").exists():
+        sys.path.insert(0, str(candidate))
+        break
+
+import pyseb
+
+v = sp.Symbol("v", positive=True, real=True)
+
+def normalize_pyseb_disk_expr(expr):
+    expr = expr.subs(sp.Symbol("R_disk"), a)
+    expr = expr.subs(sp.Symbol("q"), q)
+    replacements = {
+        atom: sp.pi / 2
+        for atom in expr.atoms(sp.Float)
+        if abs(float(atom) - float(sp.pi / 2)) < 1e-12
+    }
+    return expr.xreplace(replacements)
+
+def symbolic_difference(expr1, expr2):
+    return sp.simplify(sp.cancel(expr1 - expr2))
+
+disk_world = pyseb.World()
+disk_world.Add("ThinDisk", "disk")
+
+pyseb_disk_F = normalize_pyseb_disk_expr(
+    pyseb.to_sympy(disk_world.FormFactor("disk"))
+)
+pyseb_disk_A_center = normalize_pyseb_disk_expr(
+    pyseb.to_sympy(disk_world.FormFactorAmplitude("disk.center"))
+)
+pyseb_disk_A_rim = normalize_pyseb_disk_expr(
+    pyseb.to_sympy(disk_world.FormFactorAmplitude("disk.rim"))
+)
+pyseb_disk_A_surface = normalize_pyseb_disk_expr(
+    pyseb.to_sympy(disk_world.FormFactorAmplitude("disk.surface"))
+)
+pyseb_disk_Psi_center_surface = normalize_pyseb_disk_expr(
+    pyseb.to_sympy(disk_world.PhaseFactor("disk.center", "disk.surface"))
+)
+pyseb_disk_Psi_center_rim = normalize_pyseb_disk_expr(
+    pyseb.to_sympy(disk_world.PhaseFactor("disk.center", "disk.rim"))
+)
+pyseb_disk_Psi_rim_surface = normalize_pyseb_disk_expr(
+    pyseb.to_sympy(disk_world.PhaseFactor("disk.rim", "disk.surface"))
+)
+pyseb_disk_Psi_surface_surface = normalize_pyseb_disk_expr(
+    pyseb.to_sympy(disk_world.PhaseFactor("disk.surface", "disk.surface"))
+)
+
+surface_weight_c0 = sp.simplify(surface_weight.subs(c, 0))
+surface_area_reduced_c0 = sp.integrate(surface_weight_c0, (theta, 0, sp.pi))
+
+B_surface_c0 = sp.simplify(
+    sp.integrate(
+        sp.besselj(0, q * a * v * sp.sin(theta)) * surface_weight_c0,
+        (theta, 0, sp.pi),
+    )
+    / surface_area_reduced_c0
+)
+thin_disk_fixed_area_amplitude_symbolic = 2 * sp.besselj(1, q * a * v) / (q * a * v)
+
+Psi_center_surface_c0 = sp.simplify(
+    sp.integrate(
+        sinc(q * a * sp.sin(theta)) * surface_weight_c0,
+        (theta, 0, sp.pi),
+    )
+    / surface_area_reduced_c0
+)
+thin_disk_center_surface_symbolic = 2 * (1 - sp.cos(q * a)) / (q * a)**2
+
+disk_t = list(pyseb_disk_Psi_rim_surface.atoms(sp.Integral))[0].limits[0][0]
+thin_disk_rim_surface_symbolic = sp.Integral(
+    sp.Piecewise(
+        (sp.sin(disk_t) * sp.besselj(0, a * q * sp.sin(disk_t)),
+         sp.Eq(a * q * sp.sin(disk_t), 0)),
+        (2 * sp.besselj(0, a * q * sp.sin(disk_t))
+         * sp.besselj(1, a * q * sp.sin(disk_t)) / (a * q), True),
+    ),
+    (disk_t, 0, sp.pi / 2),
+)
+
+def display_latex_comparison(title, pyseb_expr, spheroid_expr):
+    safe_title = title.replace("_", r"\_")
+    pyseb_latex = sp.latex(pyseb_expr)
+    spheroid_latex = sp.latex(spheroid_expr)
+    display(Math(
+        r"\begin{aligned}"
+        + rf"\text{{{safe_title}: pySEB ThinDisk}}\quad &= {pyseb_latex}\\"
+        + rf"\text{{{safe_title}: spheroid }}c=0\quad &= {spheroid_latex}"
+        + r"\end{aligned}"
+    ))
+
+display_latex_comparison(
+    "surface phase average",
+    2 * sp.besselj(1, q * a * v) / (q * a * v),
+    B_surface_c0,
+)
+display_latex_comparison(
+    "center to surface",
+    pyseb_disk_Psi_center_surface,
+    Psi_center_surface_c0,
+)
+display_latex_comparison(
+    "rim to surface",
+    pyseb_disk_Psi_rim_surface,
+    thin_disk_rim_surface_symbolic,
+)
+
+spheroid_K_c0 = sphere_kernel(q * a * sp.sqrt(1 - u**2))
+spheroid_F_c0 = sp.Integral(spheroid_K_c0**2, (u, 0, 1))
+spheroid_A_center_c0 = sp.Integral(spheroid_K_c0, (u, 0, 1))
+display_latex_comparison(
+    "body form factor",
+    pyseb_disk_F,
+    spheroid_F_c0,
+)
+display_latex_comparison(
+    "center amplitude",
+    pyseb_disk_A_center,
+    spheroid_A_center_c0,
+)
+
+disk_symbolic_checks = {
+    "S_red c=0": surface_area_reduced_c0,
+    "B_surface c=0": B_surface_c0,
+    "B_surface c=0 minus disk fixed-area amplitude": symbolic_difference(
+        B_surface_c0, thin_disk_fixed_area_amplitude_symbolic
+    ),
+    "Psi_center_surface c=0": Psi_center_surface_c0,
+    "Psi_center_surface c=0 minus reduced disk center_surface": symbolic_difference(
+        Psi_center_surface_c0, thin_disk_center_surface_symbolic
+    ),
+    "ThinDisk A_center minus Psi_center_surface": symbolic_difference(
+        pyseb_disk_A_center, pyseb_disk_Psi_center_surface
+    ),
+    "ThinDisk A_rim minus Psi_rim_surface": symbolic_difference(
+        pyseb_disk_A_rim, pyseb_disk_Psi_rim_surface
+    ),
+    "ThinDisk A_surface minus F": symbolic_difference(pyseb_disk_A_surface, pyseb_disk_F),
+    "ThinDisk Psi_surface_surface minus F": symbolic_difference(
+        pyseb_disk_Psi_surface_surface, pyseb_disk_F
+    ),
+    "ThinDisk Psi_center_rim": pyseb_disk_Psi_center_rim,
+    "reduced rim_surface matches ThinDisk rim_surface": (
+        thin_disk_rim_surface_symbolic.dummy_eq(pyseb_disk_Psi_rim_surface)
+    ),
+}
+
+assert disk_symbolic_checks["S_red c=0"] == a**2
+assert disk_symbolic_checks["B_surface c=0 minus disk fixed-area amplitude"] == 0
+assert disk_symbolic_checks["Psi_center_surface c=0 minus reduced disk center_surface"] == 0
+assert disk_symbolic_checks["ThinDisk A_center minus Psi_center_surface"] == 0
+assert disk_symbolic_checks["ThinDisk A_rim minus Psi_rim_surface"] == 0
+assert disk_symbolic_checks["ThinDisk A_surface minus F"] == 0
+assert disk_symbolic_checks["ThinDisk Psi_surface_surface minus F"] == 0
+assert disk_symbolic_checks["reduced rim_surface matches ThinDisk rim_surface"]
+
+disk_symbolic_checks
+```
+
+The rim-to-surface integrand includes the current model's explicit value at zero, using $2J_1(x)/x \to 1$ as $x \to 0$. SymPy leaves the equivalence between pySEB's center-to-surface disk integral and the reduced closed form as a Bessel integral identity, so that one is checked numerically. The same numerical probe records that the collapsed spheroid body form factor and center amplitude are not the uniform thin-disk body terms.
+
+```{python}
+def evaluate_disk_expr(expr, q_value, R_value):
+    return sp.N(expr.subs({q: q_value, a: R_value}), numeric_digits)
+
+disk_limit_R = sp.Float("1.0")
+disk_limit_q = sp.Float("1.3")
+
+disk_numeric_checks = {
+    "ThinDisk center_surface equals reduced closed form": abs(
+        evaluate_disk_expr(pyseb_disk_Psi_center_surface, disk_limit_q, disk_limit_R)
+        - evaluate_disk_expr(thin_disk_center_surface_symbolic, disk_limit_q, disk_limit_R)
+    ),
+}
+
+disk_body_differences = {
+    "F body c=0 minus thin disk F": abs(
+        spheroid_F(disk_limit_q, disk_limit_R, 0)
+        - evaluate_disk_expr(pyseb_disk_F, disk_limit_q, disk_limit_R)
+    ),
+    "A_center body c=0 minus thin disk A_center": abs(
+        spheroid_A_center(disk_limit_q, disk_limit_R, 0)
+        - evaluate_disk_expr(pyseb_disk_A_center, disk_limit_q, disk_limit_R)
+    ),
+}
+
+for label, err in disk_numeric_checks.items():
+    assert abs(float(err)) < 1e-8, (label, err)
+
+(disk_numeric_checks, disk_body_differences)
+```
+
+Finally, compare the one-dimensional spheroid formulas against the triaxial ellipsoid orientation average after setting the ellipsoid parameter `b = a`.
+
+This check protects the main specialization step. The triaxial ellipsoid average still integrates over `u` and `phi`. When `b = a`, the `F` and `A_center` integrands no longer depend on `phi`. For the named equatorial-pole amplitude, the remaining azimuthal average gives the same `J0` factor used above, so the reduced triaxial result should match the spheroid result.
+
+```{python}
+def ellipsoid_reff(uu, ph, a_value, b_value, c_value):
+    return sp.sqrt(
+        a_value**2 * (1 - uu**2) * sp.sin(ph)**2
+        + b_value**2 * (1 - uu**2) * sp.cos(ph)**2
+        + c_value**2 * uu**2
+    )
+
+def ellipsoid_F_b_equals_a(q_value, a_value, c_value):
+    ellipsoid_K = sphere_kernel(
+        q * sp.simplify(ellipsoid_reff(u, 0, a, a, c))
+    )
+    return spheroid_numeric(sp.Integral(ellipsoid_K**2, (u, 0, 1)), q_value, a_value, c_value)
+
+def ellipsoid_A_center_b_equals_a(q_value, a_value, c_value):
+    ellipsoid_K = sphere_kernel(
+        q * sp.simplify(ellipsoid_reff(u, 0, a, a, c))
+    )
+    return spheroid_numeric(sp.Integral(ellipsoid_K, (u, 0, 1)), q_value, a_value, c_value)
+
+def ellipsoid_A_pole_a_b_equals_a(q_value, a_value, c_value):
+    ellipsoid_K = sphere_kernel(
+        q * sp.simplify(ellipsoid_reff(u, 0, a, a, c))
+    )
+    reduced_pole_average = sp.besselj(0, q * a * sp.sqrt(1 - u**2))
+    return spheroid_numeric(
+        sp.Integral(reduced_pole_average * ellipsoid_K, (u, 0, 1)),
+        q_value,
+        a_value,
+        c_value,
+    )
+
+ellipsoid_spheroid_checks = {
+    "F": abs(spheroid_F(q_test, a_value, c_value) - ellipsoid_F_b_equals_a(q_test, a_value, c_value)),
+    "A_center": abs(
+        spheroid_A_center(q_test, a_value, c_value)
+        - ellipsoid_A_center_b_equals_a(q_test, a_value, c_value)
+    ),
+    "A_pole_equator": abs(
+        spheroid_A_pole_equator(q_test, a_value, c_value)
+        - ellipsoid_A_pole_a_b_equals_a(q_test, a_value, c_value)
+    ),
+}
+
+for label, err in ellipsoid_spheroid_checks.items():
+    assert abs(float(err)) < 1e-8, (label, err)
+
+ellipsoid_spheroid_checks
+```
+
+## 10. Mapping to a SEB subunit
+
+A C++ subunit would follow the same naming convention as the triaxial ellipsoid example:
+
+This final section is not an implementation request. It is a translation guide. The symbolic objects above map almost one-to-one onto SEB expression objects: symbols become `Expression`s, integrals become `integrate(...)`, and the same reference-point names become map keys. The block below includes the main body formulas, the distributed-reference formulas, the phase-factor families, and the small-`q` moments.
+
+``` cpp
+setReferencePointName("center");
+setReferencePointName("pole_a_plus");
+setReferencePointName("pole_a_minus");
+setReferencePointName("pole_b_plus");
+setReferencePointName("pole_b_minus");
+setReferencePointName("pole_c_plus");
+setReferencePointName("pole_c_minus");
+setDistReferencePointType("equator");
+setDistReferencePointType("surface");
+
+Expression q    = GLEX->getSymbol("q");
+Expression a    = GLEX->getSymbol("a", n);     // equatorial semi-axis
+Expression c    = GLEX->getSymbol("c", n);     // polar semi-axis
+Expression uvar = GLEX->getSymbol("u", n);
+Expression th   = GLEX->getSymbol("theta", n);
+Expression th2  = GLEX->getSymbol("theta2", n);
+Expression lam  = GLEX->getSymbol("lambda", n);
+
+Expression Reff2 = a*a*(1 - uvar*uvar) + c*c*uvar*uvar;
+Expression qr = q*sqrt(Reff2);
+Expression J = 3*(sin(qr) - qr*cos(qr))/pow(qr, 3);
+
+FormFactorExpression = integrate(uvar, 0, 1, J*J);
+FormFactorAmplitudeExpressions["center"] = integrate(uvar, 0, 1, J);
+
+FormFactorAmplitudeExpressions["pole_a_plus"] =
+    integrate(uvar, 0, 1, BesselJ0(q*a*sqrt(1 - uvar*uvar))*J);
+FormFactorAmplitudeExpressions["pole_a_minus"] = FormFactorAmplitudeExpressions["pole_a_plus"];
+FormFactorAmplitudeExpressions["pole_b_plus"] = FormFactorAmplitudeExpressions["pole_a_plus"];
+FormFactorAmplitudeExpressions["pole_b_minus"] = FormFactorAmplitudeExpressions["pole_a_plus"];
+
+FormFactorAmplitudeExpressions["pole_c_plus"] =
+    integrate(uvar, 0, 1, cos(q*c*uvar)*J);
+FormFactorAmplitudeExpressions["pole_c_minus"] = FormFactorAmplitudeExpressions["pole_c_plus"];
+
+FormFactorAmplitudeExpressions["equator"] = FormFactorAmplitudeExpressions["pole_a_plus"];
+
+Expression wSurface =
+    a*sin(th)*sqrt(c*c*sin(th)*sin(th) + a*a*cos(th)*cos(th));
+Expression Sred = integrate(th, 0, pi, wSurface);
+Expression Bsurface =
+    integrate(
+        th, 0, pi,
+        BesselJ0(q*a*sqrt(1 - uvar*uvar)*sin(th))
+        * cos(q*c*uvar*cos(th))
+        * wSurface
+    ) / Sred;
+
+FormFactorAmplitudeExpressions["surface"] =
+    integrate(uvar, 0, 1, Bsurface*J);
+
+// Specific-reference phase factors.
+PhaseFactorExpressions["center"]["center"] = 1;
+PhaseFactorExpressions["center"]["pole_a_plus"] = sinc(q*a);
+PhaseFactorExpressions["center"]["pole_a_minus"] = sinc(q*a);
+PhaseFactorExpressions["center"]["pole_b_plus"] = sinc(q*a);
+PhaseFactorExpressions["center"]["pole_b_minus"] = sinc(q*a);
+PhaseFactorExpressions["center"]["pole_c_plus"] = sinc(q*c);
+PhaseFactorExpressions["center"]["pole_c_minus"] = sinc(q*c);
+
+PhaseFactorExpressions["pole_a_plus"]["pole_a_minus"] = sinc(2*q*a);
+PhaseFactorExpressions["pole_b_plus"]["pole_b_minus"] = sinc(2*q*a);
+PhaseFactorExpressions["pole_c_plus"]["pole_c_minus"] = sinc(2*q*c);
+
+Expression psiEquatorPoleA =
+    integrate(lam, 0, 2*pi,
+        sinc(q*sqrt(2*a*a*(1 - cos(lam))))
+    ) / (2*pi);
+PhaseFactorExpressions["center"]["equator"] = sinc(q*a);
+PhaseFactorExpressions["equator"]["pole_a_plus"] = psiEquatorPoleA;
+PhaseFactorExpressions["equator"]["pole_a_minus"] = psiEquatorPoleA;
+PhaseFactorExpressions["equator"]["pole_b_plus"] = psiEquatorPoleA;
+PhaseFactorExpressions["equator"]["pole_b_minus"] = psiEquatorPoleA;
+PhaseFactorExpressions["equator"]["equator"] = psiEquatorPoleA;
+PhaseFactorExpressions["equator"]["pole_c_plus"] = sinc(q*sqrt(a*a + c*c));
+PhaseFactorExpressions["equator"]["pole_c_minus"] = sinc(q*sqrt(a*a + c*c));
+
+Expression surfaceRadius2 =
+    a*a*sin(th)*sin(th) + c*c*cos(th)*cos(th);
+Expression surfaceMeanR2 =
+    integrate(th, 0, pi, surfaceRadius2*wSurface) / Sred;
+Expression psiCenterSurface =
+    integrate(th, 0, pi, sinc(q*sqrt(surfaceRadius2))*wSurface) / Sred;
+
+Expression dSurfacePoleA =
+    sqrt(a*a*(sin(th)*sin(th) + 1 - 2*sin(th)*cos(lam))
+         + c*c*cos(th)*cos(th));
+Expression psiSurfacePoleA =
+    integrate(
+        th, 0, pi,
+        integrate(lam, 0, 2*pi, sinc(q*dSurfacePoleA)) * wSurface / (2*pi)
+    ) / Sred;
+
+Expression dSurfacePoleC =
+    sqrt(a*a*sin(th)*sin(th) + c*c*(cos(th) - 1)*(cos(th) - 1));
+Expression psiSurfacePoleC =
+    integrate(th, 0, pi, sinc(q*dSurfacePoleC)*wSurface) / Sred;
+
+Expression dSurfaceSurface =
+    sqrt(a*a*(sin(th)*sin(th) + sin(th2)*sin(th2)
+              - 2*sin(th)*sin(th2)*cos(lam))
+         + c*c*(cos(th) - cos(th2))*(cos(th) - cos(th2)));
+Expression wSurface2 =
+    a*sin(th2)*sqrt(c*c*sin(th2)*sin(th2) + a*a*cos(th2)*cos(th2));
+Expression psiSurfaceSurface =
+    integrate(
+        th2, 0, pi,
+        integrate(
+            th, 0, pi,
+            integrate(lam, 0, 2*pi, sinc(q*dSurfaceSurface))
+            * wSurface*wSurface2 / (2*pi)
+        )
+    ) / (Sred*Sred);
+
+PhaseFactorExpressions["center"]["surface"] = psiCenterSurface;
+PhaseFactorExpressions["surface"]["pole_a_plus"] = psiSurfacePoleA;
+PhaseFactorExpressions["surface"]["pole_a_minus"] = psiSurfacePoleA;
+PhaseFactorExpressions["surface"]["pole_b_plus"] = psiSurfacePoleA;
+PhaseFactorExpressions["surface"]["pole_b_minus"] = psiSurfacePoleA;
+PhaseFactorExpressions["surface"]["pole_c_plus"] = psiSurfacePoleC;
+PhaseFactorExpressions["surface"]["pole_c_minus"] = psiSurfacePoleC;
+PhaseFactorExpressions["equator"]["surface"] = psiSurfacePoleA;
+PhaseFactorExpressions["surface"]["surface"] = psiSurfaceSurface;
+
+RadiusOfGyration2 = (2*a*a + c*c)/5;
+sigmaMSDref2scat["center"] = RadiusOfGyration2;
+sigmaMSDref2scat["pole_a_plus"] = (7*a*a + c*c)/5;
+sigmaMSDref2scat["pole_a_minus"] = sigmaMSDref2scat["pole_a_plus"];
+sigmaMSDref2scat["pole_b_plus"] = sigmaMSDref2scat["pole_a_plus"];
+sigmaMSDref2scat["pole_b_minus"] = sigmaMSDref2scat["pole_a_plus"];
+sigmaMSDref2scat["pole_c_plus"] = (2*a*a + 6*c*c)/5;
+sigmaMSDref2scat["pole_c_minus"] = sigmaMSDref2scat["pole_c_plus"];
+sigmaMSDref2scat["equator"] = sigmaMSDref2scat["pole_a_plus"];
+sigmaMSDref2scat["surface"] = RadiusOfGyration2 + surfaceMeanR2;
+
+sigmaMSDref2ref["center"]["equator"] = a*a;
+sigmaMSDref2ref["center"]["surface"] = surfaceMeanR2;
+sigmaMSDref2ref["equator"]["equator"] = 2*a*a;
+sigmaMSDref2ref["equator"]["surface"] = a*a + surfaceMeanR2;
+sigmaMSDref2ref["surface"]["surface"] = 2*surfaceMeanR2;
+```
+
+The distributed `equator` amplitude is identical to the equatorial pole amplitude after orientational averaging, but the phase factors use ring averages. The distributed `surface` expressions require the normalized surface integral from Section 5. The snippet shows the independent formulas; in production code, symmetric phase-factor entries should be mirrored so that `PhaseFactorExpressions[alpha][omega]` and `PhaseFactorExpressions[omega][alpha]` resolve to the same expression.
+
+The expression `J` has a removable singularity at `qr = 0`. A production implementation should evaluate it with the same care used in the numerical helper, either through a stable kernel helper or through a small-`qr` expansion.
+
+## 10. Checklist
+
+Here is the derivation workflow in compact form. This is the part to reuse when deriving the next subunit.
+
+1.  Define the geometry and parameters.
+2.  Name all specific and distributed reference points.
+3.  Derive `R_eff`.
+4.  Write `F(q)` and `A_center(q)`.
+5.  Derive amplitudes for symmetry-equivalent equatorial poles and polar poles.
+6.  Derive specific-reference phase factors from distances.
+7.  Add distributed-equator and distributed-surface expressions and `q = 0` checks.
+8.  Extract small-`q` moments for validation.
+9.  Add numerical helper functions and a labeled numerical sanity table.
+10. Check the sphere limit `a = c = R`.

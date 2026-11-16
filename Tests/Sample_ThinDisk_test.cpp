@@ -1,4 +1,4 @@
-#include "../Mathematica/Sampled/Sample_ThinDisk.cpp"
+#include "sampling/Sample_ThinDisk.cpp"
 #include <gtest/gtest.h>
 #include <cmath>
 #include <fstream>

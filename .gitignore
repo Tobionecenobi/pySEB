@@ -36,6 +36,7 @@ PaperFigs/fig*
 
 # Generated data files
 *.q
+!Tests/data/sampling/**/*.q
 
 # Core dumps
 core
@@ -66,3 +67,4 @@ Tests/build-ninja/
 .cache/
 .jupyter/
 .local/
+docs/site_libs/*

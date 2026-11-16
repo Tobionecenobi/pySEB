@@ -158,6 +158,13 @@ uses definite integrals to derive an analytical subunit.
 
 For the full theory, see the [SEB formalism](https://arxiv.org/abs/1108.1140).
 
+## Derivation documents
+
+The [derivation collection](derivations/index.qmd) contains the
+[worked spheroid derivation](derivations/spheroid/spheroid.qmd) and the
+[Mathematica notebooks and readable PDFs](derivations/mathematica/index.qmd)
+for the original subunits.
+
 ## Define and extend subunits
 
 These pages work through the scattering expressions, reference points, YAML

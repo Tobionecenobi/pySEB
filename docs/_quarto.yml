@@ -4,6 +4,9 @@ project:
   pre-render: python3 _prepare_cache.py
   post-render: python3 _prepare_cache.py --record-outputs
   resources:
+    - derivations/mathematica/*.nb
+    - derivations/mathematica/*.pdf
+    - derivations/spheroid/saved/
     - tutorials/models/*.pyseb.yaml
     - tutorials/data/*.csv
     - tutorials/data/*.pdb
@@ -20,6 +23,9 @@ project:
     - about.qmd
     - using-pyseb.qmd
     - theory.qmd
+    - derivations/index.qmd
+    - derivations/mathematica/index.qmd
+    - derivations/spheroid/spheroid.qmd
     - tutorials/index.qmd
     - tutorials/introduction.qmd
     - tutorials/first-model.qmd
@@ -160,6 +166,11 @@ website:
       search: true
       contents:
         - theory.qmd
+        - section: "Derivations"
+          contents:
+            - derivations/index.qmd
+            - derivations/spheroid/spheroid.qmd
+            - derivations/mathematica/index.qmd
         - section: "Understand the calculations"
           contents:
             - tutorials/scattering-quantities.qmd

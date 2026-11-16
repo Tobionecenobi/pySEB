@@ -1,0 +1,15 @@
+---
+title: "Scattering Derivations"
+---
+
+These documents explain how subunit scattering formulas are obtained. The
+executable model definitions remain in the repository's `models/` directory.
+
+| Derivation | Contents |
+| --- | --- |
+| [Spheroid with SymPy](spheroid/spheroid.qmd) | Volume amplitude, form factor, reference points, surface-area averages, and small-q moments |
+| [Mathematica derivations](mathematica/index.qmd) | Downloadable notebooks and readable PDFs for Gaussian polymers, loops, rods, disks, spheres, spherical shells, and cylinders |
+
+The [sampling programs](https://github.com/Tobionecenobi/pySEB/tree/main/Tests/sampling)
+validate formulas using sampled point-pair distances. Their existing reference
+curves are preserved separately under `Tests/data/sampling/`.

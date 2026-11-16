@@ -1,4 +1,4 @@
-#include "../Mathematica/Sampled/Sample_SolidSphere.cpp"
+#include "sampling/Sample_SolidSphere.cpp"
 #include <gtest/gtest.h>
 #include <cmath>
 

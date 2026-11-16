@@ -35,6 +35,13 @@ The CTest commands above run the C++ suite; the Python suite runs separately.
 Optional integrations may require additional dependencies. Tests locate models,
 fixtures, documentation, and `Examples/python/` relative to the repository root.
 
+## Geometric sampling
+
+`sampling/` contains the C++ geometric sampling drivers and shared helpers.
+The `Sample_*_test.cpp` wrappers exercise them through CTest. Existing sampled
+reference curves are preserved in `data/sampling/`. The related derivation
+notebooks and PDFs live under `docs/derivations/mathematica/`.
+
 ## Reference-data validation
 
 `validation_test` compares the legacy subunit expressions and their Guinier

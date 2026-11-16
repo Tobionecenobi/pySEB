@@ -1,0 +1,24 @@
+---
+title: "Mathematica Derivations"
+---
+
+The notebooks contain the original derivations of the scattering expressions.
+Read the PDF exports without Mathematica, or download a notebook to inspect and
+run the symbolic calculations. Historical filenames are preserved.
+
+| Subunit | Read | Download |
+| --- | --- | --- |
+| Gaussian polymer | [PDF](RWpolymer.pdf) | [Notebook](RWpolymer.nb) |
+| Gaussian loop | [PDF](RWloop.pdf) | [Notebook](RWloop.nb) |
+| Thin rod | [PDF](ThinRod.pdf) | [Notebook](ThinRod.nb) |
+| Thin disk | [PDF](ThinDisk.pdf) | [Notebook](ThinDisk.nb) |
+| Solid sphere | [PDF](SolidSphere.pdf) | [Notebook](SolidSphere.nb) |
+| Solid spherical shell | [PDF](SolidSphericalShell.pdf) | [Notebook](SolidSphericalShell.nb) |
+| Solid cylinder | [PDF](SolidCyllinder.pdf) | [Notebook](SolidCyllinder.nb) |
+
+The notebooks retain their original contents, including historical local export
+paths. Adjust those paths if regenerating PDFs on another machine.
+
+For the newer axial model, see the [SymPy spheroid derivation](../spheroid/spheroid.qmd).
+Numerical sampling validation is maintained separately in `Tests/sampling/` in
+the repository.

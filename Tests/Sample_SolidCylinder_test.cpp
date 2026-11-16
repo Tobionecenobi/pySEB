@@ -1,4 +1,4 @@
-#include "../Mathematica/Sampled/Sample_SolidCylinder.cpp"
+#include "sampling/Sample_SolidCylinder.cpp"
 #include <gtest/gtest.h>
 #include <cmath>
 #include <fstream>
