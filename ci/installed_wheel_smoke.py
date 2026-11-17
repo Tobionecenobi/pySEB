@@ -69,11 +69,12 @@ def main():
         raise AssertionError(f"required bundled models are missing: {sorted(missing_models)!r}")
     gaussian_model = models.joinpath("GaussianPolymer.pyseb.yaml")
 
-    freesasa_license = resources.files("pyseb").joinpath(
-        "share/licenses/pyseb/FreeSASA-LICENSE.txt"
-    )
-    if not freesasa_license.is_file():
-        raise AssertionError("bundled FreeSASA license is missing")
+    for license_name in ("pySEB-LICENSE.txt", "FreeSASA-LICENSE.txt", "fkYAML-LICENSE.txt"):
+        license_file = resources.files("pyseb").joinpath(
+            "share/licenses/pyseb", license_name
+        )
+        if not license_file.is_file():
+            raise AssertionError(f"bundled license is missing: {license_name}")
 
     atom = pyseb.AtomRecord()
     atom.serial = 1
